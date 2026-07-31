@@ -15,7 +15,12 @@ import {
   getCardPlayableStatus,
   getInitialState,
 } from "../app/game-logic.js";
-import { FULL_CATALOG_COUNTS, FULL_GLOBAL_EVENTS } from "../app/full-card-catalog.js";
+import {
+  FULL_CATALOG_COUNTS,
+  FULL_GLOBAL_EVENTS,
+  FULL_STANDARD_ACTIONS,
+  FULL_STANDARD_PROJECTS,
+} from "../app/full-card-catalog.js";
 
 test("official project, corporation, and Prelude catalogs are stable", () => {
   assert.equal(ALL_CARDS.length, FULL_CATALOG_COUNTS.projects);
@@ -30,6 +35,9 @@ test("official project, corporation, and Prelude catalogs are stable", () => {
   assert.equal(new Set(ALL_CARDS.map(card => card.id)).size, ALL_CARDS.length);
   assert.equal(new Set(CORPORATIONS.map(card => card.id)).size, CORPORATIONS.length);
   assert.equal(new Set(PRELUDES.map(card => card.id)).size, PRELUDES.length);
+  const catalog = [...ALL_CARDS, ...FULL_STANDARD_PROJECTS, ...FULL_STANDARD_ACTIONS, ...CORPORATIONS, ...PRELUDES, ...FULL_GLOBAL_EVENTS];
+  assert.ok(catalog.every(card => card.effectText && card.expansion && card.source));
+  assert.ok(catalog.every(card => !card.effectText.includes("アイコン表記")));
 });
 
 test("corporation setup applies official starting values", () => {

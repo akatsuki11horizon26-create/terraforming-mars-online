@@ -10903,7 +10903,7 @@ export const FULL_STANDARD_PROJECTS = [
     "tags": [],
     "requirements": [],
     "reqText": "なし",
-    "effectText": "効果本文は参照カードのアイコン表記を使用します。",
+    "effectText": "Discard any number of cards to gain that amount of M€.",
     "victoryPoints": 0,
     "effectSpec": {}
   },
@@ -12591,7 +12591,7 @@ export const FULL_PRELUDES = [
     "tags": [],
     "requirements": [],
     "reqText": "なし",
-    "effectText": "効果本文は参照カードのアイコン表記を使用します。",
+    "effectText": "Play a card from hand, reducing its cost by 25 M€.",
     "victoryPoints": 0,
     "effectSpec": {}
   },
@@ -13871,7 +13871,7 @@ export const FULL_PRELUDES = [
     "tags": [],
     "requirements": [],
     "reqText": "なし",
-    "effectText": "効果本文は参照カードのアイコン表記を使用します。",
+    "effectText": "Copy your other prelude's direct effect.",
     "victoryPoints": 0,
     "effectSpec": {}
   },

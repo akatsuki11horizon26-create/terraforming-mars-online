@@ -40,6 +40,9 @@ const fallbackDescriptions: Record<string, string> = {
   "Summit Logistics": "Gain 1 M€ per planet tag and colony you have. Draw 2 cards.",
   "Project Inspection": "Use a card action that has been used this generation.",
   "Public Plans": "Reveal any number of other cards from your hand. Gain 1 M€ for each revealed card.",
+  "Eccentric Sponsor": "Play a card from hand, reducing its cost by 25 M€.",
+  "Double Down": "Copy your other prelude's direct effect.",
+  "Sell Patents": "Discard any number of cards to gain that amount of M€.",
 };
 
 const seen = new WeakSet<object>();
@@ -188,6 +191,98 @@ async function loadGlobalEvents() {
 
 const all: any[] = [];
 for (const [expansion, directories] of modules) all.push(...await loadCards(expansion, directories));
+const manualCards = [
+  {
+    id: "card-prelude2-venus-orbital-survey",
+    name: "Venus Orbital Survey",
+    expansion: "prelude2",
+    source: "src/server/cards/prelude2/VenusOrbitalSurvey.ts",
+    type: "active",
+    cost: 18,
+    tags: ["Venus", "Space"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "Action: Reveal the top 2 cards, take any venus cards to hand for free. Any other card you either buy or discard",
+    victoryPoints: 0,
+    effectSpec: {},
+  },
+  {
+    id: "card-promo-hi-tech-lab",
+    name: "Hi-Tech Lab",
+    expansion: "promo",
+    source: "src/server/cards/promo/HiTechLab.ts",
+    type: "active",
+    cost: 17,
+    tags: ["Science", "Building"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "Action: Spend any amount of energy to draw the same number of cards. TAKE 1 INTO HAND AND DISCARD THE REST.",
+    victoryPoints: 1,
+    effectSpec: {},
+  },
+  {
+    id: "card-venus-sponsored-academies",
+    name: "Sponsored Academies",
+    expansion: "venus",
+    source: "src/server/cards/venusNext/SponsoredAcademies.ts",
+    type: "automated",
+    cost: 9,
+    tags: ["Earth", "Science"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "Discard 1 card from your hand and THEN draw 3 cards. All OPPONENTS draw 1 card.",
+    victoryPoints: 1,
+    effectSpec: {},
+  },
+  {
+    id: "card-promo-tycho-magnetics",
+    name: "Tycho Magnetics",
+    expansion: "promo",
+    source: "src/server/cards/promo/TychoMagnetics.ts",
+    type: "corporation",
+    cost: null,
+    tags: ["Power", "Science"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "You start with 42 M€. Increase your energy production 1 step.",
+    victoryPoints: 0,
+    effectSpec: {behavior: {production: {energy: 1}}, startingMegaCredits: 42},
+    starting: {mc: 42, production: {energy: 1}},
+  },
+  {
+    id: "card-prelude2-atmospheric-enhancers",
+    name: "Atmospheric Enhancers",
+    expansion: "prelude2",
+    source: "src/server/cards/prelude2/AtmosphericEnhancers.ts",
+    type: "prelude",
+    cost: null,
+    tags: ["Venus"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "Raise temperature 2 steps, or raise oxygen 2 steps, or raise Venus 2 steps. Draw 2 cards with floater icons.",
+    victoryPoints: 0,
+    effectSpec: {behavior: {or: {behaviors: [
+      {global: {temperature: 2}, title: "Raise the temperature 2 steps"},
+      {global: {oxygen: 2}, title: "Raise the oxygen level 2 steps"},
+      {global: {venus: 2}, title: "Raise the Venus scale level 2 steps"},
+    ]}}},
+  },
+  {
+    id: "card-prelude2-suitable-infrastructure",
+    name: "Suitable Infrastructure",
+    expansion: "prelude2",
+    source: "src/server/cards/prelude2/SuitableInfrastructure.ts",
+    type: "prelude",
+    cost: null,
+    tags: ["Building"],
+    requirements: [],
+    reqText: "なし",
+    effectText: "Gain 5 steel.",
+    victoryPoints: 0,
+    effectSpec: {behavior: {stock: {steel: 5}}},
+  },
+];
+for (const card of manualCards) if (!all.some((item) => item.name === card.name)) all.push(card);
 try {
   const standardManifests: any = await import(pathToFileURL(join(cardsRoot, "StandardCardManifests.ts")).href);
   const corpEraNames = new Set(Object.keys(standardManifests.default.CORP_ERA_CARD_MANIFEST.projectCards));
