@@ -41,7 +41,7 @@ test("Initial state setup tests", () => {
 });
 
 test("Research phase card purchase cost logic", () => {
-  const card = ALL_CARDS.find(c => c.id === "c3"); // cost 7
+  const card = ALL_CARDS.find(c => c.id === "p-power-plant");
   let state = getInitialState();
   state.mc = 10;
   
@@ -50,7 +50,7 @@ test("Research phase card purchase cost logic", () => {
   assert.equal(status.playable, true);
 
   // Card shouldn't be playable if MC is less than cost after discount
-  state.mc = 5;
+  state.mc = 3;
   const statusFail = getCardPlayableStatus(card, state, 0, 0);
   assert.equal(statusFail.playable, false);
 });
@@ -195,10 +195,10 @@ test("Final scoring calculations", () => {
   state.board["0,2"].placedBy = "player";
   state.board["0,2"].tileType = "city";
 
-  // Add 1 card with VP = 2
-  state.playedProjects = ["c19"];
+  // Add 1 card with VP = 1
+  state.playedProjects = ["p-solar-power"];
 
-  // Expected score: TR 18 + Greenery 1 + City 1 (adjacent to 1 greenery) + Card 2 = 22
+  // Expected score: TR 18 + Greenery 1 + City 1 (adjacent to 1 greenery) + Card 1 = 21
   const score = computeScore(state);
-  assert.equal(score, 22);
+  assert.equal(score, 21);
 });
