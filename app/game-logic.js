@@ -1,4 +1,4 @@
-import { CORPORATIONS, OFFICIAL_PROJECTS, PRELUDES } from "./official-content.js";
+import { CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
 
 const LEGACY_CARDS = [
   {
@@ -209,7 +209,7 @@ const LEGACY_CARDS = [
 
 void LEGACY_CARDS;
 export const ALL_CARDS = OFFICIAL_PROJECTS;
-export { CORPORATIONS, PRELUDES };
+export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS };
 
 export const INITIAL_CELLS = [
   { q: 0, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
@@ -308,6 +308,7 @@ function cloneGameState(state) {
     board: Object.fromEntries(Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])),
     cardResources: { ...(state.cardResources ?? {}) },
     cardPlacements: { ...(state.cardPlacements ?? {}) },
+    cardDiscounts: { all: state.cardDiscounts?.all ?? 0, tags: { ...(state.cardDiscounts?.tags ?? {}) } },
     logs: [...state.logs],
   };
 }
@@ -329,6 +330,113 @@ function addProduction(state, production) {
     const key = keys[resource];
     if (key) state[key] += amount;
   });
+}
+
+const SOURCE_RESOURCE_MAP = {
+  megacredits: "mc",
+  steel: "steel",
+  titanium: "titanium",
+  plants: "plants",
+  energy: "energy",
+  heat: "heat",
+};
+
+const effectCache = new WeakMap();
+
+function addNormalizedStock(effect, stock, unsupported = []) {
+  Object.entries(stock ?? {}).forEach(([source, amount]) => {
+    const resource = SOURCE_RESOURCE_MAP[source];
+    if (resource && typeof amount === "number") effect[resource] = (effect[resource] ?? 0) + amount;
+    else if (resource) unsupported.push("dynamic-resource-gain");
+  });
+}
+
+function normalizeBehavior(raw, effect = {}, unsupported = []) {
+  if (!raw || typeof raw !== "object") return effect;
+  if (raw.production) {
+    effect.production = { ...(effect.production ?? {}) };
+    Object.entries(raw.production).forEach(([source, amount]) => {
+      const resource = SOURCE_RESOURCE_MAP[source];
+      if (resource && typeof amount === "number") effect.production[resource] = (effect.production[resource] ?? 0) + amount;
+    });
+  }
+  if (raw.stock) addNormalizedStock(effect, raw.stock, unsupported);
+  if (raw.global) {
+    if (typeof raw.global.temperature === "number") effect.temperatureSteps = (effect.temperatureSteps ?? 0) + raw.global.temperature;
+    if (typeof raw.global.oxygen === "number") effect.oxygenSteps = (effect.oxygenSteps ?? 0) + raw.global.oxygen;
+    if (typeof raw.global.venus === "number") effect.venusSteps = (effect.venusSteps ?? 0) + raw.global.venus;
+  }
+  if (typeof raw.tr === "number") effect.tr = (effect.tr ?? 0) + raw.tr;
+  if (raw.drawCard !== undefined) {
+    effect.draw = (effect.draw ?? 0) + (typeof raw.drawCard === "number" ? raw.drawCard : (raw.drawCard.count ?? 1));
+    if (typeof raw.drawCard === "object" && raw.drawCard.keep !== undefined) effect.drawKeep = raw.drawCard.keep;
+    if (typeof raw.drawCard === "object" && raw.drawCard.tag) {
+      const tag = Array.isArray(raw.drawCard.tag) ? raw.drawCard.tag[0] : raw.drawCard.tag;
+      effect.drawTag = tag[0]?.toUpperCase() + tag.slice(1);
+    }
+  }
+  if (typeof raw.removeAnyPlants === "number") effect.removePlants = (effect.removePlants ?? 0) + raw.removeAnyPlants;
+  if (raw.ocean !== undefined) {
+    effect.tile = "ocean";
+    effect.tileCount = raw.ocean.count ?? 1;
+  }
+  if (raw.city !== undefined) {
+    effect.tile = "city";
+    effect.tileCount = raw.city.count ?? 1;
+  }
+  if (raw.greenery !== undefined) {
+    effect.tile = "forest";
+    effect.tileCount = raw.greenery.count ?? 1;
+  }
+  if (raw.tile && typeof raw.tile === "object") {
+    const typeMap = { 0: "forest", 1: "ocean", 2: "city", 3: "city" };
+    const mapped = typeMap[raw.tile.type];
+    if (mapped) {
+      effect.tile = mapped;
+      effect.tileCount = raw.tile.count ?? 1;
+    } else {
+      unsupported.push(`tile:${raw.tile.type}`);
+    }
+  }
+  if (raw.addResources !== undefined) effect.cardResource = (effect.cardResource ?? 0) + (typeof raw.addResources === "number" ? raw.addResources : 1);
+  if (raw.spend && typeof raw.spend === "object") {
+    effect.payment = { ...(effect.payment ?? {}) };
+    Object.entries(raw.spend).forEach(([source, amount]) => {
+      if (source === "resourcesHere") effect.payment.cardResources = amount;
+      else if (SOURCE_RESOURCE_MAP[source] && typeof amount === "number") effect.payment[SOURCE_RESOURCE_MAP[source]] = amount;
+    });
+  }
+  if (raw.decreaseAnyProduction?.type && typeof raw.decreaseAnyProduction.count === "number") {
+    effect.productionDecrease = { resource: SOURCE_RESOURCE_MAP[raw.decreaseAnyProduction.type] ?? raw.decreaseAnyProduction.type, count: raw.decreaseAnyProduction.count };
+  }
+  if (raw.standardResource) unsupported.push("standard-resource-choice");
+  if (raw.addResourcesToAnyCard) unsupported.push("any-card-resource-choice");
+  if (raw.colonies || raw.turmoil) unsupported.push("expansion-state-choice");
+  if (raw.or) {
+    if (raw.or.autoSelect && Array.isArray(raw.or.behaviors) && raw.or.behaviors[0]) {
+      normalizeBehavior(raw.or.behaviors[0], effect, unsupported);
+    } else {
+      unsupported.push("choice");
+    }
+  }
+  return effect;
+}
+
+export function getCardEffect(card) {
+  if (card.effect) return { ...card.effect, cardId: card.id };
+  if (effectCache.has(card)) return { ...effectCache.get(card), cardId: card.id };
+  const unsupported = [];
+  const effect = normalizeBehavior(card.effectSpec?.behavior, {}, unsupported);
+  if (card.effectSpec?.action) {
+    const actionUnsupported = [];
+    effect.action = normalizeBehavior(card.effectSpec.action, {}, actionUnsupported);
+    effect.action.unsupported = actionUnsupported;
+  }
+  if (card.effectSpec?.cardDiscount) effect.cardDiscount = card.effectSpec.cardDiscount;
+  if (card.effectSpec?.globalParameterRequirementBonus) effect.globalParameterRequirementBonus = card.effectSpec.globalParameterRequirementBonus;
+  effect.unsupported = unsupported;
+  effectCache.set(card, effect);
+  return { ...effect, cardId: card.id };
 }
 
 function drawCards(state, count, tag) {
@@ -391,6 +499,10 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   let nextLogs = logs;
   if (!effect) return { state: nextState, logs: nextLogs };
 
+  if (effect.unsupported?.length) {
+    nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${effect.unsupported.join("、")}`);
+  }
+
   if (effect.payMc) nextState.mc -= effect.payMc;
   if (effect.mc) addResource(nextState, "mc", effect.mc);
   if (effect.steel) addResource(nextState, "steel", effect.steel);
@@ -400,8 +512,33 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   if (effect.heat) addResource(nextState, "heat", effect.heat);
   if (effect.tr) nextState.tr += effect.tr;
   if (effect.removePlants) nextState.plants = Math.max(0, nextState.plants - effect.removePlants);
+  if (effect.cardResource && effect.cardId) nextState.cardResources[effect.cardId] = (nextState.cardResources[effect.cardId] ?? 0) + effect.cardResource;
+  if (effect.venusSteps) nextState.venus = Math.min(30, (nextState.venus ?? 0) + effect.venusSteps * 2);
+  if (effect.globalParameterRequirementBonus?.steps) nextState.globalRequirementBuffer = (nextState.globalRequirementBuffer ?? 0) + effect.globalParameterRequirementBonus.steps;
+  if (effect.cardDiscount?.amount && !effect.cardDiscount.per) {
+    if (effect.cardDiscount.tag) {
+      const tag = String(effect.cardDiscount.tag).toLowerCase();
+      nextState.cardDiscounts.tags[tag] = (nextState.cardDiscounts.tags[tag] ?? 0) + effect.cardDiscount.amount;
+    } else {
+      nextState.cardDiscounts.all = (nextState.cardDiscounts.all ?? 0) + effect.cardDiscount.amount;
+    }
+  }
+
+  if (effect.payment) {
+    Object.entries(effect.payment).forEach(([resource, amount]) => {
+      if (resource === "cardResources") {
+        if (effect.cardId) nextState.cardResources[effect.cardId] = Math.max(0, (nextState.cardResources[effect.cardId] ?? 0) - Number(amount));
+      } else if (resource in nextState) {
+        nextState[resource] = Math.max(0, nextState[resource] - Number(amount));
+      }
+    });
+  }
 
   addProduction(nextState, effect.production);
+  if (effect.productionDecrease?.resource) {
+    const productionKey = `${effect.productionDecrease.resource}Prod`;
+    if (productionKey in nextState) nextState[productionKey] = Math.max(0, nextState[productionKey] - effect.productionDecrease.count);
+  }
 
   if (effect.temperatureSteps) {
     const before = nextState.temperature;
@@ -420,6 +557,12 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   }
   if (effect.draw) {
     const drawn = drawCards(nextState, effect.draw, effect.drawTag);
+    if (effect.drawKeep !== undefined && drawn.length > effect.drawKeep) {
+      const kept = new Set(drawn.slice(0, effect.drawKeep));
+      const discard = drawn.filter(cardId => !kept.has(cardId));
+      nextState.hand = nextState.hand.filter(cardId => !discard.includes(cardId));
+      nextState.discardPile.push(...discard);
+    }
     nextLogs = addLog(nextLogs, "system", `カードを${drawn.length}枚引きました。`);
   }
   if (effect.plantsPerCity) {
@@ -448,7 +591,7 @@ export function applyCorporation(state, corporationId) {
 }
 
 export function getPreludeCost(prelude) {
-  return prelude.effect.payMc ?? 0;
+  return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
 export function applyPreludes(state, preludeIds) {
@@ -467,10 +610,11 @@ export function applyPreludes(state, preludeIds) {
   nextState.turnStep = "start";
   let logs = addLog(nextState.logs, "player", `Prelude【${selected.map(prelude => prelude.name).join("】【")}】を解決しました。`);
   selected.forEach(prelude => {
-    const result = applyEffect(nextState, prelude.effect, logs);
+    const effect = getCardEffect(prelude);
+    const result = applyEffect(nextState, effect, logs);
     nextState = result.state;
     logs = addLog(result.logs, "system", `Prelude効果: ${prelude.effectText}`);
-    if (prelude.effect.freePlayDiscount || prelude.effect.freePlayIgnoreGlobal) {
+    if (prelude.effect?.freePlayDiscount || prelude.effect?.freePlayIgnoreGlobal) {
       const freePlay = applyPreludeFreePlay(nextState, prelude.effect, logs);
       nextState = freePlay.state;
       logs = freePlay.logs;
@@ -506,7 +650,7 @@ export function applyCorporationInitialAction(state, logs) {
 export function applyCardEffect(state, card, logs, options = {}) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
-  const effect = card.effect ? { ...card.effect, cardId: card.id } : card.effect;
+  const effect = getCardEffect(card);
   const result = applyEffect(nextState, effect, nextLogs, options);
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
   return { state: result.state, logs: nextLogs };
@@ -529,7 +673,7 @@ function applyPreludeFreePlay(state, effect, logs) {
 }
 
 export function getCardActionStatus(state, card) {
-  const action = card.effect?.action;
+  const action = getCardEffect(card).action;
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
@@ -541,6 +685,14 @@ export function getCardActionStatus(state, card) {
   if (action.revealTag && state.deck.length === 0 && state.discardPile.length === 0) {
     return { playable: false, reason: "公開できるカードがありません。" };
   }
+  if (action.unsupported?.length) return { playable: false, reason: "このカードの選択式アクションは準備中です。" };
+  for (const [resource, amount] of Object.entries(action.payment ?? {})) {
+    if (resource === "cardResources") continue;
+    if (resource in state && state[resource] < amount) return { playable: false, reason: `${resource}が不足しています。` };
+  }
+  if (action.payment?.cardResources && (state.cardResources[card.id] ?? 0) < action.payment.cardResources) {
+    return { playable: false, reason: "このカードの資源が不足しています。" };
+  }
   return { playable: true, reason: "" };
 }
 
@@ -548,7 +700,7 @@ export function applyCardAction(state, card, logs) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
-  const action = card.effect.action;
+  const action = getCardEffect(card).action;
   if (action.energyCost) nextState.energy -= action.energyCost;
   let steelCover = 0;
   if (action.steelCost) {
@@ -664,7 +816,7 @@ export function getInitialState() {
   const preludeOptions = shuffle(PRELUDES.map(prelude => prelude.id)).slice(0, 4);
 
   return {
-    rulesVersion: 2,
+    rulesVersion: 3,
     generation: 1,
     generationStartTr: 14,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
@@ -680,6 +832,8 @@ export function getInitialState() {
     actionsRemaining: 2,
     temperature: -30,
     oxygen: 0,
+    venus: 0,
+    globalRequirementBuffer: 0,
     oceans: 0,
     tr: 14,
     mc: 42,
@@ -699,6 +853,7 @@ export function getInitialState() {
     playedProjects: [],
     cardResources: {},
     cardPlacements: {},
+    cardDiscounts: { all: 0, tags: {} },
     board,
     logs: [
       {
@@ -752,6 +907,18 @@ export function computeScore(state) {
     if (card && card.victoryPoints) {
       score += card.victoryPoints;
     }
+    if (card?.victoryPointSpec && !card.dynamicVictory) {
+      const spec = card.victoryPointSpec;
+      const resources = state.cardResources?.[cardId] ?? 0;
+      if (spec.resourcesHere !== undefined) score += spec.per ? Math.floor(resources / spec.per) : resources * (spec.each ?? 1);
+      if (spec.tag) score += countPlayedTag(state, spec.tag);
+      const placementKey = state.cardPlacements?.[cardId];
+      const placement = placementKey ? state.board[placementKey] : undefined;
+      if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
+      if (placement && spec.cities !== undefined) {
+        score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
+      }
+    }
     if (cardId === "p-search-for-life" && (state.cardResources?.[cardId] ?? 0) > 0) score += 3;
     if (cardId === "p-capital") {
       const key = state.cardPlacements?.[cardId];
@@ -766,15 +933,52 @@ export function computeScore(state) {
 export function getCardDiscount(card, state) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - corporationDiscount) / 2)) : 0;
-  const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.floor(Math.max(0, card.cost - corporationDiscount) / getTitaniumValue(state))) : 0;
+  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
+  const totalDiscount = corporationDiscount + ongoingDiscount;
+  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / 2)) : 0;
+  const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.floor(Math.max(0, card.cost - totalDiscount) / getTitaniumValue(state))) : 0;
   return { maxSteel, maxTitanium };
 }
 
 export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  return Math.max(0, card.cost - corporationDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
+  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
+  return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
+}
+
+function countPlayedTag(state, tag) {
+  const normalized = String(tag).toLowerCase();
+  return state.playedProjects.reduce((sum, id) => {
+    const projectCard = ALL_CARDS.find(item => item.id === id);
+    return sum + (projectCard?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
+  }, 0) + (getCorporation(state)?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
+}
+
+function getGeneratedRequirementStatus(card, state, buffer) {
+  for (const requirement of card.requirements ?? []) {
+    const count = requirement.count ?? 1;
+    if (requirement.tag && countPlayedTag(state, requirement.tag) < count) return { playable: false, reason: `${requirement.tag}タグが${count}枚以上必要です。` };
+    if (requirement.temperature !== undefined) {
+      const meets = requirement.max ? state.temperature <= requirement.temperature + buffer * 2 : state.temperature >= requirement.temperature - buffer * 2;
+      if (!meets) return { playable: false, reason: `気温${requirement.temperature}°C条件を満たしていません。` };
+    }
+    if (requirement.oxygen !== undefined) {
+      const meets = requirement.max ? state.oxygen <= requirement.oxygen + buffer : state.oxygen >= requirement.oxygen - buffer;
+      if (!meets) return { playable: false, reason: `酸素${requirement.oxygen}%条件を満たしていません。` };
+    }
+    if (requirement.oceans !== undefined && state.oceans < requirement.oceans) return { playable: false, reason: `海洋が${requirement.oceans}枚以上必要です。` };
+    if (requirement.venus !== undefined && (state.venus ?? 0) < requirement.venus) return { playable: false, reason: `金星率${requirement.venus}%条件を満たしていません。` };
+    if (requirement.production) {
+      const value = state[`${SOURCE_RESOURCE_MAP[requirement.production] ?? requirement.production}Prod`] ?? 0;
+      if (value < count) return { playable: false, reason: `${requirement.production}生産量が不足しています。` };
+    }
+    if (requirement.greeneries !== undefined && Object.values(state.board).filter(cell => cell.tileType === "forest").length < requirement.greeneries) return { playable: false, reason: "緑地数の条件を満たしていません。" };
+    if (requirement.cities !== undefined && Object.values(state.board).filter(cell => cell.tileType === "city").length < requirement.cities) return { playable: false, reason: "都市数の条件を満たしていません。" };
+    if (requirement.floaters !== undefined && Object.values(state.cardResources ?? {}).reduce((sum, value) => sum + value, 0) < requirement.floaters) return { playable: false, reason: "フローター数の条件を満たしていません。" };
+    if (requirement.party || requirement.chairman || requirement.partyLeader || requirement.colonies || requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
+  }
+  return { playable: true, reason: "" };
 }
 
 export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed = 0) {
@@ -791,7 +995,9 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   }
 
   const requirements = card.requires ?? {};
-  const buffer = corporation?.effects?.requirementBuffer ?? 0;
+  const buffer = (corporation?.effects?.requirementBuffer ?? 0) + (state.globalRequirementBuffer ?? 0);
+  const generatedRequirements = getGeneratedRequirementStatus(card, state, buffer);
+  if (!generatedRequirements.playable) return generatedRequirements;
   if (requirements.oceans !== undefined && state.oceans < requirements.oceans) {
     return { playable: false, reason: `海洋が${requirements.oceans}枚以上必要です。` };
   }
@@ -805,16 +1011,17 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     return { playable: false, reason: `酸素濃度${requirements.oxygenMax}%以下が必要です。` };
   }
   if (requirements.tags) {
-    const tagCount = (tag) => state.playedProjects.reduce((sum, id) => {
-      const projectCard = ALL_CARDS.find(item => item.id === id);
-      return sum + (projectCard?.tags.includes(tag) ? 1 : 0);
-    }, 0) + (corporation?.tags.includes(tag) ? 1 : 0);
     for (const [tag, count] of Object.entries(requirements.tags)) {
-      if (tagCount(tag) < count) return { playable: false, reason: `${tag}タグが${count}枚以上必要です。` };
+      if (countPlayedTag(state, tag) < count) return { playable: false, reason: `${tag}タグが${count}枚以上必要です。` };
     }
   }
-  if (card.effect?.plants < 0 && state.plants < Math.abs(card.effect.plants)) {
+  const effect = getCardEffect(card);
+  if (effect.plants < 0 && state.plants < Math.abs(effect.plants)) {
     return { playable: false, reason: "植物が不足しています。" };
+  }
+  for (const [resource, amount] of Object.entries(effect.payment ?? {})) {
+    if (resource !== "cardResources" && resource in state && state[resource] < amount) return { playable: false, reason: `${resource}が不足しています。` };
+    if (resource === "cardResources" && (state.cardResources[card.id] ?? 0) < amount) return { playable: false, reason: "カード資源が不足しています。" };
   }
 
   return { playable: true, reason: "" };

@@ -8,14 +8,25 @@ import {
   applyCardEffect,
   applyCorporation,
   applyPreludes,
+  computeScore,
   getCardActionStatus,
+  getCardEffect,
+  getCardPaymentCost,
+  getCardPlayableStatus,
   getInitialState,
 } from "../app/game-logic.js";
+import { FULL_CATALOG_COUNTS, FULL_GLOBAL_EVENTS } from "../app/full-card-catalog.js";
 
 test("official project, corporation, and Prelude catalogs are stable", () => {
-  assert.equal(ALL_CARDS.length, 20);
-  assert.equal(CORPORATIONS.length, 18);
-  assert.equal(PRELUDES.length, 35);
+  assert.equal(ALL_CARDS.length, FULL_CATALOG_COUNTS.projects);
+  assert.equal(CORPORATIONS.length, FULL_CATALOG_COUNTS.corporations);
+  assert.equal(PRELUDES.length, FULL_CATALOG_COUNTS.preludes);
+  assert.equal(FULL_CATALOG_COUNTS.projects, 428);
+  assert.equal(FULL_CATALOG_COUNTS.standardProjects, 10);
+  assert.equal(FULL_CATALOG_COUNTS.standardActions, 2);
+  assert.equal(FULL_CATALOG_COUNTS.corporations, 49);
+  assert.equal(FULL_CATALOG_COUNTS.preludes, 70);
+  assert.equal(FULL_GLOBAL_EVENTS.length, 36);
   assert.equal(new Set(ALL_CARDS.map(card => card.id)).size, ALL_CARDS.length);
   assert.equal(new Set(CORPORATIONS.map(card => card.id)).size, CORPORATIONS.length);
   assert.equal(new Set(PRELUDES.map(card => card.id)).size, PRELUDES.length);
@@ -103,4 +114,23 @@ test("active card action enforces payment and applies its effect", () => {
   assert.equal(result.state.energy, 0);
   assert.equal(result.state.steel, 2);
   assert.equal(result.state.oxygen, 1);
+});
+
+test("generated catalog effects cover production, discounts, and dynamic VP", () => {
+  const state = getInitialState();
+  const earthCatapult = ALL_CARDS.find(card => card.name === "Earth Catapult");
+  const adaptation = ALL_CARDS.find(card => card.name === "Adaptation Technology");
+  const ants = ALL_CARDS.find(card => card.name === "Ants");
+  const catapultResult = applyCardEffect(state, earthCatapult, []);
+  assert.equal(catapultResult.state.cardDiscounts.all, 2);
+  assert.equal(getCardPaymentCost({ ...ants, cost: 10 }, catapultResult.state), 8);
+  const adaptationResult = applyCardEffect(state, adaptation, []);
+  assert.equal(adaptationResult.state.globalRequirementBuffer, 2);
+  const acquiredCompany = ALL_CARDS.find(card => card.name === "Acquired Company");
+  assert.equal(getCardPlayableStatus({ ...acquiredCompany, cost: 0 }, adaptationResult.state).playable, true);
+  const antResult = applyCardEffect(state, ants, []);
+  antResult.state.cardResources[ants.id] = 4;
+  antResult.state.playedProjects.push(ants.id);
+  assert.equal(computeScore(antResult.state) - computeScore(state), 2);
+  assert.equal(getCardEffect(earthCatapult).cardDiscount.amount, 2);
 });

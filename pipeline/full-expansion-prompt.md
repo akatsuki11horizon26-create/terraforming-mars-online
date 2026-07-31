@@ -1,0 +1,1 @@
+このリポジトリのテラフォーミング・マーズ実装に、基本セット、Prelude、Venus Next、Colonies、Turmoil、Prelude 2、公式プロモの全カード台帳を追加する作業をレビューせよ。参照実装は C:/Users/takkun/AppData/Local/Temp/tm-reference。マニフェスト件数、カード本文、コスト、タグ、要件、勝利点、企業・Preludeを検査し、実行できない個別選択を推測適用しない設計を提案せよ。既存テストとビルドを壊さないこと。

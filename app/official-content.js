@@ -1,3 +1,5 @@
+import { FULL_CORPORATIONS, FULL_GLOBAL_EVENTS, FULL_PRELUDES, FULL_PROJECTS, FULL_STANDARD_ACTIONS, FULL_STANDARD_PROJECTS } from "./full-card-catalog.js";
+
 const project = (id, name, cost, tags, type, effectText, effect, extra = {}) => ({
   id,
   name,
@@ -11,7 +13,7 @@ const project = (id, name, cost, tags, type, effectText, effect, extra = {}) => 
   ...extra,
 });
 
-export const OFFICIAL_PROJECTS = [
+const CURATED_PROJECT_OVERRIDES = [
   project("p-asteroid", "Asteroid", 14, ["Space"], "event", "気温を1段階上げ、チタン2。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, titanium: 2, removePlants: 3 }),
   project("p-comet", "Comet", 21, ["Space"], "event", "気温を1段階上げ、海洋1。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, tile: "ocean", removePlants: 3 }, { placementType: "ocean" }),
   project("p-titanium-mine", "Titanium Mine", 7, ["Building"], "automated", "チタン生産量+1。", { production: { titanium: 1 } }),
@@ -36,7 +38,7 @@ export const OFFICIAL_PROJECTS = [
 
 const corporation = (id, name, tags, starting, effectText, effects = {}) => ({ id, name, tags, starting, effectText, effects });
 
-export const CORPORATIONS = [
+const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-beginner", "Beginner Corporation", [], { mc: 42 }, "初期10枚を無料で保持する。", { freeStartingCards: true }),
   corporation("corp-credicor", "CrediCor", ["Earth"], { mc: 57 }, "基本コスト20以上のカードまたは標準プロジェクトを支払うとMC4。", { expensivePaymentBonus: 4 }),
   corporation("corp-ecoline", "Ecoline", ["Plant"], { mc: 36, plants: 3, production: { plants: 2 } }, "植物3、植物生産量+2。植物7で緑地を置くアクション。", { plantGreeneryCost: 7 }),
@@ -59,7 +61,7 @@ export const CORPORATIONS = [
 
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });
 
-export const PRELUDES = [
+const CURATED_PRELUDE_OVERRIDES = [
   prelude("prelude-allied-banks", "Allied Banks", "MC生産量+4、MC3。", { production: { mc: 4 }, mc: 3 }, { tags: ["Earth"] }),
   prelude("prelude-biosphere-support", "Biosphere Support", "植物生産量+2、MC生産量-1。", { production: { plants: 2, mc: -1 } }, { tags: ["Plant"] }),
   prelude("prelude-aquifer-turbines", "Aquifer Turbines", "MC3を支払い、海洋1枚とエネルギー生産量+2。", { payMc: 3, production: { energy: 2 }, tile: "ocean" }, { tags: ["Building"] }),
@@ -97,4 +99,18 @@ export const PRELUDES = [
   prelude("prelude-experimental-forest", "Experimental Forest", "緑地1枚。植物タグ2枚を山札から手札へ。", { tile: "forest", draw: 2, drawTag: "Plant" }, { tags: ["Plant"] }),
 ];
 
-export const OFFICIAL_CONTENT_VERSION = 1;
+const mergeCatalog = (catalog, overrides) => {
+  const canonicalName = (name) => ({ "allied banks": "allied bank" }[String(name).toLowerCase()] ?? String(name).toLowerCase());
+  const byName = new Map(overrides.map(item => [canonicalName(item.name), item]));
+  const merged = catalog.map(item => ({ ...item, ...(byName.get(canonicalName(item.name)) ?? {}) }));
+  const catalogNames = new Set(catalog.map(item => canonicalName(item.name)));
+  return [...merged, ...overrides.filter(item => !catalogNames.has(canonicalName(item.name)))];
+};
+
+export const OFFICIAL_PROJECTS = mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES);
+export const CORPORATIONS = mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES);
+export const PRELUDES = mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVERRIDES);
+export const GLOBAL_EVENTS = FULL_GLOBAL_EVENTS;
+export const STANDARD_PROJECTS = FULL_STANDARD_PROJECTS;
+export const STANDARD_ACTIONS = FULL_STANDARD_ACTIONS;
+export const OFFICIAL_CONTENT_VERSION = 2;

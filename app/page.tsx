@@ -24,7 +24,8 @@ import {
   applyCardEffect as jsApplyCardEffect,
   applyCorporationTriggers as jsApplyCorporationTriggers,
   getCardActionStatus as jsGetCardActionStatus,
-  applyCardAction as jsApplyCardAction
+  applyCardAction as jsApplyCardAction,
+  getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
 
 interface CellState {
@@ -49,6 +50,9 @@ interface Card {
   victoryPoints?: number;
   type: "automated" | "event" | "active";
   effect?: Record<string, unknown>;
+  effectSpec?: Record<string, unknown>;
+  requirements?: Record<string, unknown>[];
+  expansion?: string;
   requires?: Record<string, unknown>;
   resourceType?: string;
   dynamicVictory?: string;
@@ -95,6 +99,7 @@ interface GameState {
   actionsRemaining: number;
   temperature: number;
   oxygen: number;
+  venus: number;
   oceans: number;
   tr: number;
   mc: number;
@@ -145,6 +150,7 @@ const applyCardEffect = jsApplyCardEffect as unknown as (state: GameState, card:
 const applyCorporationTriggers = jsApplyCorporationTriggers as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const getCardActionStatus = jsGetCardActionStatus as unknown as (state: GameState, card: Card) => { playable: boolean; reason: string };
 const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[]; playable: boolean };
+const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
   const [gameState, setGameState] = useState<GameState>(getInitialState);
@@ -179,7 +185,7 @@ export default function Home() {
         if (
           parsed &&
           typeof parsed === "object" &&
-          parsed.rulesVersion === 2 &&
+          parsed.rulesVersion === 3 &&
           "generation" in parsed &&
           typeof parsed.generationStartTr === "number" &&
           ["setup", "research", "action", "production", "final_greenery", "game_over"].includes(parsed.phase) &&
@@ -983,7 +989,7 @@ export default function Home() {
 
   const activeCards = useMemo(() => gameState.playedProjects
     .map(id => ALL_CARDS.find(card => card.id === id))
-    .filter((card): card is Card => Boolean(card?.effect?.action)), [gameState.playedProjects]);
+    .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [gameState.playedProjects]);
 
   const { playable: canPlaySelected, reason: playDisableReason } = selectedCard
     ? getCardPlayableStatus(selectedCard, gameState, steelUsed, titaniumUsed)
@@ -1109,6 +1115,22 @@ export default function Home() {
                       height: "100%",
                       backgroundColor: "var(--color-gold)",
                       width: `${Math.min(100, Math.max(0, (gameState.oceans / 9) * 100))}%`
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
+                  <span>金星 (Venus Next)</span>
+                  <span style={{ color: "var(--color-cyan)" }}>{gameState.venus}%</span>
+                </div>
+                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
+                  <div
+                    style={{
+                      height: "100%",
+                      backgroundColor: "var(--color-cyan)",
+                      width: `${Math.min(100, Math.max(0, (gameState.venus / 30) * 100))}%`
                     }}
                   />
                 </div>
@@ -1711,6 +1733,11 @@ export default function Home() {
                     </span>
                   </div>
                   <div className="card-title">{cardObj.name}</div>
+                  {cardObj.expansion && (
+                    <div style={{ fontSize: "0.55rem", color: "var(--color-cyan)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {cardObj.expansion}
+                    </div>
+                  )}
                   {cardObj.reqText !== "なし" && (
                     <div className={`card-req ${cardReqMet ? "met" : ""}`}>
                       要件: {cardObj.reqText}
@@ -1912,7 +1939,7 @@ export default function Home() {
                 <li><strong>隣接ボーナス:</strong> プレイヤーの都市や緑地を海洋タイルに隣接して配置した際、隣接する海洋1つにつき2 MCの即時ボーナスを獲得します。</li>
               </ul>
               <p style={{ fontStyle: "italic", fontSize: "0.8rem", color: "var(--color-gold)", marginTop: "8px" }}>
-                ※ 本コンパクトデッキには青色の「アクション/効果」カードは含まれていません。
+                ※ 基本セット、Prelude、Venus Next、Colonies、Turmoil、Prelude 2、公式プロモのカード台帳を収録しています。
               </p>
             </div>
             <div className="modal-footer">
