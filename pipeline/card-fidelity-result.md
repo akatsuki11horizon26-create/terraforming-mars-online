@@ -14,7 +14,7 @@
 
 ## 検証
 
-- `npm test`: 21 tests passed
+- `npm test`: 22 tests passed
 - `npm run lint`: passed
 - `npm run build`: passed
 - `npx tsc --noEmit`: アプリコード以外の既存Cloudflare型定義不足のみ残る（`cloudflare:workers`、`Fetcher`、`D1Database`）。
