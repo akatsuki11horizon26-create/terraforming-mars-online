@@ -1,6 +1,20 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import {
+  ALL_CARDS as jsALL_CARDS,
+  getInitialState as jsGetInitialState,
+  computeScore as jsComputeScore,
+  getCardDiscount as jsGetCardDiscount,
+  getCardPlayableStatus as jsGetCardPlayableStatus,
+  getAdjacentCells as jsGetAdjacentCells,
+  isCellPlacementValid as jsIsCellPlacementValid,
+  countAdjacentOceans as jsCountAdjacentOceans,
+  checkParameterThresholds as jsCheckParameterThresholds,
+  handleActionSpend as jsHandleActionSpend,
+  triggerProduction as jsTriggerProduction,
+  addLog as jsAddLog
+} from "./game-logic.js";
 
 interface CellState {
   q: number;
@@ -9,7 +23,7 @@ interface CellState {
   bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card";
   bonusAmount: number;
   tileType: "empty" | "forest" | "city" | "ocean";
-  placedBy: "player" | "cpu" | null;
+  placedBy: "player" | "cpu" | "neutral" | null;
 }
 
 interface Card {
@@ -21,6 +35,7 @@ interface Card {
   effectText: string;
   placementType?: "forest" | "city" | "ocean";
   victoryPoints?: number;
+  type: "automated" | "event";
 }
 
 interface LogEntry {
@@ -32,6 +47,11 @@ interface LogEntry {
 
 interface GameState {
   generation: number;
+  phase: "setup" | "research" | "action" | "production" | "final_greenery" | "game_over";
+  turnStep: "start" | "one_action_taken" | "second_action_allowed";
+  pendingOceans: number;
+  researchCards: string[];
+  discardPile: string[];
   actionsRemaining: number;
   temperature: number;
   oxygen: number;
@@ -59,570 +79,19 @@ interface GameState {
   onboarded: boolean;
 }
 
-const ALL_CARDS: Card[] = [
-  {
-    id: "c1",
-    name: "核融合炉",
-    cost: 14,
-    tags: ["Energy"],
-    reqText: "エネルギー生産量 1以上",
-    effectText: "エネルギー生産量 +3、TR +1",
-    victoryPoints: 0
-  },
-  {
-    id: "c2",
-    name: "デイモス落下プロジェクト",
-    cost: 31,
-    tags: ["Space"],
-    reqText: "なし",
-    effectText: "気温 +4°C、熱 +4",
-    victoryPoints: 0
-  },
-  {
-    id: "c3",
-    name: "極地風力発電所",
-    cost: 7,
-    tags: ["Energy"],
-    reqText: "なし",
-    effectText: "エネルギー生産量 +1、熱 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c4",
-    name: "地熱発電所",
-    cost: 11,
-    tags: ["Energy"],
-    reqText: "なし",
-    effectText: "エネルギー生産量 +2、熱 +1",
-    victoryPoints: 0
-  },
-  {
-    id: "c5",
-    name: "藻類培養施設",
-    cost: 12,
-    tags: ["Plant"],
-    reqText: "海洋 2タイル以上",
-    effectText: "植物生産量 +2、植物 +1",
-    victoryPoints: 1
-  },
-  {
-    id: "c6",
-    name: "植物研究所",
-    cost: 9,
-    tags: ["Plant"],
-    reqText: "気温 -26°C以上",
-    effectText: "植物生産量 +1、カードを1枚引く",
-    victoryPoints: 1
-  },
-  {
-    id: "c7",
-    name: "温室効果ガスの放出",
-    cost: 10,
-    tags: ["Space"],
-    reqText: "なし",
-    effectText: "熱生産量 +1、熱 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c8",
-    name: "都市開発計画",
-    cost: 18,
-    tags: ["Building"],
-    reqText: "エネルギー生産量 1以上",
-    effectText: "都市タイルを配置、MC生産量 +2",
-    placementType: "city",
-    victoryPoints: 1
-  },
-  {
-    id: "c9",
-    name: "鉄鉱山開発",
-    cost: 8,
-    tags: ["Building"],
-    reqText: "なし",
-    effectText: "建材生産量 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c10",
-    name: "チタン掘削場",
-    cost: 10,
-    tags: ["Building"],
-    reqText: "なし",
-    effectText: "チタン生産量 +1",
-    victoryPoints: 0
-  },
-  {
-    id: "c11",
-    name: "窒素ガスの輸入",
-    cost: 28,
-    tags: ["Space"],
-    reqText: "なし",
-    effectText: "TR +2、植物生産量 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c12",
-    name: "耐寒細菌の導入",
-    cost: 6,
-    tags: ["Plant"],
-    reqText: "気温 -28°C以上",
-    effectText: "植物生産量 +1",
-    victoryPoints: 0
-  },
-  {
-    id: "c13",
-    name: "巨大反射鏡の軌道投入",
-    cost: 22,
-    tags: ["Space"],
-    reqText: "なし",
-    effectText: "熱生産量 +3",
-    victoryPoints: 0
-  },
-  {
-    id: "c14",
-    name: "炭素採掘プロジェクト",
-    cost: 12,
-    tags: ["Building"],
-    reqText: "なし",
-    effectText: "建材生産量 +1、熱生産量 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c15",
-    name: "地下水汲み上げ",
-    cost: 18,
-    tags: ["Building"],
-    reqText: "なし",
-    effectText: "海洋タイルを配置",
-    placementType: "ocean",
-    victoryPoints: 0
-  },
-  {
-    id: "c16",
-    name: "保護ドームドール都市",
-    cost: 21,
-    tags: ["Building"],
-    reqText: "なし",
-    effectText: "都市タイルを配置、建材生産量 +1",
-    placementType: "city",
-    victoryPoints: 1
-  },
-  {
-    id: "c17",
-    name: "温室バイオームドーム",
-    cost: 16,
-    tags: ["Plant", "Building"],
-    reqText: "気温 -24°C以上",
-    effectText: "植物生産量 +2、植物 +2",
-    victoryPoints: 0
-  },
-  {
-    id: "c18",
-    name: "土壌微生物の散布",
-    cost: 9,
-    tags: ["Plant"],
-    reqText: "気温 -26°C以上",
-    effectText: "植物生産量 +1、MC生産量 +1",
-    victoryPoints: 0
-  },
-  {
-    id: "c19",
-    name: "耐寒家畜の放牧",
-    cost: 13,
-    tags: ["Plant"],
-    reqText: "酸素濃度 9%以上",
-    effectText: "MC生産量 +2、TR +1",
-    victoryPoints: 2
-  },
-  {
-    id: "c20",
-    name: "氷河の融解計画",
-    cost: 16,
-    tags: ["Space"],
-    reqText: "気温 -20°C以上",
-    effectText: "海洋タイルを配置、植物生産量 +1",
-    placementType: "ocean",
-    victoryPoints: 0
-  }
-];
-
-const INITIAL_CELLS: Omit<CellState, "tileType" | "placedBy">[] = [
-  { q: 0, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -3, isOceanOnly: true, bonusType: "steel", bonusAmount: 1 },
-  { q: 2, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -3, isOceanOnly: true, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: -2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: -2, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -2, isOceanOnly: false, bonusType: "steel", bonusAmount: 2 },
-  { q: 3, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: -1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 0, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 0, isOceanOnly: false, bonusType: "mc", bonusAmount: 2 },
-  { q: 1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 0, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: 3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: 1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 2, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 2, isOceanOnly: false, bonusType: "card", bonusAmount: 1 },
-  { q: 1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 }
-];
-
-function formatLogTime(): string {
-  const now = new Date();
-  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
-}
-
-function addLog(logsList: LogEntry[], sender: "player" | "cpu" | "system", text: string): LogEntry[] {
-  return [
-    {
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: formatLogTime(),
-      sender,
-      text
-    },
-    ...logsList
-  ];
-}
-
-function shuffle(array: string[]): string[] {
-  const copy = [...array];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function getInitialState(): GameState {
-  const board: Record<string, CellState> = {};
-  INITIAL_CELLS.forEach(cell => {
-    board[`${cell.q},${cell.r}`] = {
-      ...cell,
-      tileType: "empty",
-      placedBy: null
-    };
-  });
-
-  return {
-    generation: 1,
-    actionsRemaining: 2,
-    temperature: -30,
-    oxygen: 0,
-    oceans: 0,
-    tr: 20,
-    mc: 20,
-    mcProd: 10,
-    steel: 0,
-    steelProd: 1,
-    titanium: 0,
-    titaniumProd: 0,
-    plants: 0,
-    plantsProd: 1,
-    energy: 0,
-    energyProd: 1,
-    heat: 0,
-    heatProd: 1,
-    hand: ["c3", "c4", "c7", "c9", "c10"],
-    deck: ["c1", "c2", "c5", "c6", "c8", "c11", "c12", "c13", "c14", "c15", "c16", "c17", "c18", "c19", "c20"],
-    playedProjects: [],
-    board,
-    logs: [
-      {
-        id: "init",
-        timestamp: "12:00:00",
-        sender: "system",
-        text: "ミッション開始: 火星テラフォーミング指令室へようこそ。目標: 気温 +8°C, 酸素 14%, 海洋 9"
-      }
-    ],
-    isGameOver: false,
-    gameResult: null,
-    onboarded: false
-  };
-}
-
-function isGameOverCheck(temp: number, oxy: number, oce: number): boolean {
-  return temp >= 8 && oxy >= 14 && oce >= 9;
-}
-
-function computeScore(state: GameState): number {
-  let score = state.tr;
-  Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === "player") {
-      if (cell.tileType === "forest" || cell.tileType === "city") {
-        score += 1;
-      }
-    }
-  });
-  state.playedProjects.forEach(cardId => {
-    const card = ALL_CARDS.find(c => c.id === cardId);
-    if (card && card.victoryPoints) {
-      score += card.victoryPoints;
-    }
-  });
-  return score;
-}
-
-function getCardDiscount(card: Card, state: GameState) {
-  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.ceil(card.cost / 2)) : 0;
-  const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.ceil(card.cost / 3)) : 0;
-  return { maxSteel, maxTitanium };
-}
-
-function getCardPlayableStatus(card: Card, state: GameState, steelUsed: number, titaniumUsed: number) {
-  const costAfterDiscount = Math.max(0, card.cost - (steelUsed * 2) - (titaniumUsed * 3));
-
-  if (state.mc < costAfterDiscount) {
-    return { playable: false, reason: "資源（MC）が不足しています。" };
-  }
-
-  if (card.id === "c1" && state.energyProd < 1) {
-    return { playable: false, reason: "エネルギー生産量が1以上必要です。" };
-  }
-  if (card.id === "c5" && state.oceans < 2) {
-    return { playable: false, reason: "海洋が2枚以上配置されている必要があります。" };
-  }
-  if (card.id === "c6" && state.temperature < -26) {
-    return { playable: false, reason: "気温が -26°C 以上である必要があります。" };
-  }
-  if (card.id === "c8" && state.energyProd < 1) {
-    return { playable: false, reason: "エネルギー生産量が1以上必要です。" };
-  }
-  if (card.id === "c12" && state.temperature < -28) {
-    return { playable: false, reason: "気温が -28°C 以上である必要があります。" };
-  }
-  if (card.id === "c17" && state.temperature < -24) {
-    return { playable: false, reason: "気温が -24°C 以上である必要があります。" };
-  }
-  if (card.id === "c18" && state.temperature < -26) {
-    return { playable: false, reason: "気温が -26°C 以上である必要があります。" };
-  }
-  if (card.id === "c19" && state.oxygen < 9) {
-    return { playable: false, reason: "酸素濃度が 9% 以上である必要があります。" };
-  }
-  if (card.id === "c20" && state.temperature < -20) {
-    return { playable: false, reason: "気温が -20°C 以上である必要があります。" };
-  }
-
-  return { playable: true, reason: "" };
-}
-
-function getAdjacentCells(q: number, r: number) {
-  return [
-    { q: q + 1, r: r },
-    { q: q - 1, r: r },
-    { q: q, r: r + 1 },
-    { q: q, r: r - 1 },
-    { q: q + 1, r: r - 1 },
-    { q: q - 1, r: r + 1 }
-  ];
-}
-
-function hasAdjacentCity(q: number, r: number, board: Record<string, CellState>): boolean {
-  const adj = getAdjacentCells(q, r);
-  return adj.some(pos => {
-    const key = `${pos.q},${pos.r}`;
-    return board[key] && board[key].tileType === "city";
-  });
-}
-
-function isCellPlacementValid(cell: CellState, type: "forest" | "city" | "ocean", board: Record<string, CellState>): boolean {
-  if (cell.tileType !== "empty") return false;
-
-  if (type === "ocean") {
-    return cell.isOceanOnly;
-  } else if (type === "city") {
-    if (cell.isOceanOnly) return false;
-    return !hasAdjacentCity(cell.q, cell.r, board);
-  } else {
-    return !cell.isOceanOnly;
-  }
-}
-
-function triggerProduction(state: GameState, logAcc: LogEntry[]): GameState {
-  const nextState = { ...state };
-  const energyToHeat = nextState.energy;
-  nextState.heat += energyToHeat;
-  nextState.energy = 0;
-
-  const addedMc = Math.max(0, nextState.mcProd + nextState.tr);
-  nextState.mc += addedMc;
-  nextState.steel += nextState.steelProd;
-  nextState.titanium += nextState.titaniumProd;
-  nextState.plants += nextState.plantsProd;
-  nextState.energy += nextState.energyProd;
-  nextState.heat += nextState.heatProd;
-
-  let localLog = addLog(
-    logAcc,
-    "system",
-    `生産フェーズ完了: MC +${addedMc} (TR ${nextState.tr} + 生産 ${nextState.mcProd}), 建材 +${nextState.steelProd}, チタン +${nextState.titaniumProd}, 植物 +${nextState.plantsProd}, エネルギー +${nextState.energyProd}, 熱 +${nextState.heatProd}。エネルギー ${energyToHeat} を熱に変換。`
-  );
-
-  let deck = [...nextState.deck];
-  const hand = [...nextState.hand];
-
-  for (let i = 0; i < 2; i++) {
-    if (deck.length === 0) {
-      const played = nextState.playedProjects.filter(id => !hand.includes(id));
-      if (played.length > 0) {
-        deck = shuffle(played);
-        localLog = addLog(localLog, "system", "デッキが空になったため、使用済みのプロジェクトカードをシャッフルして再構成しました。");
-      } else {
-        break;
-      }
-    }
-    const [drawn, ...rest] = deck;
-    if (drawn) {
-      hand.push(drawn);
-      deck = rest;
-      const cardObj = ALL_CARDS.find(c => c.id === drawn);
-      localLog = addLog(localLog, "system", `カードを引きました: 【${cardObj?.name || drawn}】`);
-    }
-  }
-
-  nextState.deck = deck;
-  nextState.hand = hand;
-
-  if (nextState.generation >= 12) {
-    nextState.isGameOver = true;
-    const isWin = isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);
-    nextState.gameResult = isWin ? "win" : "loss";
-    nextState.logs = addLog(localLog, "system", `ゲーム終了 (第12世代終了): ${isWin ? "ミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`);
-  } else {
-    nextState.generation += 1;
-    nextState.actionsRemaining = 2;
-    nextState.logs = addLog(localLog, "system", `第 ${nextState.generation} 世代が開始されました。残りアクション: 2`);
-  }
-
-  return nextState;
-}
-
-function executeCpuTurn(state: GameState, logAcc: LogEntry[]): GameState {
-  const nextState = {
-    ...state,
-    board: { ...state.board }
-  };
-  if (isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
-    nextState.isGameOver = true;
-    nextState.gameResult = "win";
-    nextState.logs = addLog(logAcc, "system", "ゲーム終了: 全てのグローバルパラメータが目標値に達しました！");
-    return nextState;
-  }
-
-  const tempProgress = (nextState.temperature - (-30)) / 38;
-  const oxyProgress = nextState.oxygen / 14;
-  const oceProgress = nextState.oceans / 9;
-
-  let actionType: "temp" | "oxy" | "oce" = "temp";
-  const minProgress = tempProgress;
-
-  if (oxyProgress < minProgress) {
-    actionType = "oxy";
-  }
-  if (oceProgress < minProgress && oceProgress < oxyProgress) {
-    actionType = "oce";
-  }
-
-  let localLog = logAcc;
-
-  if (actionType === "temp") {
-    if (nextState.temperature < 8) {
-      nextState.temperature = Math.min(8, nextState.temperature + 2);
-      localLog = addLog(localLog, "cpu", "CPUのアクション: 大型温室施設の増設により、気温が 2°C 上昇しました。");
-    } else {
-      actionType = "oxy";
-    }
-  }
-
-  if (actionType === "oxy") {
-    if (nextState.oxygen < 14) {
-      nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-      const forestCoords = Object.keys(nextState.board).filter(
-        k => !nextState.board[k].isOceanOnly && nextState.board[k].tileType === "empty"
-      );
-      if (forestCoords.length > 0) {
-        const randomKey = forestCoords[Math.floor(Math.random() * forestCoords.length)];
-        const cell = nextState.board[randomKey];
-        nextState.board[randomKey] = {
-          ...cell,
-          tileType: "forest",
-          placedBy: "cpu"
-        };
-        localLog = addLog(localLog, "cpu", `CPUのアクション: 緑化推進により酸素濃度が 1% 上昇し、緑地を (${cell.q}, ${cell.r}) に配置しました。`);
-      } else {
-        localLog = addLog(localLog, "cpu", "CPUのアクション: 緑化推進により酸素濃度が 1% 上昇しました。");
-      }
-    } else {
-      actionType = "oce";
-    }
-  }
-
-  if (actionType === "oce") {
-    if (nextState.oceans < 9) {
-      nextState.oceans = Math.min(9, nextState.oceans + 1);
-      const oceanCoords = Object.keys(nextState.board).filter(
-        k => nextState.board[k].isOceanOnly && nextState.board[k].tileType === "empty"
-      );
-      if (oceanCoords.length > 0) {
-        const randomKey = oceanCoords[Math.floor(Math.random() * oceanCoords.length)];
-        const cell = nextState.board[randomKey];
-        nextState.board[randomKey] = {
-          ...cell,
-          tileType: "ocean",
-          placedBy: "cpu"
-        };
-        localLog = addLog(localLog, "cpu", `CPUのアクション: 氷河融解誘導により海洋が 1 上昇し、海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-      } else {
-        localLog = addLog(localLog, "cpu", "CPUのアクション: 海洋が 1 上昇しました。");
-      }
-    }
-  }
-
-  if (isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
-    nextState.isGameOver = true;
-    nextState.gameResult = "win";
-    nextState.logs = addLog(localLog, "system", "ゲーム終了: 全てのグローバルパラメータが目標値に達しました！");
-    return nextState;
-  }
-
-  return triggerProduction(nextState, localLog);
-}
-
-function handleActionSpend(state: GameState, logAcc: LogEntry[]): GameState {
-  const nextState = { ...state };
-  nextState.actionsRemaining -= 1;
-  nextState.logs = logAcc;
-
-  if (nextState.actionsRemaining <= 0) {
-    if (isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
-      nextState.isGameOver = true;
-      nextState.gameResult = "win";
-      nextState.logs = addLog(nextState.logs, "system", "ゲーム終了: 全てのグローバルパラメータが目標値に達しました！");
-      return nextState;
-    }
-    return executeCpuTurn(nextState, nextState.logs);
-  }
-  return nextState;
-}
+// Cast untyped imports to strongly-typed constants
+const ALL_CARDS = jsALL_CARDS as unknown as Card[];
+const getInitialState = jsGetInitialState as unknown as () => GameState;
+const computeScore = jsComputeScore as unknown as (state: GameState) => number;
+const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
+const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
+const getAdjacentCells = jsGetAdjacentCells as unknown as (q: number, r: number) => { q: number; r: number }[];
+const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellState, type: "forest" | "city" | "ocean", board: Record<string, CellState>) => boolean;
+const countAdjacentOceans = jsCountAdjacentOceans as unknown as (q: number, r: number, board: Record<string, CellState>) => number;
+const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
+const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
+const triggerProduction = jsTriggerProduction as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
+const addLog = jsAddLog as unknown as (logsList: LogEntry[], sender: "player" | "cpu" | "system", text: string) => LogEntry[];
 
 export default function Home() {
   const [gameState, setGameState] = useState<GameState>(getInitialState);
@@ -633,20 +102,36 @@ export default function Home() {
     active: boolean;
     type: "forest" | "city" | "ocean";
     sourceCardId?: string;
-    sourceProject?: "greenery" | "plants" | "ocean";
+    sourceProject?: "greenery" | "plants" | "ocean" | "city";
   } | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Setup / Research phase card selection state
+  const [selectedResearchCardIds, setSelectedResearchCardIds] = useState<string[]>([]);
+
+  // Sell patents mode state
+  const [isSellingPatents, setIsSellingPatents] = useState(false);
+  const [selectedSellCardIds, setSelectedSellCardIds] = useState<string[]>([]);
 
   useEffect(() => {
     const saved = localStorage.getItem("mars_frontier_game");
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === "object" && "generation" in parsed) {
+        if (
+          parsed &&
+          typeof parsed === "object" &&
+          "generation" in parsed &&
+          ["setup", "research", "action", "production", "final_greenery", "game_over"].includes(parsed.phase) &&
+          Array.isArray(parsed.researchCards) &&
+          typeof parsed.pendingOceans === "number"
+        ) {
           setTimeout(() => {
             setGameState(parsed);
           }, 0);
+        } else {
+          localStorage.removeItem("mars_frontier_game");
         }
       } catch (e) {
         console.error("Failed to parse saved game state", e);
@@ -660,106 +145,29 @@ export default function Home() {
   };
 
   const initGame = () => {
-    const cardIds = ALL_CARDS.map(c => c.id);
-    let shuffled = shuffle(cardIds);
-    let hand: string[] = [];
-    let deck = [...shuffled];
-
-    const isAffordableStartCard = (id: string) => {
-      const card = ALL_CARDS.find(c => c.id === id);
-      if (!card) return false;
-      if (card.cost > 20) return false;
-      if (card.id === "c1") return false;
-      if (card.id === "c5") return false;
-      if (card.id === "c6") return false;
-      if (card.id === "c8") return false;
-      if (card.id === "c12") return false;
-      if (card.id === "c17") return false;
-      if (card.id === "c18") return false;
-      if (card.id === "c19") return false;
-      if (card.id === "c20") return false;
-      return true;
-    };
-
-    let hasPlayable = false;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      shuffled = shuffle(cardIds);
-      const testHand = shuffled.slice(0, 5);
-      if (testHand.some(isAffordableStartCard)) {
-        hand = testHand;
-        deck = shuffled.slice(5);
-        hasPlayable = true;
-        break;
-      }
-    }
-
-    if (!hasPlayable) {
-      const cheapCard = ALL_CARDS.find(isAffordableStartCard);
-      const cheapId = cheapCard ? cheapCard.id : "c3";
-      hand = [cheapId, ...shuffled.filter(id => id !== cheapId).slice(0, 4)];
-      deck = shuffled.filter(id => !hand.includes(id));
-    }
-
-    const board: Record<string, CellState> = {};
-    INITIAL_CELLS.forEach(cell => {
-      board[`${cell.q},${cell.r}`] = {
-        ...cell,
-        tileType: "empty",
-        placedBy: null
-      };
-    });
-
-    const initialLogs: LogEntry[] = [];
-    const logs = addLog(initialLogs, "system", "ミッション開始: 火星テラフォーミング指令室へようこそ。目標: 気温 +8°C, 酸素 14%, 海洋 9");
-
-    const state: GameState = {
-      generation: 1,
-      actionsRemaining: 2,
-      temperature: -30,
-      oxygen: 0,
-      oceans: 0,
-      tr: 20,
-      mc: 20,
-      mcProd: 10,
-      steel: 0,
-      steelProd: 1,
-      titanium: 0,
-      titaniumProd: 0,
-      plants: 0,
-      plantsProd: 1,
-      energy: 0,
-      energyProd: 1,
-      heat: 0,
-      heatProd: 1,
-      hand,
-      deck,
-      playedProjects: [],
-      board,
-      logs,
-      isGameOver: false,
-      gameResult: null,
-      onboarded: false
-    };
-
+    const state = getInitialState();
     saveState(state);
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
     setPlacementMode(null);
-  };
-
-  const handlePass = () => {
-    const nextState = { ...gameState };
-    const localLogs = addLog(nextState.logs, "player", `パスを選択しました。残りのアクションを放棄します。`);
-    nextState.actionsRemaining = 0;
-    const resolved = executeCpuTurn(nextState, localLogs);
-    saveState(resolved);
-    setSelectedCardId(null);
-    setPlacementMode(null);
+    setSelectedResearchCardIds([]);
+    setIsSellingPatents(false);
+    setSelectedSellCardIds([]);
   };
 
   const handleCardClick = (cardId: string) => {
     if (placementMode) return;
+    if (isSellingPatents) {
+      // Toggle selection for selling
+      if (selectedSellCardIds.includes(cardId)) {
+        setSelectedSellCardIds(selectedSellCardIds.filter(id => id !== cardId));
+      } else {
+        setSelectedSellCardIds([...selectedSellCardIds, cardId]);
+      }
+      return;
+    }
+
     if (selectedCardId === cardId) {
       setSelectedCardId(null);
       setSteelUsed(0);
@@ -812,6 +220,9 @@ export default function Home() {
       `カードをプレイしました: 【${card.name}】 (支払: MC ${costAfterDiscount}${steelUsed ? `, 建材 ${steelUsed}` : ""}${titaniumUsed ? `, チタン ${titaniumUsed}` : ""})`
     );
 
+    const oldTemp = nextState.temperature;
+    const oldOxy = nextState.oxygen;
+
     if (card.id === "c1") {
       nextState.energyProd += 3;
       nextState.tr += 1;
@@ -819,8 +230,12 @@ export default function Home() {
     } else if (card.id === "c2") {
       nextState.temperature = Math.min(8, nextState.temperature + 4);
       nextState.heat += 4;
-      nextState.tr += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: 気温 +4°C, 熱 +4, TR +2");
+      const steps = Math.floor((nextState.temperature - oldTemp) / 2);
+      if (steps > 0) {
+        nextState.tr += steps;
+      }
+      nextState.tr += 2; // Card native TR
+      localLogs = addLog(localLogs, "system", `効果適用: 気温 +4°C, 熱 +4, TR +${steps + 2}`);
     } else if (card.id === "c3") {
       nextState.energyProd += 1;
       nextState.heat += 2;
@@ -881,15 +296,49 @@ export default function Home() {
       localLogs = addLog(localLogs, "system", "効果適用: MC生産量 +2, TR +1 (勝利点 +2)");
     }
 
+    const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
+      oldTemp, nextState.temperature,
+      oldOxy, nextState.oxygen,
+      nextState,
+      localLogs
+    );
+
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
 
-    const afterAction = handleActionSpend(nextState, localLogs);
+    const afterAction = handleActionSpend(updatedState, updatedLogs);
     saveState(afterAction);
   };
 
   const handleCellClick = (cell: CellState) => {
+    // If pending ocean placement is active
+    if (gameState.pendingOceans > 0) {
+      if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
+      const nextState = {
+        ...gameState,
+        board: { ...gameState.board }
+      };
+      nextState.board[`${cell.q},${cell.r}`] = {
+        ...cell,
+        tileType: "ocean",
+        placedBy: null
+      };
+
+      const oldOceans = nextState.oceans;
+      nextState.oceans = Math.min(9, nextState.oceans + 1);
+      
+      let localLogs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
+      if (oldOceans < 9) {
+        nextState.tr += 1;
+        localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+      }
+      nextState.pendingOceans -= 1;
+      nextState.logs = localLogs;
+      saveState(nextState);
+      return;
+    }
+
     if (!placementMode) return;
     if (!isCellPlacementValid(cell, placementMode.type, gameState.board)) return;
 
@@ -901,6 +350,10 @@ export default function Home() {
       board: { ...gameState.board }
     };
     let localLogs = nextState.logs;
+
+    const oldTemp = nextState.temperature;
+    const oldOxy = nextState.oxygen;
+    const oldOceans = nextState.oceans;
 
     if (placementMode.sourceCardId) {
       const card = ALL_CARDS.find(c => c.id === placementMode.sourceCardId);
@@ -922,19 +375,33 @@ export default function Home() {
       nextState.board[`${cell.q},${cell.r}`] = {
         ...cell,
         tileType: placementMode.type,
-        placedBy: "player"
+        placedBy: placementMode.type === "ocean" ? null : "player"
       };
 
       localLogs = addLog(localLogs, "player", `タイルを配置しました: 【${placementMode.type === "ocean" ? "海洋" : placementMode.type === "city" ? "都市" : "緑地"}】 (${cell.q}, ${cell.r})`);
 
+      // Ocean adjacency bonus MC
+      if (placementMode.type !== "ocean") {
+        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
+        if (adjOceans > 0) {
+          const bonusMc = adjOceans * 2;
+          nextState.mc += bonusMc;
+          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
+        }
+      }
+
       if (placementMode.type === "forest") {
         nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-        nextState.tr += 1;
-        localLogs = addLog(localLogs, "system", "緑化タイル配置により、酸素濃度 +1%, TR +1");
+        if (oldOxy < 14) {
+          nextState.tr += 1;
+          localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
+        }
       } else if (placementMode.type === "ocean") {
         nextState.oceans = Math.min(9, nextState.oceans + 1);
-        nextState.tr += 1;
-        localLogs = addLog(localLogs, "system", "海洋タイル配置により、海洋面積 +1, TR +1");
+        if (oldOceans < 9) {
+          nextState.tr += 1;
+          localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+        }
       }
 
       if (card.id === "c8") {
@@ -952,12 +419,13 @@ export default function Home() {
     } else if (placementMode.sourceProject) {
       if (placementMode.sourceProject === "greenery" || placementMode.sourceProject === "plants") {
         const payInPlants = placementMode.sourceProject === "plants";
+        const isFinalGreenery = gameState.phase === "final_greenery";
         if (payInPlants) {
           nextState.plants -= 8;
-          localLogs = addLog(localLogs, "player", "標準プロジェクト【緑化】を実行しました (支払: 植物 8)");
+          localLogs = addLog(localLogs, "player", "植物の緑化を実行しました (支払: 植物 8)");
         } else {
           nextState.mc -= 23;
-          localLogs = addLog(localLogs, "player", "標準プロジェクト【緑化】を実行しました (支払: MC 23)");
+          localLogs = addLog(localLogs, "player", "標準プロジェクト【緑化プロジェクト】を実行しました (支払: MC 23)");
         }
 
         nextState.board[`${cell.q},${cell.r}`] = {
@@ -965,26 +433,65 @@ export default function Home() {
           tileType: "forest",
           placedBy: "player"
         };
-        nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-        nextState.tr += 1;
+
+        // Ocean adjacency bonus
+        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
+        if (adjOceans > 0) {
+          const bonusMc = adjOceans * 2;
+          nextState.mc += bonusMc;
+          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
+        }
+
+        if (isFinalGreenery) {
+          localLogs = addLog(localLogs, "system", "最終緑化: 酸素濃度とTRは変化しません。");
+        } else {
+          nextState.oxygen = Math.min(14, nextState.oxygen + 1);
+          if (oldOxy < 14) {
+            nextState.tr += 1;
+            localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
+          }
+        }
         localLogs = addLog(localLogs, "player", `緑地を (${cell.q}, ${cell.r}) に配置しました。`);
-        localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
       } else if (placementMode.sourceProject === "ocean") {
         nextState.mc -= 18;
-        localLogs = addLog(localLogs, "player", "標準プロジェクト【海洋配置】を実行しました (支払: MC 18)");
+        localLogs = addLog(localLogs, "player", "標準プロジェクト【海洋の沈降】を実行しました (支払: MC 18)");
 
         nextState.board[`${cell.q},${cell.r}`] = {
           ...cell,
           tileType: "ocean",
-          placedBy: "player"
+          placedBy: null
         };
         nextState.oceans = Math.min(9, nextState.oceans + 1);
-        nextState.tr += 1;
+        if (oldOceans < 9) {
+          nextState.tr += 1;
+          localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+        }
         localLogs = addLog(localLogs, "player", `海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-        localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+      } else if (placementMode.sourceProject === "city") {
+        nextState.mc -= 25;
+        nextState.mcProd += 1;
+        localLogs = addLog(localLogs, "player", "標準プロジェクト【都市の建設】を実行しました (支払: MC 25)");
+
+        nextState.board[`${cell.q},${cell.r}`] = {
+          ...cell,
+          tileType: "city",
+          placedBy: "player"
+        };
+
+        // Ocean adjacency bonus
+        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
+        if (adjOceans > 0) {
+          const bonusMc = adjOceans * 2;
+          nextState.mc += bonusMc;
+          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
+        }
+
+        localLogs = addLog(localLogs, "system", "MC生産量 +1");
+        localLogs = addLog(localLogs, "player", `都市を (${cell.q}, ${cell.r}) に配置しました。`);
       }
     }
 
+    // Apply cell placement bonus exactly once
     if (cell.bonusType !== "none") {
       if (cell.bonusType === "plant") {
         nextState.plants += cell.bonusAmount;
@@ -1009,34 +516,81 @@ export default function Home() {
       }
     }
 
+    // Run parameter threshold check
+    const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
+      oldTemp, nextState.temperature,
+      oldOxy, nextState.oxygen,
+      nextState,
+      localLogs
+    );
+
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
     setPlacementMode(null);
 
-    const afterAction = handleActionSpend(nextState, localLogs);
+    // If final greenery phase, we do not spend turn actions
+    if (gameState.phase === "final_greenery") {
+      updatedState.logs = updatedLogs;
+      saveState(updatedState);
+      return;
+    }
+
+    const afterAction = handleActionSpend(updatedState, updatedLogs);
     saveState(afterAction);
   };
 
-  const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert") => {
+  const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
     if (placementMode) return;
     const nextState = { ...gameState };
+    let localLogs = nextState.logs;
 
-    if (type === "asteroid") {
+    if (type === "power_plant") {
+      nextState.mc -= 11;
+      nextState.energyProd += 1;
+      localLogs = addLog(localLogs, "player", "標準プロジェクト【発電所の建設】を実行しました (支払: MC 11)");
+      localLogs = addLog(localLogs, "system", "エネルギー生産量 +1");
+      const afterAction = handleActionSpend(nextState, localLogs);
+      saveState(afterAction);
+    } else if (type === "asteroid") {
       nextState.mc -= 14;
+      const oldTemp = nextState.temperature;
       nextState.temperature = Math.min(8, nextState.temperature + 2);
-      nextState.tr += 1;
-      let logs = addLog(nextState.logs, "player", "標準プロジェクト【小惑星の衝突】を実行しました (支払: MC 14)");
-      logs = addLog(logs, "system", "気温 +2°C, TR +1");
-      const afterAction = handleActionSpend(nextState, logs);
+      if (oldTemp < 8) {
+        nextState.tr += 1;
+        localLogs = addLog(localLogs, "player", "標準プロジェクト【小惑星の衝突】を実行しました (支払: MC 14)");
+        localLogs = addLog(localLogs, "system", "気温 +2°C, TR +1");
+      } else {
+        localLogs = addLog(localLogs, "player", "標準プロジェクト【小惑星の衝突】を実行しました (支払: MC 14)");
+        localLogs = addLog(localLogs, "system", "気温 +2°C (気温上限のためTR増加なし)");
+      }
+      const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
+        oldTemp, nextState.temperature,
+        nextState.oxygen, nextState.oxygen,
+        nextState,
+        localLogs
+      );
+      const afterAction = handleActionSpend(updatedState, updatedLogs);
       saveState(afterAction);
     } else if (type === "heat_convert") {
       nextState.heat -= 8;
+      const oldTemp = nextState.temperature;
       nextState.temperature = Math.min(8, nextState.temperature + 2);
-      nextState.tr += 1;
-      let logs = addLog(nextState.logs, "player", "熱の変換を実行しました (支払: 熱 8)");
-      logs = addLog(logs, "system", "気温 +2°C, TR +1");
-      const afterAction = handleActionSpend(nextState, logs);
+      if (oldTemp < 8) {
+        nextState.tr += 1;
+        localLogs = addLog(localLogs, "player", "熱の放出を実行しました (支払: 熱 8)");
+        localLogs = addLog(localLogs, "system", "気温 +2°C, TR +1");
+      } else {
+        localLogs = addLog(localLogs, "player", "熱の放出を実行しました (支払: 熱 8)");
+        localLogs = addLog(localLogs, "system", "気温 +2°C (気温上限のためTR増加なし)");
+      }
+      const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
+        oldTemp, nextState.temperature,
+        nextState.oxygen, nextState.oxygen,
+        nextState,
+        localLogs
+      );
+      const afterAction = handleActionSpend(updatedState, updatedLogs);
       saveState(afterAction);
     } else if (type === "greenery") {
       setPlacementMode({
@@ -1056,7 +610,39 @@ export default function Home() {
         type: "ocean",
         sourceProject: "ocean"
       });
+    } else if (type === "city") {
+      setPlacementMode({
+        active: true,
+        type: "city",
+        sourceProject: "city"
+      });
+    } else if (type === "sell_patents") {
+      setIsSellingPatents(true);
+      setSelectedSellCardIds([]);
     }
+  };
+
+  const handleConfirmSellPatents = () => {
+    if (selectedSellCardIds.length === 0) {
+      setIsSellingPatents(false);
+      return;
+    }
+    const nextState = {
+      ...gameState,
+      hand: gameState.hand.filter(id => !selectedSellCardIds.includes(id)),
+      discardPile: [...gameState.discardPile, ...selectedSellCardIds]
+    };
+    nextState.mc += selectedSellCardIds.length;
+    const localLogs = addLog(
+      nextState.logs,
+      "player",
+      `特許の売却を実行しました: カード ${selectedSellCardIds.length} 枚を売却 (MC +${selectedSellCardIds.length})`
+    );
+
+    setIsSellingPatents(false);
+    setSelectedSellCardIds([]);
+    const afterAction = handleActionSpend(nextState, localLogs);
+    saveState(afterAction);
   };
 
   const handleConfirmRestart = () => {
@@ -1066,6 +652,89 @@ export default function Home() {
 
   const handleCloseOnboard = () => {
     const nextState = { ...gameState, onboarded: true };
+    saveState(nextState);
+  };
+
+  // Setup/Research buy handler
+  const handleBuyCardsConfirm = () => {
+    const cost = selectedResearchCardIds.length * 3;
+    if (cost > gameState.mc) return;
+
+    const nextState = {
+      ...gameState,
+      hand: [...gameState.hand, ...selectedResearchCardIds],
+      discardPile: [...gameState.discardPile, ...gameState.researchCards.filter(id => !selectedResearchCardIds.includes(id))]
+    };
+    nextState.mc -= cost;
+    nextState.researchCards = [];
+
+    let msg = "";
+    if (gameState.phase === "setup") {
+      msg = `初期カード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${cost})`;
+      nextState.phase = "action";
+      nextState.actionsRemaining = 2;
+      nextState.turnStep = "start";
+    } else {
+      msg = `研究フェーズカード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${cost})`;
+      nextState.phase = "action";
+      nextState.actionsRemaining = 2;
+      nextState.turnStep = "start";
+    }
+
+    const localLogs = addLog(nextState.logs, "player", msg);
+    nextState.logs = localLogs;
+
+    saveState(nextState);
+    setSelectedResearchCardIds([]);
+  };
+
+  const toggleResearchCardSelect = (id: string) => {
+    if (selectedResearchCardIds.includes(id)) {
+      setSelectedResearchCardIds(selectedResearchCardIds.filter(item => item !== id));
+    } else {
+      setSelectedResearchCardIds([...selectedResearchCardIds, id]);
+    }
+  };
+
+  const handlePass = () => {
+    const nextState = { ...gameState };
+    const localLogs = addLog(nextState.logs, "player", `パスを選択しました。この世代のアクションフェーズを終了します。`);
+    const resolved = triggerProduction(nextState, localLogs);
+    saveState(resolved);
+    setSelectedCardId(null);
+    setPlacementMode(null);
+  };
+
+  const handleEndTurnChoice = (action: "another" | "end") => {
+    const nextState = { ...gameState };
+    if (action === "another") {
+      nextState.turnStep = "second_action_allowed";
+      nextState.logs = addLog(nextState.logs, "player", "もう1アクションを実行します。");
+    } else {
+      nextState.actionsRemaining = 2;
+      nextState.turnStep = "start";
+      nextState.logs = addLog(nextState.logs, "player", "ターンを終了しました。新しいターンを開始します。");
+    }
+    saveState(nextState);
+  };
+
+  // Final greenery converters
+  const handleFinalGreeneryConvert = () => {
+    if (gameState.plants < 8) return;
+    setPlacementMode({
+      active: true,
+      type: "forest",
+      sourceProject: "plants"
+    });
+  };
+
+  const handleFinalScoring = () => {
+    const nextState = { ...gameState };
+    nextState.phase = "game_over";
+    nextState.isGameOver = true;
+    const isWin = isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);
+    nextState.gameResult = isWin ? "win" : "loss";
+    nextState.logs = addLog(nextState.logs, "system", `ゲーム終了: ${isWin ? "テラフォーミングミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`);
     saveState(nextState);
   };
 
@@ -1087,12 +756,24 @@ export default function Home() {
 
   const scoreValue = computeScore(gameState);
 
+  const getPhaseNameJP = (phase: string) => {
+    switch (phase) {
+      case "setup": return "初期セットアップ (カード選択)";
+      case "research": return "研究フェーズ (カード購入)";
+      case "action": return "アクションフェーズ";
+      case "production": return "生産フェーズ";
+      case "final_greenery": return "最終植物緑化";
+      case "game_over": return "ミッション完了報告";
+      default: return "";
+    }
+  };
+
   return (
     <div className="app-wrapper">
       <header className="header">
         <div className="header-title-container">
           <h1 className="header-title">MARS FRONTIER</h1>
-          <span className="header-subtitle">火星開拓戦略制御システム — VERSION 2.0</span>
+          <span className="header-subtitle">公式ソロルール準拠・非公式ファンメイド — 火星開拓戦略制御システム</span>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
           <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
@@ -1106,20 +787,28 @@ export default function Home() {
       </header>
 
       <main className="main-content">
+        {/* Left Column: Global Telemetry */}
         <div className="cyber-panel">
           <div className="cyber-panel-header">
             <h2 className="cyber-panel-title">GLOBAL TELEMETRY</h2>
           </div>
           <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>現在の世代:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ember)" }}>G-{gameState.generation} / 12</span>
+            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の世代 / 限界世代:</span>
+              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ember)" }}>G-{gameState.generation} / 14</span>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>残りアクション:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-gold)" }}>{gameState.actionsRemaining} / 2</span>
+            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
+              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の進行フェーズ:</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "bold", color: "var(--color-gold)" }}>{getPhaseNameJP(gameState.phase)}</span>
             </div>
+
+            {gameState.phase === "action" && (
+              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
+                <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>ターン内残りアクション:</span>
+                <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-gold)" }}>{gameState.actionsRemaining} / 2</span>
+              </div>
+            )}
 
             <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
               <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>TR (開拓評価):</span>
@@ -1181,16 +870,60 @@ export default function Home() {
               </div>
             </div>
 
-            <div style={{ marginTop: "14px", padding: "10px", backgroundColor: "rgba(114, 217, 208, 0.05)", border: "1px solid rgba(114, 217, 208, 0.2)", borderRadius: "4px" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--color-cyan)", fontWeight: "bold", marginBottom: "4px" }}>CPUステータス</div>
-              <p style={{ fontSize: "0.7rem", color: "#c9bfae", lineHeight: "1.3" }}>
-                CPUは毎世代の終了時に、目標値に最も遠いグローバルパラメータを自動的に進行させます。
-              </p>
-            </div>
+            {/* Turn step choice control when turnStep === "one_action_taken" */}
+            {gameState.phase === "action" && gameState.turnStep === "one_action_taken" && (
+              <div style={{ marginTop: "14px", padding: "12px", backgroundColor: "rgba(229, 181, 99, 0.08)", border: "2px solid var(--color-gold)", borderRadius: "6px" }}>
+                <div style={{ fontSize: "0.8rem", color: "var(--color-gold)", fontWeight: "bold", marginBottom: "8px", textAlign: "center" }}>
+                  ターン継続確認
+                </div>
+                <p style={{ fontSize: "0.7rem", color: "#c9bfae", marginBottom: "10px", lineHeight: "1.3" }}>
+                  1アクション目を完了しました。もう1アクション実行するか、このターンを終了するか選択してください。
+                </p>
+                <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
+                  <button
+                    className="btn-primary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
+                    onClick={() => handleEndTurnChoice("another")}
+                  >
+                    もう1アクション
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
+                    onClick={() => handleEndTurnChoice("end")}
+                  >
+                    ターン終了
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
+        {/* Center Column: Mars Board */}
         <div className="board-panel">
+          {gameState.pendingOceans > 0 && (
+            <div
+              style={{
+                position: "absolute",
+                top: "16px",
+                zIndex: 20,
+                backgroundColor: "var(--color-panel)",
+                border: "2px solid var(--color-cyan)",
+                borderRadius: "4px",
+                padding: "8px 16px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                boxShadow: "0 0 15px rgba(114, 217, 208, 0.4)"
+              }}
+            >
+              <span style={{ fontSize: "0.85rem", color: "var(--color-cyan)", fontWeight: "bold" }}>
+                【気温0°Cボーナス】海洋タイルを配置する reserved スペースを選択してください（残り {gameState.pendingOceans}枚）
+              </span>
+            </div>
+          )}
+
           {placementMode && (
             <div
               style={{
@@ -1228,7 +961,13 @@ export default function Home() {
           <div className="mars-sphere">
             <div className="hex-grid">
               {Object.values(gameState.board).map(cell => {
-                const isValid = placementMode?.active ? isCellPlacementValid(cell, placementMode.type, gameState.board) : false;
+                let isValid = false;
+                if (gameState.pendingOceans > 0) {
+                  isValid = cell.tileType === "empty" && cell.isOceanOnly;
+                } else if (placementMode?.active) {
+                  isValid = isCellPlacementValid(cell, placementMode.type, gameState.board);
+                }
+
                 const left = 230 + 52 * (cell.q + cell.r / 2) - 27;
                 const top = 230 + 45 * cell.r - 23.4;
 
@@ -1239,11 +978,11 @@ export default function Home() {
                 if (cell.tileType === "forest") {
                   classes += "hex-forest";
                   content = "🌲";
-                  label = "緑地";
+                  label = cell.placedBy === "neutral" ? "中立緑地" : "緑地";
                 } else if (cell.tileType === "city") {
                   classes += "hex-city";
                   content = "🏙️";
-                  label = "都市";
+                  label = cell.placedBy === "neutral" ? "中立都市" : "都市";
                 } else if (cell.tileType === "ocean") {
                   classes += "hex-ocean";
                   content = "🌊";
@@ -1266,13 +1005,15 @@ export default function Home() {
                   classes += " hex-placement-valid";
                 }
 
+                const isInteractionDisabled = gameState.pendingOceans > 0 ? !isValid : (placementMode?.active ? !isValid : true);
+
                 return (
                   <button
                     key={`${cell.q},${cell.r}`}
                     className={classes}
                     style={{ left: `${left}px`, top: `${top}px` }}
                     onClick={() => handleCellClick(cell)}
-                    disabled={placementMode?.active ? !isValid : true}
+                    disabled={isInteractionDisabled}
                     title={`座標: (${cell.q}, ${cell.r})`}
                     aria-label={`マス (${cell.q}, ${cell.r}) ${label} ${content}`}
                   >
@@ -1287,7 +1028,9 @@ export default function Home() {
           </div>
         </div>
 
+        {/* Right Column: Resources & Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* Resource Panel */}
           <div className="cyber-panel" style={{ flex: 1 }}>
             <div className="cyber-panel-header">
               <h2 className="cyber-panel-title">RESOURCES</h2>
@@ -1345,245 +1088,438 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="cyber-panel">
-            <div className="cyber-panel-header">
-              <h2 className="cyber-panel-title">STANDARD PROJECTS</h2>
-            </div>
-            <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>小惑星の衝突</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 14 | 気温 +2°C, TR +1</div>
-                </div>
-                <button
-                  className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={gameState.mc < 14 || placementMode !== null || gameState.temperature >= 8}
-                  onClick={() => handleStandardProjectPlay("asteroid")}
-                >
-                  実行
-                </button>
+          {/* Setup or Research phase buying Panel */}
+          {(gameState.phase === "setup" || gameState.phase === "research") && (
+            <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
+                <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>
+                  {gameState.phase === "setup" ? "初期カードの選定" : "研究開発フェーズ"}
+                </h2>
               </div>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                <p style={{ fontSize: "0.75rem", lineHeight: "1.3", color: "#c9bfae" }}>
+                  提示されたプロジェクトから購入するカードを選択してください。(1枚あたり 3 MC)
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "250px", overflowY: "auto" }}>
+                  {gameState.researchCards.map(id => {
+                    const card = ALL_CARDS.find(c => c.id === id);
+                    if (!card) return null;
+                    const isSelected = selectedResearchCardIds.includes(id);
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => toggleResearchCardSelect(id)}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "6px 10px",
+                          backgroundColor: isSelected ? "rgba(114, 217, 208, 0.1)" : "rgba(8, 9, 8, 0.6)",
+                          border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242, 232, 220, 0.15)"}`,
+                          borderRadius: "4px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                          color: "var(--color-ink)",
+                          fontSize: "0.75rem"
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                          <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
+                        </div>
+                        <div style={{
+                          width: "16px",
+                          height: "16px",
+                          borderRadius: "2px",
+                          border: "1px solid var(--color-cyan)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          backgroundColor: isSelected ? "var(--color-cyan)" : "transparent"
+                        }}>
+                          {isSelected && <span style={{ color: "black", fontSize: "0.6rem", fontWeight: "bold" }}>✓</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: "0.75rem" }}>
+                    選択: <strong style={{ color: "var(--color-cyan)" }}>{selectedResearchCardIds.length}</strong> 枚 | 合計コスト: <strong style={{ color: "var(--color-ember)" }}>{selectedResearchCardIds.length * 3}</strong> MC
+                  </div>
+                  <button
+                    className="btn-primary"
+                    style={{ padding: "4px 12px", fontSize: "0.75rem" }}
+                    disabled={selectedResearchCardIds.length * 3 > gameState.mc}
+                    onClick={handleBuyCardsConfirm}
+                  >
+                    購入を確定する
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
-              {isHeatConvertAffordable && (
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+          {/* Standard Project Panel */}
+          {gameState.phase === "action" && (
+            <div className="cyber-panel">
+              <div className="cyber-panel-header">
+                <h2 className="cyber-panel-title">STANDARD PROJECTS</h2>
+              </div>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                {/* 1. Power Plant */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱のリリース</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>熱 8 | 気温 +2°C, TR +1</div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 11 | エネルギー生産量 +1</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.heat < 8 || placementMode !== null || gameState.temperature >= 8}
-                    onClick={() => handleStandardProjectPlay("heat_convert")}
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.mc < 11 || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("power_plant")}
                   >
-                    変換
+                    実行
                   </button>
                 </div>
-              )}
 
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>海洋の沈降</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 18 | 海洋 +1, TR +1</div>
-                </div>
-                <button
-                  className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={gameState.mc < 18 || placementMode !== null || gameState.oceans >= 9}
-                  onClick={() => handleStandardProjectPlay("ocean")}
-                >
-                  配置
-                </button>
-              </div>
-
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>緑化プロジェクト</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 23 | 酸素 +1%, TR +1</div>
-                </div>
-                <button
-                  className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={gameState.mc < 23 || placementMode !== null || gameState.oxygen >= 14}
-                  onClick={() => handleStandardProjectPlay("greenery")}
-                >
-                  配置
-                </button>
-              </div>
-
-              {isPlantsConvertAffordable && (
+                {/* 2. Asteroid */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 8 | 酸素 +1%, TR +1</div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 14 | 気温 +2°C, TR +1</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.plants < 8 || placementMode !== null || gameState.oxygen >= 14}
-                    onClick={() => handleStandardProjectPlay("plants_convert")}
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.mc < 14 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8 || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("asteroid")}
                   >
-                    変換
+                    実行
                   </button>
                 </div>
-              )}
+
+                {/* 3. Aquifer */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 18 | 海洋タイルを配置, TR +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.mc < 18 || placementMode !== null || gameState.pendingOceans > 0 || gameState.oceans >= 9 || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("ocean")}
+                  >
+                    配置
+                  </button>
+                </div>
+
+                {/* 4. Greenery */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 23 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.mc < 23 || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("greenery")}
+                  >
+                    配置
+                  </button>
+                </div>
+
+                {/* 5. City */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>都市の建設 (City)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置, MC生産量 +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.mc < 25 || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("city")}
+                  >
+                    配置
+                  </button>
+                </div>
+
+                {/* 6. Heat release */}
+                {isHeatConvertAffordable && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                    <div>
+                      <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
+                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>熱 8 | 気温 +2°C, TR +1</div>
+                    </div>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                      disabled={gameState.heat < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8 || gameState.turnStep === "one_action_taken"}
+                      onClick={() => handleStandardProjectPlay("heat_convert")}
+                    >
+                      変換
+                    </button>
+                  </div>
+                )}
+
+                {/* 7. Plant greenery convert */}
+                {isPlantsConvertAffordable && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                    <div>
+                      <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
+                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 8 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                    </div>
+                    <button
+                      className="btn-secondary"
+                      style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                      disabled={gameState.plants < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                      onClick={() => handleStandardProjectPlay("plants_convert")}
+                    >
+                      変換
+                    </button>
+                  </div>
+                )}
+
+                {/* 8. Sell patents */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>特許の売却 (Sell Patents)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>手札を売却 | 1枚あたり 1 MC を獲得</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={gameState.hand.length === 0 || placementMode !== null || gameState.pendingOceans > 0 || isSellingPatents || gameState.turnStep === "one_action_taken"}
+                    onClick={() => handleStandardProjectPlay("sell_patents")}
+                  >
+                    実行
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Final Greenery Conversion panel */}
+          {gameState.phase === "final_greenery" && (
+            <div className="cyber-panel" style={{ border: "2px solid var(--color-gold)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(229, 181, 99, 0.15)" }}>
+                <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>最終植物緑化フェーズ</h2>
+              </div>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <p style={{ fontSize: "0.75rem", lineHeight: "1.3" }}>
+                  現在保有している植物資源（残り: {gameState.plants}）から最後の緑地を配置できます。(植物 8につき1枚)
+                </p>
+                <div style={{ display: "flex", gap: "10px" }}>
+                  <button
+                    className="btn-primary"
+                    style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem" }}
+                    disabled={gameState.plants < 8 || placementMode !== null}
+                    onClick={handleFinalGreeneryConvert}
+                  >
+                    緑地を配置する
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    disabled={placementMode !== null}
+                    onClick={handleFinalScoring}
+                  >
+                    最終集計へ進む
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
-      <div className="hand-container">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
-            PROJECT CARDS (手札: {gameState.hand.length}枚)
-          </h2>
-          <div style={{ display: "flex", gap: "10px" }}>
-            <button
-              className="btn-secondary"
-              style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
-              onClick={handlePass}
-              disabled={placementMode !== null}
-            >
-              パス (世代終了)
-            </button>
-          </div>
-        </div>
-
-        <div className="hand-cards">
-          {gameState.hand.map(cardId => {
-            const cardObj = ALL_CARDS.find(c => c.id === cardId);
-            if (!cardObj) return null;
-            const isSelected = selectedCardId === cardId;
-            const cardReqMet = cardObj.id === "c1" ? gameState.energyProd >= 1 :
-                              cardObj.id === "c5" ? gameState.oceans >= 2 :
-                              cardObj.id === "c6" ? gameState.temperature >= -26 :
-                              cardObj.id === "c8" ? gameState.energyProd >= 1 :
-                              cardObj.id === "c12" ? gameState.temperature >= -28 :
-                              cardObj.id === "c17" ? gameState.temperature >= -24 :
-                              cardObj.id === "c18" ? gameState.temperature >= -26 :
-                              cardObj.id === "c19" ? gameState.oxygen >= 9 :
-                              cardObj.id === "c20" ? gameState.temperature >= -20 : true;
-
-            return (
-              <button
-                key={cardId}
-                className={`project-card ${isSelected ? "selected" : ""}`}
-                onClick={() => handleCardClick(cardId)}
-                aria-pressed={isSelected}
-                style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
-              >
-                <div className="card-tags">
-                  {cardObj.tags.map(t => (
-                    <span key={t} className="card-tag">
-                      {t === "Building" ? "建" : t === "Space" ? "宇" : t === "Plant" ? "植" : "電"}
-                    </span>
-                  ))}
+      {/* Hand Cards area */}
+      {gameState.phase === "action" && (
+        <div className="hand-container">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
+              PROJECT CARDS (手札: {gameState.hand.length}枚) {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
+            </h2>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {isSellingPatents ? (
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button
+                    className="btn-primary"
+                    style={{ padding: "4px 14px", fontSize: "0.75rem", backgroundColor: "var(--color-gold)", borderColor: "var(--color-gold)", color: "#000" }}
+                    onClick={handleConfirmSellPatents}
+                  >
+                    選択した {selectedSellCardIds.length} 枚を売却
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
+                    onClick={() => {
+                      setIsSellingPatents(false);
+                      setSelectedSellCardIds([]);
+                    }}
+                  >
+                    売却キャンセル
+                  </button>
                 </div>
-                <div className="card-title">{cardObj.name}</div>
-                {cardObj.reqText !== "なし" && (
-                  <div className={`card-req ${cardReqMet ? "met" : ""}`}>
-                    要件: {cardObj.reqText}
-                  </div>
-                )}
-                <div className="card-effect">{cardObj.effectText}</div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
-                  <span className="card-cost">{cardObj.cost} MC</span>
-                  {cardObj.victoryPoints ? (
-                    <span style={{ fontSize: "0.65rem", color: "var(--color-gold)" }}>⭐+{cardObj.victoryPoints}</span>
-                  ) : null}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {selectedCard && (
-          <div
-            className="selected-card-panel"
-            style={{
-              padding: "10px",
-              backgroundColor: "rgba(8, 9, 8, 0.7)",
-              border: "1px solid rgba(114, 217, 208, 0.2)",
-              borderRadius: "4px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center"
-            }}
-          >
-            <div>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
-              {!canPlaySelected && (
-                <span style={{ color: "var(--color-rust)", fontSize: "0.8rem", marginLeft: "10px" }}>
-                  ※ {playDisableReason}
-                </span>
-              )}
-              {canPlaySelected && (
-                <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
-                  {selectedCard.tags.includes("Building") && maxSteel > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
-                      <span>建材を使用 (1建材=2MC値引き):</span>
-                      <button
-                        className="btn-secondary"
-                        style={{ padding: "0 6px", fontSize: "0.7rem" }}
-                        disabled={steelUsed <= 0}
-                        onClick={() => setSteelUsed(v => v - 1)}
-                      >
-                        -
-                      </button>
-                      <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{steelUsed} / {maxSteel}</span>
-                      <button
-                        className="btn-secondary"
-                        style={{ padding: "0 6px", fontSize: "0.7rem" }}
-                        disabled={steelUsed >= maxSteel}
-                        onClick={() => setSteelUsed(v => v + 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
-
-                  {selectedCard.tags.includes("Space") && maxTitanium > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
-                      <span>チタンを使用 (1チタン=3MC値引き):</span>
-                      <button
-                        className="btn-secondary"
-                        style={{ padding: "0 6px", fontSize: "0.7rem" }}
-                        disabled={titaniumUsed <= 0}
-                        onClick={() => setTitaniumUsed(v => v - 1)}
-                      >
-                        -
-                      </button>
-                      <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{titaniumUsed} / {maxTitanium}</span>
-                      <button
-                        className="btn-secondary"
-                        style={{ padding: "0 6px", fontSize: "0.7rem" }}
-                        disabled={titaniumUsed >= maxTitanium}
-                        onClick={() => setTitaniumUsed(v => v + 1)}
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
-
-                  <span style={{ fontSize: "0.75rem" }}>
-                    実質コスト: <strong style={{ color: "var(--color-ember)" }}>{Math.max(0, selectedCard.cost - (steelUsed * 2) - (titaniumUsed * 3))}</strong> MC
-                  </span>
-                </div>
+              ) : (
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
+                  onClick={handlePass}
+                  disabled={placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                >
+                  パス (世代終了)
+                </button>
               )}
             </div>
-
-            <button
-              className="btn-primary"
-              disabled={!canPlaySelected}
-              onClick={handlePlayCardInit}
-            >
-              {selectedCard.placementType ? "配置フェーズへ進む" : "プレイを実行"}
-            </button>
           </div>
-        )}
-      </div>
 
+          <div className="hand-cards">
+            {gameState.hand.map(cardId => {
+              const cardObj = ALL_CARDS.find(c => c.id === cardId);
+              if (!cardObj) return null;
+              
+              const isSelected = selectedCardId === cardId || (isSellingPatents && selectedSellCardIds.includes(cardId));
+              const cardReqMet = cardObj.id === "c1" ? gameState.energyProd >= 1 :
+                                cardObj.id === "c5" ? gameState.oceans >= 2 :
+                                cardObj.id === "c6" ? gameState.temperature >= -26 :
+                                cardObj.id === "c8" ? gameState.energyProd >= 1 :
+                                cardObj.id === "c12" ? gameState.temperature >= -28 :
+                                cardObj.id === "c17" ? gameState.temperature >= -24 :
+                                cardObj.id === "c18" ? gameState.temperature >= -26 :
+                                cardObj.id === "c19" ? gameState.oxygen >= 9 :
+                                cardObj.id === "c20" ? gameState.temperature >= -20 : true;
+
+              return (
+                <button
+                  key={cardId}
+                  className={`project-card ${isSelected ? "selected" : ""}`}
+                  onClick={() => handleCardClick(cardId)}
+                  disabled={gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                  aria-pressed={isSelected}
+                  style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div className="card-tags">
+                      {cardObj.tags.map(t => (
+                        <span key={t} className="card-tag">
+                          {t === "Building" ? "建" : t === "Space" ? "宇" : t === "Plant" ? "植" : "電"}
+                        </span>
+                      ))}
+                    </div>
+                    <span style={{ fontSize: "0.55rem", padding: "1px 4px", borderRadius: "3px", backgroundColor: "rgba(242, 232, 220, 0.1)" }}>
+                      {cardObj.type === "event" ? "イベント" : "自動"}
+                    </span>
+                  </div>
+                  <div className="card-title">{cardObj.name}</div>
+                  {cardObj.reqText !== "なし" && (
+                    <div className={`card-req ${cardReqMet ? "met" : ""}`}>
+                      要件: {cardObj.reqText}
+                    </div>
+                  )}
+                  <div className="card-effect">{cardObj.effectText}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
+                    <span className="card-cost">{cardObj.cost} MC</span>
+                    {cardObj.victoryPoints ? (
+                      <span style={{ fontSize: "0.65rem", color: "var(--color-gold)" }}>⭐+{cardObj.victoryPoints}</span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedCard && !isSellingPatents && (
+            <div
+              className="selected-card-panel"
+              style={{
+                padding: "10px",
+                backgroundColor: "rgba(8, 9, 8, 0.7)",
+                border: "1px solid rgba(114, 217, 208, 0.2)",
+                borderRadius: "4px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center"
+              }}
+            >
+              <div>
+                <span style={{ fontSize: "0.85rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
+                {!canPlaySelected && (
+                  <span style={{ color: "var(--color-rust)", fontSize: "0.8rem", marginLeft: "10px" }}>
+                    ※ {playDisableReason}
+                  </span>
+                )}
+                {canPlaySelected && (
+                  <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
+                    {selectedCard.tags.includes("Building") && maxSteel > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
+                        <span>建材を使用 (1建材=2MC値引き):</span>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          disabled={steelUsed <= 0}
+                          onClick={() => setSteelUsed(v => v - 1)}
+                        >
+                          -
+                        </button>
+                        <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{steelUsed} / {maxSteel}</span>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          disabled={steelUsed >= maxSteel}
+                          onClick={() => setSteelUsed(v => v + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+
+                    {selectedCard.tags.includes("Space") && maxTitanium > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
+                        <span>チタンを使用 (1チタン=3MC値引き):</span>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          disabled={titaniumUsed <= 0}
+                          onClick={() => setTitaniumUsed(v => v - 1)}
+                        >
+                          -
+                        </button>
+                        <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{titaniumUsed} / {maxTitanium}</span>
+                        <button
+                          className="btn-secondary"
+                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          disabled={titaniumUsed >= maxTitanium}
+                          onClick={() => setTitaniumUsed(v => v + 1)}
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
+
+                    <span style={{ fontSize: "0.75rem" }}>
+                      実質コスト: <strong style={{ color: "var(--color-ember)" }}>{Math.max(0, selectedCard.cost - (steelUsed * 2) - (titaniumUsed * 3))}</strong> MC
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <button
+                className="btn-primary"
+                disabled={!canPlaySelected}
+                onClick={handlePlayCardInit}
+              >
+                {selectedCard.placementType ? "配置フェーズへ進む" : "プレイを実行"}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Log area */}
       <div className="cyber-panel" style={{ margin: "16px", flex: "none" }}>
         <div className="cyber-panel-header">
           <h2 className="cyber-panel-title">MISSION LOGS</h2>
@@ -1606,6 +1542,7 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Help Modal */}
       {(!gameState.onboarded || showHelp) && (
         <div className="overlay-container">
           <div className="modal-content">
@@ -1613,27 +1550,48 @@ export default function Home() {
               <h3 className="modal-title">MARS FRONTIER — 指令マニュアル</h3>
             </div>
             <div className="modal-body">
-              <p style={{ fontWeight: "bold", color: "var(--color-ember)", marginBottom: "10px" }}>火星を呼吸可能な緑の惑星へ作り変えよ！</p>
-              <p style={{ marginBottom: "8px" }}>
-                あなたはCPUと対競合しながら、12世代の制限時間内に火星のテラフォーミング完了を目指す戦略プロトタイプです。
+              <p style={{ fontWeight: "bold", color: "var(--color-ember)", marginBottom: "10px" }}>
+                公式ソロルール準拠・非公式ファンメイド
               </p>
-              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ 勝利条件</h4>
+              <p style={{ marginBottom: "8px" }}>
+                あなたは14世代の制限時間内に、火星を人が呼吸可能な緑の惑星へ作り変える指令を受けました。
+              </p>
+              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ クリア条件 (全パラメータの最大化)</h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> まで上昇させる</li>
-                <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> まで上昇させる</li>
-                <li><strong>海洋数:</strong> 0 から <strong>9タイル</strong> 配置する</li>
+                <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> (最大)</li>
+                <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> (最大)</li>
+                <li><strong>海洋数:</strong> <strong>9タイル</strong> すべての配置</li>
               </ul>
               <p style={{ marginBottom: "10px" }}>
-                ※ 第12世代の終了までに上記3つの条件をすべてクリアすれば<strong>ミッション成功 (WIN)</strong>、達成できなければ<strong>失敗 (LOSS)</strong>となります。
+                ※ 第14世代の終了時（アクションおよび生産完了後）に上記すべての条件をクリアすれば<strong>ミッション成功 (WIN)</strong>、達成できなければ<strong>失敗 (LOSS)</strong>となります。
               </p>
 
-              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ 基本ルール</h4>
+              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ 世代の進行フロー</h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                <li>毎世代、プレイヤーは2回のアクションを実行できます。その後、CPUが自動アクションを1回実行し、次の世代へと進みます。</li>
-                <li>手札のプロジェクトカードは、必要なMC（メガクレジット）や前提パラメータ条件を満たすことでプレイできます。</li>
-                <li>カードに<strong>「建」 (Building)</strong>タグがある場合は手持ちの建材を（1枚あたり2MC）、<strong>「宇」 (Space)</strong>タグがある場合は手持ちのチタンを（1枚あたり3MC）値引きとして支払いに充当できます。</li>
-                <li>標準プロジェクトは手札に関係なくいつでも実行できるアクションです。</li>
+                <li><strong>初期セットアップ:</strong> 最初に配られる10枚のカードから、1枚 3 MC で必要な数だけ購入し、手札としてスタートします。初期TRは14、各資源の初期生産量は0です。</li>
+                <li><strong>研究開発フェーズ (第2世代以降):</strong> 各世代の開始時に4枚のカードが公開され、1枚 3 MC で任意の枚数を選択・購入できます。</li>
+                <li><strong>アクションフェーズ:</strong> プレイヤーは1ターンに1回または2回のアクションを行うことができます。1アクション実行後、「もう1アクション」または「ターン終了」を選択します。「ターン終了」を選ぶか2アクション実行すると新たなターンとなります。プレイヤーが「パス」を選択するとその世代のアクションフェーズを終え、生産フェーズへと移行します。</li>
+                <li><strong>生産フェーズ:</strong> 蓄積されたエネルギーはすべて熱資源に変換され、TR（開拓評価）＋MC生産量（最低-5まで）に等しいMCと、その他の資源が生産されます。</li>
+                <li><strong>最終植物緑化:</strong> 第14世代の生産フェーズ終了後、保有する植物資源 (8につき1枚) を使用して最後の緑地配置が可能です。</li>
               </ul>
+
+              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ アクションの種類</h4>
+              <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                <li><strong>カードのプレイ:</strong> 手札のカードを、MCを支払ってプレイします。「建」タグには建材（1つ=2MC）、「宇」タグにはチタン（1つ=3MC）を値引きに使用できます。（お釣りは出ません）</li>
+                <li><strong>標準プロジェクト:</strong> 発電所（11MC：エネルギー生産+1）、小惑星（14MC：気温上昇）、海洋（18MC）、緑化（23MC）、都市（25MC：MC生産+1）、特許の売却（不要カードを1枚1MCで売却）が可能です。</li>
+                <li><strong>資源の直接変換:</strong> 植物8を緑地へ、または熱8を気温上昇へ直接変換できます。</li>
+              </ul>
+
+              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ タイル配置ルール</h4>
+              <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                <li><strong>海洋タイル:</strong> 青い点線の専用スペースにのみ配置できます。</li>
+                <li><strong>緑地タイル:</strong> すでにプレイヤーの所有するタイルがある場合、必ずそれらに隣接するように配置しなければなりません（不可能な場合や所有タイルがない場合を除く）。</li>
+                <li><strong>都市タイル:</strong> 他の都市タイル（中立都市を含む）の隣には配置できません。</li>
+                <li><strong>隣接ボーナス:</strong> プレイヤーの都市や緑地を海洋タイルに隣接して配置した際、隣接する海洋1つにつき2 MCの即時ボーナスを獲得します。</li>
+              </ul>
+              <p style={{ fontStyle: "italic", fontSize: "0.8rem", color: "var(--color-gold)", marginTop: "8px" }}>
+                ※ 本コンパクトデッキには青色の「アクション/効果」カードは含まれていません。
+              </p>
             </div>
             <div className="modal-footer">
               <button
@@ -1650,6 +1608,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Restart Confirm Modal */}
       {showRestartConfirm && (
         <div className="overlay-container">
           <div className="modal-content" style={{ maxWidth: "400px" }}>
@@ -1671,6 +1630,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* Game Over Modal */}
       {gameState.isGameOver && (
         <div className="overlay-container">
           <div className="modal-content" style={{ maxWidth: "450px", border: `2px solid ${gameState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)"}` }}>
@@ -1683,15 +1643,36 @@ export default function Home() {
               <p style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
                 {gameState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
               </p>
-              <div style={{ padding: "16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "inline-block", minWidth: "220px", textAlign: "left", margin: "0 auto" }}>
+              <div style={{ padding: "16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "inline-block", minWidth: "250px", textAlign: "left", margin: "0 auto" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span>TR (開拓評価点):</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-cyan)" }}>{gameState.tr} 点</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span>配置した緑地・都市数:</span>
+                  <span>配置した緑地数:</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-ember)" }}>
-                    {Object.values(gameState.board).filter(c => c.placedBy === "player" && (c.tileType === "forest" || c.tileType === "city")).length} 点
+                    {Object.values(gameState.board).filter(c => c.placedBy === "player" && c.tileType === "forest").length} 点
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                  <span>都市隣接緑地ボーナス:</span>
+                  <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>
+                    {(() => {
+                      let cityVp = 0;
+                      Object.values(gameState.board).forEach(cell => {
+                        if (cell.placedBy === "player" && cell.tileType === "city") {
+                          const adj = getAdjacentCells(cell.q, cell.r);
+                          adj.forEach(pos => {
+                            const key = `${pos.q},${pos.r}`;
+                            const adjCell = gameState.board[key];
+                            if (adjCell && adjCell.tileType === "forest") {
+                              cityVp += 1;
+                            }
+                          });
+                        }
+                      });
+                      return cityVp;
+                    })()} 点
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
