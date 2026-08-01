@@ -20,7 +20,7 @@ GitHub Pagesはログインなしで閲覧でき、ページ本体、JavaScript�
 
 ローカルソースリポジトリにはGitHubのリモートを設定していない。
 
-現時点のローカルHEADは`8ded346 Complete expansion catalog metadata`である。
+現時点のローカルHEADは`bd56cb6 Add project handoff document`である。
 
 公開成果物のHEADは`f8a295e Fix renamed Pages base path`である。
 
