@@ -60,6 +60,21 @@ export {
   getRulingPolicy,
   totalDelegates
 };
+import {
+  COLONY_TILES,
+  availableFleets,
+  buildColony,
+  canBuildColony,
+  canTrade,
+  cloneColonies,
+  countColonies,
+  createColoniesState,
+  getColonyTile,
+  resetFleets,
+  trade as tradeWithColony
+} from "./colonies.js";
+
+export { COLONY_TILES, availableFleets, canBuildColony, canTrade, countColonies, getColonyTile };
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
@@ -389,6 +404,7 @@ function cloneGameState(state) {
       Object.entries(state.resolvedChoices ?? {}).map(([id, stages]) => [id, [...stages]])
     ),
     turmoil: state.turmoil ? cloneTurmoil(state.turmoil) : null,
+    colonies: state.colonies ? cloneColonies(state.colonies) : null,
     pendingChoice: state.pendingChoice
       ? {
           ...state.pendingChoice,
@@ -456,7 +472,7 @@ function addNormalizedStock(effect, stock, unsupported = []) {
 function normalizeCountedAmount(amount) {
   const each = amount.each ?? 1;
 
-  if (amount.colonies) return null;
+  if (amount.colonies) return { kind: "colonies", each, allPlayers: amount.all === true };
   if (amount.tag) {
     // Tags count only the player's own unless `all` is set (reference Counter).
     const tags = Array.isArray(amount.tag) ? amount.tag : [amount.tag];
@@ -498,6 +514,10 @@ function evaluateCountedGain(state, gain, ownerId) {
           if (getCardResourceType(cardId) === "floater") units += count;
         }
       }
+      break;
+    case "colonies":
+      if (!state.colonies) return 0;
+      for (const player of players) units += countColonies(state.colonies, player.id);
       break;
     default:
       return 0;
@@ -570,7 +590,9 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
   }
   if (raw.standardResource) unsupported.push("standard-resource-choice");
   if (raw.addResourcesToAnyCard) unsupported.push("any-card-resource-choice");
-  if (raw.colonies || raw.turmoil) unsupported.push("expansion-state-choice");
+  // Recorded separately so each is only reported when its expansion is off.
+  if (raw.colonies) unsupported.push("colonies-state-choice");
+  if (raw.turmoil) unsupported.push("turmoil-state-choice");
   if (raw.or) {
     if (raw.or.autoSelect && Array.isArray(raw.or.behaviors) && raw.or.behaviors[0]) {
       normalizeBehavior(raw.or.behaviors[0], effect, unsupported);
@@ -660,9 +682,13 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
 
   // Choices handled by the pendingChoice flow are resolved by the player after
   // this function returns, so they are not reported as unimplemented here.
-  const stillUnsupported = (effect.unsupported ?? []).filter(
-    reason => !HANDLED_BY_PENDING_CHOICE.has(reason)
-  );
+  // Expansion effects are only unimplemented when that expansion is switched off.
+  const stillUnsupported = (effect.unsupported ?? []).filter(reason => {
+    if (HANDLED_BY_PENDING_CHOICE.has(reason)) return false;
+    if (reason === "colonies-state-choice") return !nextState.colonies;
+    if (reason === "turmoil-state-choice") return !nextState.turmoil;
+    return true;
+  });
   if (stillUnsupported.length) {
     nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${stillUnsupported.join("、")}`);
   }
@@ -1334,6 +1360,9 @@ export function getInitialState(options = {}) {
   const turmoil = options.turmoil
     ? createTurmoilState(turnOrder, shuffle(GLOBAL_EVENTS.map(event => event.id)))
     : null;
+  const colonies = options.colonies
+    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)))
+    : null;
   const introText =
     mode === "solo"
       ? "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
@@ -1360,6 +1389,7 @@ export function getInitialState(options = {}) {
     pendingChoice: null,
     resolvedChoices: {},
     turmoil,
+    colonies,
     logs: [
       {
         id: "init",
@@ -1372,6 +1402,116 @@ export function getInitialState(options = {}) {
     gameResult: null,
     onboarded: false
   });
+}
+
+// Applies a colony build/trade/colony benefit to one player.
+function grantColonyBenefit(state, benefit, playerId, logs) {
+  if (!benefit) return { state, logs };
+  let nextLogs = logs;
+  const amount = benefit.amount ?? benefit.quantity ?? 1;
+  const player = getPlayer(state, playerId);
+  if (!player) return { state, logs };
+
+  switch (benefit.type) {
+    case "GAIN_RESOURCES": {
+      if (!benefit.resource) break;
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, [benefit.resource]: p[benefit.resource] + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: ${benefit.resource} +${amount}`);
+      break;
+    }
+    case "GAIN_PRODUCTION": {
+      if (!benefit.resource) break;
+      const field = `${benefit.resource === "mc" ? "mc" : benefit.resource}Prod`;
+      state.players = state.players.map(p =>
+        p.id === playerId && field in p ? { ...p, [field]: p[field] + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: ${field} +${amount}`);
+      break;
+    }
+    case "DRAW_CARDS": {
+      const drawn = drawFromDeck(state, amount);
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, hand: [...p.hand, ...drawn] } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: カードを${drawn.length}枚引きました。`);
+      break;
+    }
+    case "GAIN_TR": {
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, tr: p.tr + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: TR +${amount}`);
+      break;
+    }
+    case "PLACE_OCEAN_TILE": {
+      const legal = legalCellsFor(state, "ocean", playerId);
+      if (legal.length > 0) {
+        placeTileAt(state, legal[0], "ocean", playerId);
+        nextLogs = addLog(nextLogs, "system", `${player.name}: 海洋タイルを配置しました。`);
+      }
+      break;
+    }
+    default:
+      // Benefits tied to card resources or other expansions are reported rather
+      // than silently dropped.
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `植民地ボーナス「${benefit.description}」は未対応のため適用されませんでした。`
+      );
+      break;
+  }
+  return { state, logs: nextLogs };
+}
+
+export function buildColonyOn(state, tileId, logs, playerId) {
+  if (!state.colonies) {
+    return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), built: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const result = buildColony(state.colonies, tileId, actorId);
+  if (!result.built) {
+    return { state, logs: addLog(logs, "system", result.reason), built: false };
+  }
+
+  const next = cloneGameState(state);
+  next.colonies = result.colonies;
+  const tile = getColonyTile(tileId);
+  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} に入植しました。`);
+
+  const granted = grantColonyBenefit(next, result.bonus, actorId, nextLogs);
+  next.logs = granted.logs;
+  return { state: next, logs: granted.logs, built: true };
+}
+
+export function tradeWith(state, tileId, logs, playerId) {
+  if (!state.colonies) {
+    return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), traded: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const result = tradeWithColony(state.colonies, tileId, actorId);
+  if (!result.traded) {
+    return { state, logs: addLog(logs, "system", result.reason), traded: false };
+  }
+
+  const next = cloneGameState(state);
+  next.colonies = result.colonies;
+  const tile = getColonyTile(tileId);
+  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} と交易しました。`);
+
+  const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs);
+  nextLogs = traded.logs;
+
+  // Every colony owner on the tile collects the colony bonus, including the trader.
+  for (const owner of result.colonyOwners) {
+    const granted = grantColonyBenefit(next, result.colonyBonus, owner, nextLogs);
+    nextLogs = granted.logs;
+  }
+
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, traded: true };
 }
 
 // Pays a ruling party's bonus to every player, then swaps in the new ruling
@@ -1738,7 +1878,16 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       if (!isLeader) return { playable: false, reason: "いずれかの政党の党首である必要があります。" };
       continue;
     }
-    if (requirement.colonies || requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
+    if (requirement.colonies !== undefined) {
+      if (!state.colonies) return { playable: false, reason: "Coloniesが有効ではありません。" };
+      const owned = countColonies(state.colonies, state.currentPlayerId);
+      const needed = requirement.count ?? 1;
+      if (owned < needed) {
+        return { playable: false, reason: `植民地が${needed}個以上必要です。` };
+      }
+      continue;
+    }
+    if (requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
   }
   return { playable: true, reason: "" };
 }
@@ -2000,6 +2149,11 @@ export function triggerProduction(state, logAcc) {
 
     nextState.deck = deck;
     nextState.discardPile = discard;
+
+    // Trade fleets return at the end of each generation.
+    if (nextState.colonies) {
+      nextState.colonies = resetFleets(nextState.colonies);
+    }
 
     // Turmoil resolves between production and the next research phase.
     if (nextState.turmoil) {

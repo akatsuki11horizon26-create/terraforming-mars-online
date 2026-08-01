@@ -1,0 +1,163 @@
+// Extracts the Colonies tiles from the reference implementation. The card catalog
+// generator only captured project/corporation/prelude/global-event cards, so the
+// colony tiles themselves — their trade tracks and the three benefit slots — were
+// missing entirely and Colonies could not be implemented without them.
+//
+// Usage: node scripts/generate-colony-tiles.mjs
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { join, resolve } from "node:path";
+
+const REFERENCE =
+  process.env.TM_REFERENCE ?? "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-reference";
+const COLONIES_DIR = join(REFERENCE, "src", "server", "colonies");
+
+// The eleven official Colonies-expansion tiles. Deimos and Pluto ship with the
+// expansion too; Miranda/Titan/Triton/Enceladus/Europa/Io/Callisto/Ganymede/Luna/
+// Ceres complete the set. Files that are infrastructure rather than a tile are skipped.
+const SKIP = new Set([
+  "Colony.ts",
+  "ColoniesHandler.ts",
+  "ColonyDealer.ts",
+  "ColonyDeserializer.ts",
+  "ColonyManifest.ts",
+  "IColony.ts",
+  "IColonyTrader.ts"
+]);
+
+const RESOURCE_MAP = {
+  MEGACREDITS: "mc",
+  STEEL: "steel",
+  TITANIUM: "titanium",
+  PLANTS: "plants",
+  ENERGY: "energy",
+  HEAT: "heat"
+};
+
+const JAPANESE_NAMES = {
+  luna: "ルナ",
+  ceres: "セレス",
+  io: "イオ",
+  europa: "エウロパ",
+  ganymede: "ガニメデ",
+  callisto: "カリスト",
+  enceladus: "エンケラドゥス",
+  miranda: "ミランダ",
+  titan: "タイタン",
+  triton: "トリトン",
+  pluto: "プルート",
+  deimos: "デイモス"
+};
+
+function extractBlock(source, key) {
+  const start = source.indexOf(`${key}: {`);
+  if (start < 0) return null;
+  let depth = 0;
+  let i = source.indexOf("{", start);
+  const from = i;
+  for (; i < source.length; i++) {
+    if (source[i] === "{") depth++;
+    else if (source[i] === "}") {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+  return source.slice(from, i + 1);
+}
+
+function parseBenefit(block) {
+  if (!block) return null;
+  const description = block.match(/description:\s*'([^']*)'/)?.[1] ?? "";
+  const type = block.match(/type:\s*ColonyBenefit\.([A-Z_]+)/)?.[1] ?? null;
+
+  // Europa's track grants a different production type at each step, so the
+  // resource can be a list rather than a single symbol.
+  const resourceListMatch = block.match(/resource:\s*\[([\s\S]*?)\]/);
+  const resourceList = resourceListMatch
+    ? [...resourceListMatch[1].matchAll(/Resource\.([A-Z]+)/g)].map(
+        match => RESOURCE_MAP[match[1]] ?? match[1].toLowerCase()
+      )
+    : null;
+
+  const resourceSymbol = resourceListMatch
+    ? undefined
+    : block.match(/resource:\s*Resource\.([A-Z]+)/)?.[1];
+  const cardResource = block.match(/resource:\s*CardResource\.([A-Z_]+)/)?.[1];
+
+  let quantity;
+  const arrayMatch = block.match(/quantity:\s*\[([^\]]*)\]/);
+  const scalarMatch = block.match(/quantity:\s*(\d+)/);
+  if (arrayMatch) {
+    quantity = arrayMatch[1]
+      .split(",")
+      .map(part => Number(part.trim()))
+      .filter(value => Number.isFinite(value));
+  } else if (scalarMatch) {
+    quantity = Number(scalarMatch[1]);
+  }
+
+  const benefit = { description, type };
+  if (resourceList) benefit.resourceTrack = resourceList;
+  else if (resourceSymbol) benefit.resource = RESOURCE_MAP[resourceSymbol] ?? resourceSymbol.toLowerCase();
+  if (cardResource) benefit.cardResource = cardResource.toLowerCase();
+  if (quantity !== undefined) benefit.quantity = quantity;
+  return benefit;
+}
+
+const files = (await readdir(COLONIES_DIR)).filter(
+  name => name.endsWith(".ts") && !SKIP.has(name)
+);
+if (files.length === 0) {
+  console.error(`No colony sources under ${COLONIES_DIR}. Set TM_REFERENCE.`);
+  process.exit(1);
+}
+
+const colonies = [];
+for (const file of files.sort()) {
+  const source = await readFile(join(COLONIES_DIR, file), "utf8");
+  const nameSymbol = source.match(/name:\s*ColonyName\.([A-Z_]+)/)?.[1];
+  if (!nameSymbol) continue;
+
+  const id = nameSymbol.toLowerCase();
+  const colony = {
+    id,
+    name: JAPANESE_NAMES[id] ?? file.replace(".ts", ""),
+    englishName: file.replace(".ts", ""),
+    build: parseBenefit(extractBlock(source, "build")),
+    trade: parseBenefit(extractBlock(source, "trade")),
+    colony: parseBenefit(extractBlock(source, "colony"))
+  };
+  if (!colony.trade) continue;
+  colonies.push(colony);
+}
+
+colonies.sort((a, b) => a.id.localeCompare(b.id));
+
+// Every tile's trade track has seven steps, whether it grants a quantity or
+// (Europa) a different production type per step.
+const withTrack = colonies.filter(
+  c => Array.isArray(c.trade.quantity) || Array.isArray(c.trade.resourceTrack)
+);
+for (const colony of withTrack) {
+  const steps = colony.trade.quantity ?? colony.trade.resourceTrack;
+  if (steps.length !== 7) {
+    throw new Error(`${colony.id} trade track has ${steps.length} steps, expected 7`);
+  }
+}
+if (withTrack.length !== colonies.length) {
+  const missing = colonies.filter(c => !withTrack.includes(c)).map(c => c.id);
+  throw new Error(`Colony tiles without a 7-step trade track: ${missing.join(", ")}`);
+}
+
+const out = `// GENERATED by scripts/generate-colony-tiles.mjs — do not edit by hand.
+// Colony tiles extracted from the reference implementation's src/server/colonies.
+// ${colonies.length} tiles. Each trade track has 7 steps; the marker starts at 1.
+
+export const COLONY_TILES = ${JSON.stringify(colonies, null, 2)};
+
+export function getColonyTile(id) {
+  return COLONY_TILES.find(tile => tile.id === id);
+}
+`;
+
+await writeFile(resolve(process.cwd(), "app", "colony-tiles.js"), out, "utf8");
+console.log(`Wrote ${colonies.length} colony tiles (${withTrack.length} with 7-step trade tracks).`);
