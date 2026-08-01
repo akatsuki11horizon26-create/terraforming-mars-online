@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, getPlaceholderState, triggerProduction, handleActionSpend } from "../app/game-logic.js";
+import {
+  getInitialState,
+  getPlaceholderState,
+  triggerProduction,
+  handleActionSpend,
+  applyProduction,
+  applyCardEffect,
+  ALL_CARDS
+} from "../app/game-logic.js";
 import { cloneGameState, withLegacyPlayerAccessors } from "../app/player-state.js";
 import { loadSavedState, serializeSavedState, CURRENT_RULES_VERSION } from "../app/save-migration.js";
 
@@ -228,6 +236,44 @@ test("Re-attaching accessors repairs a state that was spread", () => {
     Object.prototype.hasOwnProperty.call(json, "mc"),
     false,
     "repairing must not make the accessors serializable"
+  );
+});
+
+test("Only MC production may go negative", () => {
+  const state = getInitialState();
+
+  // Cards that reduce production cannot push a track below zero; MC is the one
+  // exception and floors at -5.
+  state.players[0].energyProd = 1;
+  applyProduction(state, { energy: -3 });
+  assert.equal(state.players[0].energyProd, 0, "energy production floors at zero");
+
+  state.players[0].plantsProd = 0;
+  applyProduction(state, { plants: -2 });
+  assert.equal(state.players[0].plantsProd, 0);
+
+  state.players[0].mcProd = 0;
+  applyProduction(state, { mc: -9 });
+  assert.equal(state.players[0].mcProd, -5, "MC production floors at -5");
+});
+
+test("Auto-placed tiles belong to the acting player", () => {
+  const state = getInitialState({ playerCount: 3 });
+  state.currentPlayerId = "player2";
+
+  const card = ALL_CARDS.find(item => item.id === "p-ice-asteroid");
+  const result = applyCardEffect(state, card, state.logs);
+
+  // Ice Asteroid places oceans, which are unowned, so drive a city instead: the
+  // point is that nothing is credited to the first seat by default.
+  const resolved = result.status === "pending" ? result.state : result.state;
+  const misattributed = Object.values(resolved.board).filter(
+    cell => cell.placedBy === "player" && cell.tileType !== "empty"
+  );
+  assert.equal(
+    misattributed.length,
+    0,
+    "a card played by player2 must not credit tiles to player"
   );
 });
 

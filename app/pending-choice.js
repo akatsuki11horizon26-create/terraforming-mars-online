@@ -53,8 +53,22 @@ export function collectResourceTargets(state, resourceType, cards, options = {})
   return targets;
 }
 
+// `count` is usually a number, but a few cards express it as a counting rule
+// ("1 per science tag"). Anything non-numeric is resolved by the caller, which
+// knows the game state; without this the raw object reached the resource total
+// and turned it into a string.
+export function resolveCount(spec, context) {
+  const raw = typeof spec === "number" ? spec : spec?.count;
+  if (typeof raw === "number") return raw;
+  if (raw && typeof raw === "object" && typeof context?.evaluateCount === "function") {
+    const value = context.evaluateCount(raw);
+    return Number.isFinite(value) ? value : 1;
+  }
+  return 1;
+}
+
 export function buildResourceChoice(state, spec, context) {
-  const count = typeof spec === "number" ? spec : (spec.count ?? 1);
+  const count = resolveCount(spec, context);
   const resourceType = typeof spec === "object" ? spec.type : undefined;
   const options = collectResourceTargets(state, resourceType, context.cards, {
     mustHaveResources: Boolean(spec?.mustHaveCard),
@@ -89,7 +103,7 @@ export function buildResourceChoice(state, spec, context) {
 }
 
 export function buildStandardResourceChoice(state, spec, context) {
-  const count = typeof spec === "number" ? spec : (spec.count ?? 1);
+  const count = resolveCount(spec, context);
   return {
     id: makeChoiceId("standard-resource", context.sourceId, state.currentPlayerId),
     kind: "standard-resource",

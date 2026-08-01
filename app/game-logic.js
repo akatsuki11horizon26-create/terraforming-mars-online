@@ -421,7 +421,7 @@ function addResource(state, resource, amount) {
   if (resource in state) state[resource] += amount;
 }
 
-function addProduction(state, production) {
+export function applyProduction(state, production) {
   const keys = {
     mc: "mcProd",
     steel: "steelProd",
@@ -432,7 +432,12 @@ function addProduction(state, production) {
   };
   Object.entries(production ?? {}).forEach(([resource, amount]) => {
     const key = keys[resource];
-    if (key) state[key] += amount;
+    // Only MC production may go negative, and only to -5. Every other track
+    // floors at zero, so a card that reduces production can never push a player
+    // into producing a negative amount.
+    if (!key) return;
+    const floor = resource === "mc" ? -5 : 0;
+    state[key] = Math.max(floor, state[key] + amount);
   });
 }
 
@@ -653,6 +658,9 @@ function firstLegalSpace(state, type) {
 }
 
 function placeTile(state, type, count = 1, cardId) {
+  // Tiles belong to whoever is acting, not to a hardcoded "player": in a hotseat
+  // game that credited every tile, and the TR for it, to the first seat.
+  const ownerId = state.currentPlayerId ?? state.players?.[0]?.id ?? "player";
   let placed = 0;
   for (let i = 0; i < count; i++) {
     const cell = firstLegalSpace(state, type);
@@ -660,16 +668,16 @@ function placeTile(state, type, count = 1, cardId) {
     state.board[`${cell.q},${cell.r}`] = {
       ...cell,
       tileType: type,
-      placedBy: type === "ocean" ? null : "player",
+      placedBy: type === "ocean" ? null : ownerId,
     };
     if (cardId && i === 0) state.cardPlacements[cardId] = `${cell.q},${cell.r}`;
     if (type === "ocean") {
       state.oceans = Math.min(9, state.oceans + 1);
-      state.tr += 1;
+      bumpTr(state, ownerId, 1);
     }
     if (type === "forest") {
       state.oxygen = Math.min(14, state.oxygen + 1);
-      state.tr += 1;
+      bumpTr(state, ownerId, 1);
     }
     placed += 1;
   }
@@ -735,7 +743,7 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
     });
   }
 
-  addProduction(nextState, effect.production);
+  applyProduction(nextState, effect.production);
   if (effect.productionDecrease?.resource) {
     const productionKey = `${effect.productionDecrease.resource}Prod`;
     if (productionKey in nextState) nextState[productionKey] = Math.max(0, nextState[productionKey] - effect.productionDecrease.count);
@@ -920,7 +928,12 @@ function queuePendingChoices(state, card, context) {
       const built = buildResourceChoice(state, spec, {
         ...context,
         cards: ALL_CARDS,
-        getResourceType: getCardResourceType
+        getResourceType: getCardResourceType,
+        // A few cards count the amount from the table ("1 per science tag").
+        evaluateCount: rule => {
+          const counted = normalizeCountedAmount(rule);
+          return counted ? evaluateCountedGain(state, counted, state.currentPlayerId) : 1;
+        }
       });
       if (!built) continue;
       // A single legal target needs no decision.
@@ -935,10 +948,13 @@ function queuePendingChoices(state, card, context) {
 }
 
 function applyResourceToCard(state, target, amount) {
+  // Guard the arithmetic: a non-numeric amount would concatenate into the total
+  // and silently turn a resource count into a string.
+  const delta = Number.isFinite(Number(amount)) ? Number(amount) : 1;
   state.players = state.players.map(player => {
     if (player.id !== target.targetPlayerId) return player;
     const cardResources = { ...player.cardResources };
-    cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + amount;
+    cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + delta;
     return { ...player, cardResources };
   });
   return state;
