@@ -202,8 +202,9 @@ div[tabindex="0"]:focus-visible {
 
 .hex-cell {
   position: absolute;
-  width: 54px;
-  height: 46.8px;
+  /* Sized to match the 9-column Tharsis grid positioned in page.tsx. */
+  width: 48px;
+  height: 41.6px;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   cursor: pointer;
   display: flex;

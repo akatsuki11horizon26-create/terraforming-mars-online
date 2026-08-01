@@ -67,3 +67,7 @@ export const THARSIS_CELLS = [
 ];
 
 export const NOCTIS_CITY_ID = "31";
+
+// Middle of the axial coordinate range. Rendering offsets by this so the board
+// sits centred; the origin (0,0) is a corner of this map, not its centre.
+export const BOARD_CENTRE = {"q":4,"r":0};

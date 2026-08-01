@@ -58,6 +58,7 @@ import {
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
+import { BOARD_CENTRE } from "./tharsis-board.js";
 
 interface PlayerRecord {
   id: string;
@@ -231,6 +232,15 @@ const getInitialState = jsGetInitialState as unknown as (options?: {
   colonies?: boolean;
 }) => GameState;
 const getPlaceholderState = jsGetPlaceholderState as unknown as () => GameState;
+
+// Board rendering geometry. The Tharsis map is 9 columns wide, so the hexes are
+// spaced slightly tighter than their 54px width to keep the widest row inside the
+// 460px planet.
+const SPHERE_RADIUS = 230;
+const HEX_WIDTH = 48;
+const HEX_HEIGHT = 41.6;
+const HEX_STEP_X = 46;
+const HEX_STEP_Y = 40;
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
@@ -1518,8 +1528,13 @@ export default function Home() {
                   isValid = isCellPlacementValid(cell, placementMode.type, gameState.board);
                 }
 
-                const left = 230 + 52 * (cell.q + cell.r / 2) - 27;
-                const top = 230 + 45 * cell.r - 23.4;
+                // The axial origin is a corner of the Tharsis map, not its middle
+                // (q runs 0..8), so offset by BOARD_CENTRE or the whole board sits
+                // right of the planet. Spacing is scaled to keep 9 columns inside
+                // the sphere.
+                const left =
+                  SPHERE_RADIUS + HEX_STEP_X * ((cell.q - BOARD_CENTRE.q) + (cell.r - BOARD_CENTRE.r) / 2) - HEX_WIDTH / 2;
+                const top = SPHERE_RADIUS + HEX_STEP_Y * (cell.r - BOARD_CENTRE.r) - HEX_HEIGHT / 2;
 
                 let classes = "hex-cell ";
                 let content = "";

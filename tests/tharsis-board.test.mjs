@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import { THARSIS_CELLS, NOCTIS_CITY_ID } from "../app/tharsis-board.js";
 import { INITIAL_CELLS, getAdjacentCells, getInitialState } from "../app/game-logic.js";
 
@@ -77,6 +78,54 @@ test("Placement bonuses survive generation", () => {
     cell => cell.bonusType === "steel" && cell.bonusAmount === 2
   );
   assert.ok(steelPairs.length > 0, "double-steel spaces exist");
+});
+
+test("The board centre is exported so rendering can offset by it", async () => {
+  const { BOARD_CENTRE } = await import("../app/tharsis-board.js");
+  const qs = THARSIS_CELLS.map(cell => cell.q);
+  const rs = THARSIS_CELLS.map(cell => cell.r);
+
+  // The axial origin is a corner of this map, not its middle: q runs 0..8.
+  // Rendering that assumes (0,0) is central pushes the whole board off the planet.
+  assert.equal(Math.min(...qs), 0);
+  assert.equal(Math.max(...qs), 8);
+  assert.equal(BOARD_CENTRE.q, 4);
+  assert.equal(BOARD_CENTRE.r, 0);
+  assert.equal(BOARD_CENTRE.q, (Math.min(...qs) + Math.max(...qs)) / 2);
+  assert.equal(BOARD_CENTRE.r, (Math.min(...rs) + Math.max(...rs)) / 2);
+});
+
+test("Every hex lands inside the planet once centred", async () => {
+  const { BOARD_CENTRE } = await import("../app/tharsis-board.js");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  const num = name => Number(page.match(new RegExp(`const ${name} = ([\\d.]+)`))[1]);
+  const radius = num("SPHERE_RADIUS");
+  const width = num("HEX_WIDTH");
+  const height = num("HEX_HEIGHT");
+  const stepX = num("HEX_STEP_X");
+  const stepY = num("HEX_STEP_Y");
+
+  let minLeft = Infinity;
+  let maxRight = -Infinity;
+  let minTop = Infinity;
+  let maxBottom = -Infinity;
+
+  for (const cell of THARSIS_CELLS) {
+    const left =
+      radius + stepX * ((cell.q - BOARD_CENTRE.q) + (cell.r - BOARD_CENTRE.r) / 2) - width / 2;
+    const top = radius + stepY * (cell.r - BOARD_CENTRE.r) - height / 2;
+    minLeft = Math.min(minLeft, left);
+    maxRight = Math.max(maxRight, left + width);
+    minTop = Math.min(minTop, top);
+    maxBottom = Math.max(maxBottom, top + height);
+  }
+
+  const diameter = radius * 2;
+  assert.ok(minLeft >= 0 && maxRight <= diameter, "the board fits horizontally");
+  assert.ok(minTop >= 0 && maxBottom <= diameter, "the board fits vertically");
+  assert.ok(Math.abs((minLeft + maxRight) / 2 - radius) < 1, "centred horizontally");
+  assert.ok(Math.abs((minTop + maxBottom) / 2 - radius) < 1, "centred vertically");
 });
 
 test("A fresh game instantiates all 61 spaces as empty", () => {

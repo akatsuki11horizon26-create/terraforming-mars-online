@@ -199,12 +199,25 @@ const body = cells
   .map(cell => `  ${JSON.stringify(cell)}`)
   .join(",\n");
 
+// The axial origin is not the middle of the board: q runs 0..8 here, so anything
+// drawing hexes has to offset by the centre rather than assume (0,0).
+const qValues = cells.map(cell => cell.q);
+const rValues = cells.map(cell => cell.r);
+const centre = {
+  q: (Math.min(...qValues) + Math.max(...qValues)) / 2,
+  r: (Math.min(...rValues) + Math.max(...rValues)) / 2
+};
+
 const out = `${banner}
 export const THARSIS_CELLS = [
 ${body}
 ];
 
 export const NOCTIS_CITY_ID = ${JSON.stringify(NOCTIS_CITY_ID)};
+
+// Middle of the axial coordinate range. Rendering offsets by this so the board
+// sits centred; the origin (0,0) is a corner of this map, not its centre.
+export const BOARD_CENTRE = ${JSON.stringify(centre)};
 `;
 
 const target = resolve(process.cwd(), "app", "tharsis-board.js");
