@@ -32,9 +32,10 @@ export const MILESTONES = [
   {
     id: "terraformer",
     name: "テラフォーマー",
-    description: "TR 35以上",
+    // Turmoil lowers the requirement because TR is harder to gain, so the text
+    // is built from the live threshold rather than fixed at 35.
+    describe: threshold => `TR ${threshold}以上`,
     threshold: 35,
-    // Turmoil lowers the requirement because TR is harder to gain.
     turmoilThreshold: 26,
     getScore: context => context.player.tr
   },
@@ -126,6 +127,15 @@ export function getMilestoneThreshold(milestone, state) {
   return state?.turmoil && milestone.turmoilThreshold !== undefined
     ? milestone.turmoilThreshold
     : milestone.threshold;
+}
+
+// A milestone whose requirement moves with Turmoil describes itself from the
+// live threshold; the rest carry a fixed description.
+export function getMilestoneDescription(milestone, state) {
+  if (typeof milestone.describe === "function") {
+    return milestone.describe(getMilestoneThreshold(milestone, state));
+  }
+  return milestone.description ?? "";
 }
 
 export function getNextAwardCost(state) {

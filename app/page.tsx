@@ -330,11 +330,13 @@ export default function Home() {
       reason: string;
       score: number;
       threshold: number;
+      description: string;
     };
     return {
       id: milestone.id,
       name: milestone.name,
-      description: milestone.description,
+      // Turmoil lowers the Terraformer requirement, so take the resolved text.
+      description: status.description || milestone.description,
       score: status.score,
       threshold: status.threshold,
       claimable: status.claimable,

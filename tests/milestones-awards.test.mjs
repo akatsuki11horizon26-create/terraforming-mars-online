@@ -30,6 +30,25 @@ test("Tharsis offers the five official milestones and awards", () => {
   );
 });
 
+test("The Terraformer description follows the live threshold", () => {
+  const plain = getInitialState();
+  const plainStatus = getMilestoneStatus(plain, "terraformer", "player");
+  assert.equal(plainStatus.threshold, 35);
+  assert.equal(plainStatus.description, "TR 35以上");
+
+  // Turmoil lowers the requirement to 26; the text must move with it or the
+  // panel reads "TR 35以上" beside a 26/26 progress line.
+  const turmoil = getInitialState({ playerCount: 2, turmoil: true });
+  const turmoilStatus = getMilestoneStatus(turmoil, "terraformer", "player");
+  assert.equal(turmoilStatus.threshold, 26);
+  assert.equal(turmoilStatus.description, "TR 26以上");
+});
+
+test("Fixed-requirement milestones keep their own description", () => {
+  const state = getInitialState({ playerCount: 2, turmoil: true });
+  assert.equal(getMilestoneStatus(state, "mayor", "player").description, "都市タイル3枚以上");
+});
+
 test("A milestone cannot be claimed below its threshold", () => {
   const state = getInitialState();
   const status = getMilestoneStatus(state, "terraformer", "player");

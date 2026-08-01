@@ -18,12 +18,13 @@ import {
   computeMilestoneVp,
   getAward,
   getMilestone,
+  getMilestoneDescription,
   getMilestoneThreshold,
   getNextAwardCost,
   scoreAward
 } from "./milestones-awards.js";
 
-export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneThreshold, scoreAward };
+export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMilestoneThreshold, scoreAward };
 import {
   buildBranchChoice,
   buildResourceChoice,
@@ -1645,29 +1646,30 @@ function milestoneContext(state, player) {
 
 export function getMilestoneStatus(state, milestoneId, playerId) {
   const milestone = getMilestone(milestoneId);
-  if (!milestone) return { claimable: false, reason: "不明なマイルストーンです。", score: 0, threshold: 0 };
+  if (!milestone) return { claimable: false, reason: "不明なマイルストーンです。", score: 0, threshold: 0, description: "" };
 
   const player = getPlayer(state, playerId);
-  if (!player) return { claimable: false, reason: "プレイヤーが見つかりません。", score: 0, threshold: 0 };
+  if (!player) return { claimable: false, reason: "プレイヤーが見つかりません。", score: 0, threshold: 0, description: "" };
 
   const threshold = getMilestoneThreshold(milestone, state);
+  const description = getMilestoneDescription(milestone, state);
   const score = milestone.getScore(milestoneContext(state, player));
   const claimed = (state.claimedMilestones ?? []).find(entry => entry.milestoneId === milestoneId);
 
   if (claimed) {
     const owner = getPlayer(state, claimed.playerId);
-    return { claimable: false, reason: `${owner?.name ?? claimed.playerId}が獲得済みです。`, score, threshold };
+    return { claimable: false, reason: `${owner?.name ?? claimed.playerId}が獲得済みです。`, score, threshold, description };
   }
   if ((state.claimedMilestones ?? []).length >= MAX_MILESTONES) {
-    return { claimable: false, reason: "マイルストーンは3つまでしか獲得できません。", score, threshold };
+    return { claimable: false, reason: "マイルストーンは3つまでしか獲得できません。", score, threshold, description };
   }
   if (score < threshold) {
-    return { claimable: false, reason: `条件を満たしていません (${score}/${threshold})。`, score, threshold };
+    return { claimable: false, reason: `条件を満たしていません (${score}/${threshold})。`, score, threshold, description };
   }
   if (player.mc < MILESTONE_COST) {
-    return { claimable: false, reason: `${MILESTONE_COST} MC必要です。`, score, threshold };
+    return { claimable: false, reason: `${MILESTONE_COST} MC必要です。`, score, threshold, description };
   }
-  return { claimable: true, reason: "", score, threshold };
+  return { claimable: true, reason: "", score, threshold, description };
 }
 
 export function claimMilestone(state, milestoneId, logs, playerId) {
