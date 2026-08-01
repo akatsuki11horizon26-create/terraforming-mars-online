@@ -69,6 +69,20 @@ HellasとElysiumはカード拡張ではないため、今回のカード台帳�
 
 参照実装から自動ロードできなかった6枚は、生成スクリプト内の補完定義で保持している。
 
+`app/player-state.js`は`players`配列とレガシー互換アクセサを持つ。旧来の`state.mc`等は非列挙アクセサで`players[0]`へ透過するため、保存データには載らない。`{ ...state }`ではアクセサが落ちるので、状態のコピーは必ず`cloneGameState`を通すこと。
+
+`app/save-migration.js`はrulesVersion 3のセーブをv4へ変換する。破棄しない。
+
+`app/pending-choice.js`と`app/game-types.ts`は選択待ち状態の構築と型を担当する。
+
+`app/turmoil.js`、`app/colonies.js`は各拡張の状態機械である。
+
+`app/tharsis-board.js`、`app/card-resource-types.js`、`app/colony-tiles.js`は生成物であり手編集しない。それぞれ`scripts/generate-tharsis-board.mjs`、`scripts/generate-card-resource-types.mjs`、`scripts/generate-colony-tiles.mjs`で再生成する。
+
+`app/expansion-panels.tsx`と`app/expansion-ui.css`は追加UIである。既存の4色トークンとアクセシビリティ対応を継承する。
+
+参照実装は`C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-reference`に現存する。本引き継ぎ書の旧版は消失を想定していたが実在した。盤面・マイルストーン・表彰・Turmoil・Coloniesのデータはすべてここから抽出している。tempディレクトリのため消える可能性があるが、生成物はリポジトリにコミット済みである。
+
 `scripts/export-static.mjs`はサーバー出力をGitHub Pages向けの静的ファイルへ変換する。
 
 GitHub Pagesのリポジトリ名を変更した場合は、`BASE_PATH`を新しいリポジトリ名に合わせて設定する必要がある。
