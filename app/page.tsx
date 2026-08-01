@@ -27,6 +27,7 @@ import {
   applyCardAction as jsApplyCardAction,
   getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
+import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
 
 interface CellState {
   q: number;
@@ -178,41 +179,22 @@ export default function Home() {
   const [selectedSellCardIds, setSelectedSellCardIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("mars_frontier_game");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          parsed.rulesVersion === 3 &&
-          "generation" in parsed &&
-          typeof parsed.generationStartTr === "number" &&
-          ["setup", "research", "action", "production", "final_greenery", "game_over"].includes(parsed.phase) &&
-          Array.isArray(parsed.researchCards) &&
-          Array.isArray(parsed.corporationOptions) &&
-          Array.isArray(parsed.preludeOptions) &&
-          Array.isArray(parsed.selectedPreludeIds) &&
-          parsed.cardPlacements &&
-          typeof parsed.cardPlacements === "object" &&
-          typeof parsed.setupStep === "string" &&
-          typeof parsed.pendingOceans === "number"
-        ) {
-          setTimeout(() => {
-            setGameState(parsed);
-          }, 0);
-        } else {
-          localStorage.removeItem("mars_frontier_game");
-        }
-      } catch (e) {
-        console.error("Failed to parse saved game state", e);
-      }
+    const saved = localStorage.getItem(SAVE_KEY);
+    if (!saved) return;
+    // v3 saves are converted to the canonical shape; unusable ones are dropped.
+    const restored = loadSavedState(saved) as GameState | null;
+    if (restored) {
+      setTimeout(() => {
+        setGameState(restored);
+      }, 0);
+    } else {
+      localStorage.removeItem(SAVE_KEY);
     }
   }, []);
 
   const saveState = (newState: GameState) => {
     setGameState(newState);
-    localStorage.setItem("mars_frontier_game", JSON.stringify(newState));
+    localStorage.setItem(SAVE_KEY, serializeSavedState(newState));
   };
 
   const initGame = () => {
