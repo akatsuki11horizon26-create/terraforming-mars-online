@@ -1,3 +1,4 @@
+import { localizeCard } from "./japanese-text.js";
 import { FULL_CORPORATIONS, FULL_GLOBAL_EVENTS, FULL_PRELUDES, FULL_PROJECTS, FULL_STANDARD_ACTIONS, FULL_STANDARD_PROJECTS } from "./full-card-catalog.js";
 
 const project = (id, name, cost, tags, type, effectText, effect, extra = {}) => ({
@@ -47,15 +48,15 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-inventrix", "Inventrix", ["Science"], { mc: 45 }, "最初のアクションでカード3枚を引く。条件の数値条件を±2緩和。", { requirementBuffer: 2, firstActionDraw: 3 }),
   corporation("corp-mining-guild", "Mining Guild", ["Building", "Building"], { mc: 30, steel: 5, production: { steel: 1 } }, "建材またはチタンの配置ボーナスに置くたび建材生産量+1。", { miningBonus: true }),
   corporation("corp-phobolog", "PhoboLog", ["Space"], { mc: 23, titanium: 10 }, "チタン1個の価値がMC3。", { titaniumValue: 3 }),
-  corporation("corp-saturn", "Saturn Systems", ["Jovian"], { mc: 42, production: { titanium: 1 } }, "Jovianタグが場に出るたびMC生産量+1。", { jovianProduction: 1 }),
-  corporation("corp-teractor", "Teractor", ["Earth"], { mc: 60 }, "Earthタグのカードコスト-3。", { earthDiscount: 3 }),
+  corporation("corp-saturn", "Saturn Systems", ["Jovian"], { mc: 42, production: { titanium: 1 } }, "ジョビアンタグが場に出るたびMC生産量+1。", { jovianProduction: 1 }),
+  corporation("corp-teractor", "Teractor", ["Earth"], { mc: 60 }, "地球タグのカードコスト-3。", { earthDiscount: 3 }),
   corporation("corp-tharsis", "Tharsis Republic", ["Building"], { mc: 40 }, "最初のアクションで都市1枚。都市が置かれるたびMC生産量+1、自分が都市を置くとMC3。", { firstCity: true, cityProduction: 1, ownCityBonus: 3 }),
-  corporation("corp-thorgate", "Thorgate", ["Power"], { mc: 48, production: { energy: 1 } }, "エネルギー生産量+1。Powerタグのカードコスト-3。", { powerDiscount: 3 }),
+  corporation("corp-thorgate", "Thorgate", ["Power"], { mc: 48, production: { energy: 1 } }, "エネルギー生産量+1。電力タグのカードコスト-3。", { powerDiscount: 3 }),
   corporation("corp-unmi", "United Nations Mars Initiative", ["Earth"], { mc: 40 }, "アクション: この世代にTRが上がっていればMC3でTR+1。", { trActionCost: 3 }),
   corporation("corp-cheung-shing", "Cheung Shing MARS", ["Building"], { mc: 44, production: { mc: 3 } }, "MC生産量+3。建物タグのカードコスト-2。", { buildingDiscount: 2 }),
-  corporation("corp-point-luna", "Point Luna", ["Earth"], { mc: 38, production: { titanium: 1 } }, "チタン生産量+1。Earthタグをプレイするたび1枚引く。", { earthDraw: 1 }),
+  corporation("corp-point-luna", "Point Luna", ["Earth"], { mc: 38, production: { titanium: 1 } }, "チタン生産量+1。地球タグをプレイするたび1枚引く。", { earthDraw: 1 }),
   corporation("corp-robinson", "Robinson Industries", [], { mc: 47 }, "アクション: MC4で任意の生産量+1。", { productionActionCost: 4 }),
-  corporation("corp-valley-trust", "Valley Trust", ["Earth"], { mc: 37 }, "最初のアクションでPreludeを3枚見て1枚プレイする。科学タグのカードコスト-2。", { firstPrelude: true, scienceDiscount: 2 }),
+  corporation("corp-valley-trust", "Valley Trust", ["Earth"], { mc: 37 }, "最初のアクションでプレリュードを3枚見て1枚プレイする。科学タグのカードコスト-2。", { firstPrelude: true, scienceDiscount: 2 }),
   corporation("corp-vitor", "Vitor", ["Earth"], { mc: 45 }, "最初のアクションで賞を無料で設立する。VP付きカードを出すとMC3。", { firstAward: true, vpBonus: 3 }),
 ];
 
@@ -92,7 +93,7 @@ const CURATED_PRELUDE_OVERRIDES = [
   prelude("prelude-mohole", "Mohole", "熱生産量+3、熱3。", { production: { heat: 3 }, heat: 3 }, { tags: ["Building"] }),
   prelude("prelude-metal-rich-asteroid", "Metal-Rich Asteroid", "気温1段階、チタン4、建材4。", { temperatureSteps: 1, titanium: 4, steel: 4 }, { tags: ["Space"] }),
   prelude("prelude-orbital-construction-yard", "Orbital Construction Yard", "チタン生産量+1、チタン4。", { production: { titanium: 1 }, titanium: 4 }, { tags: ["Space"] }),
-  prelude("prelude-acquired-space-agency", "Acquired Space Agency", "チタン6、山札からSpaceタグ2枚を手札へ。", { titanium: 6, draw: 2, drawTag: "Space" }, { tags: ["Space"] }),
+  prelude("prelude-acquired-space-agency", "Acquired Space Agency", "チタン6、山札から宇宙タグ2枚を手札へ。", { titanium: 6, draw: 2, drawTag: "Space" }, { tags: ["Space"] }),
   prelude("prelude-research-network", "Research Network", "MC生産量+1、カード3枚。ワイルドタグを持つ。", { production: { mc: 1 }, draw: 3, wildTag: true }, { tags: ["Science"] }),
   prelude("prelude-eccentric-sponsor", "Eccentric Sponsor", "手札のカード1枚をコスト25軽減してプレイ。", { freePlayDiscount: 25 }, { tags: ["Earth"] }),
   prelude("prelude-ecology-experts", "Ecology Experts", "植物生産量+1。手札のカード1枚を地球条件無視でプレイ。", { production: { plants: 1 }, freePlayIgnoreGlobal: true }, { tags: ["Plant"] }),
@@ -107,10 +108,14 @@ const mergeCatalog = (catalog, overrides) => {
   return [...merged, ...overrides.filter(item => !catalogNames.has(canonicalName(item.name)))];
 };
 
-export const OFFICIAL_PROJECTS = mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES);
-export const CORPORATIONS = mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES);
-export const PRELUDES = mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVERRIDES);
-export const GLOBAL_EVENTS = FULL_GLOBAL_EVENTS;
-export const STANDARD_PROJECTS = FULL_STANDARD_PROJECTS;
-export const STANDARD_ACTIONS = FULL_STANDARD_ACTIONS;
+// Japanese names and effect text, applied after the curated overrides so a
+// hand-written Japanese entry always wins over the generated one.
+const localize = cards => cards.map(card => localizeCard(card));
+
+export const OFFICIAL_PROJECTS = localize(mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES));
+export const CORPORATIONS = localize(mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES));
+export const PRELUDES = localize(mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVERRIDES));
+export const GLOBAL_EVENTS = localize(FULL_GLOBAL_EVENTS);
+export const STANDARD_PROJECTS = localize(FULL_STANDARD_PROJECTS);
+export const STANDARD_ACTIONS = localize(FULL_STANDARD_ACTIONS);
 export const OFFICIAL_CONTENT_VERSION = 2;

@@ -1318,7 +1318,7 @@ export default function Home() {
           <button className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowRestartConfirm(true)}>
             指令リセット
           </button>
-          <span className="header-version">UNOFFICIAL FAN-MADE PROTOTYPE</span>
+          <span className="header-version">非公式ファンメイド試作版</span>
         </div>
       </header>
 
@@ -1332,7 +1332,7 @@ export default function Home() {
         {/* Left Column: Global Telemetry */}
         <div className="cyber-panel">
           <div className="cyber-panel-header">
-            <h2 className="cyber-panel-title">GLOBAL TELEMETRY</h2>
+            <h2 className="cyber-panel-title">惑星データ</h2>
           </div>
           <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
             <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
@@ -1598,7 +1598,7 @@ export default function Home() {
           {/* Resource Panel */}
           <div className="cyber-panel" style={{ flex: 1 }}>
             <div className="cyber-panel-header">
-              <h2 className="cyber-panel-title">RESOURCES</h2>
+              <h2 className="cyber-panel-title">資源</h2>
             </div>
             <div className="cyber-panel-content">
               <div className="resources-grid">
@@ -1779,7 +1779,7 @@ export default function Home() {
           {gameState.phase === "action" && (
             <div className="cyber-panel">
               <div className="cyber-panel-header">
-                <h2 className="cyber-panel-title">STANDARD PROJECTS</h2>
+                <h2 className="cyber-panel-title">標準プロジェクト</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(gameState.corporationId ?? "") && (
@@ -2209,7 +2209,7 @@ export default function Home() {
       {/* Log area */}
       <div className="cyber-panel" style={{ margin: "16px", flex: "none" }}>
         <div className="cyber-panel-header">
-          <h2 className="cyber-panel-title">MISSION LOGS</h2>
+          <h2 className="cyber-panel-title">ミッションログ</h2>
         </div>
         <div className="cyber-panel-content" style={{ padding: "8px" }}>
           <div className="log-container">

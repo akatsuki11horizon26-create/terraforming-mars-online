@@ -138,15 +138,15 @@ test("active card action enforces payment and applies its effect", () => {
 
 test("generated catalog effects cover production, discounts, and dynamic VP", () => {
   const state = getInitialState();
-  const earthCatapult = ALL_CARDS.find(card => card.name === "Earth Catapult");
-  const adaptation = ALL_CARDS.find(card => card.name === "Adaptation Technology");
-  const ants = ALL_CARDS.find(card => card.name === "Ants");
+  const earthCatapult = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Earth Catapult");
+  const adaptation = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Adaptation Technology");
+  const ants = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Ants");
   const catapultResult = applyCardEffect(state, earthCatapult, []);
   assert.equal(catapultResult.state.cardDiscounts.all, 2);
   assert.equal(getCardPaymentCost({ ...ants, cost: 10 }, catapultResult.state), 8);
   const adaptationResult = applyCardEffect(state, adaptation, []);
   assert.equal(adaptationResult.state.globalRequirementBuffer, 2);
-  const acquiredCompany = ALL_CARDS.find(card => card.name === "Acquired Company");
+  const acquiredCompany = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Acquired Company");
   assert.equal(getCardPlayableStatus({ ...acquiredCompany, cost: 0 }, adaptationResult.state).playable, true);
   const antResult = applyCardEffect(state, ants, []);
   antResult.state.cardResources[ants.id] = 4;

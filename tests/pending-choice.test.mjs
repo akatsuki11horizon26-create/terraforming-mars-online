@@ -174,7 +174,7 @@ test("Special tiles occupy a space and keep their identity", () => {
 });
 
 test("Counted gains scale with what is on the table", () => {
-  const prOffice = ALL_CARDS.find(card => card.name === "PR Office");
+  const prOffice = ALL_CARDS.find(card => (card.englishName ?? card.name) === "PR Office");
   const state = getInitialState();
   state.players[0].playedProjects = ALL_CARDS.filter(card => card.tags?.includes("Earth"))
     .slice(0, 3)
@@ -186,7 +186,7 @@ test("Counted gains scale with what is on the table", () => {
 });
 
 test("City counts include every player's cities", () => {
-  const aerosport = ALL_CARDS.find(card => card.name === "Aerosport Tournament");
+  const aerosport = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Aerosport Tournament");
   const state = getInitialState({ playerCount: 2 });
 
   const land = Object.values(state.board)
