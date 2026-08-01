@@ -28,6 +28,56 @@ import {
   getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
 import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
+import {
+  AwardPanel,
+  ColonyPanel,
+  MilestonePanel,
+  PendingChoiceDialog,
+  PlayerBar,
+  TurmoilPanel
+} from "./expansion-panels";
+import {
+  MILESTONES as jsMILESTONES,
+  AWARDS as jsAWARDS,
+  PARTIES as jsPARTIES,
+  claimMilestone as jsClaimMilestone,
+  fundAward as jsFundAward,
+  getMilestoneStatus as jsGetMilestoneStatus,
+  getAwardStatus as jsGetAwardStatus,
+  getNextAwardCost as jsGetNextAwardCost,
+  getInfluence as jsGetInfluence,
+  sendDelegateToParty as jsSendDelegateToParty,
+  buildColonyOn as jsBuildColonyOn,
+  tradeWith as jsTradeWith,
+  canBuildColony as jsCanBuildColony,
+  canTrade as jsCanTrade,
+  availableFleets as jsAvailableFleets,
+  getColonyTile as jsGetColonyTile,
+  resolvePendingChoice as jsResolvePendingChoice,
+  GLOBAL_EVENTS as jsGLOBAL_EVENTS
+} from "./game-logic.js";
+
+interface PlayerRecord {
+  id: string;
+  name: string;
+  tr: number;
+  mc: number;
+  passed?: boolean;
+}
+interface MilestoneDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+type AwardDefinition = MilestoneDefinition;
+interface PartyDefinition {
+  id: string;
+  name: string;
+}
+interface ColonyDefinition {
+  name: string;
+  trade?: { description?: string; quantity?: number[]; resourceTrack?: string[] };
+}
 
 interface CellState {
   q: number;
@@ -125,6 +175,46 @@ interface GameState {
   isGameOver: boolean;
   gameResult: "win" | "loss" | null;
   onboarded: boolean;
+  // Canonical multiplayer state. The flat fields above remain readable through
+  // the compatibility accessors installed by player-state.js.
+  mode?: "solo" | "hotseat";
+  players?: PlayerRecord[];
+  turnOrder?: string[];
+  currentPlayerId?: string;
+  claimedMilestones?: { milestoneId: string; playerId: string }[];
+  fundedAwards?: { awardId: string; playerId: string }[];
+  pendingChoice?: {
+    id: string;
+    kind: string;
+    ownerPlayerId: string;
+    prompt: string;
+    optional: boolean;
+    options: {
+      id: string;
+      label: string;
+      targetCardId?: string;
+      targetCellKey?: string;
+      resource?: string;
+      amount?: number;
+    }[];
+    continuation: { remaining?: number };
+  } | null;
+  turmoil?: {
+    chairman: string;
+    rulingParty: string;
+    dominantParty: string;
+    parties: Record<string, { delegates: string[]; leader: string | null }>;
+    lobby: string[];
+    currentEvent: string | null;
+    comingEvent: string | null;
+    distantEvent: string | null;
+  } | null;
+  colonies?: {
+    tilesInPlay: string[];
+    tiles: Record<string, { id: string; trackPosition: number; colonies: string[] }>;
+    fleets: Record<string, number>;
+    usedFleets: Record<string, number>;
+  } | null;
 }
 
 // Cast untyped imports to strongly-typed constants
@@ -195,6 +285,183 @@ export default function Home() {
   const saveState = (newState: GameState) => {
     setGameState(newState);
     localStorage.setItem(SAVE_KEY, serializeSavedState(newState));
+  };
+
+  // --- Expansion and multiplayer surfaces -------------------------------
+
+  const players = (gameState.players ?? []) as PlayerRecord[];
+  const currentPlayerId = gameState.currentPlayerId ?? players[0]?.id ?? "player";
+  const pendingChoice = gameState.pendingChoice ?? null;
+
+  const playerSummaries = players.map(player => ({
+    id: player.id,
+    name: player.name,
+    tr: player.tr,
+    mc: player.mc,
+    passed: player.passed
+  }));
+
+  const nameOf = (playerId?: string) =>
+    playerId === "NEUTRAL"
+      ? "中立"
+      : players.find(player => player.id === playerId)?.name ?? playerId ?? "";
+
+  const runEngine = (result: { state?: GameState; logs?: LogEntry[] }) => {
+    if (!result?.state) return;
+    const next = { ...result.state, logs: result.logs ?? result.state.logs };
+    saveState(next as GameState);
+  };
+
+  const handleResolveChoice = (optionId: string) => {
+    runEngine(
+      jsResolvePendingChoice(gameState, optionId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const milestoneViews = (jsMILESTONES as MilestoneDefinition[]).map(milestone => {
+    const claimed = (gameState.claimedMilestones ?? []).find(
+      entry => entry.milestoneId === milestone.id
+    );
+    const status = jsGetMilestoneStatus(gameState, milestone.id, currentPlayerId) as {
+      claimable: boolean;
+      reason: string;
+      score: number;
+      threshold: number;
+    };
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      description: milestone.description,
+      score: status.score,
+      threshold: status.threshold,
+      claimable: status.claimable,
+      reason: status.reason,
+      ownerName: claimed ? nameOf(claimed.playerId) : undefined
+    };
+  });
+
+  const awardViews = (jsAWARDS as AwardDefinition[]).map(award => {
+    const funded = (gameState.fundedAwards ?? []).find(entry => entry.awardId === award.id);
+    const status = jsGetAwardStatus(gameState, award.id, currentPlayerId) as {
+      fundable: boolean;
+      reason: string;
+      cost: number;
+    };
+    return {
+      id: award.id,
+      name: award.name,
+      description: award.description,
+      fundable: status.fundable,
+      reason: status.reason,
+      cost: status.cost ?? 0,
+      ownerName: funded ? nameOf(funded.playerId) : undefined
+    };
+  });
+
+  const turmoilView = gameState.turmoil
+    ? {
+        chairmanName: nameOf(gameState.turmoil.chairman),
+        influence: jsGetInfluence(gameState.turmoil, currentPlayerId) as number,
+        parties: (jsPARTIES as PartyDefinition[]).map(party => {
+          const seat = gameState.turmoil!.parties[party.id];
+          return {
+            id: party.id,
+            name: party.name,
+            delegates: seat?.delegates ?? [],
+            leaderName: seat?.leader ? nameOf(seat.leader) : undefined,
+            isRuling: gameState.turmoil!.rulingParty === party.id,
+            isDominant: gameState.turmoil!.dominantParty === party.id
+          };
+        }),
+        events: (
+          [
+            ["current", "現行"],
+            ["coming", "次回"],
+            ["distant", "予告"]
+          ] as const
+        ).map(([slot, label]) => {
+          const id = gameState.turmoil![`${slot}Event` as const];
+          const event = (jsGLOBAL_EVENTS as { id: string; name: string }[]).find(
+            item => item.id === id
+          );
+          return { slot, label, name: event?.name ?? "—" };
+        })
+      }
+    : null;
+
+  const colonyViews = gameState.colonies
+    ? gameState.colonies.tilesInPlay.map(tileId => {
+        const tile = gameState.colonies!.tiles[tileId];
+        const definition = jsGetColonyTile(tileId) as ColonyDefinition;
+        const build = jsCanBuildColony(gameState.colonies, tileId, currentPlayerId) as {
+          ok: boolean;
+          reason: string;
+        };
+        const tradeCheck = jsCanTrade(gameState.colonies, tileId, currentPlayerId) as {
+          ok: boolean;
+          reason: string;
+        };
+        return {
+          id: tileId,
+          name: definition?.name ?? tileId,
+          tradeDescription: definition?.trade?.description ?? "",
+          track: definition?.trade?.quantity ?? definition?.trade?.resourceTrack ?? [],
+          trackPosition: tile?.trackPosition ?? 0,
+          colonies: (tile?.colonies ?? []).map(nameOf),
+          canBuild: build.ok,
+          buildReason: build.reason,
+          canTrade: tradeCheck.ok,
+          tradeReason: tradeCheck.reason
+        };
+      })
+    : [];
+
+  const handleClaimMilestone = (milestoneId: string) => {
+    runEngine(
+      jsClaimMilestone(gameState, milestoneId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleFundAward = (awardId: string) => {
+    runEngine(
+      jsFundAward(gameState, awardId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleSendDelegate = (partyId: string) => {
+    runEngine(
+      jsSendDelegateToParty(gameState, partyId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleBuildColony = (tileId: string) => {
+    runEngine(
+      jsBuildColonyOn(gameState, tileId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleTradeWithColony = (tileId: string) => {
+    runEngine(
+      jsTradeWith(gameState, tileId, gameState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
   };
 
   const initGame = () => {
@@ -1019,6 +1286,12 @@ export default function Home() {
         </div>
       </header>
 
+      {players.length > 1 && (
+        <div style={{ padding: "10px 16px 0" }}>
+          <PlayerBar players={playerSummaries} currentPlayerId={currentPlayerId} />
+        </div>
+      )}
+
       <main className="main-content">
         {/* Left Column: Global Telemetry */}
         <div className="cyber-panel">
@@ -1640,8 +1913,47 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* Milestones, awards and the expansion boards. These only render
+              when the matching state exists, so a plain solo game is unchanged. */}
+          {gameState.phase !== "setup" && (
+            <div className="cyber-panel" style={{ marginTop: "12px" }}>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <MilestonePanel milestones={milestoneViews} onClaim={handleClaimMilestone} />
+                <AwardPanel
+                  awards={awardViews}
+                  nextCost={jsGetNextAwardCost(gameState) as number}
+                  onFund={handleFundAward}
+                />
+                {turmoilView && (
+                  <TurmoilPanel
+                    parties={turmoilView.parties}
+                    chairmanName={turmoilView.chairmanName}
+                    influence={turmoilView.influence}
+                    events={turmoilView.events}
+                    canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
+                    onSendDelegate={handleSendDelegate}
+                  />
+                )}
+                {colonyViews.length > 0 && (
+                  <ColonyPanel
+                    colonies={colonyViews}
+                    fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
+                    onBuild={handleBuildColony}
+                    onTrade={handleTradeWithColony}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
+      <PendingChoiceDialog
+        choice={pendingChoice}
+        players={playerSummaries}
+        onResolve={handleResolveChoice}
+      />
 
       {/* Hand Cards area */}
       {gameState.phase === "action" && (
