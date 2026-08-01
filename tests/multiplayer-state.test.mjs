@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, triggerProduction, handleActionSpend } from "../app/game-logic.js";
+import { getInitialState, getPlaceholderState, triggerProduction, handleActionSpend } from "../app/game-logic.js";
 import { cloneGameState, withLegacyPlayerAccessors } from "../app/player-state.js";
 import { loadSavedState, serializeSavedState, CURRENT_RULES_VERSION } from "../app/save-migration.js";
 
@@ -189,6 +189,46 @@ test("Corrupt and unknown saves are rejected", () => {
   };
   duplicateIds.players[1].id = "player";
   assert.equal(loadSavedState(JSON.stringify(duplicateIds)), null, "duplicate player ids are invalid");
+});
+
+test("The placeholder state is deterministic so hydration matches", () => {
+  const first = JSON.stringify({ ...getPlaceholderState() });
+  const second = JSON.stringify({ ...getPlaceholderState() });
+  assert.equal(first, second, "two calls must produce identical state");
+
+  const state = getPlaceholderState();
+  assert.equal(Object.keys(state.board).length, 61);
+  assert.equal(
+    Object.values(state.board).filter(cell => cell.placedBy !== null).length,
+    0,
+    "no neutral tiles, because placing them consumes the shuffled deck"
+  );
+  assert.equal(state.deck.length, 0);
+  assert.equal(state.players[0].corporationOptions.length, 0);
+  assert.equal(state.phase, "setup");
+  assert.equal(state.mc, 42, "legacy accessors are attached");
+});
+
+test("Re-attaching accessors repairs a state that was spread", () => {
+  // page.tsx builds next states with `{ ...gameState }`, which drops the
+  // non-enumerable accessors and made gameState.playedProjects undefined.
+  const state = getInitialState();
+  const spread = { ...state };
+  assert.equal(spread.playedProjects, undefined, "a bare spread loses the accessors");
+
+  const repaired = withLegacyPlayerAccessors(spread);
+  assert.ok(Array.isArray(repaired.playedProjects));
+  assert.equal(repaired.mc, 42);
+
+  repaired.mc = 7;
+  assert.equal(repaired.players[0].mc, 7, "writes still reach canonical state");
+
+  const json = JSON.parse(JSON.stringify({ ...repaired }));
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(json, "mc"),
+    false,
+    "repairing must not make the accessors serializable"
+  );
 });
 
 test("withLegacyPlayerAccessors is safe to apply twice", () => {

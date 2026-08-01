@@ -6,6 +6,7 @@ import {
   CORPORATIONS as jsCORPORATIONS,
   PRELUDES as jsPRELUDES,
   getInitialState as jsGetInitialState,
+  getPlaceholderState as jsGetPlaceholderState,
   computeScore as jsComputeScore,
   getCardDiscount as jsGetCardDiscount,
   getCardPaymentCost as jsGetCardPaymentCost,
@@ -54,7 +55,8 @@ import {
   availableFleets as jsAvailableFleets,
   getColonyTile as jsGetColonyTile,
   resolvePendingChoice as jsResolvePendingChoice,
-  GLOBAL_EVENTS as jsGLOBAL_EVENTS
+  GLOBAL_EVENTS as jsGLOBAL_EVENTS,
+  withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
 
 interface PlayerRecord {
@@ -221,7 +223,14 @@ interface GameState {
 const ALL_CARDS = jsALL_CARDS as unknown as Card[];
 const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
-const getInitialState = jsGetInitialState as unknown as () => GameState;
+const getInitialState = jsGetInitialState as unknown as (options?: {
+  playerCount?: number;
+  mode?: "solo" | "hotseat";
+  playerNames?: string[];
+  turmoil?: boolean;
+  colonies?: boolean;
+}) => GameState;
+const getPlaceholderState = jsGetPlaceholderState as unknown as () => GameState;
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
@@ -244,7 +253,18 @@ const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card:
 const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
-  const [gameState, setGameState] = useState<GameState>(getInitialState);
+  // getInitialState shuffles the deck, and solo neutral tiles are now placed from
+  // that shuffle, so calling it during render makes the server and client draw
+  // different boards and hydration fails. Start from a deterministic empty board
+  // and deal the real game once, on the client, after mount.
+  const [gameState, setGameState] = useState<GameState>(getPlaceholderState);
+  const [dealt, setDealt] = useState(false);
+
+  // Swaps the placeholder for a real game and records that the deal happened.
+  const setDealtState = (next: GameState) => {
+    setGameState(jsWithLegacyPlayerAccessors(next) as GameState);
+    setDealt(true);
+  };
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
@@ -270,21 +290,25 @@ export default function Home() {
 
   useEffect(() => {
     const saved = localStorage.getItem(SAVE_KEY);
-    if (!saved) return;
     // v3 saves are converted to the canonical shape; unusable ones are dropped.
-    const restored = loadSavedState(saved) as GameState | null;
-    if (restored) {
-      setTimeout(() => {
-        setGameState(restored);
-      }, 0);
-    } else {
-      localStorage.removeItem(SAVE_KEY);
-    }
+    const restored = saved ? (loadSavedState(saved) as GameState | null) : null;
+    if (saved && !restored) localStorage.removeItem(SAVE_KEY);
+
+    // Dealing the game is nondeterministic (it shuffles), so it cannot happen
+    // during render without the server and client disagreeing. Doing it once on
+    // mount is the intended fix for hydration mismatch, which is what this rule
+    // would otherwise forbid.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDealtState(restored ?? (getInitialState() as GameState));
   }, []);
 
   const saveState = (newState: GameState) => {
-    setGameState(newState);
-    localStorage.setItem(SAVE_KEY, serializeSavedState(newState));
+    // page.tsx builds next states with `{ ...gameState }` in many places, which
+    // drops the non-enumerable single-player accessors. Re-attach them on the way
+    // through so `gameState.playedProjects` and friends never come back undefined.
+    const next = jsWithLegacyPlayerAccessors(newState) as GameState;
+    setGameState(next);
+    localStorage.setItem(SAVE_KEY, serializeSavedState(next));
   };
 
   // --- Expansion and multiplayer surfaces -------------------------------
@@ -1621,6 +1645,9 @@ export default function Home() {
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>2枚から1枚を選択。初期MC・資源・生産と企業効果が適用される。</p>
+                {!dealt && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
+                )}
                 {gameState.corporationOptions.map(id => {
                   const corporation = CORPORATIONS.find(item => item.id === id);
                   if (!corporation) return null;

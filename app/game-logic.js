@@ -1317,6 +1317,44 @@ function placeNeutralTiles(board, deck) {
   return remainingDeck;
 }
 
+// A deterministic, unshuffled starting state. The server and the client both
+// render this, so hydration sees identical markup; the client then deals a real
+// game. It must not call shuffle() or place neutral tiles.
+export function getPlaceholderState() {
+  const board = {};
+  INITIAL_CELLS.forEach(cell => {
+    board[`${cell.q},${cell.r}`] = { ...cell, tileType: "empty", placedBy: null };
+  });
+
+  return withLegacyPlayerAccessors({
+    rulesVersion: 4,
+    mode: "solo",
+    generation: 1,
+    phase: "setup",
+    players: [createPlayer("player", DEFAULT_PLAYER_NAMES[0])],
+    turnOrder: ["player"],
+    currentPlayerId: "player",
+    firstPlayerId: "player",
+    temperature: -30,
+    oxygen: 0,
+    venus: 0,
+    oceans: 0,
+    board,
+    deck: [],
+    discardPile: [],
+    claimedMilestones: [],
+    fundedAwards: [],
+    pendingChoice: null,
+    resolvedChoices: {},
+    turmoil: null,
+    colonies: null,
+    logs: [],
+    isGameOver: false,
+    gameResult: null,
+    onboarded: false
+  });
+}
+
 export function getInitialState(options = {}) {
   const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
