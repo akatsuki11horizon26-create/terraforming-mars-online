@@ -1,4 +1,14 @@
 import { CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
+import {
+  DEFAULT_PLAYER_NAMES,
+  createPlayer,
+  getCurrentPlayer,
+  getPlayer,
+  updatePlayer,
+  withLegacyPlayerAccessors
+} from "./player-state.js";
+
+export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
 const LEGACY_CARDS = [
   {
@@ -297,20 +307,42 @@ function getTitaniumValue(state) {
   return getCorporation(state)?.effects?.titaniumValue ?? 3;
 }
 
+// Deep-copies shared state and every player. The legacy single-player accessors are
+// non-enumerable, so a plain spread would silently drop them and break the first
+// `state.mc`-style read after any engine call; re-attaching them here keeps the
+// compatibility surface alive across the whole engine.
 function cloneGameState(state) {
-  return {
+  const clone = {
     ...state,
-    hand: [...state.hand],
+    players: (state.players ?? []).map(player => ({
+      ...player,
+      researchCards: [...(player.researchCards ?? [])],
+      corporationOptions: [...(player.corporationOptions ?? [])],
+      preludeOptions: [...(player.preludeOptions ?? [])],
+      selectedPreludeIds: [...(player.selectedPreludeIds ?? [])],
+      hand: [...(player.hand ?? [])],
+      playedProjects: [...(player.playedProjects ?? [])],
+      cardResources: { ...(player.cardResources ?? {}) },
+      cardPlacements: { ...(player.cardPlacements ?? {}) },
+      cardDiscounts: {
+        all: player.cardDiscounts?.all ?? 0,
+        tags: { ...(player.cardDiscounts?.tags ?? {}) }
+      }
+    })),
+    turnOrder: [...(state.turnOrder ?? [])],
     deck: [...state.deck],
     discardPile: [...state.discardPile],
-    playedProjects: [...state.playedProjects],
-    selectedPreludeIds: [...(state.selectedPreludeIds ?? [])],
     board: Object.fromEntries(Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])),
-    cardResources: { ...(state.cardResources ?? {}) },
-    cardPlacements: { ...(state.cardPlacements ?? {}) },
-    cardDiscounts: { all: state.cardDiscounts?.all ?? 0, tags: { ...(state.cardDiscounts?.tags ?? {}) } },
     logs: [...state.logs],
+    pendingChoice: state.pendingChoice
+      ? {
+          ...state.pendingChoice,
+          options: (state.pendingChoice.options ?? []).map(option => ({ ...option })),
+          continuation: { ...state.pendingChoice.continuation }
+        }
+      : null
   };
+  return withLegacyPlayerAccessors(clone);
 }
 
 function addResource(state, resource, amount) {
@@ -785,7 +817,10 @@ export function applyCorporationTriggers(state, card, logs) {
   return { state: nextState, logs: nextLogs };
 }
 
-export function getInitialState() {
+export function getInitialState(options = {}) {
+  const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
+  const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
+  const names = options.playerNames ?? [];
   const board = {};
   INITIAL_CELLS.forEach(cell => {
     board[`${cell.q},${cell.r}`] = {
@@ -795,78 +830,75 @@ export function getInitialState() {
     };
   });
 
-  // Setup neutral cities and greeneries deterministically
-  // City 1: (0,0), Greenery 1: (0,-1)
-  board["0,0"].tileType = "city";
-  board["0,0"].placedBy = "neutral";
-  board["0,-1"].tileType = "forest";
-  board["0,-1"].placedBy = "neutral";
+  // Official solo rules seed the board with two neutral cities and two neutral
+  // greeneries. Multiplayer games start from an empty board.
+  if (mode === "solo") {
+    board["0,0"].tileType = "city";
+    board["0,0"].placedBy = "neutral";
+    board["0,-1"].tileType = "forest";
+    board["0,-1"].placedBy = "neutral";
 
-  // City 2: (-2,2), Greenery 2: (-3,3)
-  board["-2,2"].tileType = "city";
-  board["-2,2"].placedBy = "neutral";
-  board["-3,3"].tileType = "forest";
-  board["-3,3"].placedBy = "neutral";
+    board["-2,2"].tileType = "city";
+    board["-2,2"].placedBy = "neutral";
+    board["-3,3"].tileType = "forest";
+    board["-3,3"].placedBy = "neutral";
+  }
 
   const allCardIds = ALL_CARDS.map(c => c.id);
-  const shuffledDeck = shuffle(allCardIds);
-  const setupCards = shuffledDeck.slice(0, 10);
-  const deck = shuffledDeck.slice(10);
-  const corporationOptions = shuffle(CORPORATIONS.map(corporation => corporation.id)).slice(0, 2);
-  const preludeOptions = shuffle(PRELUDES.map(prelude => prelude.id)).slice(0, 4);
+  let shuffledDeck = shuffle(allCardIds);
+  const corporationPool = shuffle(CORPORATIONS.map(corporation => corporation.id));
+  const preludePool = shuffle(PRELUDES.map(prelude => prelude.id));
 
-  return {
-    rulesVersion: 3,
+  const players = [];
+  for (let i = 0; i < playerCount; i++) {
+    // "player" keeps the solo id stable so existing board ownership and saves line up.
+    const id = i === 0 ? "player" : `player${i + 1}`;
+    const researchCards = shuffledDeck.slice(0, 10);
+    shuffledDeck = shuffledDeck.slice(10);
+    players.push(
+      createPlayer(id, names[i] ?? DEFAULT_PLAYER_NAMES[i], {
+        researchCards,
+        corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
+        preludeOptions: preludePool.slice(i * 4, i * 4 + 4)
+      })
+    );
+  }
+
+  const turnOrder = players.map(player => player.id);
+  const introText =
+    mode === "solo"
+      ? "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
+      : `${playerCount}人対戦を開始しました。全グローバルパラメータの達成でゲーム終了です。`;
+
+  return withLegacyPlayerAccessors({
+    rulesVersion: 4,
+    mode,
     generation: 1,
-    generationStartTr: 14,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
-    setupStep: "corporation",
-    turnStep: "start", // start, one_action_taken, second_action_allowed
-    pendingOceans: 0,
-    researchCards: setupCards,
-    corporationOptions,
-    corporationId: null,
-    preludeOptions,
-    selectedPreludeIds: [],
-    discardPile: [],
-    actionsRemaining: 2,
+    players,
+    turnOrder,
+    currentPlayerId: turnOrder[0],
+    firstPlayerId: turnOrder[0],
     temperature: -30,
     oxygen: 0,
     venus: 0,
-    globalRequirementBuffer: 0,
     oceans: 0,
-    tr: 14,
-    mc: 42,
-    mcProd: 0,
-    steel: 0,
-    steelProd: 0,
-    titanium: 0,
-    titaniumProd: 0,
-    plants: 0,
-    plantsProd: 0,
-    energy: 0,
-    energyProd: 0,
-    heat: 0,
-    heatProd: 0,
-    hand: [],
-    deck,
-    playedProjects: [],
-    cardResources: {},
-    cardPlacements: {},
-    cardDiscounts: { all: 0, tags: {} },
     board,
+    deck: shuffledDeck,
+    discardPile: [],
+    pendingChoice: null,
     logs: [
       {
         id: "init",
         timestamp: "12:00:00",
         sender: "system",
-        text: "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
+        text: introText
       }
     ],
     isGameOver: false,
     gameResult: null,
     onboarded: false
-  };
+  });
 }
 
 export function isGameOverCheck(temp, oxy, oce) {
@@ -1101,7 +1133,7 @@ export function countAdjacentOceans(q, r, board) {
 }
 
 export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state, logs) {
-  let nextState = { ...state };
+  let nextState = cloneGameState(state);
   let currentLogs = logs;
   let effectiveTemp = newTemp;
 
@@ -1144,7 +1176,7 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
 }
 
 export function handleActionSpend(state, logAcc) {
-  const nextState = { ...state };
+  const nextState = cloneGameState(state);
   nextState.actionsRemaining -= 1;
   nextState.logs = logAcc;
 
@@ -1161,64 +1193,87 @@ export function handleActionSpend(state, logAcc) {
 }
 
 export function triggerProduction(state, logAcc) {
-  const nextState = { ...state };
-  const energyToHeat = nextState.energy;
-  nextState.heat += energyToHeat;
-  nextState.energy = 0;
+  const nextState = cloneGameState(state);
+  let localLog = logAcc;
 
-  // Clamp MC production at minimum -5
-  const mcProdClamped = Math.max(-5, nextState.mcProd);
-  const addedMc = mcProdClamped + nextState.tr;
-  nextState.mc += addedMc;
-  nextState.steel += nextState.steelProd;
-  nextState.titanium += nextState.titaniumProd;
-  nextState.plants += nextState.plantsProd;
-  nextState.energy += nextState.energyProd;
-  nextState.heat += nextState.heatProd;
-
-  let localLog = addLog(
-    logAcc,
-    "system",
-    `生産フェーズ完了: MC +${addedMc} (TR ${nextState.tr} + 生産 ${mcProdClamped}), 建材 +${nextState.steelProd}, チタン +${nextState.titaniumProd}, 植物 +${nextState.plantsProd}, エネルギー +${nextState.energyProd}, 熱 +${nextState.heatProd}。エネルギー ${energyToHeat} を熱に変換。`
-  );
+  // Production resolves for every player, not just the active one.
+  nextState.players = nextState.players.map(player => {
+    const energyToHeat = player.energy;
+    const mcProdClamped = Math.max(-5, player.mcProd);
+    const addedMc = mcProdClamped + player.tr;
+    const produced = {
+      ...player,
+      mc: player.mc + addedMc,
+      steel: player.steel + player.steelProd,
+      titanium: player.titanium + player.titaniumProd,
+      plants: player.plants + player.plantsProd,
+      energy: player.energyProd,
+      heat: player.heat + energyToHeat + player.heatProd,
+      passed: false
+    };
+    const who = nextState.players.length > 1 ? `${player.name}: ` : "生産フェーズ完了: ";
+    localLog = addLog(
+      localLog,
+      "system",
+      `${who}MC +${addedMc} (TR ${player.tr} + 生産 ${mcProdClamped}), 建材 +${player.steelProd}, チタン +${player.titaniumProd}, 植物 +${player.plantsProd}, エネルギー +${player.energyProd}, 熱 +${player.heatProd}。エネルギー ${energyToHeat} を熱に変換。`
+    );
+    return produced;
+  });
 
   nextState.logs = localLog;
 
-  if (nextState.generation >= 14 || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
+  const generationLimitReached = nextState.mode === "solo" && nextState.generation >= 14;
+  if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
     nextState.phase = "final_greenery";
-    const reason = nextState.generation >= 14 ? "第14世代の生産" : "全パラメータ達成";
+    const reason = generationLimitReached ? "第14世代の生産" : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
     nextState.generation += 1;
-    nextState.generationStartTr = nextState.tr;
     nextState.phase = "research";
-    nextState.actionsRemaining = 2;
-    nextState.turnStep = "start";
 
-    // Draw 4 cards for research
     let deck = [...nextState.deck];
     let discard = [...nextState.discardPile];
-    const researchCards = [];
 
-    for (let i = 0; i < 4; i++) {
-      if (deck.length === 0) {
-        if (discard.length > 0) {
-          deck = shuffle(discard);
-          discard = [];
-          localLog = addLog(localLog, "system", "山札が空になったため、捨て札をシャッフルして再構成しました。");
-        } else {
-          break;
+    // Each player draws their own research hand.
+    nextState.players = nextState.players.map(player => {
+      const researchCards = [];
+      for (let i = 0; i < 4; i++) {
+        if (deck.length === 0) {
+          if (discard.length > 0) {
+            deck = shuffle(discard);
+            discard = [];
+            localLog = addLog(localLog, "system", "山札が空になったため、捨て札をシャッフルして再構成しました。");
+          } else {
+            break;
+          }
+        }
+        const [drawn, ...rest] = deck;
+        if (drawn) {
+          researchCards.push(drawn);
+          deck = rest;
         }
       }
-      const [drawn, ...rest] = deck;
-      if (drawn) {
-        researchCards.push(drawn);
-        deck = rest;
-      }
-    }
+      return {
+        ...player,
+        researchCards,
+        generationStartTr: player.tr,
+        actionsRemaining: 2,
+        turnStep: "start",
+        passed: false
+      };
+    });
+
     nextState.deck = deck;
     nextState.discardPile = discard;
-    nextState.researchCards = researchCards;
+    // First player marker passes clockwise each generation.
+    if (nextState.turnOrder.length > 1) {
+      const firstIndex = nextState.turnOrder.indexOf(nextState.firstPlayerId);
+      const nextFirst = nextState.turnOrder[(firstIndex + 1) % nextState.turnOrder.length];
+      nextState.firstPlayerId = nextFirst;
+      nextState.currentPlayerId = nextFirst;
+    } else {
+      nextState.currentPlayerId = nextState.turnOrder[0];
+    }
     nextState.logs = addLog(localLog, "system", `第 ${nextState.generation} 世代の研究フェーズが開始されました。カードを4枚引きました。購入するカードを選択してください。`);
   }
 
