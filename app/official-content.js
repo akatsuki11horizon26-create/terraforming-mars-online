@@ -112,8 +112,13 @@ const mergeCatalog = (catalog, overrides) => {
 // hand-written Japanese entry always wins over the generated one.
 const localize = cards => cards.map(card => localizeCard(card));
 
+// Only the curated corporations declare `effects`; the generated ones do not, and
+// the engine reads corporation.effects.* in 22 places. Guarantee the object so
+// choosing an unmodelled corporation cannot crash setup.
+const withEffects = cards => cards.map(card => ({ ...card, effects: card.effects ?? {} }));
+
 export const OFFICIAL_PROJECTS = localize(mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES));
-export const CORPORATIONS = localize(mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES));
+export const CORPORATIONS = withEffects(localize(mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES)));
 export const PRELUDES = localize(mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVERRIDES));
 export const GLOBAL_EVENTS = localize(FULL_GLOBAL_EVENTS);
 export const STANDARD_PROJECTS = localize(FULL_STANDARD_PROJECTS);

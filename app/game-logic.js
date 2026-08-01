@@ -796,7 +796,47 @@ export function applyCorporation(state, corporationId) {
     nextState[`${resource}Prod`] = corporation.starting.production?.[resource] ?? 0;
   });
   nextState.logs = addLog(nextState.logs, "player", `企業【${corporation.name}】を選択しました。`);
-  return nextState;
+  return advanceSetupTurn(nextState);
+}
+
+// In hotseat every player sets up in turn. Hand the seat to the next player who
+// still has a corporation to pick; once everyone is done, start the game.
+function advanceSetupTurn(state) {
+  const next = state;
+  const pending = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && !player.corporationId && player.corporationOptions.length > 0;
+  });
+
+  if (pending) {
+    next.currentPlayerId = pending;
+    next.phase = "setup";
+    return next;
+  }
+
+  // Everyone has a corporation. Preludes come next if any were dealt.
+  const withPreludes = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && player.preludeOptions.length >= 2 && player.selectedPreludeIds.length === 0;
+  });
+  if (withPreludes) {
+    next.currentPlayerId = withPreludes;
+    next.phase = "setup";
+    next.players = next.players.map(player =>
+      player.id === withPreludes ? { ...player, setupStep: "prelude" } : player
+    );
+    return next;
+  }
+
+  next.currentPlayerId = next.firstPlayerId;
+  next.phase = "action";
+  next.players = next.players.map(player => ({
+    ...player,
+    setupStep: "complete",
+    actionsRemaining: 2,
+    turnStep: "start"
+  }));
+  return next;
 }
 
 export function getPreludeCost(prelude) {
@@ -813,7 +853,6 @@ export function applyPreludes(state, preludeIds) {
   let nextState = cloneGameState(state);
   nextState.selectedPreludeIds = preludeIds;
   nextState.preludeOptions = [];
-  nextState.phase = "action";
   nextState.setupStep = "complete";
   nextState.actionsRemaining = 2;
   nextState.turnStep = "start";
@@ -833,7 +872,8 @@ export function applyPreludes(state, preludeIds) {
   nextState = initialAction.state;
   logs = initialAction.logs;
   nextState.logs = logs;
-  return nextState;
+  // Hand the seat on; the game only starts once every player has set up.
+  return advanceSetupTurn(nextState);
 }
 
 export function applyCorporationInitialAction(state, logs) {
@@ -1403,7 +1443,8 @@ export function getInitialState(options = {}) {
     const researchCards = shuffledDeck.slice(0, 10);
     shuffledDeck = shuffledDeck.slice(10);
     players.push(
-      createPlayer(id, names[i] ?? DEFAULT_PLAYER_NAMES[i], {
+      // `??` would accept an empty string, leaving a nameless player.
+      createPlayer(id, String(names[i] ?? "").trim() || DEFAULT_PLAYER_NAMES[i], {
         researchCards,
         corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
         preludeOptions: preludePool.slice(i * 4, i * 4 + 4)

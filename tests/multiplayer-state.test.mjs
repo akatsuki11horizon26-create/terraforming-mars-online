@@ -7,7 +7,10 @@ import {
   handleActionSpend,
   applyProduction,
   applyCardEffect,
-  ALL_CARDS
+  applyCorporation,
+  applyPreludes,
+  ALL_CARDS,
+  CORPORATIONS
 } from "../app/game-logic.js";
 import { cloneGameState, withLegacyPlayerAccessors } from "../app/player-state.js";
 import { loadSavedState, serializeSavedState, CURRENT_RULES_VERSION } from "../app/save-migration.js";
@@ -275,6 +278,70 @@ test("Auto-placed tiles belong to the acting player", () => {
     0,
     "a card played by player2 must not credit tiles to player"
   );
+});
+
+test("Hotseat setup hands the seat to each player in turn", () => {
+  let state = getInitialState({ playerCount: 3 });
+  assert.equal(state.currentPlayerId, "player");
+
+  const seats = [];
+  for (let i = 0; i < 3; i++) {
+    const player = state.players.find(p => p.id === state.currentPlayerId);
+    seats.push(player.id);
+    state = applyCorporation(state, player.corporationOptions[0]);
+  }
+
+  assert.deepEqual(seats, ["player", "player2", "player3"], "every player picks in turn");
+  assert.ok(
+    state.players.every(p => p.corporationId),
+    "nobody is skipped"
+  );
+  assert.equal(state.phase, "setup", "preludes still have to be chosen");
+});
+
+test("The game only starts once every player has finished setup", () => {
+  let state = getInitialState({ playerCount: 3 });
+
+  for (let i = 0; i < 3; i++) {
+    const player = state.players.find(p => p.id === state.currentPlayerId);
+    state = applyCorporation(state, player.corporationOptions[0]);
+  }
+
+  let guard = 0;
+  while (state.phase === "setup" && guard++ < 10) {
+    const player = state.players.find(p => p.id === state.currentPlayerId);
+    if (player.preludeOptions.length < 2) break;
+    state = applyPreludes(state, player.preludeOptions.slice(0, 2));
+  }
+
+  assert.equal(state.phase, "action");
+  assert.equal(state.currentPlayerId, state.firstPlayerId);
+  assert.ok(state.players.every(p => p.setupStep === "complete"));
+  assert.ok(state.players.every(p => p.actionsRemaining === 2));
+});
+
+test("Blank player names fall back to the default", () => {
+  assert.deepEqual(
+    getInitialState({ playerCount: 2, playerNames: ["", "  "] }).players.map(p => p.name),
+    ["プレイヤー1", "プレイヤー2"]
+  );
+  assert.deepEqual(
+    getInitialState({ playerCount: 2, playerNames: ["アリス"] }).players.map(p => p.name),
+    ["アリス", "プレイヤー2"]
+  );
+});
+
+test("Every corporation can be chosen without crashing", () => {
+  // Only the curated corporations declare `effects`, but the engine reads
+  // corporation.effects.* unguarded in many places.
+  for (const corporation of CORPORATIONS) {
+    const state = getInitialState();
+    state.players[0].corporationOptions = [corporation.id];
+    assert.doesNotThrow(
+      () => applyCorporation(state, corporation.id),
+      `${corporation.id} must not crash setup`
+    );
+  }
 });
 
 test("withLegacyPlayerAccessors is safe to apply twice", () => {

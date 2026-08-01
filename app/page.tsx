@@ -59,6 +59,7 @@ import {
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
+import { CardTags } from "./card-tags";
 
 interface PlayerRecord {
   id: string;
@@ -269,6 +270,15 @@ export default function Home() {
   // and deal the real game once, on the client, after mount.
   const [gameState, setGameState] = useState<GameState>(getPlaceholderState);
   const [dealt, setDealt] = useState(false);
+
+  // New-game options. The setup panel opens from the header and replaces the
+  // board until a game is started, so multiplayer is reachable without editing
+  // code.
+  const [showGameSetup, setShowGameSetup] = useState(false);
+  const [setupPlayerCount, setSetupPlayerCount] = useState(1);
+  const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
+  const [setupTurmoil, setSetupTurmoil] = useState(false);
+  const [setupColonies, setSetupColonies] = useState(false);
 
   // Swaps the placeholder for a real game and records that the deal happened.
   const setDealtState = (next: GameState) => {
@@ -500,9 +510,15 @@ export default function Home() {
     );
   };
 
-  const initGame = () => {
-    const state = getInitialState();
+  const initGame = (options?: {
+    playerCount?: number;
+    playerNames?: string[];
+    turmoil?: boolean;
+    colonies?: boolean;
+  }) => {
+    const state = getInitialState(options);
     saveState(state);
+    setShowGameSetup(false);
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
@@ -1315,6 +1331,18 @@ export default function Home() {
           <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
             マニュアル表示
           </button>
+          <button
+            className="btn-secondary"
+            style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+            onClick={() => {
+              setSetupPlayerCount(gameState.players?.length ?? 1);
+              setSetupTurmoil(Boolean(gameState.turmoil));
+              setSetupColonies(Boolean(gameState.colonies));
+              setShowGameSetup(true);
+            }}
+          >
+            新規ゲーム設定
+          </button>
           <button className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowRestartConfirm(true)}>
             指令リセット
           </button>
@@ -1669,7 +1697,10 @@ export default function Home() {
                   const selected = selectedCorporationId === id;
                   return (
                     <button key={id} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
-                      <div style={{ fontWeight: "bold" }}>{corporation.name} [{corporation.tags.join(" / ") || "—"}]</div>
+                      <div style={{ fontWeight: "bold" }}>{corporation.name}</div>
+                      <div style={{ margin: "3px 0" }}>
+                        <CardTags tags={corporation.tags} />
+                      </div>
                       <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{corporation.effectText}</div>
                     </button>
                   );
@@ -1740,6 +1771,9 @@ export default function Home() {
                       >
                         <div>
                           <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                          <div style={{ margin: "3px 0" }}>
+                            <CardTags tags={card.tags} />
+                          </div>
                           <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
                         </div>
                         <div style={{
@@ -2047,8 +2081,6 @@ export default function Home() {
               
               const isSelected = selectedCardId === cardId || (isSellingPatents && selectedSellCardIds.includes(cardId));
               const cardReqMet = getCardPlayableStatus(cardObj, { ...gameState, mc: Number.MAX_SAFE_INTEGER }, 0, 0).playable;
-              const tagLabel: Record<string, string> = { Building: "建", Space: "宇", Plant: "植", Power: "電", Science: "科", Earth: "地", Jovian: "木", City: "都" };
-
               return (
                 <button
                   key={cardId}
@@ -2059,13 +2091,7 @@ export default function Home() {
                   style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="card-tags">
-                      {cardObj.tags.map(t => (
-                        <span key={t} className="card-tag">
-                          {tagLabel[t] ?? t}
-                        </span>
-                      ))}
-                    </div>
+                    <CardTags tags={cardObj.tags} />
                     <span style={{ fontSize: "0.55rem", padding: "1px 4px", borderRadius: "3px", backgroundColor: "rgba(242, 232, 220, 0.1)" }}>
                       {cardObj.type === "event" ? "イベント" : cardObj.type === "active" ? "アクション" : "自動"}
                     </span>
@@ -2124,6 +2150,9 @@ export default function Home() {
             >
               <div>
                 <span style={{ fontSize: "0.85rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
+                <span style={{ marginLeft: "8px", display: "inline-flex", verticalAlign: "middle" }}>
+                  <CardTags tags={selectedCard.tags} />
+                </span>
                 {!canPlaySelected && (
                   <span style={{ color: "var(--color-rust)", fontSize: "0.8rem", marginLeft: "10px" }}>
                     ※ {playDisableReason}
@@ -2289,6 +2318,137 @@ export default function Home() {
                 }}
               >
                 了解、ミッション開始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New game setup: player count and expansions */}
+      {showGameSetup && (
+        <div className="overlay-container">
+          <div className="modal-content" style={{ maxWidth: "460px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: "var(--color-gold)" }}>新規ゲーム設定</h3>
+            </div>
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <div className="section-title">
+                  <span>プレイ人数</span>
+                  <span className="section-note">
+                    {setupPlayerCount === 1 ? "公式ソロルール・14世代制限" : "ホットシート（1画面を交代で使用）"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[1, 2, 3, 4, 5].map(count => (
+                    <button
+                      key={count}
+                      type="button"
+                      className="claim-button"
+                      style={{
+                        flex: 1,
+                        padding: "8px 0",
+                        fontSize: "0.9rem",
+                        backgroundColor:
+                          setupPlayerCount === count ? "var(--color-rust)" : "rgba(168, 50, 32, 0.2)"
+                      }}
+                      aria-pressed={setupPlayerCount === count}
+                      onClick={() => setSetupPlayerCount(count)}
+                    >
+                      {count}人
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {setupPlayerCount > 1 && (
+                <div>
+                  <div className="section-title">
+                    <span>プレイヤー名</span>
+                    <span className="section-note">空欄なら既定名</span>
+                  </div>
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    {Array.from({ length: setupPlayerCount }, (_, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        value={setupPlayerNames[index] ?? ""}
+                        placeholder={`プレイヤー${index + 1}`}
+                        onChange={event => {
+                          const next = [...setupPlayerNames];
+                          next[index] = event.target.value;
+                          setSetupPlayerNames(next);
+                        }}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid rgba(242, 232, 220, 0.2)",
+                          backgroundColor: "rgba(8, 9, 8, 0.6)",
+                          color: "var(--color-ink)",
+                          fontSize: "0.8rem"
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="section-title">
+                  <span>拡張</span>
+                  <span className="section-note">任意</span>
+                </div>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginBottom: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupTurmoil}
+                    onChange={event => setSetupTurmoil(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>動乱 (Turmoil)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      6政党・代表者・議長・世界的イベント。毎世代 全員TR-1。
+                    </div>
+                  </span>
+                </label>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupColonies}
+                    onChange={event => setSetupColonies(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>植民地 (Colonies)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      植民地タイル・交易船・交易報酬。
+                    </div>
+                  </span>
+                </label>
+              </div>
+
+              <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
+                開始すると現在の進行状況は消去されます。
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowGameSetup(false)}>
+                キャンセル
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() =>
+                  initGame({
+                    playerCount: setupPlayerCount,
+                    playerNames: setupPlayerNames
+                      .slice(0, setupPlayerCount)
+                      .map(name => name.trim())
+                      .map((name, index) => name || `プレイヤー${index + 1}`),
+                    turmoil: setupTurmoil,
+                    colonies: setupColonies
+                  })
+                }
+              >
+                この設定で開始
               </button>
             </div>
           </div>

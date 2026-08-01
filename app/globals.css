@@ -502,10 +502,27 @@ div[tabindex="0"]:focus-visible {
 }
 
 .card-tag {
-  background-color: rgba(229, 181, 99, 0.15);
-  border: 1px solid var(--color-gold);
-  padding: 1px 4px;
-  border-radius: 2px;
+  /* Each tag carries its own colour via --tag-color so a card's attributes are
+     distinguishable at a glance. */
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background-color: color-mix(in srgb, var(--tag-color, var(--color-gold)) 18%, transparent);
+  border: 1px solid var(--tag-color, var(--color-gold));
+  color: var(--tag-color, var(--color-gold));
+  padding: 1px 5px;
+  border-radius: 3px;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.card-tag-name {
+  font-size: 0.95em;
+}
+
+.card-tag-none {
+  opacity: 0.5;
+  border-style: dashed;
 }
 
 .card-cost {

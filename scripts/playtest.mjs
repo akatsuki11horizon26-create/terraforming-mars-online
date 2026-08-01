@@ -189,21 +189,36 @@ function playGame(seed) {
   const where = `seed:${seed}`;
   checkInvariants(state, `${where}/initial`);
 
-  // Setup: every player picks a corporation, then preludes if offered.
-  for (const player of [...state.players]) {
-    state.currentPlayerId = player.id;
-    const corporationId = pick(player.corporationOptions, rng);
-    if (corporationId) {
+  // Setup follows the real flow: the engine hands the seat between players, so
+  // drive whoever it says is up rather than looping over the roster ourselves.
+  let setupGuard = 0;
+  while (state.phase === "setup" && setupGuard++ < 40) {
+    const seat = state.players.find(p => p.id === state.currentPlayerId);
+    if (!seat) {
+      report("setup-lost-seat", `${state.currentPlayerId} is not a player`, { where });
+      break;
+    }
+    if (seat.corporationOptions.length > 0) {
+      const corporationId = pick(seat.corporationOptions, rng);
       state = applyCorporation(state, corporationId);
       checkInvariants(state, `${where}/corp:${corporationId}`);
+      continue;
     }
-    if (state.setupStep === "prelude" && player.preludeOptions.length >= 2) {
-      state = applyPreludes(state, player.preludeOptions.slice(0, 2));
-      checkInvariants(state, `${where}/prelude`);
+    if (seat.preludeOptions.length >= 2 && seat.selectedPreludeIds.length === 0) {
+      state = applyPreludes(state, seat.preludeOptions.slice(0, 2));
+      checkInvariants(state, `${where}/prelude:${seat.id}`);
+      continue;
     }
-    buyResearchCards(state, player.id, rng, `${where}/research`);
+    report("setup-stuck", `${seat.id} has nothing left to choose`, { where });
+    break;
   }
-  state.phase = "action";
+  if (state.phase === "setup") {
+    report("setup-never-finished", `phase still setup after ${setupGuard} steps`, { where });
+    state.phase = "action";
+  }
+  for (const p of [...state.players]) {
+    buyResearchCards(state, p.id, rng, `${where}/research`);
+  }
 
   let steps = 0;
   while (!state.isGameOver && state.phase !== "game_over" && steps < MAX_STEPS) {

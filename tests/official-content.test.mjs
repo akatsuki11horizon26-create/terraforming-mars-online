@@ -45,7 +45,9 @@ test("corporation setup applies official starting values", () => {
   const state = getInitialState();
   state.corporationOptions = ["corp-ecoline"];
   const nextState = applyCorporation(state, "corp-ecoline");
-  assert.equal(nextState.setupStep, "projects");
+  // Setup hands the seat on once a corporation is chosen; with preludes dealt
+  // the same player moves straight to picking them.
+  assert.equal(nextState.setupStep, "prelude");
   assert.equal(nextState.mc, 36);
   assert.equal(nextState.plants, 3);
   assert.equal(nextState.plantsProd, 2);
