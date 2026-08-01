@@ -221,20 +221,44 @@ test("Production keeps negative MC production instead of clamping income", () =>
 });
 
 test("Final scoring calculations", () => {
+  // Solo setup seeds neutral tiles on spaces chosen from the shuffled deck, so
+  // pick an empty pair at run time rather than hardcoding coordinates.
   const state = getInitialState();
   state.tr = 18;
-  // Place 1 player greenery at (0,1)
-  state.board["0,1"].placedBy = "player";
-  state.board["0,1"].tileType = "forest";
 
-  // Place 1 player city at (0,2) adjacent to player greenery
-  state.board["0,2"].placedBy = "player";
-  state.board["0,2"].tileType = "city";
+  // The pair must touch no other tile, or a neutral greenery beside the city
+  // would add an extra point.
+  const isClear = cell =>
+    cell &&
+    cell.tileType === "empty" &&
+    !cell.isOceanOnly &&
+    getAdjacentCells(cell.q, cell.r).every(pos => {
+      const neighbour = state.board[`${pos.q},${pos.r}`];
+      return !neighbour || neighbour.tileType === "empty";
+    });
 
-  // Add 1 card with VP = 1
+  let greenerySpace;
+  let citySpace;
+  for (const candidate of Object.values(state.board)) {
+    if (!isClear(candidate)) continue;
+    const partner = getAdjacentCells(candidate.q, candidate.r)
+      .map(pos => state.board[`${pos.q},${pos.r}`])
+      .find(isClear);
+    if (partner) {
+      greenerySpace = candidate;
+      citySpace = partner;
+      break;
+    }
+  }
+  assert.ok(greenerySpace && citySpace, "the board has an isolated pair of empty spaces");
+
+  greenerySpace.placedBy = "player";
+  greenerySpace.tileType = "forest";
+  citySpace.placedBy = "player";
+  citySpace.tileType = "city";
+
   state.playedProjects = ["p-solar-power"];
 
-  // Expected score: TR 18 + Greenery 1 + City 1 (adjacent to 1 greenery) + Card 1 = 21
-  const score = computeScore(state);
-  assert.equal(score, 21);
+  // TR 18 + own greenery 1 + city adjacent to 1 greenery 1 + card VP 1 = 21
+  assert.equal(computeScore(state), 21);
 });

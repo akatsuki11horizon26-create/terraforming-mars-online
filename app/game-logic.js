@@ -36,6 +36,30 @@ import { getCardResourceType } from "./card-resource-types.js";
 
 export { STANDARD_RESOURCES } from "./pending-choice.js";
 export { getCardResourceType };
+import {
+  NEUTRAL,
+  PARTIES,
+  advanceTurmoil,
+  cloneTurmoil,
+  createTurmoilState,
+  getInfluence,
+  getParty,
+  getRulingPolicy,
+  hasPolicy,
+  normalizePartyId,
+  refillLobby,
+  sendDelegate,
+  totalDelegates
+} from "./turmoil.js";
+
+export {
+  NEUTRAL,
+  PARTIES,
+  getInfluence,
+  getParty,
+  getRulingPolicy,
+  totalDelegates
+};
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
@@ -364,6 +388,7 @@ function cloneGameState(state) {
     resolvedChoices: Object.fromEntries(
       Object.entries(state.resolvedChoices ?? {}).map(([id, stages]) => [id, [...stages]])
     ),
+    turmoil: state.turmoil ? cloneTurmoil(state.turmoil) : null,
     pendingChoice: state.pendingChoice
       ? {
           ...state.pendingChoice,
@@ -1306,6 +1331,9 @@ export function getInitialState(options = {}) {
   }
 
   const turnOrder = players.map(player => player.id);
+  const turmoil = options.turmoil
+    ? createTurmoilState(turnOrder, shuffle(GLOBAL_EVENTS.map(event => event.id)))
+    : null;
   const introText =
     mode === "solo"
       ? "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
@@ -1331,6 +1359,7 @@ export function getInitialState(options = {}) {
     fundedAwards: [],
     pendingChoice: null,
     resolvedChoices: {},
+    turmoil,
     logs: [
       {
         id: "init",
@@ -1343,6 +1372,126 @@ export function getInitialState(options = {}) {
     gameResult: null,
     onboarded: false
   });
+}
+
+// Pays a ruling party's bonus to every player, then swaps in the new ruling
+// party and advances the global event queue.
+export function runTurmoilPhase(state, logs) {
+  if (!state.turmoil) return { state, logs };
+  const next = cloneGameState(state);
+  let nextLogs = logs;
+
+  // The turmoil phase opens with every player losing 1 TR.
+  next.players = next.players.map(player => ({ ...player, tr: Math.max(0, player.tr - 1) }));
+  nextLogs = addLog(nextLogs, "system", "動乱フェーズ: 全プレイヤーが TR -1。");
+
+  const outgoing = getParty(next.turmoil.rulingParty);
+  if (outgoing) {
+    // The first bonus of the ruling party is the one that pays out.
+    const bonus = outgoing.bonuses[0];
+    next.players = next.players.map(player => {
+      const amount = evaluatePartyBonus(next, bonus, player);
+      if (amount <= 0) return player;
+      const field = bonus.resource;
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${outgoing.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
+      );
+      return { ...player, [field]: player[field] + amount };
+    });
+
+    if (bonus.kind === "lowestTr" || bonus.kind === "highestTr") {
+      next.players = applyTrSwing(next.players, bonus);
+    }
+  }
+
+  const result = advanceTurmoil(next.turmoil);
+  next.turmoil = refillLobby(result.turmoil, next.turnOrder);
+
+  // The chairman gains 1 TR on taking office.
+  if (result.newChairman && result.newChairman !== NEUTRAL) {
+    next.players = next.players.map(player =>
+      player.id === result.newChairman ? { ...player, tr: player.tr + 1 } : player
+    );
+    const chairman = getPlayer(next, result.newChairman);
+    nextLogs = addLog(nextLogs, "system", `${chairman?.name ?? result.newChairman} が議長に就任し TR +1。`);
+  } else {
+    nextLogs = addLog(nextLogs, "system", "中立の代表者が議長になりました。");
+  }
+
+  const ruling = getParty(result.rulingParty);
+  nextLogs = addLog(nextLogs, "system", `与党は ${ruling?.name ?? result.rulingParty} になりました。`);
+
+  if (result.resolvedEvent) {
+    const event = GLOBAL_EVENTS.find(item => item.id === result.resolvedEvent);
+    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? result.resolvedEvent}`);
+  }
+
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs };
+}
+
+function evaluatePartyBonus(state, bonus, player) {
+  if (!bonus) return 0;
+  switch (bonus.kind) {
+    case "tag": {
+      const tags = Array.isArray(bonus.tag) ? bonus.tag : [bonus.tag];
+      return tags.reduce((sum, tag) => sum + countPlayedTag(state, tag, player), 0);
+    }
+    case "ownTiles":
+      return Object.values(state.board).filter(
+        cell =>
+          cell.placedBy === player.id &&
+          cell.tileType !== "empty" &&
+          (!bonus.tileType || cell.tileType === bonus.tileType)
+      ).length * (bonus.each ?? 1);
+    case "handSize":
+      return Math.floor(player.hand.length / (bonus.per ?? 1));
+    case "production":
+      return player[bonus.production] ?? 0;
+    default:
+      return 0;
+  }
+}
+
+function applyTrSwing(players, bonus) {
+  const values = players.map(player => player.tr);
+  const target = bonus.kind === "lowestTr" ? Math.min(...values) : Math.max(...values);
+  return players.map(player =>
+    player.tr === target ? { ...player, tr: Math.max(0, player.tr + bonus.amount) } : player
+  );
+}
+
+// Reds make terraforming cost money; the surcharge is paid when TR rises.
+export function getTrSurcharge(state, steps) {
+  const policy = hasPolicy(state.turmoil, "trSurcharge");
+  if (!policy) return 0;
+  return policy.amount * Math.max(0, steps);
+}
+
+export function sendDelegateToParty(state, partyId, logs, playerId) {
+  if (!state.turmoil) {
+    return { state, logs: addLog(logs, "system", "Turmoilは有効ではありません。"), sent: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const fromLobby = state.turmoil.lobby.includes(actorId);
+  const result = sendDelegate(state.turmoil, actorId, partyId, { fromLobby });
+  if (!result.sent) {
+    return { state, logs: addLog(logs, "system", result.reason), sent: false };
+  }
+
+  const next = cloneGameState(state);
+  next.turmoil = result.turmoil;
+  const party = getParty(partyId);
+  const player = getPlayer(next, actorId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? actorId} が ${party?.name ?? partyId} に代表者を送りました。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, sent: true };
 }
 
 function milestoneContext(state, player) {
@@ -1566,7 +1715,30 @@ function getGeneratedRequirementStatus(card, state, buffer) {
     if (requirement.greeneries !== undefined && Object.values(state.board).filter(cell => cell.tileType === "forest").length < requirement.greeneries) return { playable: false, reason: "緑地数の条件を満たしていません。" };
     if (requirement.cities !== undefined && Object.values(state.board).filter(cell => cell.tileType === "city").length < requirement.cities) return { playable: false, reason: "都市数の条件を満たしていません。" };
     if (requirement.floaters !== undefined && Object.values(state.cardResources ?? {}).reduce((sum, value) => sum + value, 0) < requirement.floaters) return { playable: false, reason: "フローター数の条件を満たしていません。" };
-    if (requirement.party || requirement.chairman || requirement.partyLeader || requirement.colonies || requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
+    if (requirement.party !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      const wanted = normalizePartyId(requirement.party);
+      if (state.turmoil.rulingParty !== wanted) {
+        return { playable: false, reason: `${getParty(wanted)?.name ?? wanted}が与党である必要があります。` };
+      }
+      continue;
+    }
+    if (requirement.chairman !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      if (state.turmoil.chairman !== state.currentPlayerId) {
+        return { playable: false, reason: "あなたが議長である必要があります。" };
+      }
+      continue;
+    }
+    if (requirement.partyLeader !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      const isLeader = PARTIES.some(
+        party => state.turmoil.parties[party.id]?.leader === state.currentPlayerId
+      );
+      if (!isLeader) return { playable: false, reason: "いずれかの政党の党首である必要があります。" };
+      continue;
+    }
+    if (requirement.colonies || requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
   }
   return { playable: true, reason: "" };
 }
@@ -1828,6 +2000,14 @@ export function triggerProduction(state, logAcc) {
 
     nextState.deck = deck;
     nextState.discardPile = discard;
+
+    // Turmoil resolves between production and the next research phase.
+    if (nextState.turmoil) {
+      const turmoilResult = runTurmoilPhase(nextState, localLog);
+      Object.assign(nextState, turmoilResult.state);
+      localLog = turmoilResult.logs;
+    }
+
     // First player marker passes clockwise each generation.
     if (nextState.turnOrder.length > 1) {
       const firstIndex = nextState.turnOrder.indexOf(nextState.firstPlayerId);
