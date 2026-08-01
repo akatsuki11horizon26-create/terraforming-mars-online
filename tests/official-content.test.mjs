@@ -14,6 +14,7 @@ import {
   getCardPaymentCost,
   getCardPlayableStatus,
   getInitialState,
+  resolvePendingChoice,
 } from "../app/game-logic.js";
 import {
   FULL_CATALOG_COUNTS,
@@ -107,7 +108,18 @@ test("official automated and active effects mutate the correct resources", () =>
   const iceAsteroid = ALL_CARDS.find(card => card.id === "p-ice-asteroid");
   const powerResult = applyCardEffect(state, powerPlant, []);
   assert.equal(powerResult.state.energyProd, 1);
-  const iceResult = applyCardEffect(state, iceAsteroid, []);
+  // Ice Asteroid places two oceans, and the player now picks each space, so the
+  // effect pauses until both choices are resolved.
+  let iceResult = applyCardEffect(state, iceAsteroid, []);
+  assert.equal(iceResult.status, "pending");
+  assert.equal(iceResult.pendingChoice.kind, "tile-placement");
+
+  for (let i = 0; i < 2; i++) {
+    assert.equal(iceResult.state.pendingChoice.kind, "tile-placement");
+    const target = iceResult.state.pendingChoice.options[0];
+    iceResult = resolvePendingChoice(iceResult.state, target.id, iceResult.logs, "player");
+  }
+  assert.equal(iceResult.status, "resolved");
   assert.equal(iceResult.state.oceans, 2);
 });
 

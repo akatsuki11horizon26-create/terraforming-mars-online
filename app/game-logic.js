@@ -24,6 +24,18 @@ import {
 } from "./milestones-awards.js";
 
 export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneThreshold, scoreAward };
+import {
+  buildBranchChoice,
+  buildResourceChoice,
+  buildStandardResourceChoice,
+  buildTileChoice,
+  findOption,
+  isChoiceOwnedBy
+} from "./pending-choice.js";
+import { getCardResourceType } from "./card-resource-types.js";
+
+export { STANDARD_RESOURCES } from "./pending-choice.js";
+export { getCardResourceType };
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
@@ -238,6 +250,37 @@ void LEGACY_CARDS;
 export const ALL_CARDS = OFFICIAL_PROJECTS;
 export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS };
 
+// TileType numbers from the reference implementation's enum (src/common/TileType.ts).
+// Special tiles occupy a space like a city or greenery but keep their own name so
+// the board can show what was built there.
+const TILE_TYPE_BY_NUMBER = {
+  0: { tile: "forest" },
+  1: { tile: "ocean" },
+  2: { tile: "city" },
+  3: { tile: "city", specialName: "Capital" },
+  4: { tile: "special", specialName: "Commercial District" },
+  5: { tile: "special", specialName: "Ecological Zone" },
+  6: { tile: "special", specialName: "Industrial Center" },
+  7: { tile: "special", specialName: "Lava Flows" },
+  8: { tile: "special", specialName: "Mining Area" },
+  9: { tile: "special", specialName: "Mining Rights" },
+  10: { tile: "special", specialName: "Mohole Area" },
+  11: { tile: "special", specialName: "Natural Preserve" },
+  12: { tile: "special", specialName: "Nuclear Zone" },
+  13: { tile: "special", specialName: "Restricted Area" },
+  14: { tile: "special", specialName: "Deimos Down" },
+  15: { tile: "special", specialName: "Great Dam" },
+  16: { tile: "special", specialName: "Magnetic Field Generators" },
+  43: { tile: "special", specialName: "Special Tile" }
+};
+
+// Reasons normalizeBehavior records that the pendingChoice flow now resolves.
+const HANDLED_BY_PENDING_CHOICE = new Set([
+  "any-card-resource-choice",
+  "standard-resource-choice",
+  "choice"
+]);
+
 // The official Tharsis map. Generated from the reference implementation by
 // scripts/generate-tharsis-board.mjs, which verifies the axial conversion against
 // the reference adjacency rule before writing.
@@ -316,6 +359,11 @@ function cloneGameState(state) {
     discardPile: [...state.discardPile],
     board: Object.fromEntries(Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])),
     logs: [...state.logs],
+    claimedMilestones: [...(state.claimedMilestones ?? [])],
+    fundedAwards: [...(state.fundedAwards ?? [])],
+    resolvedChoices: Object.fromEntries(
+      Object.entries(state.resolvedChoices ?? {}).map(([id, stages]) => [id, [...stages]])
+    ),
     pendingChoice: state.pendingChoice
       ? {
           ...state.pendingChoice,
@@ -360,9 +408,76 @@ const effectCache = new WeakMap();
 function addNormalizedStock(effect, stock, unsupported = []) {
   Object.entries(stock ?? {}).forEach(([source, amount]) => {
     const resource = SOURCE_RESOURCE_MAP[source];
-    if (resource && typeof amount === "number") effect[resource] = (effect[resource] ?? 0) + amount;
-    else if (resource) unsupported.push("dynamic-resource-gain");
+    if (!resource) return;
+    if (typeof amount === "number") {
+      effect[resource] = (effect[resource] ?? 0) + amount;
+      return;
+    }
+    // "Gain 1 MC per Building tag", "gain 1 plant per city", and similar counted
+    // amounts. Resolved against live state when the effect is applied.
+    if (amount && typeof amount === "object") {
+      const counted = normalizeCountedAmount(amount);
+      if (counted) {
+        effect.countedGains = [...(effect.countedGains ?? []), { resource, ...counted }];
+        return;
+      }
+    }
+    unsupported.push("dynamic-resource-gain");
   });
+}
+
+// Recognises the counting rules the official cards actually use. Anything that
+// depends on Colonies state is deferred until that expansion exists.
+function normalizeCountedAmount(amount) {
+  const each = amount.each ?? 1;
+
+  if (amount.colonies) return null;
+  if (amount.tag) {
+    // Tags count only the player's own unless `all` is set (reference Counter).
+    const tags = Array.isArray(amount.tag) ? amount.tag : [amount.tag];
+    return { kind: "tag", tags, each, allPlayers: amount.all === true };
+  }
+  // Board counts include every player's tiles unless `all` is explicitly false.
+  if (amount.cities) return { kind: "cities", each, allPlayers: amount.all !== false };
+  if (amount.greeneries) return { kind: "greeneries", each, allPlayers: amount.all !== false };
+  // Floaters are always counted on the active player's own cards.
+  if (amount.floaters) return { kind: "floaters", each, allPlayers: false };
+  return null;
+}
+
+function evaluateCountedGain(state, gain, ownerId) {
+  const players = gain.allPlayers ? state.players : state.players.filter(p => p.id === ownerId);
+
+  let units = 0;
+  switch (gain.kind) {
+    case "tag":
+      for (const player of players) {
+        for (const tag of gain.tags) units += countPlayedTag(state, tag, player);
+      }
+      break;
+    case "cities":
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "city") return false;
+        return gain.allPlayers || cell.placedBy === ownerId;
+      }).length;
+      break;
+    case "greeneries":
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "forest") return false;
+        return gain.allPlayers || cell.placedBy === ownerId;
+      }).length;
+      break;
+    case "floaters":
+      for (const player of players) {
+        for (const [cardId, count] of Object.entries(player.cardResources ?? {})) {
+          if (getCardResourceType(cardId) === "floater") units += count;
+        }
+      }
+      break;
+    default:
+      return 0;
+  }
+  return units * (gain.each ?? 1);
 }
 
 function normalizeBehavior(raw, effect = {}, unsupported = []) {
@@ -403,11 +518,16 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.tileCount = raw.greenery.count ?? 1;
   }
   if (raw.tile && typeof raw.tile === "object") {
-    const typeMap = { 0: "forest", 1: "ocean", 2: "city", 3: "city" };
-    const mapped = typeMap[raw.tile.type];
+    // TileType numbers come from the reference implementation's enum. Special
+    // tiles behave as a marked land tile: they occupy a space, count as the
+    // player's tile for Landlord and city adjacency where applicable, and carry
+    // the card's own name.
+    const mapped = TILE_TYPE_BY_NUMBER[raw.tile.type];
     if (mapped) {
-      effect.tile = mapped;
+      effect.tile = mapped.tile;
       effect.tileCount = raw.tile.count ?? 1;
+      if (mapped.specialName) effect.specialName = mapped.specialName;
+      if (raw.tile.on) effect.tilePlacementRule = raw.tile.on;
     } else {
       unsupported.push(`tile:${raw.tile.type}`);
     }
@@ -513,8 +633,23 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   let nextLogs = logs;
   if (!effect) return { state: nextState, logs: nextLogs };
 
-  if (effect.unsupported?.length) {
-    nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${effect.unsupported.join("、")}`);
+  // Choices handled by the pendingChoice flow are resolved by the player after
+  // this function returns, so they are not reported as unimplemented here.
+  const stillUnsupported = (effect.unsupported ?? []).filter(
+    reason => !HANDLED_BY_PENDING_CHOICE.has(reason)
+  );
+  if (stillUnsupported.length) {
+    nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${stillUnsupported.join("、")}`);
+  }
+
+  if (effect.countedGains?.length) {
+    for (const gain of effect.countedGains) {
+      const amount = evaluateCountedGain(nextState, gain, nextState.currentPlayerId);
+      if (amount > 0) {
+        addResource(nextState, gain.resource, amount);
+        nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} を ${amount} 獲得しました。`);
+      }
+    }
   }
 
   if (effect.payMc) nextState.mc -= effect.payMc;
@@ -665,9 +800,284 @@ export function applyCardEffect(state, card, logs, options = {}) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
   const effect = getCardEffect(card);
-  const result = applyEffect(nextState, effect, nextLogs, options);
+
+  // When the player will pick the space, suppress the automatic placement so the
+  // tile is not laid twice.
+  const willChooseTile =
+    !options.skipTile &&
+    Boolean(effect.tile) &&
+    legalCellsFor(nextState, effect.tile).length > 1;
+
+  const result = applyEffect(nextState, effect, nextLogs, {
+    ...options,
+    skipTile: options.skipTile || willChooseTile
+  });
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
-  return { state: result.state, logs: nextLogs };
+
+  // Effects that need the player to choose a target park the rest of the work in
+  // state.pendingChoice; the caller must not finish the turn until it resolves.
+  const pending = queuePendingChoices(result.state, card, {
+    sourceKind: options.sourceKind ?? "card",
+    sourceId: card.id,
+    consumedAction: options.consumedAction ?? true,
+    paid: true
+  });
+  if (pending) {
+    result.state.pendingChoice = pending;
+    nextLogs = addLog(nextLogs, "system", pending.prompt);
+    result.state.logs = nextLogs;
+    return { status: "pending", state: result.state, logs: nextLogs, pendingChoice: pending };
+  }
+
+  result.state.logs = nextLogs;
+  return { status: "resolved", state: result.state, logs: nextLogs };
+}
+
+// Inspects a card's raw spec for the parts applyEffect deliberately skips and
+// turns the first of them into a pending choice. Remaining choices are queued
+// again after each resolution, so a card with several can walk through them.
+function queuePendingChoices(state, card, context) {
+  const raw = card.effectSpec?.behavior;
+  if (!raw) return null;
+  const done = state.resolvedChoices?.[card.id] ?? [];
+
+  if (raw.or && !raw.or.autoSelect && Array.isArray(raw.or.behaviors) && !done.includes("effect-branch")) {
+    return buildBranchChoice(state, raw.or.behaviors, context);
+  }
+  // Where a tile goes is the player's decision, not the first legal space.
+  const effect = getCardEffect(card);
+  if (effect.tile && !done.includes("tile-placement")) {
+    const legal = legalCellsFor(state, effect.tile);
+    if (legal.length > 1) {
+      return buildTileChoice(
+        state,
+        effect.tile,
+        { ...context, remaining: effect.tileCount ?? 1, specialName: effect.specialName },
+        legal
+      );
+    }
+  }
+  if (raw.standardResource && !done.includes("standard-resource")) {
+    return buildStandardResourceChoice(state, raw.standardResource, context);
+  }
+  if (raw.addResourcesToAnyCard && !done.includes("any-card-resource")) {
+    const specs = Array.isArray(raw.addResourcesToAnyCard)
+      ? raw.addResourcesToAnyCard
+      : [raw.addResourcesToAnyCard];
+    for (const spec of specs) {
+      const built = buildResourceChoice(state, spec, {
+        ...context,
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType
+      });
+      if (!built) continue;
+      // A single legal target needs no decision.
+      if (built.autoTarget) {
+        applyResourceToCard(state, built.autoTarget, built.count);
+        continue;
+      }
+      return built;
+    }
+  }
+  return null;
+}
+
+function applyResourceToCard(state, target, amount) {
+  state.players = state.players.map(player => {
+    if (player.id !== target.targetPlayerId) return player;
+    const cardResources = { ...player.cardResources };
+    cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + amount;
+    return { ...player, cardResources };
+  });
+  return state;
+}
+
+function markChoiceResolved(state, sourceId, stage) {
+  const resolved = { ...(state.resolvedChoices ?? {}) };
+  resolved[sourceId] = [...(resolved[sourceId] ?? []), stage];
+  state.resolvedChoices = resolved;
+}
+
+// Applies the player's selection and either finishes the effect or produces the
+// next choice the same card still needs.
+export function resolvePendingChoice(state, optionId, logs, playerId) {
+  const choice = state.pendingChoice;
+  if (!choice) {
+    return { status: "resolved", state, logs: addLog(logs, "system", "解決すべき選択がありません。") };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  if (!isChoiceOwnedBy(choice, actorId)) {
+    return {
+      status: "pending",
+      state,
+      logs: addLog(logs, "system", "この選択は別のプレイヤーのものです。"),
+      pendingChoice: choice
+    };
+  }
+  const option = findOption(choice, optionId);
+  if (!option) {
+    return {
+      status: "pending",
+      state,
+      logs: addLog(logs, "system", "選択肢が不正です。"),
+      pendingChoice: choice
+    };
+  }
+
+  const next = cloneGameState(state);
+  let nextLogs = logs;
+  next.pendingChoice = null;
+  markChoiceResolved(next, choice.continuation.sourceId, choice.continuation.stage);
+
+  const card = ALL_CARDS.find(item => item.id === choice.continuation.sourceId);
+
+  switch (choice.kind) {
+    case "any-card-resource": {
+      applyResourceToCard(next, option, choice.continuation.remaining ?? 1);
+      nextLogs = addLog(nextLogs, "system", `${option.label}に資源を${choice.continuation.remaining ?? 1}個置きました。`);
+      break;
+    }
+    case "standard-resource": {
+      const amount = option.amount ?? 1;
+      next.players = next.players.map(player =>
+        player.id === actorId ? { ...player, [option.resource]: player[option.resource] + amount } : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${option.label}を${amount}獲得しました。`);
+      break;
+    }
+    case "effect-branch": {
+      const branch = card?.effectSpec?.behavior?.or?.behaviors?.[Number(option.id)];
+      if (branch) {
+        const branchEffect = normalizeBehavior(branch, {}, []);
+        const applied = applyEffect(next, { ...branchEffect, cardId: card.id }, nextLogs);
+        nextLogs = addLog(applied.logs, "system", `選択: ${option.label}`);
+      }
+      break;
+    }
+    case "ocean-placement":
+    case "tile-placement": {
+      const cell = next.board[option.targetCellKey];
+      const tileType = choice.continuation.payload?.tileType ?? "ocean";
+      if (cell) {
+        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId);
+        nextLogs = addLog(nextLogs, "system", `${option.label} にタイルを配置しました。`);
+      }
+      const remaining = (choice.continuation.remaining ?? 1) - 1;
+      if (remaining > 0) {
+        const followUp = buildTileChoice(next, tileType, { ...choice.continuation, remaining }, legalCellsFor(next, tileType));
+        if (followUp) {
+          next.pendingChoice = followUp;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // The same card may still owe another decision.
+  if (card) {
+    const followUp = queuePendingChoices(next, card, choice.continuation);
+    if (followUp) {
+      next.pendingChoice = followUp;
+      nextLogs = addLog(nextLogs, "system", followUp.prompt);
+      next.logs = nextLogs;
+      return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+    }
+  }
+
+  next.logs = nextLogs;
+  return { status: "resolved", state: next, logs: nextLogs };
+}
+
+export function legalCellsFor(state, tileType, playerId) {
+  const owner = playerId ?? state.currentPlayerId;
+  return Object.values(state.board).filter(cell =>
+    isCellPlacementValid(cell, tileType, state.board, owner)
+  );
+}
+
+function placeTileAt(state, cell, tileType, ownerId, cardId) {
+  state.board = { ...state.board };
+  state.board[`${cell.q},${cell.r}`] = {
+    ...cell,
+    tileType,
+    placedBy: tileType === "ocean" ? null : ownerId
+  };
+
+  const player = getPlayer(state, ownerId);
+  if (player) {
+    if (cardId) {
+      state.players = state.players.map(p =>
+        p.id === ownerId
+          ? { ...p, cardPlacements: { ...p.cardPlacements, [cardId]: `${cell.q},${cell.r}` } }
+          : p
+      );
+    }
+    grantPlacementBonus(state, cell, ownerId);
+  }
+
+  if (tileType === "ocean") {
+    state.oceans = Math.min(9, state.oceans + 1);
+    bumpTr(state, ownerId, 1);
+  }
+  if (tileType === "forest") {
+    state.oxygen = Math.min(14, state.oxygen + 1);
+    bumpTr(state, ownerId, 1);
+  }
+  return state;
+}
+
+function bumpTr(state, playerId, amount) {
+  state.players = state.players.map(player =>
+    player.id === playerId ? { ...player, tr: player.tr + amount } : player
+  );
+}
+
+// Placement bonuses printed on the space go to whoever covers it.
+function grantPlacementBonus(state, cell, ownerId) {
+  const grants = cell.bonusType === "multi" && Array.isArray(cell.bonus)
+    ? cell.bonus
+    : cell.bonusType && cell.bonusType !== "none"
+      ? [{ type: cell.bonusType, amount: cell.bonusAmount }]
+      : [];
+
+  for (const grant of grants) {
+    if (grant.type === "card") {
+      const drawn = drawFromDeck(state, grant.amount);
+      state.players = state.players.map(player =>
+        player.id === ownerId ? { ...player, hand: [...player.hand, ...drawn] } : player
+      );
+      continue;
+    }
+    const field = grant.type === "plant" ? "plants" : grant.type;
+    state.players = state.players.map(player =>
+      player.id === ownerId && field in player
+        ? { ...player, [field]: player[field] + grant.amount }
+        : player
+    );
+  }
+}
+
+function drawFromDeck(state, count) {
+  let deck = [...state.deck];
+  let discard = [...state.discardPile];
+  const drawn = [];
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) {
+      if (discard.length === 0) break;
+      deck = shuffle(discard);
+      discard = [];
+    }
+    const [id, ...rest] = deck;
+    deck = rest;
+    if (id) drawn.push(id);
+  }
+  state.deck = deck;
+  state.discardPile = discard;
+  return drawn;
 }
 
 function applyPreludeFreePlay(state, effect, logs) {
@@ -920,6 +1330,7 @@ export function getInitialState(options = {}) {
     claimedMilestones: [],
     fundedAwards: [],
     pendingChoice: null,
+    resolvedChoices: {},
     logs: [
       {
         id: "init",
@@ -1225,12 +1636,12 @@ export function hasAdjacentCity(q, r, board) {
   });
 }
 
-export function getPlayerOwnedTiles(board) {
-  return Object.values(board).filter(c => c.placedBy === "player");
+export function getPlayerOwnedTiles(board, playerId = "player") {
+  return Object.values(board).filter(c => c.placedBy === playerId);
 }
 
-export function getLegalOwnedAdjacentSpaces(board) {
-  const playerTiles = getPlayerOwnedTiles(board);
+export function getLegalOwnedAdjacentSpaces(board, playerId = "player") {
+  const playerTiles = getPlayerOwnedTiles(board, playerId);
   const adjacentKeys = new Set();
   playerTiles.forEach(tile => {
     const adj = getAdjacentCells(tile.q, tile.r);
@@ -1245,20 +1656,25 @@ export function getLegalOwnedAdjacentSpaces(board) {
   return Array.from(adjacentKeys);
 }
 
-export function isCellPlacementValid(cell, type, board) {
+export function isCellPlacementValid(cell, type, board, playerId = "player") {
   if (cell.tileType !== "empty") return false;
+  // Noctis City's space is reserved for that card alone.
+  if (cell.reservedFor && cell.reservedFor !== type) return false;
 
   if (type === "ocean") {
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
     return !hasAdjacentCity(cell.q, cell.r, board);
+  } else if (type === "special") {
+    // Special tiles ignore the greenery adjacency rule; they only need dry land.
+    return !cell.isOceanOnly;
   } else {
     // forest (greenery)
     if (cell.isOceanOnly) return false;
     
     // Greenery adjacency rule: must be adjacent to player's owned tiles if valid adjacent space exists
-    const legalAdjacentSpaces = getLegalOwnedAdjacentSpaces(board);
+    const legalAdjacentSpaces = getLegalOwnedAdjacentSpaces(board, playerId);
     if (legalAdjacentSpaces.length > 0) {
       const key = `${cell.q},${cell.r}`;
       return legalAdjacentSpaces.includes(key);
