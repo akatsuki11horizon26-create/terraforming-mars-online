@@ -7,6 +7,23 @@ import {
   updatePlayer,
   withLegacyPlayerAccessors
 } from "./player-state.js";
+import { THARSIS_CELLS } from "./tharsis-board.js";
+import {
+  AWARDS,
+  MAX_AWARDS,
+  MAX_MILESTONES,
+  MILESTONES,
+  MILESTONE_COST,
+  computeAwardVp,
+  computeMilestoneVp,
+  getAward,
+  getMilestone,
+  getMilestoneThreshold,
+  getNextAwardCost,
+  scoreAward
+} from "./milestones-awards.js";
+
+export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneThreshold, scoreAward };
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
@@ -221,45 +238,10 @@ void LEGACY_CARDS;
 export const ALL_CARDS = OFFICIAL_PROJECTS;
 export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS };
 
-export const INITIAL_CELLS = [
-  { q: 0, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -3, isOceanOnly: true, bonusType: "steel", bonusAmount: 1 },
-  { q: 2, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -3, isOceanOnly: true, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: -2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: -2, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -2, isOceanOnly: false, bonusType: "steel", bonusAmount: 2 },
-  { q: 3, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: -1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 0, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 0, isOceanOnly: false, bonusType: "mc", bonusAmount: 2 },
-  { q: 1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 0, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: 3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: 1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 2, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 2, isOceanOnly: false, bonusType: "card", bonusAmount: 1 },
-  { q: 1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 }
-];
+// The official Tharsis map. Generated from the reference implementation by
+// scripts/generate-tharsis-board.mjs, which verifies the axial conversion against
+// the reference adjacency rule before writing.
+export const INITIAL_CELLS = THARSIS_CELLS;
 
 export function formatLogTime() {
   const now = new Date();
@@ -817,6 +799,62 @@ export function applyCorporationTriggers(state, card, logs) {
   return { state: nextState, logs: nextLogs };
 }
 
+// Mirrors GameSetup.setupNeutralPlayer: for each of two neutral cities, discard a
+// card and use its cost to pick the nth available land space (scanning from the top
+// for the first city, from the bottom for the second), skipping spaces that already
+// neighbour a city, then place a greenery on an adjacent free space.
+function placeNeutralTiles(board, deck) {
+  let remainingDeck = [...deck];
+
+  const drawCost = () => {
+    const [drawn, ...rest] = remainingDeck;
+    remainingDeck = rest;
+    const card = drawn ? ALL_CARDS.find(c => c.id === drawn) : undefined;
+    return card?.cost ?? 0;
+  };
+
+  const isFree = cell => cell && cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor;
+
+  const placeCityAndForest = direction => {
+    const cost = drawCost();
+    const distance = Math.max(cost - 1, 0);
+
+    const ordered = Object.values(board)
+      .filter(isFree)
+      .sort((a, b) => (a.r - b.r) || (a.q - b.q));
+    if (direction === "bottom") ordered.reverse();
+
+    const candidates = ordered.filter(cell => {
+      const adjacent = getAdjacentCells(cell.q, cell.r)
+        .map(pos => board[`${pos.q},${pos.r}`])
+        .filter(Boolean);
+      return (
+        adjacent.every(neighbour => neighbour.tileType !== "city") &&
+        adjacent.some(isFree)
+      );
+    });
+    if (candidates.length === 0) return;
+
+    const citySpace = candidates[distance % candidates.length];
+    citySpace.tileType = "city";
+    citySpace.placedBy = "neutral";
+
+    const adjacentFree = getAdjacentCells(citySpace.q, citySpace.r)
+      .map(pos => board[`${pos.q},${pos.r}`])
+      .filter(isFree);
+    if (adjacentFree.length === 0) return;
+
+    const greeneryIndex = Math.max(drawCost() - 1, 0);
+    const greenerySpace = adjacentFree[greeneryIndex % adjacentFree.length];
+    greenerySpace.tileType = "forest";
+    greenerySpace.placedBy = "neutral";
+  };
+
+  placeCityAndForest("top");
+  placeCityAndForest("bottom");
+  return remainingDeck;
+}
+
 export function getInitialState(options = {}) {
   const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
@@ -830,22 +868,15 @@ export function getInitialState(options = {}) {
     };
   });
 
-  // Official solo rules seed the board with two neutral cities and two neutral
-  // greeneries. Multiplayer games start from an empty board.
-  if (mode === "solo") {
-    board["0,0"].tileType = "city";
-    board["0,0"].placedBy = "neutral";
-    board["0,-1"].tileType = "forest";
-    board["0,-1"].placedBy = "neutral";
-
-    board["-2,2"].tileType = "city";
-    board["-2,2"].placedBy = "neutral";
-    board["-3,3"].tileType = "forest";
-    board["-3,3"].placedBy = "neutral";
-  }
-
   const allCardIds = ALL_CARDS.map(c => c.id);
   let shuffledDeck = shuffle(allCardIds);
+
+  // Official solo rules seed the board with two neutral cities, each with an
+  // adjacent neutral greenery. The reference implementation discards a card per
+  // tile and counts that many available land spaces from the top, then the bottom.
+  if (mode === "solo") {
+    shuffledDeck = placeNeutralTiles(board, shuffledDeck);
+  }
   const corporationPool = shuffle(CORPORATIONS.map(corporation => corporation.id));
   const preludePool = shuffle(PRELUDES.map(prelude => prelude.id));
 
@@ -886,6 +917,8 @@ export function getInitialState(options = {}) {
     board,
     deck: shuffledDeck,
     discardPile: [],
+    claimedMilestones: [],
+    fundedAwards: [],
     pendingChoice: null,
     logs: [
       {
@@ -901,17 +934,123 @@ export function getInitialState(options = {}) {
   });
 }
 
+function milestoneContext(state, player) {
+  return {
+    player,
+    board: state.board,
+    cards: ALL_CARDS,
+    corporation: CORPORATIONS.find(c => c.id === player.corporationId)
+  };
+}
+
+export function getMilestoneStatus(state, milestoneId, playerId) {
+  const milestone = getMilestone(milestoneId);
+  if (!milestone) return { claimable: false, reason: "不明なマイルストーンです。", score: 0, threshold: 0 };
+
+  const player = getPlayer(state, playerId);
+  if (!player) return { claimable: false, reason: "プレイヤーが見つかりません。", score: 0, threshold: 0 };
+
+  const threshold = getMilestoneThreshold(milestone, state);
+  const score = milestone.getScore(milestoneContext(state, player));
+  const claimed = (state.claimedMilestones ?? []).find(entry => entry.milestoneId === milestoneId);
+
+  if (claimed) {
+    const owner = getPlayer(state, claimed.playerId);
+    return { claimable: false, reason: `${owner?.name ?? claimed.playerId}が獲得済みです。`, score, threshold };
+  }
+  if ((state.claimedMilestones ?? []).length >= MAX_MILESTONES) {
+    return { claimable: false, reason: "マイルストーンは3つまでしか獲得できません。", score, threshold };
+  }
+  if (score < threshold) {
+    return { claimable: false, reason: `条件を満たしていません (${score}/${threshold})。`, score, threshold };
+  }
+  if (player.mc < MILESTONE_COST) {
+    return { claimable: false, reason: `${MILESTONE_COST} MC必要です。`, score, threshold };
+  }
+  return { claimable: true, reason: "", score, threshold };
+}
+
+export function claimMilestone(state, milestoneId, logs, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const status = getMilestoneStatus(state, milestoneId, targetId);
+  if (!status.claimable) {
+    return { state, logs: addLog(logs, "system", status.reason), claimed: false };
+  }
+
+  const milestone = getMilestone(milestoneId);
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === targetId ? { ...player, mc: player.mc - MILESTONE_COST } : player
+  );
+  next.claimedMilestones = [...(next.claimedMilestones ?? []), { milestoneId, playerId: targetId }];
+
+  const player = getPlayer(next, targetId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? targetId}がマイルストーン「${milestone.name}」を獲得しました (${MILESTONE_COST} MC)。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, claimed: true };
+}
+
+export function getAwardStatus(state, awardId, playerId) {
+  const award = getAward(awardId);
+  if (!award) return { fundable: false, reason: "不明な表彰です。" };
+
+  const player = getPlayer(state, playerId);
+  if (!player) return { fundable: false, reason: "プレイヤーが見つかりません。" };
+
+  const cost = getNextAwardCost(state);
+  if ((state.fundedAwards ?? []).some(entry => entry.awardId === awardId)) {
+    return { fundable: false, reason: "この表彰はすでに設立されています。", cost };
+  }
+  if ((state.fundedAwards ?? []).length >= MAX_AWARDS) {
+    return { fundable: false, reason: "表彰は3つまでしか設立できません。", cost };
+  }
+  if (player.mc < cost) {
+    return { fundable: false, reason: `${cost} MC必要です。`, cost };
+  }
+  return { fundable: true, reason: "", cost };
+}
+
+export function fundAward(state, awardId, logs, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const status = getAwardStatus(state, awardId, targetId);
+  if (!status.fundable) {
+    return { state, logs: addLog(logs, "system", status.reason), funded: false };
+  }
+
+  const award = getAward(awardId);
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === targetId ? { ...player, mc: player.mc - status.cost } : player
+  );
+  next.fundedAwards = [...(next.fundedAwards ?? []), { awardId, playerId: targetId }];
+
+  const player = getPlayer(next, targetId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? targetId}が表彰「${award.name}」を設立しました (${status.cost} MC)。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, funded: true };
+}
+
 export function isGameOverCheck(temp, oxy, oce) {
   return temp >= 8 && oxy >= 14 && oce >= 9;
 }
 
-export function computeScore(state) {
-  let score = state.tr;
+export function computeScore(state, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const player = getPlayer(state, targetId) ?? state.players[0];
+  let score = player.tr;
   
   // Count player greeneries (1 VP each)
   let playerGreeneriesCount = 0;
   Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === "player" && cell.tileType === "forest") {
+    if (cell.placedBy === targetId && cell.tileType === "forest") {
       playerGreeneriesCount += 1;
     }
   });
@@ -920,7 +1059,7 @@ export function computeScore(state) {
   // Count adjacent greeneries for each player city (1 VP each greenery, regardless of ownership)
   let cityVp = 0;
   Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === "player" && cell.tileType === "city") {
+    if (cell.placedBy === targetId && cell.tileType === "city") {
       const adj = getAdjacentCells(cell.q, cell.r);
       adj.forEach(pos => {
         const key = `${pos.q},${pos.r}`;
@@ -934,30 +1073,36 @@ export function computeScore(state) {
   score += cityVp;
 
   // Add card VPs
-  state.playedProjects.forEach(cardId => {
+  player.playedProjects.forEach(cardId => {
     const card = ALL_CARDS.find(c => c.id === cardId);
     if (card && card.victoryPoints) {
       score += card.victoryPoints;
     }
     if (card?.victoryPointSpec && !card.dynamicVictory) {
       const spec = card.victoryPointSpec;
-      const resources = state.cardResources?.[cardId] ?? 0;
+      const resources = player.cardResources?.[cardId] ?? 0;
       if (spec.resourcesHere !== undefined) score += spec.per ? Math.floor(resources / spec.per) : resources * (spec.each ?? 1);
-      if (spec.tag) score += countPlayedTag(state, spec.tag);
-      const placementKey = state.cardPlacements?.[cardId];
+      if (spec.tag) score += countPlayedTag(state, spec.tag, player);
+      const placementKey = player.cardPlacements?.[cardId];
       const placement = placementKey ? state.board[placementKey] : undefined;
       if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
       if (placement && spec.cities !== undefined) {
         score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
       }
     }
-    if (cardId === "p-search-for-life" && (state.cardResources?.[cardId] ?? 0) > 0) score += 3;
+    if (cardId === "p-search-for-life" && (player.cardResources?.[cardId] ?? 0) > 0) score += 3;
     if (cardId === "p-capital") {
-      const key = state.cardPlacements?.[cardId];
+      const key = player.cardPlacements?.[cardId];
       const capital = key ? state.board[key] : undefined;
       if (capital) score += countAdjacentOceans(capital.q, capital.r, state.board);
     }
   });
+
+  // Milestones and awards are scored from shared state, so each player's own
+  // corporation is resolved inside the scorer rather than passed in here.
+  const milestoneVp = computeMilestoneVp(state)[targetId] ?? 0;
+  const awardVp = computeAwardVp(state, { cards: ALL_CARDS, corporations: CORPORATIONS })[targetId] ?? 0;
+  score += milestoneVp + awardVp;
 
   return score;
 }
@@ -979,12 +1124,14 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
 }
 
-function countPlayedTag(state, tag) {
+function countPlayedTag(state, tag, player) {
+  const owner = player ?? getCurrentPlayer(state) ?? state.players?.[0];
   const normalized = String(tag).toLowerCase();
-  return state.playedProjects.reduce((sum, id) => {
+  const corporation = CORPORATIONS.find(c => c.id === owner?.corporationId);
+  return (owner?.playedProjects ?? []).reduce((sum, id) => {
     const projectCard = ALL_CARDS.find(item => item.id === id);
     return sum + (projectCard?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
-  }, 0) + (getCorporation(state)?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
+  }, 0) + (corporation?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
 }
 
 function getGeneratedRequirementStatus(card, state, buffer) {

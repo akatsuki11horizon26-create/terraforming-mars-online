@@ -9,6 +9,7 @@ import {
   isCellPlacementValid,
   countAdjacentOceans,
   checkParameterThresholds,
+  getAdjacentCells,
   ALL_CARDS,
   INITIAL_CELLS
 } from "../app/game-logic.js";
@@ -29,15 +30,29 @@ test("Initial state setup tests", () => {
   assert.equal(state.hand.length, 0);
   assert.equal(state.researchCards.length, 10);
   
-  // Check neutral cities and greeneries exist
-  assert.equal(state.board["0,0"].tileType, "city");
-  assert.equal(state.board["0,0"].placedBy, "neutral");
-  assert.equal(state.board["0,-1"].tileType, "forest");
-  assert.equal(state.board["0,-1"].placedBy, "neutral");
-  assert.equal(state.board["-2,2"].tileType, "city");
-  assert.equal(state.board["-2,2"].placedBy, "neutral");
-  assert.equal(state.board["-3,3"].tileType, "forest");
-  assert.equal(state.board["-3,3"].placedBy, "neutral");
+  // Solo setup seeds two neutral cities, each with an adjacent neutral greenery.
+  // Positions depend on the discarded cards' costs, so assert the rule, not
+  // fixed coordinates.
+  const neutralCities = Object.values(state.board).filter(
+    cell => cell.placedBy === "neutral" && cell.tileType === "city"
+  );
+  const neutralForests = Object.values(state.board).filter(
+    cell => cell.placedBy === "neutral" && cell.tileType === "forest"
+  );
+  assert.equal(neutralCities.length, 2);
+  assert.equal(neutralForests.length, 2);
+
+  for (const forest of neutralForests) {
+    const touchesNeutralCity = getAdjacentCells(forest.q, forest.r).some(pos => {
+      const neighbour = state.board[`${pos.q},${pos.r}`];
+      return neighbour?.tileType === "city" && neighbour.placedBy === "neutral";
+    });
+    assert.ok(touchesNeutralCity, "each neutral greenery sits beside a neutral city");
+  }
+
+  for (const cell of [...neutralCities, ...neutralForests]) {
+    assert.equal(cell.isOceanOnly, false, "neutral tiles never occupy ocean reservations");
+  }
 });
 
 test("Research phase card purchase cost logic", () => {
@@ -111,20 +126,41 @@ test("Standard project cost and requirements", () => {
 });
 
 test("Greenery adjacency rules", () => {
-  const state = getInitialState();
-  
-  // Set a player tile on the board
-  state.board["0,1"].placedBy = "player";
-  state.board["0,1"].tileType = "city";
+  const state = getInitialState({ playerCount: 2 });
 
-  // Space adjacent to player tile: (0, 2) is empty and non-ocean-only
-  const cellAdjacent = state.board["0,2"];
-  assert.equal(isCellPlacementValid(cellAdjacent, "forest", state.board), true);
+  // Pick an interior land space so it is guaranteed to have free neighbours.
+  const anchor = Object.values(state.board).find(cell => {
+    if (cell.isOceanOnly || cell.tileType !== "empty" || cell.reservedFor) return false;
+    const free = getAdjacentCells(cell.q, cell.r)
+      .map(pos => state.board[`${pos.q},${pos.r}`])
+      .filter(neighbour => neighbour && !neighbour.isOceanOnly && neighbour.tileType === "empty");
+    return free.length >= 2;
+  });
+  assert.ok(anchor, "the board must contain an interior land space");
 
-  // Space far from player tile: (-3, 0) is empty and non-ocean-only
-  const cellFar = state.board["-3,0"];
-  // Since there is a valid adjacent space, far placement must be illegal
-  assert.equal(isCellPlacementValid(cellFar, "forest", state.board), false);
+  anchor.placedBy = "player";
+  anchor.tileType = "city";
+
+  const adjacent = getAdjacentCells(anchor.q, anchor.r)
+    .map(pos => state.board[`${pos.q},${pos.r}`])
+    .find(cell => cell && !cell.isOceanOnly && cell.tileType === "empty" && !cell.reservedFor);
+  assert.ok(adjacent);
+  assert.equal(isCellPlacementValid(adjacent, "forest", state.board), true);
+
+  // With a legal adjacent space available, a space touching none of the player's
+  // tiles must be rejected.
+  const adjacentKeys = new Set(
+    getAdjacentCells(anchor.q, anchor.r).map(pos => `${pos.q},${pos.r}`)
+  );
+  const far = Object.values(state.board).find(
+    cell =>
+      !cell.isOceanOnly &&
+      cell.tileType === "empty" &&
+      !cell.reservedFor &&
+      !adjacentKeys.has(`${cell.q},${cell.r}`)
+  );
+  assert.ok(far);
+  assert.equal(isCellPlacementValid(far, "forest", state.board), false);
 });
 
 test("Ocean adjacency bonus MC", () => {
