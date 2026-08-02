@@ -112,6 +112,27 @@ test("Room codes avoid characters people confuse", () => {
   }
 });
 
+test("A generated code always survives normalization unchanged", () => {
+  // This is the code people read aloud and type back. If normalizing it
+  // produced anything else, they would land in a different room.
+  for (let i = 0; i < 300; i++) {
+    const code = generateRoomCode();
+    assert.equal(normalizeRoomCode(code), code);
+  }
+});
+
+test("Only the four omitted characters are folded", () => {
+  // L and Q are valid letters; folding them would silently rewrite the code.
+  assert.equal(normalizeRoomCode("HELLO"), "HELLQ", "only the O folds");
+  assert.equal(normalizeRoomCode("ABCDE"), "ABCDE");
+  assert.equal(normalizeRoomCode("QQQQQ"), "QQQQQ");
+  assert.equal(normalizeRoomCode("LLLLL"), "LLLLL");
+  // The excluded four fold onto the letter they resemble.
+  assert.equal(normalizeRoomCode("IIIII"), "JJJJJ");
+  assert.equal(normalizeRoomCode("11111"), "JJJJJ");
+  assert.equal(normalizeRoomCode("00000"), "QQQQQ");
+});
+
 test("Typing a confusable character still finds the room", () => {
   // Someone reading a code aloud may say "eye" or "oh"; fold onto a real letter
   // rather than rejecting the input.

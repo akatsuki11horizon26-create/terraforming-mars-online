@@ -27,9 +27,15 @@ export const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 export const ROOM_CODE_LENGTH = 5;
 
 // Room codes get read aloud and typed by hand, so the alphabet omits the
-// characters people confuse. Typing one anyway is forgiven by folding it onto
-// the character it looks like.
-const CONFUSABLE = { I: "1", L: "1", O: "0", "0": "0", "1": "1" };
+// characters people confuse in speech and print: I/1 and O/0.
+//
+// Someone reading a code may still type the lookalike, so those four fold onto
+// the character the alphabet does contain. Anything else outside the alphabet is
+// dropped rather than rewritten — silently turning HELLO into a different code
+// would send you to the wrong room.
+// Only the four characters the alphabet omits. L, Q and the other letters are
+// valid and must pass through untouched.
+const CONFUSABLE = { I: "J", "1": "J", O: "Q", "0": "Q" };
 
 export function normalizeRoomCode(code) {
   const cleaned = String(code ?? "")
@@ -38,11 +44,8 @@ export function normalizeRoomCode(code) {
 
   let result = "";
   for (const char of cleaned) {
-    const folded = CONFUSABLE[char] ?? char;
-    // Fold onto a character the alphabet actually contains.
-    if (ROOM_CODE_ALPHABET.includes(folded)) result += folded;
-    else if (folded === "1") result += "J";
-    else if (folded === "0") result += "Q";
+    if (ROOM_CODE_ALPHABET.includes(char)) result += char;
+    else if (CONFUSABLE[char]) result += CONFUSABLE[char];
   }
   return result.slice(0, ROOM_CODE_LENGTH);
 }
