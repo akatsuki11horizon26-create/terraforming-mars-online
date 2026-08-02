@@ -1,6 +1,7 @@
 import { CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
 import {
   DEFAULT_PLAYER_NAMES,
+  SOLO_STARTING_TR,
   createPlayer,
   getCurrentPlayer,
   getPlayer,
@@ -1445,6 +1446,8 @@ export function getInitialState(options = {}) {
     players.push(
       // `??` would accept an empty string, leaving a nameless player.
       createPlayer(id, String(names[i] ?? "").trim() || DEFAULT_PLAYER_NAMES[i], {
+        // The solo variant opens at 14 TR instead of 20.
+        ...(mode === "solo" ? { tr: SOLO_STARTING_TR, generationStartTr: SOLO_STARTING_TR } : {}),
         researchCards,
         corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
         preludeOptions: preludePool.slice(i * 4, i * 4 + 4)

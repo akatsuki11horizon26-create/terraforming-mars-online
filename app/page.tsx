@@ -60,6 +60,7 @@ import {
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags } from "./card-tags";
+import { GlobalParameters, OpponentStrip, ResourceGrid } from "./global-params";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
 
@@ -1293,19 +1294,6 @@ export default function Home() {
     setPlacementMode(null);
   };
 
-  const handleEndTurnChoice = (action: "another" | "end") => {
-    const nextState = { ...gameState };
-    if (action === "another") {
-      nextState.turnStep = "second_action_allowed";
-      nextState.logs = addLog(nextState.logs, "player", "もう1アクションを実行します。");
-    } else {
-      nextState.actionsRemaining = 2;
-      nextState.turnStep = "start";
-      nextState.logs = addLog(nextState.logs, "player", "ターンを終了しました。新しいターンを開始します。");
-    }
-    saveState(nextState);
-  };
-
   // Final greenery converters
   const handleFinalGreeneryConvert = () => {
     if (gameState.plants < 8) return;
@@ -1424,125 +1412,62 @@ export default function Home() {
           <div className="cyber-panel-header">
             <h2 className="cyber-panel-title">惑星データ</h2>
           </div>
-          <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の世代 / 限界世代:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ember)" }}>G-{gameState.generation} / 14</span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の進行フェーズ:</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "bold", color: "var(--color-gold)" }}>{getPhaseNameJP(gameState.phase)}</span>
-            </div>
-
-            {gameState.phase === "action" && (
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>ターン内残りアクション:</span>
-                <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-gold)" }}>{gameState.actionsRemaining} / 2</span>
+          <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div className="status-row">
+              <div className="status-cell">
+                <span className="status-label">世代</span>
+                <span className="status-value">
+                  {activeState.generation}
+                  {activeState.mode === "solo" ? " / 14" : ""}
+                </span>
               </div>
-            )}
-
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>TR (開拓評価):</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-cyan)" }}>{gameState.tr}</span>
+              <div className="status-cell">
+                <span className="status-label">TR</span>
+                <span className="status-value" style={{ color: "var(--accent-cyan)" }}>
+                  {players.find(p => p.id === currentPlayerId)?.tr ?? 0}
+                </span>
+              </div>
+              <div className="status-cell">
+                <span className="status-label">得点</span>
+                <span className="status-value">{scoreValue}</span>
+              </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>現在スコア:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ink)" }}>{scoreValue} 点</span>
+            <div className="status-row">
+              <div className="status-cell" style={{ flex: 2 }}>
+                <span className="status-label">フェーズ</span>
+                <span className="status-value" style={{ fontSize: "0.9rem" }}>
+                  {getPhaseNameJP(activeState.phase)}
+                </span>
+              </div>
+              {activeState.phase === "action" && (
+                <div className="status-cell">
+                  <span className="status-label">残アクション</span>
+                  <span className="status-value" style={{ color: "var(--accent-amber)" }}>
+                    {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0} / 2
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <GlobalParameters
+              temperature={activeState.temperature}
+              oxygen={activeState.oxygen}
+              oceans={activeState.oceans}
+              venus={activeState.venus ?? 0}
+              showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
+            />
+
+            {players.length > 1 && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>気温 (目標: +8°C)</span>
-                  <span style={{ color: "var(--color-ember)" }}>{gameState.temperature}°C</span>
+                <div className="section-title">
+                  <span>他プレイヤー</span>
                 </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-ember)",
-                      width: `${Math.min(100, Math.max(0, ((gameState.temperature - (-30)) / 38) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>酸素濃度 (目標: 14%)</span>
-                  <span style={{ color: "var(--color-cyan)" }}>{gameState.oxygen}%</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-cyan)",
-                      width: `${Math.min(100, Math.max(0, (gameState.oxygen / 14) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>海洋数 (目標: 9)</span>
-                  <span style={{ color: "var(--color-gold)" }}>{gameState.oceans} / 9</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-gold)",
-                      width: `${Math.min(100, Math.max(0, (gameState.oceans / 9) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>金星 (Venus Next)</span>
-                  <span style={{ color: "var(--color-cyan)" }}>{gameState.venus}%</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-cyan)",
-                      width: `${Math.min(100, Math.max(0, (gameState.venus / 30) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Turn step choice control when turnStep === "one_action_taken" */}
-            {gameState.phase === "action" && gameState.turnStep === "one_action_taken" && (
-              <div style={{ marginTop: "14px", padding: "12px", backgroundColor: "rgba(229, 181, 99, 0.08)", border: "2px solid var(--color-gold)", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.8rem", color: "var(--color-gold)", fontWeight: "bold", marginBottom: "8px", textAlign: "center" }}>
-                  ターン継続確認
-                </div>
-                <p style={{ fontSize: "0.7rem", color: "#c9bfae", marginBottom: "10px", lineHeight: "1.3" }}>
-                  1アクション目を完了しました。もう1アクション実行するか、このターンを終了するか選択してください。
-                </p>
-                <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <button
-                    className="btn-primary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
-                    onClick={() => handleEndTurnChoice("another")}
-                  >
-                    もう1アクション
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
-                    onClick={() => handleEndTurnChoice("end")}
-                  >
-                    ターン終了
-                  </button>
-                </div>
+                <OpponentStrip
+                  players={players as never}
+                  selfId={currentPlayerId}
+                  turnHolderId={turnHolderId}
+                />
               </div>
             )}
           </div>
@@ -1695,55 +1620,7 @@ export default function Home() {
               <h2 className="cyber-panel-title">資源</h2>
             </div>
             <div className="cyber-panel-content">
-              <div className="resources-grid">
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>💳 MegaCredits</span>
-                  </div>
-                  <span className="resource-value">{gameState.mc}</span>
-                  <span className="resource-prod">生産: {gameState.mcProd} (+{gameState.tr} TR)</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🤖 建材 (Steel)</span>
-                  </div>
-                  <span className="resource-value">{gameState.steel}</span>
-                  <span className="resource-prod">生産: {gameState.steelProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🚀 チタン (Titanium)</span>
-                  </div>
-                  <span className="resource-value">{gameState.titanium}</span>
-                  <span className="resource-prod">生産: {gameState.titaniumProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🌱 植物 (Plants)</span>
-                  </div>
-                  <span className="resource-value">{gameState.plants}</span>
-                  <span className="resource-prod">生産: {gameState.plantsProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>⚡ エネルギー (Energy)</span>
-                  </div>
-                  <span className="resource-value">{gameState.energy}</span>
-                  <span className="resource-prod">生産: {gameState.energyProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🔥 熱 (Heat)</span>
-                  </div>
-                  <span className="resource-value">{gameState.heat}</span>
-                  <span className="resource-prod">生産: {gameState.heatProd}</span>
-                </div>
-              </div>
+              <ResourceGrid player={(players.find(p => p.id === currentPlayerId) ?? players[0]) as never} />
             </div>
           </div>
 

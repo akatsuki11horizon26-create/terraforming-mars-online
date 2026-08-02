@@ -438,3 +438,176 @@
     max-width: 70px;
   }
 }
+
+/* Global parameters, resources and opponents ---------------------------------
+   Modelled on the digital edition's layout: the three terraforming tracks read
+   together, stock and production sit in one cell, and opponents stay visible
+   instead of being buried below your own resources — a frequent complaint about
+   the official client. */
+
+.param-stack {
+  display: grid;
+  gap: 7px;
+}
+
+.param-track[data-done="true"] .param-label::after {
+  content: " 達成";
+  color: var(--accent-green);
+  font-size: 0.85em;
+}
+
+.param-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.param-label {
+  color: var(--text-mid);
+  letter-spacing: 0.06em;
+}
+
+.param-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.param-target {
+  color: var(--text-low);
+  font-weight: 400;
+}
+
+.param-rail {
+  height: 6px;
+  background-color: var(--surface-base);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+}
+
+.param-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.resource-cell {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label prod" "stock prod";
+  align-items: center;
+  gap: 0 6px;
+  padding: 5px 7px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+}
+
+.resource-label {
+  grid-area: label;
+  font-size: 10px;
+  color: var(--text-low);
+  letter-spacing: 0.04em;
+}
+
+.resource-stock {
+  grid-area: stock;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-prod {
+  grid-area: prod;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-prod[data-negative="true"] {
+  color: var(--accent-rose);
+}
+
+.opponent-strip {
+  display: grid;
+  gap: 4px;
+}
+
+.opponent-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+  font-size: 11px;
+}
+
+.opponent-card[data-active="true"] {
+  border-left-color: var(--accent-amber);
+  background-color: rgba(240, 162, 60, 0.1);
+}
+
+.opponent-card[data-passed="true"] {
+  opacity: 0.5;
+}
+
+.opponent-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opponent-stats {
+  display: flex;
+  gap: 8px;
+  color: var(--text-mid);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Compact status readout: generation, TR and score on one line rather than a
+   stack of labelled rows, which is what let the old panel run past a screen. */
+
+.status-row {
+  display: flex;
+  gap: 5px;
+}
+
+.status-cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 7px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+}
+
+.status-label {
+  font-size: 10px;
+  color: var(--text-low);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.status-value {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

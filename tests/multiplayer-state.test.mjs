@@ -46,6 +46,19 @@ test("Hotseat deals independent hands and skips neutral tiles", () => {
   assert.equal(new Set(corps).size, 3, "each player gets distinct corporation options");
 });
 
+test("Starting TR is 20, or 14 in the solo variant", () => {
+  // The solo game opens lower because there is no opponent to race; the
+  // 14-generation limit supplies the pressure instead.
+  assert.deepEqual(getInitialState().players.map(p => p.tr), [14]);
+  assert.deepEqual(getInitialState({ playerCount: 3 }).players.map(p => p.tr), [20, 20, 20]);
+
+  // generationStartTr must match, or the first generation reports a false gain.
+  const solo = getInitialState();
+  assert.equal(solo.players[0].generationStartTr, 14);
+  const hotseat = getInitialState({ playerCount: 2 });
+  assert.ok(hotseat.players.every(p => p.generationStartTr === 20));
+});
+
 test("Player count is clamped to the supported range", () => {
   assert.equal(getInitialState({ playerCount: 9 }).players.length, 5);
   assert.equal(getInitialState({ playerCount: 0 }).players.length, 1);
@@ -96,10 +109,11 @@ test("Production resolves for every player and rotates the first player", () => 
 
   const after = triggerProduction(state, state.logs);
 
-  // Each player gains TR (14) + their own MC production on top of the starting 42.
+  // Each player gains TR (20 in multiplayer) + their own MC production on top of
+  // the starting 42.
   assert.deepEqual(
     after.players.map(p => p.mc),
-    [57, 61, 65]
+    [63, 67, 71]
   );
   assert.equal(after.firstPlayerId, "player2", "first player marker passes clockwise");
   assert.ok(

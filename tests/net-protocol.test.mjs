@@ -51,7 +51,7 @@ test("Opponents are visible as counts, not contents", () => {
   const rival = view.players.find(p => p.id === "player2");
 
   assert.equal(rival.handCount, 3, "how many cards an opponent holds is public");
-  assert.equal(rival.tr, 14, "public stats stay visible");
+  assert.equal(rival.tr, 20, "public stats stay visible");
   assert.equal(rival.mc, 42);
 });
 

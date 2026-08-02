@@ -35,6 +35,11 @@ export const PLAYER_REF_FIELDS = [
 
 export const LEGACY_PLAYER_FIELDS = [...PLAYER_SCALAR_FIELDS, ...PLAYER_REF_FIELDS];
 
+// Multiplayer starts at 20 TR; the solo variant starts at 14 because there is
+// no opponent to race and the 14-generation limit provides the pressure instead.
+export const STARTING_TR = 20;
+export const SOLO_STARTING_TR = 14;
+
 export const DEFAULT_PLAYER_NAMES = [
   "プレイヤー1",
   "プレイヤー2",
@@ -50,13 +55,13 @@ export function createPlayer(id, name, overrides = {}) {
     setupStep: "corporation",
     turnStep: "start",
     actionsRemaining: 2,
-    generationStartTr: 14,
+    generationStartTr: STARTING_TR,
     researchCards: [],
     corporationOptions: [],
     corporationId: null,
     preludeOptions: [],
     selectedPreludeIds: [],
-    tr: 14,
+    tr: STARTING_TR,
     mc: 42,
     mcProd: 0,
     steel: 0,
