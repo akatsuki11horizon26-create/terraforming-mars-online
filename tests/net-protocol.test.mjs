@@ -1,0 +1,131 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { getInitialState } from "../app/game-logic.js";
+import {
+  viewForPlayer,
+  normalizeRoomCode,
+  isValidRoomCode,
+  generateRoomCode,
+  ROOM_CODE_ALPHABET,
+  ROOM_CODE_LENGTH,
+  encode,
+  decode
+} from "../app/net-protocol.js";
+
+function makeGame() {
+  const state = getInitialState({ playerCount: 3 });
+  state.players[0].hand = ["secret-a", "secret-b"];
+  state.players[1].hand = ["rival-a", "rival-b", "rival-c"];
+  state.players[2].hand = ["third-a"];
+  return state;
+}
+
+test("A player's view contains their own hand", () => {
+  const view = viewForPlayer(makeGame(), "player");
+  const me = view.players.find(p => p.id === "player");
+
+  assert.deepEqual(me.hand, ["secret-a", "secret-b"]);
+  assert.equal(me.isSelf, true);
+});
+
+test("A view never carries another player's hand", () => {
+  const view = viewForPlayer(makeGame(), "player");
+
+  for (const other of view.players.filter(p => p.id !== "player")) {
+    assert.equal(other.hand, undefined, `${other.id}'s hand must not be sent`);
+    assert.equal(other.researchCards, undefined);
+    assert.equal(other.corporationOptions, undefined);
+    assert.equal(other.preludeOptions, undefined);
+    assert.equal(other.isSelf, false);
+  }
+
+  // The whole serialized payload must not contain an opponent's card ids.
+  const wire = encode(view);
+  for (const secret of ["rival-a", "rival-b", "rival-c", "third-a"]) {
+    assert.equal(wire.includes(secret), false, `${secret} leaked onto the wire`);
+  }
+});
+
+test("Opponents are visible as counts, not contents", () => {
+  const view = viewForPlayer(makeGame(), "player");
+  const rival = view.players.find(p => p.id === "player2");
+
+  assert.equal(rival.handCount, 3, "how many cards an opponent holds is public");
+  assert.equal(rival.tr, 14, "public stats stay visible");
+  assert.equal(rival.mc, 42);
+});
+
+test("The deck order is hidden but its size is not", () => {
+  const state = makeGame();
+  const view = viewForPlayer(state, "player");
+
+  assert.equal(view.deck, undefined);
+  assert.equal(view.deckCount, state.deck.length);
+  assert.equal(view.discardPile, undefined);
+});
+
+test("Another player's pending choice does not leak its options", () => {
+  const state = makeGame();
+  state.pendingChoice = {
+    id: "c1",
+    kind: "any-card-resource",
+    ownerPlayerId: "player2",
+    prompt: "微生物を置くカードを選んでください。",
+    optional: false,
+    options: [{ id: "a", label: "Ants", targetCardId: "rival-secret-card" }],
+    continuation: { stage: "any-card-resource", sourceId: "rival-secret-card" }
+  };
+
+  const view = viewForPlayer(state, "player");
+  assert.equal(view.pendingChoice.hidden, true);
+  assert.deepEqual(view.pendingChoice.options, [], "options can name cards in a hand");
+  assert.equal(encode(view).includes("rival-secret-card"), false);
+
+  // The owner sees it in full.
+  const ownerView = viewForPlayer(state, "player2");
+  assert.equal(ownerView.pendingChoice.options.length, 1);
+  assert.equal(ownerView.pendingChoice.hidden, undefined);
+});
+
+test("Shared state stays shared", () => {
+  const state = makeGame();
+  const view = viewForPlayer(state, "player3");
+
+  assert.equal(view.temperature, state.temperature);
+  assert.equal(view.oxygen, state.oxygen);
+  assert.equal(view.oceans, state.oceans);
+  assert.equal(Object.keys(view.board).length, 61);
+  assert.equal(view.generation, state.generation);
+});
+
+test("Room codes avoid characters people confuse", () => {
+  assert.equal(ROOM_CODE_ALPHABET.includes("I"), false);
+  assert.equal(ROOM_CODE_ALPHABET.includes("O"), false);
+  assert.equal(ROOM_CODE_ALPHABET.includes("0"), false);
+  assert.equal(ROOM_CODE_ALPHABET.includes("1"), false);
+
+  for (let i = 0; i < 50; i++) {
+    const code = generateRoomCode();
+    assert.equal(code.length, ROOM_CODE_LENGTH);
+    assert.ok(isValidRoomCode(code));
+    assert.ok([...code].every(char => ROOM_CODE_ALPHABET.includes(char)));
+  }
+});
+
+test("Typing a confusable character still finds the room", () => {
+  // Someone reading a code aloud may say "eye" or "oh"; fold onto a real letter
+  // rather than rejecting the input.
+  assert.equal(normalizeRoomCode("abcde"), "ABCDE");
+  assert.equal(normalizeRoomCode("ab-cd e"), "ABCDE");
+  assert.equal(normalizeRoomCode("ABCDEFGH").length, ROOM_CODE_LENGTH);
+  assert.ok([...normalizeRoomCode("IOIOI")].every(char => ROOM_CODE_ALPHABET.includes(char)));
+  assert.equal(isValidRoomCode("ABC"), false);
+  assert.equal(isValidRoomCode(""), false);
+});
+
+test("Malformed messages decode to null rather than throwing", () => {
+  assert.equal(decode("not json"), null);
+  assert.equal(decode(""), null);
+  assert.equal(decode("[1,2,3]").length, 3);
+  assert.deepEqual(decode(encode({ type: "join" })), { type: "join" });
+});

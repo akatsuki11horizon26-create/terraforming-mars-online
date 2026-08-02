@@ -60,6 +60,8 @@ import {
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags } from "./card-tags";
+import { MultiplayerLobby } from "./multiplayer-lobby";
+import { useRoom } from "./use-room";
 
 interface PlayerRecord {
   id: string;
@@ -274,6 +276,9 @@ export default function Home() {
   // New-game options. The setup panel opens from the header and replaces the
   // board until a game is started, so multiplayer is reachable without editing
   // code.
+  const [showLobby, setShowLobby] = useState(false);
+  const online = useRoom();
+
   const [showGameSetup, setShowGameSetup] = useState(false);
   const [setupPlayerCount, setSetupPlayerCount] = useState(1);
   const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
@@ -333,9 +338,19 @@ export default function Home() {
 
   // --- Expansion and multiplayer surfaces -------------------------------
 
-  const players = (gameState.players ?? []) as PlayerRecord[];
-  const currentPlayerId = gameState.currentPlayerId ?? players[0]?.id ?? "player";
-  const pendingChoice = gameState.pendingChoice ?? null;
+  // When connected to a room the server's filtered view is the state; the local
+  // game is only used offline. Rendering reads whichever is active.
+  const isOnline = Boolean(online.view);
+  const activeState = (online.view ?? gameState) as GameState & { viewerId?: string };
+
+  const players = (activeState.players ?? []) as PlayerRecord[];
+  // Online, "current player" for UI purposes is the seat this device owns; the
+  // engine's currentPlayerId still decides whose turn it is.
+  const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
+  const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
+  const turnHolderId = activeState.currentPlayerId ?? currentPlayerId;
+  const isMyTurn = !isOnline || turnHolderId === seatId;
+  const pendingChoice = activeState.pendingChoice ?? null;
 
   const playerSummaries = players.map(player => ({
     id: player.id,
@@ -357,8 +372,9 @@ export default function Home() {
   };
 
   const handleResolveChoice = (optionId: string) => {
+    if (isOnline) return void online.sendAction("resolveChoice", { optionId });
     runEngine(
-      jsResolvePendingChoice(gameState, optionId, gameState.logs, currentPlayerId) as {
+      jsResolvePendingChoice(activeState, optionId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -366,10 +382,10 @@ export default function Home() {
   };
 
   const milestoneViews = (jsMILESTONES as MilestoneDefinition[]).map(milestone => {
-    const claimed = (gameState.claimedMilestones ?? []).find(
+    const claimed = (activeState.claimedMilestones ?? []).find(
       entry => entry.milestoneId === milestone.id
     );
-    const status = jsGetMilestoneStatus(gameState, milestone.id, currentPlayerId) as {
+    const status = jsGetMilestoneStatus(activeState, milestone.id, currentPlayerId) as {
       claimable: boolean;
       reason: string;
       score: number;
@@ -390,8 +406,8 @@ export default function Home() {
   });
 
   const awardViews = (jsAWARDS as AwardDefinition[]).map(award => {
-    const funded = (gameState.fundedAwards ?? []).find(entry => entry.awardId === award.id);
-    const status = jsGetAwardStatus(gameState, award.id, currentPlayerId) as {
+    const funded = (activeState.fundedAwards ?? []).find(entry => entry.awardId === award.id);
+    const status = jsGetAwardStatus(activeState, award.id, currentPlayerId) as {
       fundable: boolean;
       reason: string;
       cost: number;
@@ -407,19 +423,19 @@ export default function Home() {
     };
   });
 
-  const turmoilView = gameState.turmoil
+  const turmoilView = activeState.turmoil
     ? {
-        chairmanName: nameOf(gameState.turmoil.chairman),
-        influence: jsGetInfluence(gameState.turmoil, currentPlayerId) as number,
+        chairmanName: nameOf(activeState.turmoil.chairman),
+        influence: jsGetInfluence(activeState.turmoil, currentPlayerId) as number,
         parties: (jsPARTIES as PartyDefinition[]).map(party => {
-          const seat = gameState.turmoil!.parties[party.id];
+          const seat = activeState.turmoil!.parties[party.id];
           return {
             id: party.id,
             name: party.name,
             delegates: seat?.delegates ?? [],
             leaderName: seat?.leader ? nameOf(seat.leader) : undefined,
-            isRuling: gameState.turmoil!.rulingParty === party.id,
-            isDominant: gameState.turmoil!.dominantParty === party.id
+            isRuling: activeState.turmoil!.rulingParty === party.id,
+            isDominant: activeState.turmoil!.dominantParty === party.id
           };
         }),
         events: (
@@ -429,7 +445,7 @@ export default function Home() {
             ["distant", "予告"]
           ] as const
         ).map(([slot, label]) => {
-          const id = gameState.turmoil![`${slot}Event` as const];
+          const id = activeState.turmoil![`${slot}Event` as const];
           const event = (jsGLOBAL_EVENTS as { id: string; name: string }[]).find(
             item => item.id === id
           );
@@ -438,15 +454,15 @@ export default function Home() {
       }
     : null;
 
-  const colonyViews = gameState.colonies
-    ? gameState.colonies.tilesInPlay.map(tileId => {
-        const tile = gameState.colonies!.tiles[tileId];
+  const colonyViews = activeState.colonies
+    ? activeState.colonies.tilesInPlay.map(tileId => {
+        const tile = activeState.colonies!.tiles[tileId];
         const definition = jsGetColonyTile(tileId) as ColonyDefinition;
-        const build = jsCanBuildColony(gameState.colonies, tileId, currentPlayerId) as {
+        const build = jsCanBuildColony(activeState.colonies, tileId, currentPlayerId) as {
           ok: boolean;
           reason: string;
         };
-        const tradeCheck = jsCanTrade(gameState.colonies, tileId, currentPlayerId) as {
+        const tradeCheck = jsCanTrade(activeState.colonies, tileId, currentPlayerId) as {
           ok: boolean;
           reason: string;
         };
@@ -466,8 +482,9 @@ export default function Home() {
     : [];
 
   const handleClaimMilestone = (milestoneId: string) => {
+    if (isOnline) return void online.sendAction("claimMilestone", { milestoneId });
     runEngine(
-      jsClaimMilestone(gameState, milestoneId, gameState.logs, currentPlayerId) as {
+      jsClaimMilestone(activeState, milestoneId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -475,8 +492,9 @@ export default function Home() {
   };
 
   const handleFundAward = (awardId: string) => {
+    if (isOnline) return void online.sendAction("fundAward", { awardId });
     runEngine(
-      jsFundAward(gameState, awardId, gameState.logs, currentPlayerId) as {
+      jsFundAward(activeState, awardId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -484,8 +502,9 @@ export default function Home() {
   };
 
   const handleSendDelegate = (partyId: string) => {
+    if (isOnline) return void online.sendAction("sendDelegate", { partyId });
     runEngine(
-      jsSendDelegateToParty(gameState, partyId, gameState.logs, currentPlayerId) as {
+      jsSendDelegateToParty(activeState, partyId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -493,8 +512,9 @@ export default function Home() {
   };
 
   const handleBuildColony = (tileId: string) => {
+    if (isOnline) return void online.sendAction("buildColony", { tileId });
     runEngine(
-      jsBuildColonyOn(gameState, tileId, gameState.logs, currentPlayerId) as {
+      jsBuildColonyOn(activeState, tileId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -502,8 +522,9 @@ export default function Home() {
   };
 
   const handleTradeWithColony = (tileId: string) => {
+    if (isOnline) return void online.sendAction("trade", { tileId });
     runEngine(
-      jsTradeWith(gameState, tileId, gameState.logs, currentPlayerId) as {
+      jsTradeWith(activeState, tileId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
       }
@@ -1333,6 +1354,18 @@ export default function Home() {
           </button>
           <button
             className="btn-secondary"
+            style={{
+              padding: "4px 12px",
+              fontSize: "0.8rem",
+              borderColor: isOnline ? "var(--color-cyan)" : undefined,
+              color: isOnline ? "var(--color-cyan)" : undefined
+            }}
+            onClick={() => setShowLobby(true)}
+          >
+            {isOnline ? `オンライン: ${online.room?.code ?? ""}` : "オンライン対戦"}
+          </button>
+          <button
+            className="btn-secondary"
             style={{ padding: "4px 12px", fontSize: "0.8rem" }}
             onClick={() => {
               setSetupPlayerCount(gameState.players?.length ?? 1);
@@ -1352,7 +1385,12 @@ export default function Home() {
 
       {players.length > 1 && (
         <div style={{ padding: "10px 16px 0" }}>
-          <PlayerBar players={playerSummaries} currentPlayerId={currentPlayerId} />
+          <PlayerBar players={playerSummaries} currentPlayerId={turnHolderId} />
+          {isOnline && !isMyTurn && (
+            <p style={{ marginTop: "6px", fontSize: "0.75rem", color: "var(--color-cyan)" }}>
+              {players.find(p => p.id === turnHolderId)?.name ?? "他のプレイヤー"} の手番です。お待ちください。
+            </p>
+          )}
         </div>
       )}
 
@@ -2086,7 +2124,7 @@ export default function Home() {
                   key={cardId}
                   className={`project-card ${isSelected ? "selected" : ""}`}
                   onClick={() => handleCardClick(cardId)}
-                  disabled={gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                  disabled={!isMyTurn || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
                   aria-pressed={isSelected}
                   style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
                 >
@@ -2322,6 +2360,22 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {showLobby && (
+        <MultiplayerLobby
+          status={online.status}
+          room={online.room}
+          error={online.error}
+          playerId={online.playerId}
+          onConnect={online.connect}
+          onDisconnect={() => {
+            online.disconnect();
+            setShowLobby(false);
+          }}
+          onStart={online.startGame}
+          onClose={() => setShowLobby(false)}
+        />
       )}
 
       {/* New game setup: player count and expansions */}
