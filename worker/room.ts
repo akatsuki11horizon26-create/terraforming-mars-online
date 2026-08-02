@@ -11,7 +11,7 @@ import {
   applyCardAction,
   resolvePendingChoice,
   handleActionSpend,
-  triggerProduction,
+  passPlayer,
   claimMilestone,
   fundAward,
   sendDelegateToParty,
@@ -290,6 +290,11 @@ export class GameRoom {
     if (state.pendingChoice && !isOwnPendingChoice) {
       return this.fail(socket, "先に選択を解決してください。");
     }
+    // A pass is final for the generation, whatever the client sends.
+    const seatPlayer = (state.players as { id: string; passed?: boolean }[]).find(p => p.id === seat);
+    if (seatPlayer?.passed) {
+      return this.fail(socket, "パス済みのため、この世代は行動できません。");
+    }
 
     try {
       const next = this.applyAction(state, seat, action, payload);
@@ -403,7 +408,8 @@ export class GameRoom {
         return (tradeWith(asState, String(payload.tileId), logs, seat) as { state: never }).state as never;
 
       case "pass":
-        return triggerProduction(asState, logs) as never;
+        // Only ends the generation once every player has passed.
+        return (passPlayer(asState, logs, seat) as { state: never }).state as never;
 
       default:
         return null;

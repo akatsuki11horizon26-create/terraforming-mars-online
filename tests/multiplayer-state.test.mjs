@@ -9,6 +9,8 @@ import {
   applyCardEffect,
   applyCorporation,
   applyPreludes,
+  passPlayer,
+  getCardPlayableStatus,
   ALL_CARDS,
   CORPORATIONS
 } from "../app/game-logic.js";
@@ -362,4 +364,76 @@ test("withLegacyPlayerAccessors is safe to apply twice", () => {
   const state = withLegacyPlayerAccessors(withLegacyPlayerAccessors(getInitialState()));
   state.mc = 5;
   assert.equal(state.players[0].mc, 5);
+});
+
+test("A turn is two actions, then the seat passes on", () => {
+  let state = getInitialState({ playerCount: 3 });
+  state.phase = "action";
+
+  state = handleActionSpend(state, state.logs);
+  assert.equal(state.currentPlayerId, "player", "one action does not end the turn");
+  assert.equal(state.turnStep, "one_action_taken");
+
+  state = handleActionSpend(state, state.logs);
+  assert.equal(state.currentPlayerId, "player2", "the second action hands the seat on");
+  assert.equal(state.actionsRemaining, 2, "the next player gets a full turn");
+});
+
+test("Solo keeps the seat rather than passing it to nobody", () => {
+  let state = getInitialState();
+  state.phase = "action";
+  state = handleActionSpend(state, state.logs);
+  state = handleActionSpend(state, state.logs);
+
+  assert.equal(state.currentPlayerId, "player");
+  assert.equal(state.actionsRemaining, 2);
+});
+
+test("One player passing does not end the generation", () => {
+  let state = getInitialState({ playerCount: 3 });
+  state.phase = "action";
+  const generation = state.generation;
+
+  let result = passPlayer(state, state.logs, "player");
+  assert.equal(result.generationEnded, false);
+  assert.equal(result.state.generation, generation, "production waits for everyone");
+  assert.equal(result.state.currentPlayerId, "player2");
+
+  result = passPlayer(result.state, result.logs, "player2");
+  assert.equal(result.generationEnded, false);
+  assert.equal(result.state.generation, generation);
+
+  result = passPlayer(result.state, result.logs, "player3");
+  assert.equal(result.generationEnded, true, "the last pass ends the generation");
+  assert.equal(result.state.generation, generation + 1);
+  assert.ok(
+    result.state.players.every(player => !player.passed),
+    "the new generation clears every pass"
+  );
+});
+
+test("Passed players are skipped in the turn order", () => {
+  let state = getInitialState({ playerCount: 3 });
+  state.phase = "action";
+  state = passPlayer(state, state.logs, "player2").state;
+
+  state.currentPlayerId = "player";
+  state = handleActionSpend(state, state.logs);
+  state = handleActionSpend(state, state.logs);
+
+  assert.equal(state.currentPlayerId, "player3", "player2 has passed and is skipped");
+});
+
+test("A pass is final for the generation", () => {
+  const state = getInitialState({ playerCount: 2 });
+  state.phase = "action";
+  const passed = passPlayer(state, state.logs, "player").state;
+
+  // Even if the turn is forced back to them, they cannot act.
+  passed.currentPlayerId = "player";
+  const card = ALL_CARDS.find(item => item.id === "p-power-plant");
+  const status = getCardPlayableStatus(card, passed, 0, 0);
+
+  assert.equal(status.playable, false);
+  assert.match(status.reason, /パス済み/);
 });

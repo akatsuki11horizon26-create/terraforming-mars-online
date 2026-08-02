@@ -16,7 +16,6 @@ import {
   countAdjacentOceans as jsCountAdjacentOceans,
   checkParameterThresholds as jsCheckParameterThresholds,
   handleActionSpend as jsHandleActionSpend,
-  triggerProduction as jsTriggerProduction,
   isGameOverCheck as jsIsGameOverCheck,
   addLog as jsAddLog,
   applyCorporation as jsApplyCorporation,
@@ -55,6 +54,7 @@ import {
   availableFleets as jsAvailableFleets,
   getColonyTile as jsGetColonyTile,
   resolvePendingChoice as jsResolvePendingChoice,
+  passPlayer as jsPassPlayer,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
@@ -258,7 +258,6 @@ const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellSta
 const countAdjacentOceans = jsCountAdjacentOceans as unknown as (q: number, r: number, board: Record<string, CellState>) => number;
 const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
-const triggerProduction = jsTriggerProduction as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const isGameOverCheck = jsIsGameOverCheck as unknown as (temp: number, oxy: number, oce: number) => boolean;
 const addLog = jsAddLog as unknown as (logsList: LogEntry[], sender: "player" | "cpu" | "system", text: string) => LogEntry[];
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
@@ -1286,10 +1285,14 @@ export default function Home() {
   };
 
   const handlePass = () => {
-    const nextState = { ...gameState };
-    const localLogs = addLog(nextState.logs, "player", `パスを選択しました。この世代のアクションフェーズを終了します。`);
-    const resolved = triggerProduction(nextState, localLogs);
-    saveState(resolved);
+    if (isOnline) return void online.sendAction("pass");
+    // Passing leaves the action phase for this generation only; production runs
+    // once every player has passed.
+    const result = jsPassPlayer(gameState, gameState.logs, currentPlayerId) as {
+      state: GameState;
+      logs: LogEntry[];
+    };
+    runEngine(result);
     setSelectedCardId(null);
     setPlacementMode(null);
   };

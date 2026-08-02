@@ -315,6 +315,13 @@ const TILE_TYPE_BY_NUMBER = {
   43: { tile: "special", specialName: "Special Tile" }
 };
 
+// Global parameter limits from the rulebook: nine ocean tiles, oxygen to 14%,
+// temperature from -30°C to +8°C in 2° steps.
+export const MAX_OCEANS = 9;
+export const MAX_OXYGEN = 14;
+export const MAX_TEMPERATURE = 8;
+export const MIN_TEMPERATURE = -30;
+
 // Reasons normalizeBehavior records that the pendingChoice flow now resolves.
 const HANDLED_BY_PENDING_CHOICE = new Set([
   "any-card-resource-choice",
@@ -673,11 +680,11 @@ function placeTile(state, type, count = 1, cardId) {
     };
     if (cardId && i === 0) state.cardPlacements[cardId] = `${cell.q},${cell.r}`;
     if (type === "ocean") {
-      state.oceans = Math.min(9, state.oceans + 1);
+      state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
       bumpTr(state, ownerId, 1);
     }
     if (type === "forest") {
-      state.oxygen = Math.min(14, state.oxygen + 1);
+      state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
       bumpTr(state, ownerId, 1);
     }
     placed += 1;
@@ -1129,11 +1136,11 @@ function placeTileAt(state, cell, tileType, ownerId, cardId) {
   }
 
   if (tileType === "ocean") {
-    state.oceans = Math.min(9, state.oceans + 1);
+    state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
     bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
-    state.oxygen = Math.min(14, state.oxygen + 1);
+    state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
     bumpTr(state, ownerId, 1);
   }
   return state;
@@ -1206,6 +1213,9 @@ function applyPreludeFreePlay(state, effect, logs) {
 }
 
 export function getCardActionStatus(state, card) {
+  if (getCurrentPlayer(state)?.passed) {
+    return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
+  }
   const action = getCardEffect(card).action;
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   if (action.energyCost && state.energy < action.energyCost) {
@@ -1993,6 +2003,10 @@ function getGeneratedRequirementStatus(card, state, buffer) {
 }
 
 export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed = 0) {
+  // A pass is final for the generation: no further actions until the next one.
+  if (getCurrentPlayer(state)?.passed) {
+    return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
+  }
   const { maxSteel, maxTitanium } = getCardDiscount(card, state);
   if (steelUsed > maxSteel || titaniumUsed > maxTitanium) {
     return { playable: false, reason: "資源割引の上限を超えています。" };
@@ -2083,6 +2097,10 @@ export function isCellPlacementValid(cell, type, board, playerId = "player") {
   if (cell.reservedFor && cell.reservedFor !== type) return false;
 
   if (type === "ocean") {
+    // There are exactly nine ocean tiles. The counter saturated at 9 while the
+    // board kept accepting them, so a tenth could be placed.
+    const placed = Object.values(board).filter(space => space.tileType === "ocean").length;
+    if (placed >= MAX_OCEANS) return false;
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
@@ -2159,21 +2177,83 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
   return { state: nextState, logs: currentLogs };
 }
 
+// Finds the next player who has not passed, starting after `fromId`. Returns
+// null when everyone has passed and the generation is over.
+function nextActivePlayer(state, fromId) {
+  const order = state.turnOrder;
+  if (order.length === 0) return null;
+  const start = Math.max(0, order.indexOf(fromId));
+
+  for (let step = 1; step <= order.length; step++) {
+    const candidate = order[(start + step) % order.length];
+    const player = getPlayer(state, candidate);
+    if (player && !player.passed) return candidate;
+  }
+  return null;
+}
+
+export function allPlayersPassed(state) {
+  return state.players.every(player => player.passed);
+}
+
 export function handleActionSpend(state, logAcc) {
   const nextState = cloneGameState(state);
+  const actorId = nextState.currentPlayerId;
   nextState.actionsRemaining -= 1;
   nextState.logs = logAcc;
 
-  // Turn ending logic
-  if (nextState.actionsRemaining <= 0) {
-    nextState.actionsRemaining = 2;
-    nextState.turnStep = "start";
-    nextState.logs = addLog(nextState.logs, "system", "あなたのターンが終了しました。新しいターンを開始します。");
-  } else {
+  if (nextState.actionsRemaining > 0) {
     nextState.turnStep = "one_action_taken";
+    return nextState;
+  }
+
+  // A turn is two actions, then the seat passes on. Solo has nobody to pass to,
+  // so the same player simply starts a new turn.
+  nextState.actionsRemaining = 2;
+  nextState.turnStep = "start";
+
+  const next = nextActivePlayer(nextState, actorId);
+  if (next && next !== actorId) {
+    nextState.currentPlayerId = next;
+    const player = getPlayer(nextState, next);
+    nextState.logs = addLog(nextState.logs, "system", `${player?.name ?? next} の手番です。`);
+  } else {
+    nextState.logs = addLog(nextState.logs, "system", "ターンが終了しました。新しいターンを開始します。");
   }
 
   return nextState;
+}
+
+// A player passing leaves the action phase for this generation only. Production
+// runs once everyone has passed, not when the first player does.
+export function passPlayer(state, logAcc, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === actorId ? { ...player, passed: true } : player
+  );
+
+  const player = getPlayer(next, actorId);
+  let logs = addLog(logAcc, "player", `${player?.name ?? actorId} はパスしました。`);
+
+  if (allPlayersPassed(next)) {
+    logs = addLog(logs, "system", "全員がパスしました。生産フェーズに移行します。");
+    next.logs = logs;
+    const produced = triggerProduction(next, logs);
+    return { state: produced, logs: produced.logs, generationEnded: true };
+  }
+
+  const following = nextActivePlayer(next, actorId);
+  if (following) {
+    next.currentPlayerId = following;
+    next.actionsRemaining = 2;
+    next.turnStep = "start";
+    const upcoming = getPlayer(next, following);
+    logs = addLog(logs, "system", `${upcoming?.name ?? following} の手番です。`);
+  }
+
+  next.logs = logs;
+  return { state: next, logs, generationEnded: false };
 }
 
 export function triggerProduction(state, logAcc) {

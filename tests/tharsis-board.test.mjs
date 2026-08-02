@@ -136,3 +136,24 @@ test("A fresh game instantiates all 61 spaces as empty", () => {
     "multiplayer starts with no tiles placed"
   );
 });
+
+test("A tenth ocean can never be placed", async () => {
+  const { isCellPlacementValid, MAX_OCEANS } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2 });
+
+  const oceanSpaces = Object.values(state.board).filter(cell => cell.isOceanOnly);
+  assert.ok(oceanSpaces.length > MAX_OCEANS, "Tharsis reserves more spaces than there are tiles");
+
+  // Fill the board to the limit.
+  for (let i = 0; i < MAX_OCEANS; i++) {
+    oceanSpaces[i].tileType = "ocean";
+  }
+
+  const spare = oceanSpaces[MAX_OCEANS];
+  assert.equal(spare.tileType, "empty", "a reserved space is still free");
+  assert.equal(
+    isCellPlacementValid(spare, "ocean", state.board),
+    false,
+    "the ocean counter saturates at 9, so the board must refuse a tenth"
+  );
+});
