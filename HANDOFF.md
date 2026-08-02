@@ -26,6 +26,24 @@ GitHub Pagesはログインなしで閲覧でき、ページ本体、JavaScript�
 
 公開成果物のHEADは`f8a295e Fix renamed Pages base path`である。
 
+## 公開先は2系統
+
+**GitHub Pages（ソロ専用）** — 静的エクスポート。サーバが無いためオンライン対戦は不可能であり、`npm run build:static` が `NEXT_PUBLIC_SOLO_ONLY=1` を立ててオンラインUIをビルドから除外する。ソロとホットシート（1画面を複数人で共有）は動作する。
+
+**Cloudflare Workers（オンライン対戦あり）** — `npm run deploy`。1部屋=1 Durable Object でゲーム状態を保持し、WebSocketで各端末へ配信する。合言葉5文字で入室する。
+
+デプロイ前に `npx wrangler login` が必要。ブラウザでの対話認証なので自動化できない。
+
+### オンライン対戦の構造
+
+`app/net-protocol.js` が通信仕様と視界フィルタを持つ。`viewForPlayer` が各プレイヤー向けの状態を作り、他人の手札・研究カード・企業/プレリュード候補は枚数だけに置き換える。デッキの並びも送らない。他人の選択待ちは選択肢を空にする（選択肢がその人の手札のカード名を含むため）。
+
+`worker/room.ts` が Durable Object 本体。クライアントは意図だけを送り、状態は送らない。手番の検証はサーバが行う。
+
+`app/use-room.ts` がクライアント側の接続管理。端末ごとの固有IDを localStorage に保持するので、切断・リロード後も同じ席・同じ手札に戻る。
+
+**設定上の注意**: `compatibility_flags` と Durable Object の `migrations` は `vite.config.ts` と `wrangler.jsonc` の両方から合成される。どちらか一方にだけ書くこと。両方に書くとランタイムが起動しない。現状は flags が vite 側、migrations が wrangler 側にある。
+
 ## 収録カードの範囲
 
 公式商品として扱った範囲は、基本セット、Corporate Era、Prelude、Venus Next、Colonies、Turmoil、Prelude 2、公式Promoである。

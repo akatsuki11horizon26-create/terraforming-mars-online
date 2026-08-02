@@ -63,6 +63,10 @@ import { CardTags } from "./card-tags";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
 
+// The GitHub Pages build is a static export with no server, so online play is
+// impossible there. The Workers build leaves this unset and offers it.
+const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
+
 interface PlayerRecord {
   id: string;
   name: string;
@@ -1352,18 +1356,20 @@ export default function Home() {
           <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
             マニュアル表示
           </button>
-          <button
-            className="btn-secondary"
-            style={{
-              padding: "4px 12px",
-              fontSize: "0.8rem",
-              borderColor: isOnline ? "var(--color-cyan)" : undefined,
-              color: isOnline ? "var(--color-cyan)" : undefined
-            }}
-            onClick={() => setShowLobby(true)}
-          >
-            {isOnline ? `オンライン: ${online.room?.code ?? ""}` : "オンライン対戦"}
-          </button>
+          {ONLINE_ENABLED && (
+            <button
+              className="btn-secondary"
+              style={{
+                padding: "4px 12px",
+                fontSize: "0.8rem",
+                borderColor: isOnline ? "var(--color-cyan)" : undefined,
+                color: isOnline ? "var(--color-cyan)" : undefined
+              }}
+              onClick={() => setShowLobby(true)}
+            >
+              {isOnline ? `オンライン: ${online.room?.code ?? ""}` : "オンライン対戦"}
+            </button>
+          )}
           <button
             className="btn-secondary"
             style={{ padding: "4px 12px", fontSize: "0.8rem" }}
@@ -2362,7 +2368,7 @@ export default function Home() {
         </div>
       )}
 
-      {showLobby && (
+      {ONLINE_ENABLED && showLobby && (
         <MultiplayerLobby
           status={online.status}
           room={online.room}
