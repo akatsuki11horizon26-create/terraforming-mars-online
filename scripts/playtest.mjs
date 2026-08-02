@@ -60,12 +60,9 @@ function checkInvariants(state, where) {
       } else if (value < 0 && field !== "mc") {
         report("negative-resource", `${player.id}.${field} = ${value}`, { where });
       } else if (field === "mc" && value < 0) {
-        // Production pays TR + MC production with no floor, matching the
-        // reference implementation, so a player who never raises TR while
-        // Turmoil drains it can genuinely go into the red. That is the rules
-        // working, not a defect — but flag it separately so a real overspend
-        // elsewhere is still visible.
-        report("mc-in-the-red", `${player.id}.mc = ${value}`, { where, benign: true });
+        // The rulebook floors a generation's MC income at zero, so going into
+        // the red can only come from overspending — a real defect.
+        report("negative-resource", `${player.id}.mc = ${value}`, { where });
       }
     }
     if (!Number.isFinite(player.tr) || player.tr < 0) {

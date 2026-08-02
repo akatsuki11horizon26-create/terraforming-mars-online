@@ -207,3 +207,40 @@ test("City counts include every player's cities", () => {
     "the card reads 'per each city tile in play'"
   );
 });
+
+test("Placing next to an ocean pays 2 MC per adjacent ocean", async () => {
+  // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
+  // ２Ｍ€の配置ボーナスをもたらします" — the engine's own placement path has to
+  // pay this, not just the inline handler in page.tsx.
+  const { getAdjacentCells, countAdjacentOceans } = await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 2 });
+  const seed = Object.values(state.board).find(cell => cell.isOceanOnly);
+  seed.tileType = "ocean";
+  state.oceans = 1;
+
+  const greeneryCard = ALL_CARDS.find(card => card.effectSpec?.behavior?.greenery !== undefined);
+  assert.ok(greeneryCard, "the catalog has a greenery-placing card");
+
+  let result = applyCardEffect(state, greeneryCard, state.logs);
+  assert.equal(result.status, "pending");
+
+  const adjacent = new Set(
+    getAdjacentCells(seed.q, seed.r).map(pos => `${pos.q},${pos.r}`)
+  );
+  const option = result.state.pendingChoice.options.find(o => adjacent.has(o.targetCellKey));
+  assert.ok(option, "a legal space next to the ocean exists");
+
+  const cell = result.state.board[option.targetCellKey];
+  const oceans = countAdjacentOceans(cell.q, cell.r, result.state.board);
+  const spaceBonus = cell.bonusType === "mc" ? cell.bonusAmount : 0;
+  const before = result.state.players[0].mc;
+
+  result = resolvePendingChoice(result.state, option.id, result.logs, "player");
+
+  assert.equal(
+    result.state.players[0].mc - before,
+    spaceBonus + oceans * 2,
+    "the placement bonus and the ocean adjacency bonus both apply"
+  );
+});

@@ -478,3 +478,29 @@ test("A turn may be one action or two", () => {
   assert.equal(ended.state.actionsRemaining, 2);
   assert.equal(ended.state.players[0].passed, false);
 });
+
+test("A generation's MC income never goes negative", () => {
+  // "産出量がマイナスになる資源はＭ€のみで、それも「－５」が下限となります。
+  //  ただし実際の収入では TR が基準となるため、各世代でのＭ€収入がマイナスに
+  //  なることがありません"
+  const state = getInitialState({ playerCount: 2 });
+  state.players[0].tr = 3;
+  state.players[0].mcProd = -5;
+  state.players[0].mc = 10;
+
+  const produced = triggerProduction(state, state.logs);
+  assert.equal(produced.players[0].mc, 10, "income floors at zero rather than charging the player");
+
+  // Ordinary cases are unaffected.
+  const healthy = getInitialState({ playerCount: 2 });
+  healthy.players[0].tr = 20;
+  healthy.players[0].mcProd = 5;
+  healthy.players[0].mc = 0;
+  assert.equal(triggerProduction(healthy, healthy.logs).players[0].mc, 25);
+});
+
+test("MC production itself still floors at -5", () => {
+  const state = getInitialState();
+  applyProduction(state, { mc: -20 });
+  assert.equal(state.players[0].mcProd, -5, "only MC may go negative, and only to -5");
+});

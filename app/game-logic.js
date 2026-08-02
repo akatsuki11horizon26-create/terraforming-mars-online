@@ -318,6 +318,8 @@ const TILE_TYPE_BY_NUMBER = {
 // Global parameter limits from the rulebook: nine ocean tiles, oxygen to 14%,
 // temperature from -30°C to +8°C in 2° steps.
 export const MAX_OCEANS = 9;
+// Each ocean tile pays 2 MC to a tile placed next to it.
+export const OCEAN_ADJACENCY_BONUS = 2;
 export const MAX_OXYGEN = 14;
 export const MAX_TEMPERATURE = 8;
 export const MIN_TEMPERATURE = -30;
@@ -1133,6 +1135,17 @@ function placeTileAt(state, cell, tileType, ownerId, cardId) {
       );
     }
     grantPlacementBonus(state, cell, ownerId);
+
+    // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
+    // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
+    // adjacent to the space just covered.
+    const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
+    if (adjacentOceans > 0) {
+      const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
+      state.players = state.players.map(p =>
+        p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
+      );
+    }
   }
 
   if (tileType === "ocean") {
@@ -2296,7 +2309,9 @@ export function triggerProduction(state, logAcc) {
   nextState.players = nextState.players.map(player => {
     const energyToHeat = player.energy;
     const mcProdClamped = Math.max(-5, player.mcProd);
-    const addedMc = mcProdClamped + player.tr;
+    // "各世代でのＭ€収入がマイナスになることがありません" — TR is the base, so a
+    // generation's income floors at zero however negative MC production is.
+    const addedMc = Math.max(0, mcProdClamped + player.tr);
     const produced = {
       ...player,
       mc: player.mc + addedMc,

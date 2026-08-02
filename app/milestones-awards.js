@@ -169,8 +169,9 @@ export function scoreAward(award, state, context) {
 
   const vp = {};
   for (const entry of winners) vp[entry.playerId] = AWARD_FIRST_VP;
-  // With two or more players sharing first place, second place pays nothing.
-  if (winners.length === 1 && state.players.length > 1) {
+  // Second place pays nothing when first place is shared, and never in a
+  // two-player game: "ただし２人プレイでは次席の褒賞はありません".
+  if (winners.length === 1 && state.players.length > 2) {
     for (const entry of runnersUp) vp[entry.playerId] = AWARD_SECOND_VP;
   }
 

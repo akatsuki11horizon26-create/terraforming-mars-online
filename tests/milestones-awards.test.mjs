@@ -149,6 +149,26 @@ test("Tied first place splits 5 VP each and pays no second place", () => {
   );
 });
 
+test("A two-player game pays no second place", () => {
+  // "ただし２人プレイでは次席の褒賞はありません" — with only two players the
+  // runner-up is simply the loser, so the award pays first place alone.
+  const duel = getInitialState({ playerCount: 2 });
+  duel.players[0].mcProd = 10;
+  duel.players[1].mcProd = 5;
+
+  const result = scoreAward(getAward("banker"), duel, { cards: [], corporations: [] });
+  assert.equal(result.vp.player, 5);
+  assert.equal(result.vp.player2, undefined);
+
+  // Three or more players restore the second-place payout.
+  const trio = getInitialState({ playerCount: 3 });
+  trio.players[0].mcProd = 10;
+  trio.players[1].mcProd = 5;
+  trio.players[2].mcProd = 1;
+  const trioResult = scoreAward(getAward("banker"), trio, { cards: [], corporations: [] });
+  assert.equal(trioResult.vp.player2, 2);
+});
+
 test("An award nobody scores on pays nothing", () => {
   const state = getInitialState({ playerCount: 2 });
   state.players[0].mcProd = 0;
