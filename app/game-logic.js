@@ -2196,6 +2196,28 @@ export function allPlayersPassed(state) {
   return state.players.every(player => player.passed);
 }
 
+// Ends the current turn without passing. A turn may be one action or two, and
+// stopping after one is a real choice: "１回だけのアクションにも利点はあります".
+export function endTurn(state, logAcc, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const next = cloneGameState(state);
+  next.actionsRemaining = 2;
+  next.turnStep = "start";
+
+  let logs = logAcc;
+  const following = nextActivePlayer(next, actorId);
+  if (following && following !== actorId) {
+    next.currentPlayerId = following;
+    const upcoming = getPlayer(next, following);
+    logs = addLog(logs, "system", `${upcoming?.name ?? following} の手番です。`);
+  } else {
+    logs = addLog(logs, "system", "ターンが終了しました。新しいターンを開始します。");
+  }
+
+  next.logs = logs;
+  return { state: next, logs };
+}
+
 export function handleActionSpend(state, logAcc) {
   const nextState = cloneGameState(state);
   const actorId = nextState.currentPlayerId;
@@ -2228,6 +2250,16 @@ export function handleActionSpend(state, logAcc) {
 // runs once everyone has passed, not when the first player does.
 export function passPlayer(state, logAcc, playerId) {
   const actorId = playerId ?? state.currentPlayerId;
+  const actor = getPlayer(state, actorId);
+
+  // The rulebook defines a pass as taking no action that turn: "１つもアクショ
+  // ンを実行しなければ（パス）". Having already acted, the turn simply ends and
+  // the seat moves on; the player is still in the generation.
+  if (actor && actor.actionsRemaining < 2) {
+    const ended = endTurn(state, logAcc, actorId);
+    return { state: ended.state, logs: ended.logs, generationEnded: false, endedTurnOnly: true };
+  }
+
   const next = cloneGameState(state);
   next.players = next.players.map(player =>
     player.id === actorId ? { ...player, passed: true } : player

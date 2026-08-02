@@ -10,6 +10,7 @@ import {
   applyCorporation,
   applyPreludes,
   passPlayer,
+  endTurn,
   getCardPlayableStatus,
   ALL_CARDS,
   CORPORATIONS
@@ -436,4 +437,44 @@ test("A pass is final for the generation", () => {
 
   assert.equal(status.playable, false);
   assert.match(status.reason, /パス済み/);
+});
+
+test("Passing means taking no action that turn", () => {
+  // The rulebook defines a pass as "１つもアクションを実行しなければ（パス）",
+  // so it is a decision made before acting, not a way out after acting.
+  let state = getInitialState({ playerCount: 3 });
+  state.phase = "action";
+
+  const passed = passPlayer(state, state.logs, "player");
+  assert.equal(passed.state.players[0].passed, true, "passing before acting leaves the generation");
+});
+
+test("Ending a turn after one action is not a pass", () => {
+  let state = getInitialState({ playerCount: 3 });
+  state.phase = "action";
+  state = handleActionSpend(state, state.logs);
+
+  const result = passPlayer(state, state.logs, "player");
+
+  assert.equal(result.endedTurnOnly, true);
+  assert.equal(
+    result.state.players[0].passed,
+    false,
+    "a player who has already acted stays in the generation"
+  );
+  assert.equal(result.state.currentPlayerId, "player2", "the seat still moves on");
+  assert.equal(result.generationEnded, false);
+});
+
+test("A turn may be one action or two", () => {
+  // "１回だけのアクションにも利点はあります" — stopping after one is a real choice.
+  let state = getInitialState({ playerCount: 2 });
+  state.phase = "action";
+  state = handleActionSpend(state, state.logs);
+  assert.equal(state.actionsRemaining, 1);
+
+  const ended = endTurn(state, state.logs, "player");
+  assert.equal(ended.state.currentPlayerId, "player2");
+  assert.equal(ended.state.actionsRemaining, 2);
+  assert.equal(ended.state.players[0].passed, false);
 });

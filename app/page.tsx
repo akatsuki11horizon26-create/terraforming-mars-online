@@ -2014,7 +2014,9 @@ export default function Home() {
                   onClick={handlePass}
                   disabled={placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
                 >
-                  パス (世代終了)
+                  {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
+                    ? "ターン終了"
+                    : "パス (この世代を離脱)"}
                 </button>
               )}
             </div>

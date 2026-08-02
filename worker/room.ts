@@ -12,6 +12,7 @@ import {
   resolvePendingChoice,
   handleActionSpend,
   passPlayer,
+  endTurn,
   claimMilestone,
   fundAward,
   sendDelegateToParty,
@@ -408,8 +409,12 @@ export class GameRoom {
         return (tradeWith(asState, String(payload.tileId), logs, seat) as { state: never }).state as never;
 
       case "pass":
-        // Only ends the generation once every player has passed.
+        // Only ends the generation once every player has passed. After acting,
+        // this ends the turn instead of leaving the generation.
         return (passPlayer(asState, logs, seat) as { state: never }).state as never;
+
+      case "endTurn":
+        return (endTurn(asState, logs, seat) as { state: never }).state as never;
 
       default:
         return null;
