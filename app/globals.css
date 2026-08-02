@@ -474,7 +474,9 @@ div[tabindex="0"]:focus-visible {
    in the flow, so the hand is always visible without lengthening the page. */
 .hand-container {
   flex: 0 0 auto;
-  max-height: 30dvh;
+  /* Enough for two rows of cards at a readable size. */
+  max-height: 34dvh;
+  min-height: 0;
   background-color: var(--surface-1);
   border-top: 1px solid var(--line-hard);
   padding: 8px 16px;
@@ -488,13 +490,6 @@ div[tabindex="0"]:focus-visible {
   .hand-container {
     max-height: none;
   }
-}
-
-.hand-cards {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 4px;
 }
 
 .selected-card-panel {

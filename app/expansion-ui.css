@@ -611,3 +611,172 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Project cards -------------------------------------------------------------
+   Laid out like the printed card: cost disc top left, tags top right, the type
+   banded by colour down the left edge (green automated, blue active, red
+   event), requirement above the effect, victory points bottom right.
+
+   Cards size themselves from --card-w so the whole hand can be fitted to the
+   strip without scrolling; page.tsx sets that from the hand size. */
+
+.tm-card {
+  --card-w: 148px;
+  width: var(--card-w);
+  height: calc(var(--card-w) * 1.4);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 8px 6px;
+  background: linear-gradient(160deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  border: 1px solid var(--line-hard);
+  border-left: 4px solid var(--tm-type-color, var(--line-hard));
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+/* The three card types, coloured as they are printed. */
+.tm-card[data-type="automated"] { --tm-type-color: var(--accent-green); }
+.tm-card[data-type="active"] { --tm-type-color: var(--accent-cyan); }
+.tm-card[data-type="event"] { --tm-type-color: var(--accent-rose); }
+
+.tm-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: var(--accent-amber);
+}
+
+.tm-card[data-selected="true"] {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 1px var(--accent-amber), 0 6px 16px rgba(0, 0, 0, 0.55);
+  transform: translateY(-5px);
+}
+
+.tm-card[data-affordable="false"] {
+  opacity: 0.45;
+}
+
+.tm-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.tm-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* The cost disc, as printed in the top-left corner. */
+.tm-card-cost {
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-amber);
+  color: var(--surface-base);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-radius: 50%;
+}
+
+.tm-card-cost[data-discounted="true"] {
+  background-color: var(--accent-green);
+}
+
+.tm-card-tags {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.card-tag-compact {
+  padding: 1px 3px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.tm-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tm-card-req {
+  font-size: 9px;
+  color: var(--accent-rose);
+  border-left: 2px solid var(--accent-rose);
+  padding-left: 4px;
+  line-height: 1.3;
+}
+
+.tm-card-body {
+  flex: 1;
+  min-height: 0;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--text-mid);
+  overflow: hidden;
+}
+
+.tm-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.tm-card-type {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--tm-type-color, var(--text-low));
+  text-transform: uppercase;
+}
+
+/* Victory points sit in the bottom-right corner on the printed card. */
+.tm-card-vp {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-violet);
+  color: var(--surface-base);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(50% 0%, 100% 35%, 82% 100%, 18% 100%, 0% 35%);
+}
+
+/* The hand fits the strip: cards wrap and shrink rather than scrolling away. */
+.hand-cards {
+  /* Takes the strip's remaining height so the fitting maths in page.tsx has a
+     real box to measure. */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  overflow: hidden;
+  padding-bottom: 2px;
+}

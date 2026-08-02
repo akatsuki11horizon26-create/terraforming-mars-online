@@ -24,16 +24,18 @@ export function tagLabel(tag: string): string {
   return TAG_INFO[tag]?.label ?? tag;
 }
 
-export function CardTag({ tag }: { tag: string }) {
+// `compact` drops the written name and keeps the symbol, which is how tags are
+// printed on the cards themselves.
+export function CardTag({ tag, compact }: { tag: string; compact?: boolean }) {
   const info = TAG_INFO[tag];
   return (
     <span
-      className="card-tag"
+      className={compact ? "card-tag card-tag-compact" : "card-tag"}
       style={info ? ({ ["--tag-color" as string]: info.color } as React.CSSProperties) : undefined}
       title={info?.label ?? tag}
     >
       <span aria-hidden="true">{info?.symbol ?? "●"}</span>
-      <span className="card-tag-name">{info?.label ?? tag}</span>
+      {!compact && <span className="card-tag-name">{info?.label ?? tag}</span>}
     </span>
   );
 }

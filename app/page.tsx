@@ -60,6 +60,7 @@ import {
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags } from "./card-tags";
+import { ProjectCard } from "./project-card";
 import { GlobalParameters, OpponentStrip, ResourceGrid } from "./global-params";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
@@ -293,6 +294,23 @@ export default function Home() {
       if (!box) return;
       const fit = Math.min(box.width / 470, box.height / 470);
       setBoardScale(Math.max(0.45, Math.min(1, fit)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // The hand must be readable at a glance without scrolling, so the cards are
+  // sized to whatever the strip can hold. More cards means smaller cards rather
+  // than cards disappearing off the edge.
+  const handRef = React.useRef<HTMLDivElement | null>(null);
+  const [handBox, setHandBox] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const element = handRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.contentRect;
+      if (box) setHandBox({ width: box.width, height: box.height });
     });
     observer.observe(element);
     return () => observer.disconnect();
@@ -1322,6 +1340,24 @@ export default function Home() {
     return ALL_CARDS.find(c => c.id === selectedCardId) || null;
   }, [selectedCardId]);
 
+  const handCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
+    gameState.hand ??
+    []) as string[];
+
+  // Find the largest card width whose rows still fit the strip's height. Cards
+  // are 1.4x tall, wrap on the cross axis, and have a 6px gap.
+  const cardWidth = useMemo(() => {
+    const { width, height } = handBox;
+    if (!width || !height || handCards.length === 0) return 148;
+    const GAP = 6;
+    for (let w = 148; w >= 78; w -= 2) {
+      const perRow = Math.max(1, Math.floor((width + GAP) / (w + GAP)));
+      const rows = Math.ceil(handCards.length / perRow);
+      if (rows * (w * 1.4 + GAP) - GAP <= height) return w;
+    }
+    return 78;
+  }, [handBox, handCards.length]);
+
   const activeCards = useMemo(() => gameState.playedProjects
     .map(id => ALL_CARDS.find(card => card.id === id))
     .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [gameState.playedProjects]);
@@ -2022,47 +2058,31 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hand-cards">
-            {gameState.hand.map(cardId => {
+          <div className="hand-cards" ref={handRef} style={{ ["--card-w" as string]: `${cardWidth}px` }}>
+            {handCards.map(cardId => {
               const cardObj = ALL_CARDS.find(c => c.id === cardId);
               if (!cardObj) return null;
-              
-              const isSelected = selectedCardId === cardId || (isSellingPatents && selectedSellCardIds.includes(cardId));
-              const cardReqMet = getCardPlayableStatus(cardObj, { ...gameState, mc: Number.MAX_SAFE_INTEGER }, 0, 0).playable;
+
+              const isSelected =
+                selectedCardId === cardId ||
+                (isSellingPatents && selectedSellCardIds.includes(cardId));
+              const status = getCardPlayableStatus(cardObj, gameState, 0, 0);
+              const payable = getCardPaymentCost(cardObj, gameState, 0, 0);
+
               return (
-                <button
+                <ProjectCard
                   key={cardId}
-                  className={`project-card ${isSelected ? "selected" : ""}`}
+                  card={cardObj as never}
+                  cost={payable}
+                  selected={isSelected}
+                  affordable={status.playable}
+                  disabled={
+                    !isMyTurn ||
+                    gameState.pendingOceans > 0 ||
+                    gameState.turnStep === "one_action_taken"
+                  }
                   onClick={() => handleCardClick(cardId)}
-                  disabled={!isMyTurn || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                  aria-pressed={isSelected}
-                  style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <CardTags tags={cardObj.tags} />
-                    <span style={{ fontSize: "0.55rem", padding: "1px 4px", borderRadius: "3px", backgroundColor: "rgba(242, 232, 220, 0.1)" }}>
-                      {cardObj.type === "event" ? "イベント" : cardObj.type === "active" ? "アクション" : "自動"}
-                    </span>
-                  </div>
-                  <div className="card-title">{cardObj.name}</div>
-                  {cardObj.expansion && (
-                    <div style={{ fontSize: "0.55rem", color: "var(--color-cyan)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {cardObj.expansion}
-                    </div>
-                  )}
-                  {cardObj.reqText !== "なし" && (
-                    <div className={`card-req ${cardReqMet ? "met" : ""}`}>
-                      要件: {cardObj.reqText}
-                    </div>
-                  )}
-                  <div className="card-effect">{cardObj.effectText}</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
-                    <span className="card-cost">{cardObj.cost} MC</span>
-                    {cardObj.victoryPoints ? (
-                      <span style={{ fontSize: "0.65rem", color: "var(--color-gold)" }}>⭐+{cardObj.victoryPoints}</span>
-                    ) : null}
-                  </div>
-                </button>
+                />
               );
             })}
           </div>
