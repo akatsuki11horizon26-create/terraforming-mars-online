@@ -280,6 +280,24 @@ export default function Home() {
   // New-game options. The setup panel opens from the header and replaces the
   // board until a game is started, so multiplayer is reachable without editing
   // code.
+  // The board is a fixed 460px design; scale it to whatever space the centre
+  // column has so the whole game stays on one screen without scrolling.
+  const boardRef = React.useRef<HTMLDivElement | null>(null);
+  const [boardScale, setBoardScale] = useState(1);
+
+  useEffect(() => {
+    const element = boardRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      const fit = Math.min(box.width / 470, box.height / 470);
+      setBoardScale(Math.max(0.45, Math.min(1, fit)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
   const [showLobby, setShowLobby] = useState(false);
   const online = useRoom();
 
@@ -1531,7 +1549,11 @@ export default function Home() {
         </div>
 
         {/* Center Column: Mars Board */}
-        <div className="board-panel">
+        <div
+          className="board-panel"
+          ref={boardRef}
+          style={{ ["--board-scale" as string]: String(boardScale) }}
+        >
           {gameState.pendingOceans > 0 && (
             <div
               style={{

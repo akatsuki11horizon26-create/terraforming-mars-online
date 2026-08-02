@@ -1,13 +1,54 @@
+/* Palette and shape rules are documented, with their contrast measurements, in
+   DESIGN.md. Values here must stay in step with tests/design-tokens.test.mjs,
+   which fails the build if a token drops below WCAG AA. */
 :root {
-  --color-void: #080908;
-  --color-panel: #121110;
-  --color-rust: #A83220;
-  --color-ember: #EF5A32;
-  --color-gold: #E5B563;
-  --color-cyan: #72D9D0;
-  --color-ink: #F2E8DC;
-  --color-empty-cell: rgba(168, 50, 32, 0.12);
-  --color-ocean-reserved: rgba(114, 217, 208, 0.12);
+  /* Surfaces. Each layer is lighter than the one beneath, so depth reads from
+     the stack order alone. Pure black is avoided: it fights bright elements and
+     tires the eye. */
+  --surface-base: #080C12;
+  --surface-1: #141C28;
+  --surface-2: #222E3E;
+  --surface-3: #334155;
+
+  /* Text. Slightly blue-tinted rather than pure white. --text-low is only legible
+     on surface-1 and darker; never put it on surface-3. */
+  --text-hi: #E8EDF4;
+  --text-mid: #A9B6C6;
+  --text-low: #7C8899;
+
+  /* Accents. Red is the theme but not the interface: used for heat and Mars
+     only, so it never competes with body text or reads as a warning. */
+  --accent-amber: #F0A23C;
+  --accent-ember: #FF7A4D;
+  --accent-cyan: #5FD3E0;
+  --accent-green: #68D391;
+  --accent-violet: #A78BDB;
+  --accent-rose: #F2708C;
+
+  --line-soft: rgba(169, 182, 198, 0.16);
+  --line-hard: rgba(169, 182, 198, 0.32);
+
+  /* The previous names are kept so the ~60 existing call sites and the inline
+     styles in page.tsx move to the new palette without being rewritten. */
+  --color-void: var(--surface-base);
+  --color-panel: var(--surface-1);
+  --color-rust: var(--line-hard);
+  --color-ember: var(--accent-ember);
+  --color-gold: var(--accent-amber);
+  --color-cyan: var(--accent-cyan);
+  --color-ink: var(--text-hi);
+  --color-empty-cell: rgba(169, 182, 198, 0.07);
+  --color-ocean-reserved: rgba(95, 211, 224, 0.14);
+}
+
+/* Angular corners instead of rounded ones: two opposite corners cut, which
+   reads as instrumentation rather than a generic card. */
+.chamfer-sm {
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+}
+
+.chamfer-md {
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
 }
 
 * {
@@ -34,7 +75,7 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-rust);
-  border-radius: 3px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
 }
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-ember);
@@ -59,16 +100,22 @@ div[tabindex="0"]:focus-visible {
 }
 
 /* Command Center Layout */
+/* The whole game fits one screen: board, hand, log and panels visible at once.
+   Card games are judged from the overall position, so hiding part of it behind a
+   scroll makes play worse. Only the inside of a column may scroll.
+   dvh, not vh: a mobile URL bar changes the viewport and vh would overflow. */
 .app-wrapper {
-  min-height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .header {
-  border-bottom: 2px solid var(--color-rust);
-  background-color: var(--color-panel);
-  padding: 12px 24px;
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--line-hard);
+  background-color: var(--surface-1);
+  padding: 8px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -80,11 +127,11 @@ div[tabindex="0"]:focus-visible {
 }
 
 .header-title {
-  color: var(--color-ember);
-  font-size: 1.4rem;
+  color: var(--accent-ember);
+  font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.15em;
-  text-shadow: 0 0 10px rgba(239, 90, 50, 0.4);
+  text-shadow: 0 0 14px rgba(255, 122, 77, 0.25);
 }
 
 .header-subtitle {
@@ -98,49 +145,68 @@ div[tabindex="0"]:focus-visible {
   color: var(--color-rust);
   font-size: 0.7rem;
   padding: 2px 6px;
-  border-radius: 3px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   text-transform: uppercase;
 }
 
 .main-content {
   flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 310px 1fr 340px;
-  gap: 16px;
-  padding: 16px;
-  height: calc(100vh - 65px);
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(260px, 330px);
+  gap: 12px;
+  padding: 12px;
   overflow: hidden;
 }
 
-@media (max-width: 1100px) {
+/* Each column scrolls on its own so the page never does. */
+.main-content > * {
+  min-height: 0;
+}
+
+@media (max-width: 1200px) {
+  .main-content {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+  }
+  .main-content > .board-panel {
+    grid-column: 1;
+  }
+}
+
+@media (max-width: 820px) {
+  /* Below this the three columns cannot coexist; fall back to scrolling. */
+  .app-wrapper {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
   .main-content {
     grid-template-columns: 1fr;
-    height: auto;
-    overflow: auto;
+    overflow: visible;
   }
 }
 
 /* Cyber Panels */
 .cyber-panel {
   background-color: var(--color-panel);
-  border: 1px solid rgba(168, 50, 32, 0.3);
-  border-radius: 6px;
+  border: 1px solid var(--line-soft);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
 .cyber-panel-header {
-  background-color: rgba(168, 50, 32, 0.15);
-  border-bottom: 1px solid var(--color-rust);
-  padding: 8px 16px;
+  background-color: var(--surface-2);
+  border-bottom: 1px solid var(--line-soft);
+  padding: 6px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .cyber-panel-title {
-  color: var(--color-ember);
+  color: var(--text-mid);
   font-size: 0.85rem;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -151,7 +217,7 @@ div[tabindex="0"]:focus-visible {
 }
 
 .cyber-panel-content {
-  padding: 14px;
+  padding: 10px 12px;
   flex: 1;
   overflow-y: auto;
 }
@@ -163,28 +229,29 @@ div[tabindex="0"]:focus-visible {
   align-items: center;
   justify-content: center;
   position: relative;
-  min-height: 500px;
+  min-height: 0;
+  overflow: hidden;
 }
 
+/* The planet is a fixed 460px design scaled to whatever height is left, so the
+   board never forces the page to scroll. --board-scale is set from page.tsx. */
 .mars-sphere {
   width: 460px;
   height: 460px;
+  flex: 0 0 auto;
+  transform: scale(var(--board-scale, 1));
+  transform-origin: center center;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #ef5a32 0%, #a83220 55%, #080908 100%);
+  background: radial-gradient(circle at 32% 28%, #C4643A 0%, #8E3F28 48%, #2A1710 78%, #10151C 100%);
   position: relative;
-  box-shadow: 0 0 40px rgba(239, 90, 50, 0.25), inset -20px -20px 60px rgba(0, 0, 0, 0.95);
-  border: 1px solid rgba(168, 50, 32, 0.4);
+  box-shadow: 0 0 60px rgba(196, 100, 58, 0.18), inset -24px -24px 70px rgba(0, 0, 0, 0.9);
+  border: 1px solid var(--line-hard);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-@media (max-width: 500px) {
-  .mars-sphere {
-    width: 320px;
-    height: 320px;
-  }
-}
+
 
 .hex-grid {
   position: absolute;
@@ -193,12 +260,7 @@ div[tabindex="0"]:focus-visible {
   pointer-events: none;
 }
 
-@media (max-width: 500px) {
-  .hex-grid {
-    transform: scale(0.69565);
-    transform-origin: top left;
-  }
-}
+
 
 .hex-cell {
   position: absolute;
@@ -224,26 +286,26 @@ div[tabindex="0"]:focus-visible {
 /* Cell types styling */
 .hex-empty {
   background-color: var(--color-empty-cell);
-  border: 1px solid rgba(239, 90, 50, 0.3);
-  box-shadow: inset 0 0 5px rgba(239, 90, 50, 0.2);
+  border: 1px solid rgba(169, 182, 198, 0.22);
+  box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.35);
 }
 .hex-empty:hover {
-  background-color: rgba(239, 90, 50, 0.25);
-  box-shadow: 0 0 10px rgba(239, 90, 50, 0.5);
+  background-color: rgba(240, 162, 60, 0.22);
+  box-shadow: 0 0 10px rgba(240, 162, 60, 0.45);
 }
 
 .hex-ocean-reserved {
   background-color: var(--color-ocean-reserved);
-  border: 1px dashed rgba(114, 217, 208, 0.4);
+  border: 1px dashed rgba(95, 211, 224, 0.42);
 }
 .hex-ocean-reserved:hover {
-  background-color: rgba(114, 217, 208, 0.25);
-  box-shadow: 0 0 10px rgba(114, 217, 208, 0.6);
+  background-color: rgba(95, 211, 224, 0.25);
+  box-shadow: 0 0 10px rgba(95, 211, 224, 0.55);
 }
 
 .hex-forest {
   background: linear-gradient(135deg, #1e4620 0%, #153016 100%);
-  border: 1px solid #72d9d0;
+  border: 1px solid var(--accent-green);
   box-shadow: 0 0 8px rgba(30, 70, 32, 0.6);
 }
 
@@ -299,12 +361,12 @@ div[tabindex="0"]:focus-visible {
 .modal-content {
   background-color: var(--color-panel);
   border: 2px solid var(--color-rust);
-  border-radius: 8px;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
   max-width: 550px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 0 30px rgba(168, 50, 32, 0.4);
+  box-shadow: 0 0 30px var(--line-hard);
   display: flex;
   flex-direction: column;
 }
@@ -312,7 +374,7 @@ div[tabindex="0"]:focus-visible {
 .modal-header {
   border-bottom: 1px solid var(--color-rust);
   padding: 16px 24px;
-  background-color: rgba(168, 50, 32, 0.1);
+  background-color: var(--surface-2);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -332,7 +394,7 @@ div[tabindex="0"]:focus-visible {
 }
 
 .modal-footer {
-  border-top: 1px solid rgba(168, 50, 32, 0.2);
+  border-top: 1px solid var(--line-soft);
   padding: 16px 24px;
   display: flex;
   justify-content: flex-end;
@@ -344,14 +406,14 @@ div[tabindex="0"]:focus-visible {
   color: var(--color-ink);
   border: 1px solid var(--color-ember);
   padding: 8px 18px;
-  border-radius: 4px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   font-weight: bold;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 .btn-primary:hover:not(:disabled) {
   background-color: var(--color-ember);
-  box-shadow: 0 0 10px rgba(239, 90, 50, 0.4);
+  box-shadow: 0 0 10px rgba(240, 162, 60, 0.35);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -363,7 +425,7 @@ div[tabindex="0"]:focus-visible {
   color: var(--color-gold);
   border: 1px solid var(--color-gold);
   padding: 8px 18px;
-  border-radius: 4px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   font-weight: bold;
   cursor: pointer;
   transition: all 0.15s ease;
@@ -382,7 +444,7 @@ div[tabindex="0"]:focus-visible {
 .resource-box {
   border: 1px solid rgba(242, 232, 220, 0.15);
   background-color: rgba(8, 9, 8, 0.4);
-  border-radius: 4px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -408,19 +470,23 @@ div[tabindex="0"]:focus-visible {
 }
 
 /* Card list / Hand styles */
+/* A fixed-height strip at the bottom of the viewport rather than another block
+   in the flow, so the hand is always visible without lengthening the page. */
 .hand-container {
-  grid-column: 1 / -1;
-  background-color: var(--color-panel);
-  border-top: 2px solid var(--color-rust);
-  padding: 12px 24px;
+  flex: 0 0 auto;
+  max-height: 30dvh;
+  background-color: var(--surface-1);
+  border-top: 1px solid var(--line-hard);
+  padding: 8px 16px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
+  overflow: hidden;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 820px) {
   .hand-container {
-    grid-column: span 1;
+    max-height: none;
   }
 }
 
@@ -472,7 +538,7 @@ div[tabindex="0"]:focus-visible {
   flex-shrink: 0;
   border: 1px solid rgba(242, 232, 220, 0.2);
   background-color: rgba(8, 9, 8, 0.85);
-  border-radius: 6px;
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -485,7 +551,7 @@ div[tabindex="0"]:focus-visible {
 .project-card:hover {
   transform: translateY(-4px);
   border-color: var(--color-ember);
-  box-shadow: 0 4px 12px rgba(239, 90, 50, 0.25);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
 }
 
 .project-card.selected {
@@ -511,7 +577,7 @@ div[tabindex="0"]:focus-visible {
   border: 1px solid var(--tag-color, var(--color-gold));
   color: var(--tag-color, var(--color-gold));
   padding: 1px 5px;
-  border-radius: 3px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   white-space: nowrap;
   line-height: 1.5;
 }
@@ -543,9 +609,9 @@ div[tabindex="0"]:focus-visible {
   font-size: 0.65rem;
   color: var(--color-rust);
   margin-top: 4px;
-  background-color: rgba(168, 50, 32, 0.1);
+  background-color: var(--surface-2);
   padding: 2px 4px;
-  border-radius: 2px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
 }
 .card-req.met {
   color: var(--color-cyan);
@@ -572,10 +638,10 @@ div[tabindex="0"]:focus-visible {
 .log-container {
   height: 200px;
   overflow-y: auto;
-  border: 1px solid rgba(168, 50, 32, 0.2);
+  border: 1px solid var(--line-soft);
   background-color: rgba(8, 9, 8, 0.6);
   padding: 8px;
-  border-radius: 4px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   font-family: monospace;
   font-size: 0.75rem;
 }

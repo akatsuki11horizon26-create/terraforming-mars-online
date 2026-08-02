@@ -1,16 +1,15 @@
-/* Surfaces added for hotseat play, target selection, milestones and awards,
-   Turmoil and Colonies. Extends the rust/ember/gold/cyan tokens defined in
-   globals.css rather than replacing them, so the new panels read as part of
-   the same board. */
+/* Surfaces for hotseat play, target selection, milestones and awards, Turmoil
+   and Colonies. Uses the surface/text/accent tokens from globals.css, so these
+   panels follow the palette documented in DESIGN.md. */
 
 :root {
-  --color-mars: #C4552F;
-  --color-scientists: #6FA8C7;
-  --color-unity: #9B7FC4;
-  --color-greens: #6FBF73;
-  --color-reds: #D2453C;
-  --color-kelvinists: #8E8C87;
-  --radius-panel: 8px;
+  --color-mars: #FF7A4D;
+  --color-scientists: #5FD3E0;
+  --color-unity: #A78BDB;
+  --color-greens: #68D391;
+  --color-reds: #F2708C;
+  --color-kelvinists: #F0A23C;
+  
   --shadow-raised: 0 2px 12px rgba(0, 0, 0, 0.45);
   --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.7);
 }
@@ -30,9 +29,9 @@
   flex-direction: column;
   gap: 2px;
   padding: 8px 10px;
-  border: 1px solid rgba(168, 50, 32, 0.35);
+  border: 1px solid var(--line-hard);
   border-left: 3px solid var(--color-rust);
-  border-radius: var(--radius-panel);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   background-color: var(--color-panel);
   text-align: left;
   color: inherit;
@@ -42,7 +41,7 @@
 }
 
 .player-chip:hover {
-  border-color: rgba(239, 90, 50, 0.6);
+  border-color: var(--accent-amber);
 }
 
 .player-chip[aria-current="true"] {
@@ -68,7 +67,7 @@
   display: flex;
   gap: 8px;
   font-size: 11px;
-  color: rgba(242, 232, 220, 0.72);
+  color: var(--text-mid);
   font-variant-numeric: tabular-nums;
 }
 
@@ -87,7 +86,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-color: rgba(8, 9, 8, 0.78);
+  background-color: rgba(8, 12, 18, 0.82);
   backdrop-filter: blur(3px);
 }
 
@@ -97,15 +96,15 @@
   display: flex;
   flex-direction: column;
   background-color: var(--color-panel);
-  border: 1px solid rgba(239, 90, 50, 0.45);
-  border-radius: var(--radius-panel);
+  border: 1px solid var(--line-hard);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   box-shadow: var(--shadow-modal);
   overflow: hidden;
 }
 
 .choice-header {
   padding: 14px 18px;
-  border-bottom: 1px solid rgba(168, 50, 32, 0.4);
+  border-bottom: 1px solid var(--line-hard);
 }
 
 .choice-owner {
@@ -136,9 +135,9 @@
   gap: 12px;
   width: 100%;
   padding: 11px 14px;
-  border: 1px solid rgba(168, 50, 32, 0.35);
-  border-radius: 6px;
-  background-color: rgba(168, 50, 32, 0.08);
+  border: 1px solid var(--line-hard);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-2);
   color: inherit;
   font: inherit;
   text-align: left;
@@ -147,7 +146,7 @@
 }
 
 .choice-option:hover {
-  background-color: rgba(239, 90, 50, 0.16);
+  background-color: rgba(240, 162, 60, 0.16);
   border-color: var(--color-ember);
 }
 
@@ -160,9 +159,9 @@
 
 .choice-footer {
   padding: 10px 18px;
-  border-top: 1px solid rgba(168, 50, 32, 0.3);
+  border-top: 1px solid var(--line-soft);
   font-size: 11px;
-  color: rgba(242, 232, 220, 0.6);
+  color: var(--text-low);
 }
 
 /* Milestones and awards */
@@ -178,14 +177,14 @@
   align-items: center;
   gap: 10px;
   padding: 8px 10px;
-  border: 1px solid rgba(168, 50, 32, 0.25);
-  border-radius: 6px;
-  background-color: rgba(18, 17, 16, 0.8);
+  border: 1px solid var(--line-soft);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-1);
 }
 
 .claim-row[data-taken="true"] {
-  border-color: rgba(229, 181, 99, 0.5);
-  background-color: rgba(229, 181, 99, 0.08);
+  border-color: rgba(240, 162, 60, 0.5);
+  background-color: rgba(240, 162, 60, 0.08);
 }
 
 .claim-name {
@@ -195,7 +194,7 @@
 
 .claim-desc {
   font-size: 11px;
-  color: rgba(242, 232, 220, 0.62);
+  color: var(--text-low);
 }
 
 .claim-progress {
@@ -213,8 +212,8 @@
 .claim-button {
   padding: 6px 12px;
   border: 1px solid var(--color-rust);
-  border-radius: 4px;
-  background-color: rgba(168, 50, 32, 0.2);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: var(--surface-2);
   color: var(--color-ink);
   font-size: 11px;
   font-weight: 700;
@@ -244,15 +243,15 @@
   align-items: center;
   gap: 10px;
   padding: 7px 10px;
-  border: 1px solid rgba(168, 50, 32, 0.25);
+  border: 1px solid var(--line-soft);
   border-left: 3px solid var(--party-color, var(--color-rust));
-  border-radius: 6px;
-  background-color: rgba(18, 17, 16, 0.8);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-1);
 }
 
 .party-row[data-ruling="true"] {
   border-color: var(--party-color, var(--color-ember));
-  background-color: rgba(239, 90, 50, 0.1);
+  background-color: rgba(240, 162, 60, 0.1);
 }
 
 .party-name {
@@ -262,7 +261,7 @@
 
 .party-meta {
   font-size: 11px;
-  color: rgba(242, 232, 220, 0.62);
+  color: var(--text-low);
 }
 
 .delegate-dots {
@@ -278,11 +277,11 @@
   height: 9px;
   border-radius: 50%;
   background-color: var(--color-ember);
-  border: 1px solid rgba(8, 9, 8, 0.6);
+  border: 1px solid rgba(8, 12, 18, 0.6);
 }
 
 .delegate-dot[data-neutral="true"] {
-  background-color: rgba(242, 232, 220, 0.35);
+  background-color: rgba(169, 182, 198, 0.35);
 }
 
 .turmoil-events {
@@ -293,15 +292,15 @@
 
 .event-slot {
   padding: 7px 10px;
-  border: 1px dashed rgba(114, 217, 208, 0.35);
-  border-radius: 6px;
+  border: 1px dashed rgba(95, 211, 224, 0.35);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   font-size: 11px;
 }
 
 .event-slot[data-slot="current"] {
   border-style: solid;
   border-color: var(--color-cyan);
-  background-color: rgba(114, 217, 208, 0.08);
+  background-color: rgba(95, 211, 224, 0.08);
 }
 
 .event-slot-label {
@@ -320,9 +319,9 @@
 
 .colony-tile {
   padding: 9px 11px;
-  border: 1px solid rgba(114, 217, 208, 0.3);
-  border-radius: var(--radius-panel);
-  background-color: rgba(18, 17, 16, 0.85);
+  border: 1px solid rgba(95, 211, 224, 0.3);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: var(--surface-1);
 }
 
 .colony-head {
@@ -339,7 +338,7 @@
 
 .colony-benefit {
   font-size: 11px;
-  color: rgba(242, 232, 220, 0.62);
+  color: var(--text-low);
   margin-top: 2px;
 }
 
@@ -355,9 +354,9 @@
   padding: 3px 0;
   text-align: center;
   font-size: 10px;
-  border-radius: 3px;
-  background-color: rgba(114, 217, 208, 0.1);
-  color: rgba(242, 232, 220, 0.6);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: rgba(95, 211, 224, 0.1);
+  color: var(--text-low);
   font-variant-numeric: tabular-nums;
 }
 
@@ -376,8 +375,8 @@
 .colony-slot {
   width: 16px;
   height: 16px;
-  border-radius: 3px;
-  border: 1px solid rgba(114, 217, 208, 0.4);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  border: 1px solid rgba(95, 211, 224, 0.4);
   font-size: 9px;
   display: flex;
   align-items: center;
@@ -423,7 +422,7 @@
 
 .section-note {
   font-size: 10px;
-  color: rgba(242, 232, 220, 0.5);
+  color: var(--text-low);
   letter-spacing: 0;
   text-transform: none;
 }
