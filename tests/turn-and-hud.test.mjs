@@ -123,3 +123,82 @@ test("Drawing again grows the hand instead of replacing it", async () => {
 
   assert.deepEqual(state.players[0].hand, ["a", "b", "c"]);
 });
+
+test("Setup requires buying the starting hand before the first action", async () => {
+  // "配られた 10 枚のプロジェクト・カードのうち、手札として残したいものを、
+  // １枚につき３Ｍ€で開始時の手札として購入します" — setup used to jump straight
+  // to the action phase, stranding all ten cards and leaving an empty hand.
+  const { applyCorporation, completeSetupPurchase, cloneGameState } = await import("../app/game-logic.js");
+  let state = getInitialState();
+  assert.equal(state.researchCards.length, 10);
+
+  state = applyCorporation(state, state.corporationOptions[0]);
+  assert.equal(state.phase, "setup");
+  assert.equal(state.players[0].setupStep, "projects", "the purchase step is reachable");
+
+  const buying = state.researchCards.slice(0, 4);
+  let bought = cloneGameState(state);
+  bought.hand = buying;
+  bought.mc -= 12;
+  bought = completeSetupPurchase(bought);
+
+  assert.equal(bought.phase, "action");
+  assert.deepEqual(bought.players[0].hand, buying);
+});
+
+test("Only the enabled expansions reach the card pools", async () => {
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const expansionsIn = state => {
+    const found = new Set();
+    for (const id of [...state.deck, ...state.researchCards]) {
+      const card = OFFICIAL_PROJECTS.find(c => c.id === id);
+      found.add(card?.expansion ?? "base");
+    }
+    return found;
+  };
+
+  const base = getInitialState();
+  assert.deepEqual([...expansionsIn(base)], ["base"], "a base game holds base cards only");
+  assert.equal(base.players[0].preludeOptions.length, 0, "no prelude, no prelude options");
+
+  const venus = getInitialState({ venus: true });
+  assert.ok(expansionsIn(venus).has("venus"));
+  assert.equal(expansionsIn(venus).has("colonies"), false, "an unselected expansion stays out");
+
+  const prelude = getInitialState({ prelude: true });
+  assert.equal(prelude.players[0].preludeOptions.length, 4);
+});
+
+test("The Venus track is visible from 0% when the expansion is on", () => {
+  assert.equal(getInitialState({ venus: true }).venusEnabled, true);
+  assert.equal(getInitialState().venusEnabled, false);
+});
+
+test("Raising the Venus scale pays TR and its threshold bonuses", async () => {
+  const { cloneGameState, applyCardEffect } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(c => c.name === "Venus Allies");
+
+  const plain = cloneGameState(getInitialState({ venus: true }));
+  const trBefore = plain.players[0].tr;
+  const raised = applyCardEffect(plain, card, plain.logs).state;
+  assert.equal(raised.venus, 4);
+  assert.equal(raised.players[0].tr - trBefore, 2, "one TR per 2% step");
+
+  // 8% draws a card, 16% pays another TR.
+  const atSix = cloneGameState(getInitialState({ venus: true }));
+  atSix.venus = 6;
+  const crossedEight = applyCardEffect(atSix, card, atSix.logs).state;
+  assert.equal(crossedEight.players[0].hand.length, 1, "8% draws one card");
+
+  const atFourteen = cloneGameState(getInitialState({ venus: true }));
+  atFourteen.venus = 14;
+  const trAt14 = atFourteen.players[0].tr;
+  const crossedSixteen = applyCardEffect(atFourteen, card, atFourteen.logs).state;
+  assert.equal(crossedSixteen.players[0].tr - trAt14, 3, "two steps plus the 16% bonus");
+});
+
+test("Venus does not gate the end of the game", async () => {
+  const { isGameOverCheck } = await import("../app/game-logic.js");
+  assert.equal(isGameOverCheck(8, 14, 9), true, "the three Mars tracks alone end it");
+});

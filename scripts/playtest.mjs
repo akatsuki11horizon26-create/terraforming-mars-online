@@ -8,6 +8,8 @@ import {
   getInitialState,
   applyCorporation,
   applyPreludes,
+  completeSetupPurchase,
+  cloneGameState,
   applyCardEffect,
   applyCardAction,
   getCardActionStatus,
@@ -43,6 +45,9 @@ const GAMES = Number(args.games ?? 20);
 const PLAYERS = Number(args.players ?? 1);
 const USE_TURMOIL = Boolean(args.turmoil);
 const USE_COLONIES = Boolean(args.colonies);
+const USE_PRELUDE = Boolean(args.prelude);
+const USE_VENUS = Boolean(args.venus);
+const USE_PROMO = Boolean(args.promo);
 const MAX_STEPS = 4000;
 
 const issues = [];
@@ -180,7 +185,10 @@ function playGame(seed) {
   let state = getInitialState({
     playerCount: PLAYERS,
     turmoil: USE_TURMOIL,
-    colonies: USE_COLONIES
+    colonies: USE_COLONIES,
+    prelude: USE_PRELUDE,
+    venus: USE_VENUS,
+    promo: USE_PROMO
   });
   let logs = state.logs;
   const where = `seed:${seed}`;
@@ -204,6 +212,18 @@ function playGame(seed) {
     if (seat.preludeOptions.length >= 2 && seat.selectedPreludeIds.length === 0) {
       state = applyPreludes(state, seat.preludeOptions.slice(0, 2));
       checkInvariants(state, `${where}/prelude:${seat.id}`);
+      continue;
+    }
+    if (seat.setupStep === "projects" || (seat.researchCards?.length ?? 0) > 0) {
+      // Buy a random slice of the ten dealt cards, as a player would.
+      const affordable = Math.min(seat.researchCards.length, Math.floor(seat.mc / 3));
+      const count = affordable > 0 ? Math.floor(rng() * (affordable + 1)) : 0;
+      const buying = seat.researchCards.slice(0, count);
+      let bought = cloneGameState(state);
+      bought.hand = [...(seat.hand ?? []), ...buying];
+      bought.mc -= count * 3;
+      state = completeSetupPurchase(bought);
+      checkInvariants(state, `${where}/buy:${seat.id}:${count}`);
       continue;
     }
     report("setup-stuck", `${seat.id} has nothing left to choose`, { where });
@@ -382,7 +402,7 @@ for (let i = 0; i < GAMES; i++) {
   }
 }
 
-const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}`;
+const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}`;
 console.log(`=== ${GAMES}ゲーム完走 (${mode}) ===`);
 const gens = summaries.map(s => s.generation);
 console.log(

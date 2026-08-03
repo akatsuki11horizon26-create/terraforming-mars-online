@@ -9,6 +9,7 @@ import {
   applyCardEffect,
   applyCorporation,
   applyPreludes,
+  completeSetupPurchase,
   passPlayer,
   endTurn,
   getCardPlayableStatus,
@@ -325,10 +326,14 @@ test("The game only starts once every player has finished setup", () => {
   }
 
   let guard = 0;
-  while (state.phase === "setup" && guard++ < 10) {
+  while (state.phase === "setup" && guard++ < 20) {
     const player = state.players.find(p => p.id === state.currentPlayerId);
-    if (player.preludeOptions.length < 2) break;
-    state = applyPreludes(state, player.preludeOptions.slice(0, 2));
+    if (player.preludeOptions.length >= 2) {
+      state = applyPreludes(state, player.preludeOptions.slice(0, 2));
+      continue;
+    }
+    // Each player buys their starting hand before the first action phase.
+    state = completeSetupPurchase(state);
   }
 
   assert.equal(state.phase, "action");

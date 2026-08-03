@@ -323,6 +323,8 @@ export const OCEAN_ADJACENCY_BONUS = 2;
 export const MAX_OXYGEN = 14;
 export const MAX_TEMPERATURE = 8;
 export const MIN_TEMPERATURE = -30;
+// Venus Next: the scale runs 0-30%, two percent per step.
+export const MAX_VENUS = 30;
 
 // Reasons normalizeBehavior records that the pendingChoice flow now resolves.
 const HANDLED_BY_PENDING_CHOICE = new Set([
@@ -732,7 +734,16 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   if (effect.tr) nextState.tr += effect.tr;
   if (effect.removePlants) nextState.plants = Math.max(0, nextState.plants - effect.removePlants);
   if (effect.cardResource && effect.cardId) nextState.cardResources[effect.cardId] = (nextState.cardResources[effect.cardId] ?? 0) + effect.cardResource;
-  if (effect.venusSteps) nextState.venus = Math.min(30, (nextState.venus ?? 0) + effect.venusSteps * 2);
+  if (effect.venusSteps) {
+    // Raising the Venus scale one step (2%) raises TR by 1, the same way the
+    // temperature and oxygen tracks do.
+    const beforeVenus = nextState.venus ?? 0;
+    nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
+    nextState.tr += Math.max(0, (nextState.venus - beforeVenus) / 2);
+    const venusBonus = applyVenusThresholds(nextState, beforeVenus, nextLogs);
+    nextState = venusBonus.state;
+    nextLogs = venusBonus.logs;
+  }
   if (effect.globalParameterRequirementBonus?.steps) nextState.globalRequirementBuffer = (nextState.globalRequirementBuffer ?? 0) + effect.globalParameterRequirementBonus.steps;
   if (effect.cardDiscount?.amount && !effect.cardDiscount.per) {
     if (effect.cardDiscount.tag) {
@@ -838,6 +849,22 @@ function advanceSetupTurn(state) {
     return next;
   }
 
+  // "配られた 10 枚のプロジェクト・カードのうち、手札として残したいものを、
+  // １枚につき３Ｍ€で開始時の手札として購入します" — the starting hand is bought
+  // before the first action phase, so this step cannot be skipped.
+  const buying = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && player.setupStep !== "complete" && (player.researchCards?.length ?? 0) > 0;
+  });
+  if (buying) {
+    next.currentPlayerId = buying;
+    next.phase = "setup";
+    next.players = next.players.map(player =>
+      player.id === buying ? { ...player, setupStep: "projects" } : player
+    );
+    return next;
+  }
+
   next.currentPlayerId = next.firstPlayerId;
   next.phase = "action";
   next.players = next.players.map(player => ({
@@ -863,7 +890,9 @@ export function applyPreludes(state, preludeIds) {
   let nextState = cloneGameState(state);
   nextState.selectedPreludeIds = preludeIds;
   nextState.preludeOptions = [];
-  nextState.setupStep = "complete";
+  // advanceSetupTurn decides what comes next; marking the player complete here
+  // would skip the starting-hand purchase.
+  nextState.setupStep = "projects";
   nextState.actionsRemaining = 2;
   nextState.turnStep = "start";
   let logs = addLog(nextState.logs, "player", `Prelude【${selected.map(prelude => prelude.name).join("】【")}】を解決しました。`);
@@ -884,6 +913,16 @@ export function applyPreludes(state, preludeIds) {
   nextState.logs = logs;
   // Hand the seat on; the game only starts once every player has set up.
   return advanceSetupTurn(nextState);
+}
+
+// The starting hand is bought during setup; once a player confirms, the seat
+// moves to whoever still has to set up, or the first action phase begins.
+export function completeSetupPurchase(state) {
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === next.currentPlayerId ? { ...player, setupStep: "complete", researchCards: [] } : player
+  );
+  return advanceSetupTurn(next);
 }
 
 export function applyCorporationInitialAction(state, logs) {
@@ -1435,6 +1474,28 @@ export function getPlaceholderState() {
   });
 }
 
+// Only the expansions the player actually enabled belong in the pools. Without
+// this every game shuffled all 428 projects together, so more than half the deck
+// was content the player had switched off.
+const ALWAYS_ON_EXPANSIONS = ["base"];
+
+export function enabledExpansions(options = {}) {
+  const on = new Set(ALWAYS_ON_EXPANSIONS);
+  if (options.prelude) {
+    on.add("prelude");
+    on.add("prelude2");
+  }
+  if (options.venus) on.add("venus");
+  if (options.colonies) on.add("colonies");
+  if (options.turmoil) on.add("turmoil");
+  if (options.promo) on.add("promo");
+  return on;
+}
+
+function poolFor(cards, allowed) {
+  return cards.filter(card => allowed.has(card.expansion ?? "base"));
+}
+
 export function getInitialState(options = {}) {
   const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
@@ -1448,7 +1509,8 @@ export function getInitialState(options = {}) {
     };
   });
 
-  const allCardIds = ALL_CARDS.map(c => c.id);
+  const allowed = enabledExpansions(options);
+  const allCardIds = poolFor(ALL_CARDS, allowed).map(c => c.id);
   let shuffledDeck = shuffle(allCardIds);
 
   // Official solo rules seed the board with two neutral cities, each with an
@@ -1457,8 +1519,11 @@ export function getInitialState(options = {}) {
   if (mode === "solo") {
     shuffledDeck = placeNeutralTiles(board, shuffledDeck);
   }
-  const corporationPool = shuffle(CORPORATIONS.map(corporation => corporation.id));
-  const preludePool = shuffle(PRELUDES.map(prelude => prelude.id));
+  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed).map(corporation => corporation.id));
+  // Preludes are their own expansion: no prelude, no prelude options dealt.
+  const preludePool = options.prelude
+    ? shuffle(poolFor(PRELUDES, allowed).map(prelude => prelude.id))
+    : [];
 
   const players = [];
   for (let i = 0; i < playerCount; i++) {
@@ -1473,7 +1538,7 @@ export function getInitialState(options = {}) {
         ...(mode === "solo" ? { tr: SOLO_STARTING_TR, generationStartTr: SOLO_STARTING_TR } : {}),
         researchCards,
         corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
-        preludeOptions: preludePool.slice(i * 4, i * 4 + 4)
+        preludeOptions: options.prelude ? preludePool.slice(i * 4, i * 4 + 4) : []
       })
     );
   }
@@ -1502,6 +1567,9 @@ export function getInitialState(options = {}) {
     temperature: -30,
     oxygen: 0,
     venus: 0,
+    // The Venus track has to be visible from 0%, so the panel cannot infer the
+    // expansion from a non-zero reading.
+    venusEnabled: Boolean(options.venus),
     oceans: 0,
     board,
     deck: shuffledDeck,
@@ -2145,6 +2213,23 @@ export function countAdjacentOceans(q, r, board) {
     }
   });
   return count;
+}
+
+// Venus Next: crossing 8% draws a card, crossing 16% raises TR. Both fire once.
+export function applyVenusThresholds(state, oldVenus, logs) {
+  let nextState = state;
+  let currentLogs = logs;
+  const newVenus = nextState.venus ?? 0;
+
+  if (oldVenus < 8 && newVenus >= 8) {
+    drawCards(nextState, 1);
+    currentLogs = addLog(currentLogs, "system", "金星 8% 達成ボーナス: カードを1枚ドロー");
+  }
+  if (oldVenus < 16 && newVenus >= 16) {
+    nextState.tr += 1;
+    currentLogs = addLog(currentLogs, "system", "金星 16% 達成ボーナス: TR +1");
+  }
+  return { state: nextState, logs: currentLogs };
 }
 
 export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state, logs) {

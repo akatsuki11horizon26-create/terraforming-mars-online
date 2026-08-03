@@ -56,6 +56,7 @@ import {
   resolvePendingChoice as jsResolvePendingChoice,
   passPlayer as jsPassPlayer,
   cloneGameState as jsCloneGameState,
+  completeSetupPurchase as jsCompleteSetupPurchase,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
@@ -168,6 +169,7 @@ interface GameState {
   temperature: number;
   oxygen: number;
   venus: number;
+  venusEnabled?: boolean;
   oceans: number;
   tr: number;
   mc: number;
@@ -329,6 +331,9 @@ export default function Home() {
   const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
   const [setupTurmoil, setSetupTurmoil] = useState(false);
   const [setupColonies, setSetupColonies] = useState(false);
+  const [setupPrelude, setSetupPrelude] = useState(false);
+  const [setupVenus, setSetupVenus] = useState(false);
+  const [setupPromo, setSetupPromo] = useState(false);
 
   // Swaps the placeholder for a real game and records that the deal happened.
   const setDealtState = (next: GameState) => {
@@ -348,11 +353,12 @@ export default function Home() {
   } | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+  const [helpPage, setHelpPage] = useState(1);
 
   // Panels that used to occupy the screen permanently now open on demand, so
   // the board keeps the space.
   const [openDrawer, setOpenDrawer] = useState<
-    null | "log" | "milestones" | "standard" | "planet" | "legend"
+    null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies"
   >(null);
   const closeDrawer = useCallback(() => setOpenDrawer(null), []);
 
@@ -590,6 +596,9 @@ export default function Home() {
     playerNames?: string[];
     turmoil?: boolean;
     colonies?: boolean;
+    prelude?: boolean;
+    venus?: boolean;
+    promo?: boolean;
   }) => {
     const state = getInitialState(options);
     saveState(state);
@@ -1276,7 +1285,12 @@ export default function Home() {
     let msg = "";
     if (gameState.phase === "setup") {
       msg = `初期カード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${setupCost})`;
-      nextState.setupStep = "prelude";
+      nextState.setupStep = "complete";
+      const advanced = jsCompleteSetupPurchase(nextState) as GameState;
+      advanced.logs = addLog(advanced.logs, "player", msg);
+      saveState(advanced);
+      setSelectedResearchCardIds([]);
+      return;
     } else {
       msg = `研究フェーズカード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${cost})`;
       nextState.phase = "action";
@@ -1475,7 +1489,7 @@ export default function Home() {
               oxygen={activeState.oxygen}
               oceans={activeState.oceans}
               venus={activeState.venus ?? 0}
-              showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
+              showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
             />
           </div>
 
@@ -1483,6 +1497,12 @@ export default function Home() {
             <button className="hud-btn" onClick={() => setOpenDrawer("planet")}>惑星データ</button>
             <button className="hud-btn" onClick={() => setOpenDrawer("standard")}>標準プロジェクト</button>
             <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>マイルストーン / 表彰</button>
+            {turmoilView && (
+              <button className="hud-btn" onClick={() => setOpenDrawer("turmoil")}>動乱</button>
+            )}
+            {colonyViews.length > 0 && (
+              <button className="hud-btn" onClick={() => setOpenDrawer("colonies")}>植民地</button>
+            )}
             <button className="hud-btn" onClick={() => setOpenDrawer("legend")}>タイル凡例</button>
             <button className="hud-btn" onClick={() => setOpenDrawer("log")}>ミッションログ</button>
           </div>
@@ -2059,7 +2079,7 @@ export default function Home() {
             oxygen={activeState.oxygen}
             oceans={activeState.oceans}
             venus={activeState.venus ?? 0}
-            showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
+            showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
           />
         </div>
         {players.length > 1 && (
@@ -2240,28 +2260,38 @@ export default function Home() {
                 nextCost={jsGetNextAwardCost(gameState) as number}
                 onFund={handleFundAward}
               />
-              {turmoilView && (
-                <TurmoilPanel
-                  parties={turmoilView.parties}
-                  chairmanName={turmoilView.chairmanName}
-                  influence={turmoilView.influence}
-                  events={turmoilView.events}
-                  canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
-                  onSendDelegate={handleSendDelegate}
-                />
-              )}
-              {colonyViews.length > 0 && (
-                <ColonyPanel
-                  colonies={colonyViews}
-                  fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
-                  onBuild={handleBuildColony}
-                  onTrade={handleTradeWithColony}
-                />
-              )}
             </div>
           </div>
         ) : (
           <p className="drawer-empty">ゲーム開始後に表示されます。</p>
+        )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "turmoil"} title="動乱 — 議会と代表者" onClose={closeDrawer}>
+        {turmoilView ? (
+          <TurmoilPanel
+            parties={turmoilView.parties}
+            chairmanName={turmoilView.chairmanName}
+            influence={turmoilView.influence}
+            events={turmoilView.events}
+            canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
+            onSendDelegate={handleSendDelegate}
+          />
+        ) : (
+          <p className="drawer-empty">この試合では動乱拡張を使用していません。</p>
+        )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "colonies"} title="植民地 — 建設と交易" onClose={closeDrawer}>
+        {colonyViews.length > 0 ? (
+          <ColonyPanel
+            colonies={colonyViews}
+            fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
+            onBuild={handleBuildColony}
+            onTrade={handleTradeWithColony}
+          />
+        ) : (
+          <p className="drawer-empty">この試合では植民地拡張を使用していません。</p>
         )}
       </Drawer>
 
@@ -2304,6 +2334,8 @@ export default function Home() {
               <h3 className="modal-title">MARS FRONTIER — 指令マニュアル</h3>
             </div>
             <div className="modal-body">
+              {helpPage === 1 && (
+                <>
               <p style={{ fontWeight: "bold", color: "var(--color-ember)", marginBottom: "10px" }}>
                 公式ソロルール準拠・非公式ファンメイド
               </p>
@@ -2346,8 +2378,86 @@ export default function Home() {
               <p style={{ fontStyle: "italic", fontSize: "0.8rem", color: "var(--color-gold)", marginTop: "8px" }}>
                 ※ 基本セット、Prelude、Venus Next、Colonies、Turmoil、Prelude 2、公式プロモのカード台帳を収録しています。
               </p>
+                </>
+              )}
+
+              {helpPage === 2 && (
+                <>
+                  <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ プレリュード (Prelude)</h4>
+                  <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                    <li>企業選択のあと、配られた<strong>4枚から2枚</strong>を選び、<strong>即座に解決</strong>します。</li>
+                    <li>解決後に通常どおり初期手札を購入します（1枚3 MC）。</li>
+                    <li>支払いを伴うプレリュードは、支払えない場合は選べません。</li>
+                    <li>ゲームの立ち上がりが数世代ぶん速くなるため、全体の世代数が短くなります。</li>
+                  </ul>
+
+                  <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ 金星 (Venus Next)</h4>
+                  <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                    <li><strong>金星スケール</strong>が4つ目のグローバルパラメータとして加わります（0%〜30%）。</li>
+                    <li>1ステップ＝<strong>2%</strong>。1ステップ上げるごとに<strong>TR +1</strong>。</li>
+                    <li>金星は<strong>ゲーム終了条件に含まれません</strong>。気温・酸素・海洋の3つが最大になればゲームは終わります。</li>
+                    <li>8%到達で<strong>カードを1枚ドロー</strong>、16%到達で<strong>TR +1</strong>のマイルストーンがあります。</li>
+                    <li>金星タグ（♀）を持つカードが追加されます。</li>
+                  </ul>
+
+                  <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ 植民地 (Colonies)</h4>
+                  <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                    <li>火星の外に<strong>植民地タイル</strong>が並びます。プレイヤー数+2枚を使用します。</li>
+                    <li><strong>入植</strong>: 空きスロットに自分のマーカーを置きます。1つの植民地に最大3つ。同じ植民地に自分の入植地は1つだけ。</li>
+                    <li><strong>交易</strong>: 交易船を1隻使い、その植民地の<strong>交易トラックの現在位置</strong>の報酬を得ます。交易後トラックは0に戻ります。</li>
+                    <li>交易すると、その植民地に入植しているプレイヤー全員が<strong>入植ボーナス</strong>を得ます（交易した本人も含む）。</li>
+                    <li>交易トラックは<strong>各世代の生産フェイズで1マス進みます</strong>。進んだ先ほど報酬が大きくなります。</li>
+                    <li>交易船は生産フェイズで補充されます。</li>
+                  </ul>
+                  <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>
+                    ※ 画面上部の「植民地」ボタンから、各植民地の入植状況・交易トラックの進行度・入植/交易の実行ができます。
+                  </p>
+                </>
+              )}
+
+              {helpPage === 3 && (
+                <>
+                  <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ 動乱 (Turmoil)</h4>
+                  <p style={{ marginBottom: "8px" }}>
+                    火星の政治を扱う拡張です。<strong>6つの政党</strong>があり、支配政党の政策が全員に影響します。
+                  </p>
+                  <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                    <li><strong>代表者</strong>: ロビーから政党に代表者を送り込みます。各政党で最も代表者が多いプレイヤーがその政党の<strong>党首</strong>になります。</li>
+                    <li><strong>支配政党</strong>: 代表者が最も多い政党が支配政党となり、その<strong>政策効果が全プレイヤーに適用</strong>されます。</li>
+                    <li><strong>議長</strong>: 議長を務めるプレイヤーは<strong>TR +1</strong>を得ます。</li>
+                    <li><strong>影響力</strong>: 議長・党首・支配政党の代表者数などから算出され、世界的イベントの結果を緩和します。</li>
+                    <li><strong>世界的イベント</strong>: 各世代の終わりに発生し、影響力の少ないプレイヤーほど大きな被害を受けます。</li>
+                    <li><strong>毎世代 全員 TR -1</strong>。動乱ではテラフォーミングの維持自体にコストがかかります。</li>
+                  </ul>
+                  <p style={{ fontSize: "0.75rem", color: "#c9bfae", marginBottom: "14px" }}>
+                    ※ 画面上部の「動乱」ボタンから、各政党の代表者数・支配政党・議長・自分の影響力・次の世界的イベントを確認し、代表者を送れます。
+                  </p>
+
+                  <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ 拡張の組み合わせ</h4>
+                  <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
+                    <li>選択しなかった拡張のカードは<strong>山札に一切含まれません</strong>。基本のみなら基本カードだけで遊べます。</li>
+                    <li>拡張は自由に組み合わせられます。数を増やすほど1ゲームが長くなります。</li>
+                    <li>プロモカードは公式の追加カード集で、単体でも他拡張とも併用できます。</li>
+                  </ul>
+                </>
+              )}
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{ justifyContent: "space-between" }}>
+              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                {[1, 2, 3].map(page => (
+                  <button
+                    key={page}
+                    className={helpPage === page ? "btn-primary" : "btn-secondary"}
+                    style={{ padding: "4px 12px", fontSize: "0.75rem" }}
+                    onClick={() => setHelpPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <span style={{ fontSize: "0.7rem", color: "#c9bfae", marginLeft: "4px" }}>
+                  {helpPage === 1 ? "基本ルール" : helpPage === 2 ? "プレリュード / 金星 / 植民地" : "動乱 / 組み合わせ"}
+                </span>
+              </div>
               <button
                 className="btn-primary"
                 onClick={() => {
@@ -2478,6 +2588,45 @@ export default function Home() {
                     </div>
                   </span>
                 </label>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupPrelude}
+                    onChange={event => setSetupPrelude(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>プレリュード (Prelude)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      開始時に4枚から2枚を選び、即座に解決して加速する。
+                    </div>
+                  </span>
+                </label>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupVenus}
+                    onChange={event => setSetupVenus(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>金星 (Venus Next)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      金星スケール(0〜30%)が4つ目のパラメータになる。2%ごとにTR+1。
+                    </div>
+                  </span>
+                </label>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupPromo}
+                    onChange={event => setSetupPromo(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>プロモカード</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      公式プロモーションカードを山札に加える。
+                    </div>
+                  </span>
+                </label>
               </div>
 
               <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
@@ -2498,7 +2647,10 @@ export default function Home() {
                       .map(name => name.trim())
                       .map((name, index) => name || `プレイヤー${index + 1}`),
                     turmoil: setupTurmoil,
-                    colonies: setupColonies
+                    colonies: setupColonies,
+                    prelude: setupPrelude,
+                    venus: setupVenus,
+                    promo: setupPromo
                   })
                 }
               >

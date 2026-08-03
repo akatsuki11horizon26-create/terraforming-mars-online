@@ -45,16 +45,16 @@ test("corporation setup applies official starting values", () => {
   const state = getInitialState();
   state.corporationOptions = ["corp-ecoline"];
   const nextState = applyCorporation(state, "corp-ecoline");
-  // Setup hands the seat on once a corporation is chosen; with preludes dealt
-  // the same player moves straight to picking them.
-  assert.equal(nextState.setupStep, "prelude");
+  // Without the Prelude expansion the seat moves straight to buying the
+  // starting hand, which the rulebook requires before the first action phase.
+  assert.equal(nextState.setupStep, "projects");
   assert.equal(nextState.mc, 36);
   assert.equal(nextState.plants, 3);
   assert.equal(nextState.plantsProd, 2);
 });
 
 test("first-action corporation effects resolve after Prelude setup", () => {
-  const state = getInitialState();
+  const state = getInitialState({ prelude: true });
   state.corporationOptions = ["corp-inventrix"];
   const corporationState = applyCorporation(state, "corp-inventrix");
   corporationState.setupStep = "prelude";
@@ -62,25 +62,26 @@ test("first-action corporation effects resolve after Prelude setup", () => {
   corporationState.hand = ["p-power-plant"];
   const withPreludes = applyPreludes(corporationState, ["prelude-donation", "prelude-allied-banks"]);
   assert.equal(withPreludes.hand.length, 4);
-  assert.equal(withPreludes.setupStep, "complete");
+  // Preludes resolve, then the starting hand is still bought before play.
+  assert.equal(withPreludes.setupStep, "projects");
 });
 
 test("Prelude setup resolves two selected cards in order", () => {
-  const state = getInitialState();
+  const state = getInitialState({ prelude: true });
   state.corporationOptions = ["corp-beginner"];
   const corporationState = applyCorporation(state, "corp-beginner");
   corporationState.setupStep = "prelude";
   corporationState.preludeOptions = ["prelude-allied-banks", "prelude-donation"];
   const nextState = applyPreludes(corporationState, ["prelude-allied-banks", "prelude-donation"]);
-  assert.equal(nextState.setupStep, "complete");
-  assert.equal(nextState.phase, "action");
+  assert.equal(nextState.setupStep, "projects");
+  assert.equal(nextState.phase, "setup");
   assert.equal(nextState.mc, 66);
   assert.equal(nextState.mcProd, 4);
   assert.deepEqual(nextState.selectedPreludeIds, ["prelude-allied-banks", "prelude-donation"]);
 });
 
 test("Prelude optional payments are charged once", () => {
-  const state = getInitialState();
+  const state = getInitialState({ prelude: true });
   state.corporationOptions = ["corp-beginner"];
   const corporationState = applyCorporation(state, "corp-beginner");
   corporationState.setupStep = "prelude";
@@ -92,7 +93,7 @@ test("Prelude optional payments are charged once", () => {
 });
 
 test("Prelude free-play effects resolve a card from the starting hand", () => {
-  const state = getInitialState();
+  const state = getInitialState({ prelude: true });
   state.corporationOptions = ["corp-beginner"];
   const corporationState = applyCorporation(state, "corp-beginner");
   corporationState.setupStep = "prelude";
