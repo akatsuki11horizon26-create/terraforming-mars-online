@@ -127,9 +127,10 @@ test("Panel actions are wired to the engine, not to local state", async () => {
 test("A fresh game renders the setup screen without expansion panels", async () => {
   const html = await readFile(new URL("../static-dist/index.html", import.meta.url), "utf8");
 
-  assert.match(html, /cyber-panel/, "the base layout renders");
-  // The new boards are gated behind phase !== "setup", and a new game starts in
-  // setup, so none of them should appear on first paint.
+  // First paint is the title screen; a game only exists once a mode is chosen.
+  assert.match(html, /title-mode/, "the entry point renders");
+  // The expansion boards are gated behind an active game, so none of them
+  // should appear before one has started.
   assert.equal(html.includes("claim-grid"), false);
   assert.equal(html.includes("choice-overlay"), false);
   assert.equal(html.includes("player-bar"), false);

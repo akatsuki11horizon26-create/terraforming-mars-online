@@ -57,6 +57,10 @@ import {
   passPlayer as jsPassPlayer,
   cloneGameState as jsCloneGameState,
   completeSetupPurchase as jsCompleteSetupPurchase,
+  legalCellsFor as jsLegalCellsFor,
+  placeTileAt as jsPlaceTileAt,
+  getPlayer as jsGetPlayer,
+  DECLINE_CHOICE as jsDeclineChoice,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
@@ -65,6 +69,12 @@ import { CardTags } from "./card-tags";
 import { ProjectCard } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { Drawer } from "./ui-drawer";
+import { TitleScreen, RobotSetup } from "./title-screen";
+import {
+  advanceRobotGame as jsAdvanceRobotGame,
+  makeBotRng as jsMakeBotRng,
+  getBotDifficulty
+} from "./bot-player";
 import { describeCell, TILE_LEGEND } from "./tile-help";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
@@ -72,6 +82,27 @@ import { useRoom } from "./use-room";
 // The GitHub Pages build is a static export with no server, so online play is
 // impossible there. The Workers build leaves this unset and offers it.
 const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
+
+// The human always holds the first seat; robot opponents fill the rest.
+const HUMAN_ID = "player";
+
+// bot-player.js resolves moves through the engine handed to it, which keeps the
+// bot free of any dependency on this component.
+const engineForBot = {
+  cloneGameState: jsCloneGameState,
+  applyCardEffect: jsApplyCardEffect,
+  applyCardAction: jsApplyCardAction,
+  claimMilestone: jsClaimMilestone,
+  fundAward: jsFundAward,
+  handleActionSpend: jsHandleActionSpend,
+  passPlayer: jsPassPlayer,
+  resolvePendingChoice: jsResolvePendingChoice,
+  legalCellsFor: jsLegalCellsFor,
+  placeTileAt: jsPlaceTileAt,
+  getPlayer: jsGetPlayer,
+  addLog: jsAddLog,
+  DECLINE_CHOICE: jsDeclineChoice
+};
 
 // Corporation actions share the per-generation marker with card actions, under
 // an id no project card can collide with.
@@ -86,6 +117,7 @@ interface PlayerRecord {
   actionsRemaining?: number;
   hand?: string[];
   usedCardActions?: string[];
+  researchCards?: string[];
   steel?: number;
   titanium?: number;
   plants?: number;
@@ -180,6 +212,7 @@ interface GameState {
   oxygen: number;
   venus: number;
   venusEnabled?: boolean;
+  botDifficulty?: string | null;
   usedCardActions: string[];
   oceans: number;
   tr: number;
@@ -207,7 +240,7 @@ interface GameState {
   onboarded: boolean;
   // Canonical multiplayer state. The flat fields above remain readable through
   // the compatibility accessors installed by player-state.js.
-  mode?: "solo" | "hotseat";
+  mode?: "solo" | "hotseat" | "robot";
   players?: PlayerRecord[];
   turnOrder?: string[];
   currentPlayerId?: string;
@@ -253,7 +286,7 @@ const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
 const getInitialState = jsGetInitialState as unknown as (options?: {
   playerCount?: number;
-  mode?: "solo" | "hotseat";
+  mode?: "solo" | "hotseat" | "robot";
   playerNames?: string[];
   turmoil?: boolean;
   colonies?: boolean;
@@ -334,6 +367,14 @@ export default function Home() {
     return () => observer.disconnect();
   }, []);
 
+  // The title screen owns the entry into a game; it stays up until a mode is
+  // chosen so the board is never shown without a game behind it.
+  const [showTitle, setShowTitle] = useState(true);
+  const [hasSave, setHasSave] = useState(false);
+  const [showRobotSetup, setShowRobotSetup] = useState(false);
+  const [robotDifficulty, setRobotDifficulty] = useState("normal");
+  const [robotOpponents, setRobotOpponents] = useState(1);
+
   const [showLobby, setShowLobby] = useState(false);
   const online = useRoom();
 
@@ -410,6 +451,7 @@ export default function Home() {
     // would otherwise forbid.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setDealtState(restored ?? (getInitialState() as GameState));
+    setHasSave(Boolean(restored));
   }, []);
 
   const saveState = (newState: GameState) => {
@@ -478,6 +520,44 @@ export default function Home() {
     );
     return () => clearTimeout(timer);
   }, [activeState, currentPlayerId]);
+
+  // In a robot game every non-human seat is driven here. The delay is deliberate:
+  // instant opponent turns read as nothing having happened.
+  const isRobotGame = activeState.mode === "robot";
+  // Derived, not stored: the indicator is simply "a robot holds the seat".
+  const botThinking =
+    isRobotGame &&
+    !isOnline &&
+    gameState.phase === "action" &&
+    gameState.currentPlayerId !== HUMAN_ID;
+  useEffect(() => {
+    if (!isRobotGame || isOnline) return;
+    if (gameState.phase !== "action" && gameState.phase !== "research") return;
+    if (gameState.pendingChoice && gameState.pendingChoice.ownerPlayerId === HUMAN_ID) return;
+
+    const humanTurn =
+      gameState.phase === "action" && gameState.currentPlayerId === HUMAN_ID;
+    const humanResearch =
+      gameState.phase === "research" &&
+      (gameState.players?.find(p => p.id === HUMAN_ID)?.researchCards?.length ?? 0) > 0;
+    if (humanTurn || humanResearch) return;
+
+    const timer = setTimeout(() => {
+      const rng = jsMakeBotRng(
+        (gameState.generation + 1) * 7919 + (gameState.logs?.length ?? 0) * 31 + 17
+      );
+      const advanced = jsAdvanceRobotGame(
+        engineForBot,
+        gameState,
+        HUMAN_ID,
+        gameState.botDifficulty ?? "normal",
+        rng
+      ) as GameState;
+      if (advanced !== gameState) saveState(advanced);
+    }, 700);
+
+    return () => clearTimeout(timer);
+  }, [isRobotGame, isOnline, gameState]);
 
   const corporationActionUsed = (
     (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
@@ -672,6 +752,8 @@ export default function Home() {
     prelude?: boolean;
     venus?: boolean;
     promo?: boolean;
+    mode?: "solo" | "hotseat" | "robot";
+    botDifficulty?: string;
   }) => {
     const state = getInitialState(options);
     saveState(state);
@@ -1478,6 +1560,56 @@ export default function Home() {
     }
   };
 
+  const startRobotGame = () => {
+    const names = ["あなた"];
+    for (let i = 0; i < robotOpponents; i++) {
+      names.push(`${getBotDifficulty(robotDifficulty).name} ${i + 1}`);
+    }
+    initGame({
+      playerCount: robotOpponents + 1,
+      playerNames: names,
+      mode: "robot",
+      botDifficulty: robotDifficulty
+    });
+    setShowRobotSetup(false);
+    setShowTitle(false);
+  };
+
+  if (showTitle) {
+    return (
+      <>
+        <TitleScreen
+          onlineEnabled={ONLINE_ENABLED}
+          hasSave={hasSave}
+          onContinue={() => setShowTitle(false)}
+          onSolo={() => {
+            initGame({ playerCount: 1 });
+            setShowTitle(false);
+          }}
+          onRobot={() => setShowRobotSetup(true)}
+          onOnline={() => {
+            setShowTitle(false);
+            setShowLobby(true);
+          }}
+          onManual={() => {
+            setShowTitle(false);
+            setShowHelp(true);
+          }}
+        />
+        {showRobotSetup && (
+          <RobotSetup
+            difficulty={robotDifficulty}
+            onDifficulty={setRobotDifficulty}
+            opponents={robotOpponents}
+            onOpponents={setRobotOpponents}
+            onStart={startRobotGame}
+            onCancel={() => setShowRobotSetup(false)}
+          />
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="app-wrapper">
       <header className="header">
@@ -1486,6 +1618,10 @@ export default function Home() {
           <span className="header-subtitle">公式ソロルール準拠・非公式ファンメイド — 火星開拓戦略制御システム</span>
         </div>
         <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+          {botThinking && <span className="bot-thinking">ロボット思考中</span>}
+          <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowTitle(true)}>
+            タイトルへ
+          </button>
           <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
             マニュアル表示
           </button>

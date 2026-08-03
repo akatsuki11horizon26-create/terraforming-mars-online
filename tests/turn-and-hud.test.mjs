@@ -43,34 +43,53 @@ test("Passing with a full turn is a hard pass", () => {
   assert.equal(result.state.players[0].passed, true);
 });
 
-async function html() {
+// The app now opens on the title screen, so the in-game markup is not in the
+// server-rendered HTML. These assertions read the source that produces it.
+async function pageSource() {
+  return readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+}
+
+async function titleHtml() {
   return readFile(new URL("../static-dist/index.html", import.meta.url), "utf8");
 }
 
 test("The default view keeps the on-demand panels shut", async () => {
-  const page = await html();
+  const title = await titleHtml();
+  // Nothing from the play screen leaks into the entry point.
+  assert.equal(title.includes("drawer-scrim"), false, "no drawer is open on load");
+  assert.equal(title.includes("log-container"), false, "the mission log is not rendered up front");
 
-  // These are what used to crowd the board. They must not render until asked
-  // for, or the layout regresses to the version that did not fit a phone.
-  assert.equal(page.includes("drawer-scrim"), false, "no drawer is open on load");
-  assert.equal(page.includes("log-container"), false, "the mission log is not rendered up front");
-
+  const source = await pageSource();
   for (const label of ["惑星データ", "標準プロジェクト", "マイルストーン / 表彰", "タイル凡例", "ミッションログ"]) {
-    assert.ok(page.includes(`<button class="hud-btn">${label}`), `${label} has an opener button`);
+    assert.ok(
+      source.includes(`>${label}</button>`),
+      `${label} has an opener button`
+    );
   }
+  // Each drawer renders only while it is the open one.
+  assert.ok(source.includes('openDrawer === "log"'));
+  assert.ok(source.includes('openDrawer === "milestones"'));
 });
 
 test("The collapsed planet readout shows symbols and numbers", async () => {
-  const page = await html();
-  assert.ok(page.includes("param-compact"));
-  assert.ok(/param-chip-value">-30°/.test(page), "temperature reads as a number");
-  assert.ok(/param-chip-value">0\/9/.test(page), "oceans read as a count out of nine");
+  const source = await readFile(new URL("../app/global-params.tsx", import.meta.url), "utf8");
+  assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");
+  assert.ok(source.includes("param-chip-value"), "chips carry a numeric value");
+  assert.ok(source.includes('icon: "🌡"'), "temperature has a symbol");
+  assert.ok(source.includes("${oceans}/9"), "oceans read as a count out of nine");
 });
 
 test("Board tiles carry an explanation for hover and long-press", async () => {
-  const page = await html();
-  assert.ok(page.includes("配置ボーナス: 鋼鉄 +2"), "bonus squares explain their icon");
-  assert.ok(page.includes("海洋専用マス。海洋タイルのみ配置できる。"));
+  const { describeCell } = await import("../app/tile-help.js");
+
+  const steel = describeCell({ tileType: "empty", isOceanOnly: false, bonusType: "steel", bonusAmount: 2 });
+  assert.match(steel, /配置ボーナス: 鋼鉄 \+2/, "bonus squares explain their icon");
+
+  const oceanOnly = describeCell({ tileType: "empty", isOceanOnly: true, bonusType: "none", bonusAmount: 0 });
+  assert.match(oceanOnly, /海洋専用マス。海洋タイルのみ配置できる。/);
+
+  const source = await pageSource();
+  assert.ok(source.includes("setHoveredCell"), "hover and long-press are wired to the board");
 });
 
 test("A spread that shadows a compat accessor keeps the written value", async () => {

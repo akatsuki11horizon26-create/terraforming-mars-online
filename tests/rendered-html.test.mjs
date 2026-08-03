@@ -38,7 +38,12 @@ test("server-renders the Mars Frontier game page", async () => {
   assert.match(html, /<title>MARS FRONTIER — 火星開拓戦略ゲーム<\/title>/i);
   assert.match(html, /MARS FRONTIER/);
   assert.match(html, /火星開拓戦略制御システム/);
-  assert.match(html, /非公式ファンメイド試作版/);
+
+  // The app opens on the title screen, so that is what the server renders.
+  assert.match(html, /ソロプレイ/);
+  assert.match(html, /ロボット戦/);
+  assert.match(html, /オンライン対戦/);
+  assert.match(html, /公式ルール準拠・非公式ファンメイド/);
 });
 
 test("verifies that loading skeleton is deleted and dependencies are absent", async () => {

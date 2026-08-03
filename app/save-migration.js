@@ -120,7 +120,7 @@ function isValidV4(parsed) {
   if (!parsed.turnOrder.every(id => ids.includes(id))) return false;
   if (!isPlainObject(parsed.board)) return false;
   if (!Array.isArray(parsed.deck) || !Array.isArray(parsed.discardPile)) return false;
-  if (parsed.mode !== "solo" && parsed.mode !== "hotseat") return false;
+  if (!["solo", "hotseat", "robot"].includes(parsed.mode)) return false;
 
   const numericFields = ["tr", "mc", "steel", "titanium", "plants", "energy", "heat"];
   if (

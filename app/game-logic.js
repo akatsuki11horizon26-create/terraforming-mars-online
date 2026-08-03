@@ -1184,7 +1184,7 @@ export function legalCellsFor(state, tileType, playerId) {
   );
 }
 
-function placeTileAt(state, cell, tileType, ownerId, cardId) {
+export function placeTileAt(state, cell, tileType, ownerId, cardId) {
   state.board = { ...state.board };
   state.board[`${cell.q},${cell.r}`] = {
     ...cell,
@@ -1540,6 +1540,7 @@ function poolFor(cards, allowed) {
 export function getInitialState(options = {}) {
   const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
+  const botDifficulty = options.botDifficulty ?? null;
   const names = options.playerNames ?? [];
   const board = {};
   INITIAL_CELLS.forEach(cell => {
@@ -1599,6 +1600,7 @@ export function getInitialState(options = {}) {
   return withLegacyPlayerAccessors({
     rulesVersion: 4,
     mode,
+    botDifficulty,
     generation: 1,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
     players,
