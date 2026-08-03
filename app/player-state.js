@@ -30,7 +30,8 @@ export const PLAYER_REF_FIELDS = [
   "playedProjects",
   "cardResources",
   "cardPlacements",
-  "cardDiscounts"
+  "cardDiscounts",
+  "usedCardActions"
 ];
 
 export const LEGACY_PLAYER_FIELDS = [...PLAYER_SCALAR_FIELDS, ...PLAYER_REF_FIELDS];
@@ -79,6 +80,9 @@ export function createPlayer(id, name, overrides = {}) {
     cardResources: {},
     cardPlacements: {},
     cardDiscounts: { all: 0, tags: {} },
+    // "各世代につき１回ずつしか使用できません" — the ids of blue-card actions
+    // already spent this generation. Cleared in the production phase.
+    usedCardActions: [],
     globalRequirementBuffer: 0,
     passed: false,
     ...overrides
@@ -216,7 +220,8 @@ export function cloneGameState(state) {
       cardDiscounts: {
         all: player.cardDiscounts.all,
         tags: { ...player.cardDiscounts.tags }
-      }
+      },
+      usedCardActions: [...(player.usedCardActions ?? [])]
     })),
     turnOrder: [...state.turnOrder],
     deck: [...state.deck],

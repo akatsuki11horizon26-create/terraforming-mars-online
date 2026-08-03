@@ -73,6 +73,10 @@ import { useRoom } from "./use-room";
 // impossible there. The Workers build leaves this unset and offers it.
 const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
 
+// Corporation actions share the per-generation marker with card actions, under
+// an id no project card can collide with.
+const CORPORATION_ACTION_ID = "@corporation-action";
+
 interface PlayerRecord {
   id: string;
   name: string;
@@ -81,6 +85,7 @@ interface PlayerRecord {
   passed?: boolean;
   actionsRemaining?: number;
   hand?: string[];
+  usedCardActions?: string[];
 }
 interface MilestoneDefinition {
   id: string;
@@ -170,6 +175,7 @@ interface GameState {
   oxygen: number;
   venus: number;
   venusEnabled?: boolean;
+  usedCardActions: string[];
   oceans: number;
   tr: number;
   mc: number;
@@ -409,6 +415,10 @@ export default function Home() {
   const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
   const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
   const turnHolderId = activeState.currentPlayerId ?? currentPlayerId;
+
+  const corporationActionUsed = (
+    (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
+  ).includes(CORPORATION_ACTION_ID);
   const isMyTurn = !isOnline || turnHolderId === seatId;
   const pendingChoice = activeState.pendingChoice ?? null;
 
@@ -945,6 +955,7 @@ export default function Home() {
       }
     } else if (placementMode.sourceProject) {
       if (placementMode.sourceProject === "ecoline") {
+        nextState.usedCardActions = [...(nextState.usedCardActions ?? []), CORPORATION_ACTION_ID];
         nextState.plants -= 7;
         nextState.board[`${cell.q},${cell.r}`] = {
           ...cell,
@@ -1189,12 +1200,15 @@ export default function Home() {
 
   const handleCorporationAction = () => {
     if (placementMode || gameState.pendingOceans > 0) return;
+    // A corporation action is a blue action: once per generation, like any card.
+    if (corporationActionUsed) return;
     if (gameState.corporationId === "corp-ecoline") {
       if (gameState.plants < 7) return;
       setPlacementMode({ active: true, type: "forest", sourceProject: "ecoline" });
       return;
     }
     const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), CORPORATION_ACTION_ID];
     let localLogs = nextState.logs;
     if (gameState.corporationId === "corp-unmi") {
       if (gameState.tr <= gameState.generationStartTr || gameState.mc < 3) return;
@@ -2107,8 +2121,11 @@ export default function Home() {
                   <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
                   <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
                     {gameState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : gameState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
+                      {corporationActionUsed && (
+                        <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
+                      )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={handleCorporationAction}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={handleCorporationAction}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}

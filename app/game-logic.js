@@ -404,7 +404,8 @@ export function cloneGameState(state) {
       cardDiscounts: {
         all: player.cardDiscounts?.all ?? 0,
         tags: { ...(player.cardDiscounts?.tags ?? {}) }
-      }
+      },
+      usedCardActions: [...(player.usedCardActions ?? [])]
     })),
     turnOrder: [...(state.turnOrder ?? [])],
     deck: [...state.deck],
@@ -1270,6 +1271,10 @@ export function getCardActionStatus(state, card) {
   }
   const action = getCardEffect(card).action;
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
+  // "これら各アクションのあるカードは、各世代につき１回ずつしか使用できません"
+  if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
+    return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+  }
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
@@ -1296,6 +1301,9 @@ export function applyCardAction(state, card, logs) {
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
   const action = getCardEffect(card).action;
+  // Mark the card spent for this generation before anything else can fail; the
+  // rulebook's player marker stays until the production phase clears it.
+  nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
   if (action.energyCost) nextState.energy -= action.energyCost;
   let steelCover = 0;
   if (action.steelCost) {
@@ -2405,7 +2413,9 @@ export function triggerProduction(state, logAcc) {
       plants: player.plants + player.plantsProd,
       energy: player.energyProd,
       heat: player.heat + energyToHeat + player.heatProd,
-      passed: false
+      passed: false,
+      // "このプレイヤー・マーカーは、産出フェイズに除去します"
+      usedCardActions: []
     };
     const who = nextState.players.length > 1 ? `${player.name}: ` : "生産フェーズ完了: ";
     localLog = addLog(

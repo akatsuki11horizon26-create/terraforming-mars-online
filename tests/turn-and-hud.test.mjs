@@ -202,3 +202,64 @@ test("Venus does not gate the end of the game", async () => {
   const { isGameOverCheck } = await import("../app/game-logic.js");
   assert.equal(isGameOverCheck(8, 14, 9), true, "the three Mars tracks alone end it");
 });
+
+test("A card action can only be used once per generation", async () => {
+  // "これら各アクションのあるカードは、各世代につき１回ずつしか使用できません"
+  const { cloneGameState, applyCardAction, getCardActionStatus, triggerProduction } =
+    await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+
+  let state = cloneGameState(getInitialState());
+  state.phase = "action";
+  state.mc = 100;
+  state.playedProjects = [card.id];
+
+  assert.equal(getCardActionStatus(state, card).playable, true);
+  state = applyCardAction(state, card, state.logs).state;
+  assert.deepEqual(state.players[0].usedCardActions, [card.id]);
+
+  const second = getCardActionStatus(state, card);
+  assert.equal(second.playable, false, "the same action cannot fire twice");
+  assert.equal(applyCardAction(state, card, state.logs).playable, false);
+
+  // "このプレイヤー・マーカーは、産出フェイズに除去します"
+  const nextGeneration = triggerProduction(state, state.logs);
+  assert.deepEqual(nextGeneration.players[0].usedCardActions, []);
+  assert.equal(getCardActionStatus(nextGeneration, card).playable, true);
+});
+
+test("One player's spent action does not block another's", async () => {
+  const { cloneGameState, applyCardAction, getCardActionStatus } =
+    await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+
+  let state = cloneGameState(getInitialState({ playerCount: 2 }));
+  state.phase = "action";
+  state.players = state.players.map(p => ({ ...p, mc: 100, playedProjects: [card.id] }));
+
+  state = applyCardAction(state, card, state.logs).state;
+  assert.equal(getCardActionStatus(state, card).playable, false);
+
+  state.currentPlayerId = "player2";
+  assert.equal(getCardActionStatus(state, card).playable, true, "each player has their own marker");
+});
+
+test("A spent action stays spent across a save and reload", async () => {
+  const { cloneGameState, applyCardAction, getCardActionStatus } =
+    await import("../app/game-logic.js");
+  const { loadSavedState, serializeSavedState } = await import("../app/save-migration.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+
+  let state = cloneGameState(getInitialState());
+  state.phase = "action";
+  state.mc = 100;
+  state.playedProjects = [card.id];
+  state = applyCardAction(state, card, state.logs).state;
+
+  const restored = loadSavedState(serializeSavedState(state));
+  assert.deepEqual(restored.players[0].usedCardActions, [card.id]);
+  assert.equal(getCardActionStatus(restored, card).playable, false, "reloading is not a free reset");
+});
