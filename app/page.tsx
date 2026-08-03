@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ALL_CARDS as jsALL_CARDS,
   CORPORATIONS as jsCORPORATIONS,
@@ -61,7 +61,9 @@ import {
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags } from "./card-tags";
 import { ProjectCard } from "./project-card";
-import { GlobalParameters, OpponentStrip, ResourceGrid } from "./global-params";
+import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
+import { Drawer } from "./ui-drawer";
+import { describeCell, TILE_LEGEND } from "./tile-help";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
 
@@ -75,6 +77,8 @@ interface PlayerRecord {
   tr: number;
   mc: number;
   passed?: boolean;
+  actionsRemaining?: number;
+  hand?: string[];
 }
 interface MilestoneDefinition {
   id: string;
@@ -343,6 +347,15 @@ export default function Home() {
   } | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
+
+  // Panels that used to occupy the screen permanently now open on demand, so
+  // the board keeps the space.
+  const [openDrawer, setOpenDrawer] = useState<
+    null | "log" | "milestones" | "standard" | "planet" | "legend"
+  >(null);
+  const closeDrawer = useCallback(() => setOpenDrawer(null), []);
+
+  const [hoveredCell, setHoveredCell] = useState<{ key: string; text: string } | null>(null);
 
   // Setup / Research phase card selection state
   const [selectedCorporationId, setSelectedCorporationId] = useState<string | null>(null);
@@ -1179,7 +1192,7 @@ export default function Home() {
   };
 
   const handleCorporationAction = () => {
-    if (placementMode || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken") return;
+    if (placementMode || gameState.pendingOceans > 0) return;
     if (gameState.corporationId === "corp-ecoline") {
       if (gameState.plants < 7) return;
       setPlacementMode({ active: true, type: "forest", sourceProject: "ecoline" });
@@ -1446,69 +1459,48 @@ export default function Home() {
       )}
 
       <main className="main-content">
-        {/* Left Column: Global Telemetry */}
-        <div className="cyber-panel">
-          <div className="cyber-panel-header">
-            <h2 className="cyber-panel-title">惑星データ</h2>
-          </div>
-          <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-            <div className="status-row">
-              <div className="status-cell">
-                <span className="status-label">世代</span>
-                <span className="status-value">
-                  {activeState.generation}
-                  {activeState.mode === "solo" ? " / 14" : ""}
+        {/* Compact status bar: the detail lives in drawers so the board keeps the room. */}
+        <div className="hud-bar">
+          <div className="hud-stats">
+            <span className="hud-stat" title="世代">
+              <span className="hud-stat-label">世代</span>
+              <span className="hud-stat-value">
+                {activeState.generation}{activeState.mode === "solo" ? "/14" : ""}
+              </span>
+            </span>
+            <span className="hud-stat" title="テラフォーミングレーティング">
+              <span className="hud-stat-label">TR</span>
+              <span className="hud-stat-value" style={{ color: "var(--accent-cyan)" }}>
+                {players.find(p => p.id === currentPlayerId)?.tr ?? 0}
+              </span>
+            </span>
+            <span className="hud-stat" title="現在の得点">
+              <span className="hud-stat-label">得点</span>
+              <span className="hud-stat-value">{scoreValue}</span>
+            </span>
+            {activeState.phase === "action" && (
+              <span className="hud-stat" title="このターンに残っているアクション数">
+                <span className="hud-stat-label">残AC</span>
+                <span className="hud-stat-value" style={{ color: "var(--accent-amber)" }}>
+                  {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0}/2
                 </span>
-              </div>
-              <div className="status-cell">
-                <span className="status-label">TR</span>
-                <span className="status-value" style={{ color: "var(--accent-cyan)" }}>
-                  {players.find(p => p.id === currentPlayerId)?.tr ?? 0}
-                </span>
-              </div>
-              <div className="status-cell">
-                <span className="status-label">得点</span>
-                <span className="status-value">{scoreValue}</span>
-              </div>
-            </div>
-
-            <div className="status-row">
-              <div className="status-cell" style={{ flex: 2 }}>
-                <span className="status-label">フェーズ</span>
-                <span className="status-value" style={{ fontSize: "0.9rem" }}>
-                  {getPhaseNameJP(activeState.phase)}
-                </span>
-              </div>
-              {activeState.phase === "action" && (
-                <div className="status-cell">
-                  <span className="status-label">残アクション</span>
-                  <span className="status-value" style={{ color: "var(--accent-amber)" }}>
-                    {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0} / 2
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <GlobalParameters
+              </span>
+            )}
+            <GlobalParametersCompact
               temperature={activeState.temperature}
               oxygen={activeState.oxygen}
               oceans={activeState.oceans}
               venus={activeState.venus ?? 0}
               showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
             />
+          </div>
 
-            {players.length > 1 && (
-              <div>
-                <div className="section-title">
-                  <span>他プレイヤー</span>
-                </div>
-                <OpponentStrip
-                  players={players as never}
-                  selfId={currentPlayerId}
-                  turnHolderId={turnHolderId}
-                />
-              </div>
-            )}
+          <div className="hud-buttons">
+            <button className="hud-btn" onClick={() => setOpenDrawer("planet")}>惑星データ</button>
+            <button className="hud-btn" onClick={() => setOpenDrawer("standard")}>標準プロジェクト</button>
+            <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>マイルストーン / 表彰</button>
+            <button className="hud-btn" onClick={() => setOpenDrawer("legend")}>タイル凡例</button>
+            <button className="hud-btn" onClick={() => setOpenDrawer("log")}>ミッションログ</button>
           </div>
         </div>
 
@@ -1630,15 +1622,28 @@ export default function Home() {
 
                 const isInteractionDisabled = gameState.pendingOceans > 0 ? !isValid : (placementMode?.active ? !isValid : true);
 
+                const help = describeCell(cell);
+
                 return (
                   <button
                     key={`${cell.q},${cell.r}`}
                     className={classes}
                     style={{ left: `${left}px`, top: `${top}px` }}
-                    onClick={() => handleCellClick(cell)}
-                    disabled={isInteractionDisabled}
-                    title={`座標: (${cell.q}, ${cell.r})`}
-                    aria-label={`マス (${cell.q}, ${cell.r}) ${label} ${content}`}
+                    onClick={() => {
+                      if (isInteractionDisabled) {
+                        // Not placeable, but the player still wants to know what
+                        // the icon means — a tap has to explain rather than do nothing.
+                        setHoveredCell({ key: `${cell.q},${cell.r}`, text: help });
+                        return;
+                      }
+                      handleCellClick(cell);
+                    }}
+                    aria-disabled={isInteractionDisabled}
+                    onMouseEnter={() => setHoveredCell({ key: `${cell.q},${cell.r}`, text: help })}
+                    onMouseLeave={() => setHoveredCell(null)}
+                    onFocus={() => setHoveredCell({ key: `${cell.q},${cell.r}`, text: help })}
+                    onBlur={() => setHoveredCell(null)}
+                    aria-label={`マス (${cell.q}, ${cell.r}) ${label} ${content} ${help}`}
                   >
                     <span className="hex-bonus" style={{ pointerEvents: "none" }}>{content}</span>
                     <span className="hex-label" style={{ pointerEvents: "none", color: "var(--color-ink)", fontSize: "0.5rem" }}>
@@ -1649,6 +1654,12 @@ export default function Home() {
               })}
             </div>
           </div>
+
+          {hoveredCell && (
+            <div className="hex-tooltip" role="status" onClick={() => setHoveredCell(null)}>
+              {hoveredCell.text}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Resources & Actions */}
@@ -1791,156 +1802,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Standard Project Panel */}
-          {gameState.phase === "action" && (
-            <div className="cyber-panel">
-              <div className="cyber-panel-header">
-                <h2 className="cyber-panel-title">標準プロジェクト</h2>
-              </div>
-              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(gameState.corporationId ?? "") && (
-                  <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
-                      {gameState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : gameState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
-                    </div>
-                    <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken" || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={handleCorporationAction}>実行</button>
-                  </div>
-                )}
-                {/* 1. Power Plant */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 11 | エネルギー生産量 +1</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={!canPayStandardCost(11) || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("power_plant")}
-                  >
-                    実行
-                  </button>
-                </div>
 
-                {/* 2. Asteroid */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 14 | 気温 +2°C, TR +1</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={!canPayStandardCost(14) || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8 || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("asteroid")}
-                  >
-                    実行
-                  </button>
-                </div>
-
-                {/* 3. Aquifer */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 18 | 海洋タイルを配置, TR +1</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={!canPayStandardCost(18) || placementMode !== null || gameState.pendingOceans > 0 || gameState.oceans >= 9 || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("ocean")}
-                  >
-                    配置
-                  </button>
-                </div>
-
-                {/* 4. Greenery */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 23 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={!canPayStandardCost(23) || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("greenery")}
-                  >
-                    配置
-                  </button>
-                </div>
-
-                {/* 5. City */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>都市の建設 (City)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置, MC生産量 +1</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={!canPayStandardCost(25) || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("city")}
-                  >
-                    配置
-                  </button>
-                </div>
-
-                {/* 6. Heat release */}
-                {isHeatConvertAffordable && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                    <div>
-                      <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
-                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>熱 8 | 気温 +2°C, TR +1</div>
-                    </div>
-                    <button
-                      className="btn-secondary"
-                      style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                      disabled={gameState.heat < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8 || gameState.turnStep === "one_action_taken"}
-                      onClick={() => handleStandardProjectPlay("heat_convert")}
-                    >
-                      変換
-                    </button>
-                  </div>
-                )}
-
-                {/* 7. Plant greenery convert */}
-                {isPlantsConvertAffordable && (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                    <div>
-                      <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
-                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 8 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
-                    </div>
-                    <button
-                      className="btn-secondary"
-                      style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                      disabled={gameState.plants < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                      onClick={() => handleStandardProjectPlay("plants_convert")}
-                    >
-                      変換
-                    </button>
-                  </div>
-                )}
-
-                {/* 8. Sell patents */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
-                  <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>特許の売却 (Sell Patents)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>手札を売却 | 1枚あたり 1 MC を獲得</div>
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                    disabled={gameState.hand.length === 0 || placementMode !== null || gameState.pendingOceans > 0 || isSellingPatents || gameState.turnStep === "one_action_taken"}
-                    onClick={() => handleStandardProjectPlay("sell_patents")}
-                  >
-                    実行
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Final Greenery Conversion panel */}
           {gameState.phase === "final_greenery" && (
@@ -1974,38 +1836,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Milestones, awards and the expansion boards. These only render
-              when the matching state exists, so a plain solo game is unchanged. */}
-          {gameState.phase !== "setup" && (
-            <div className="cyber-panel" style={{ marginTop: "12px" }}>
-              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                <MilestonePanel milestones={milestoneViews} onClaim={handleClaimMilestone} />
-                <AwardPanel
-                  awards={awardViews}
-                  nextCost={jsGetNextAwardCost(gameState) as number}
-                  onFund={handleFundAward}
-                />
-                {turmoilView && (
-                  <TurmoilPanel
-                    parties={turmoilView.parties}
-                    chairmanName={turmoilView.chairmanName}
-                    influence={turmoilView.influence}
-                    events={turmoilView.events}
-                    canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
-                    onSendDelegate={handleSendDelegate}
-                  />
-                )}
-                {colonyViews.length > 0 && (
-                  <ColonyPanel
-                    colonies={colonyViews}
-                    fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
-                    onBuild={handleBuildColony}
-                    onTrade={handleTradeWithColony}
-                  />
-                )}
-              </div>
-            </div>
-          )}
+
         </div>
       </main>
 
@@ -2048,7 +1879,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
                   onClick={handlePass}
-                  disabled={placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
+                  disabled={placementMode !== null || gameState.pendingOceans > 0}
                 >
                   {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
                     ? "ターン終了"
@@ -2076,11 +1907,7 @@ export default function Home() {
                   cost={payable}
                   selected={isSelected}
                   affordable={status.playable}
-                  disabled={
-                    !isMyTurn ||
-                    gameState.pendingOceans > 0 ||
-                    gameState.turnStep === "one_action_taken"
-                  }
+                  disabled={!isMyTurn || gameState.pendingOceans > 0}
                   onClick={() => handleCardClick(cardId)}
                 />
               );
@@ -2094,7 +1921,7 @@ export default function Home() {
                 {activeCards.map(card => {
                   const actionStatus = getCardActionStatus(gameState, card);
                   return (
-                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null || gameState.turnStep === "one_action_taken"} onClick={() => handleCardAction(card)} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
+                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => handleCardAction(card)} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
                       {card.name} — アクション
                     </button>
                   );
@@ -2192,7 +2019,7 @@ export default function Home() {
                 {selectedCard.type === "active" && gameState.playedProjects.includes(selectedCard.id) && (() => {
                   const actionStatus = getCardActionStatus(gameState, selectedCard);
                   return (
-                    <button className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null || gameState.turnStep === "one_action_taken"} onClick={() => handleCardAction(selectedCard)}>
+                    <button className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => handleCardAction(selectedCard)}>
                       アクション実行
                     </button>
                   );
@@ -2203,28 +2030,287 @@ export default function Home() {
         </div>
       )}
 
-      {/* Log area */}
-      <div className="cyber-panel" style={{ margin: "16px", flex: "none" }}>
-        <div className="cyber-panel-header">
-          <h2 className="cyber-panel-title">ミッションログ</h2>
-        </div>
-        <div className="cyber-panel-content" style={{ padding: "8px" }}>
-          <div className="log-container">
-            {gameState.logs.map(log => {
-              let senderClass = "log-entry ";
-              if (log.sender === "player") senderClass += "player";
-              else if (log.sender === "cpu") senderClass += "cpu";
-              else senderClass += "system";
-
-              return (
-                <div key={log.id} className={senderClass}>
-                  <span>[{log.timestamp}]</span> <span style={{ fontWeight: "bold" }}>{log.sender === "player" ? "あなた" : log.sender === "cpu" ? "CPU" : "システム"}:</span> {log.text}
-                </div>
-              );
-            })}
+      {/* On-demand panels. Keeping these out of the main grid is what frees
+          the board space, especially on a phone. */}
+      <Drawer open={openDrawer === "planet"} title="惑星データ" onClose={closeDrawer}>
+        <div className="drawer-section">
+          <div className="status-row">
+            <div className="status-cell">
+              <span className="status-label">世代</span>
+              <span className="status-value">
+                {activeState.generation}{activeState.mode === "solo" ? " / 14" : ""}
+              </span>
+            </div>
+            <div className="status-cell">
+              <span className="status-label">TR</span>
+              <span className="status-value" style={{ color: "var(--accent-cyan)" }}>
+                {players.find(p => p.id === currentPlayerId)?.tr ?? 0}
+              </span>
+            </div>
+            <div className="status-cell">
+              <span className="status-label">得点</span>
+              <span className="status-value">{scoreValue}</span>
+            </div>
+          </div>
+          <div className="status-row" style={{ marginTop: "8px" }}>
+            <div className="status-cell" style={{ flex: 2 }}>
+              <span className="status-label">フェーズ</span>
+              <span className="status-value" style={{ fontSize: "0.9rem" }}>
+                {getPhaseNameJP(activeState.phase)}
+              </span>
+            </div>
+            {activeState.phase === "action" && (
+              <div className="status-cell">
+                <span className="status-label">残アクション</span>
+                <span className="status-value" style={{ color: "var(--accent-amber)" }}>
+                  {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0} / 2
+                </span>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+        <div className="drawer-section">
+          <GlobalParameters
+            temperature={activeState.temperature}
+            oxygen={activeState.oxygen}
+            oceans={activeState.oceans}
+            venus={activeState.venus ?? 0}
+            showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
+          />
+        </div>
+        {players.length > 1 && (
+          <div className="drawer-section">
+            <div className="section-title"><span>他プレイヤー</span></div>
+            <OpponentStrip
+              players={players as never}
+              selfId={currentPlayerId}
+              turnHolderId={turnHolderId}
+            />
+          </div>
+        )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "standard"} title="標準プロジェクト" onClose={closeDrawer}>
+        {gameState.phase === "action" ? (
+
+          <div className="cyber-panel">
+            <div className="cyber-panel-header">
+              <h2 className="cyber-panel-title">標準プロジェクト</h2>
+            </div>
+            <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(gameState.corporationId ?? "") && (
+                <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
+                    {gameState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : gameState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
+                  </div>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={handleCorporationAction}>実行</button>
+                </div>
+              )}
+              {/* 1. Power Plant */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 11 | エネルギー生産量 +1</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={!canPayStandardCost(11) || placementMode !== null || gameState.pendingOceans > 0}
+                  onClick={() => handleStandardProjectPlay("power_plant")}
+                >
+                  実行
+                </button>
+              </div>
+
+              {/* 2. Asteroid */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 14 | 気温 +2°C, TR +1</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={!canPayStandardCost(14) || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
+                  onClick={() => handleStandardProjectPlay("asteroid")}
+                >
+                  実行
+                </button>
+              </div>
+
+              {/* 3. Aquifer */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 18 | 海洋タイルを配置, TR +1</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={!canPayStandardCost(18) || placementMode !== null || gameState.pendingOceans > 0 || gameState.oceans >= 9}
+                  onClick={() => handleStandardProjectPlay("ocean")}
+                >
+                  配置
+                </button>
+              </div>
+
+              {/* 4. Greenery */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 23 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={!canPayStandardCost(23) || placementMode !== null || gameState.pendingOceans > 0}
+                  onClick={() => handleStandardProjectPlay("greenery")}
+                >
+                  配置
+                </button>
+              </div>
+
+              {/* 5. City */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>都市の建設 (City)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置, MC生産量 +1</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={!canPayStandardCost(25) || placementMode !== null || gameState.pendingOceans > 0}
+                  onClick={() => handleStandardProjectPlay("city")}
+                >
+                  配置
+                </button>
+              </div>
+
+              {/* 6. Heat release */}
+              {isHeatConvertAffordable && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>熱 8 | 気温 +2°C, TR +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    disabled={gameState.heat < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
+                    onClick={() => handleStandardProjectPlay("heat_convert")}
+                  >
+                    変換
+                  </button>
+                </div>
+              )}
+
+              {/* 7. Plant greenery convert */}
+              {isPlantsConvertAffordable && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 8 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    disabled={gameState.plants < 8 || placementMode !== null || gameState.pendingOceans > 0}
+                    onClick={() => handleStandardProjectPlay("plants_convert")}
+                  >
+                    変換
+                  </button>
+                </div>
+              )}
+
+              {/* 8. Sell patents */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                <div>
+                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>特許の売却 (Sell Patents)</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>手札を売却 | 1枚あたり 1 MC を獲得</div>
+                </div>
+                <button
+                  className="btn-secondary"
+                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  disabled={gameState.hand.length === 0 || placementMode !== null || gameState.pendingOceans > 0 || isSellingPatents}
+                  onClick={() => handleStandardProjectPlay("sell_patents")}
+                >
+                  実行
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <p className="drawer-empty">アクションフェーズでのみ実行できます。</p>
+        )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "milestones"} title="マイルストーン / 表彰" onClose={closeDrawer}>
+        {gameState.phase !== "setup" ? (
+
+          <div className="cyber-panel" style={{ marginTop: "12px" }}>
+            <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <MilestonePanel milestones={milestoneViews} onClaim={handleClaimMilestone} />
+              <AwardPanel
+                awards={awardViews}
+                nextCost={jsGetNextAwardCost(gameState) as number}
+                onFund={handleFundAward}
+              />
+              {turmoilView && (
+                <TurmoilPanel
+                  parties={turmoilView.parties}
+                  chairmanName={turmoilView.chairmanName}
+                  influence={turmoilView.influence}
+                  events={turmoilView.events}
+                  canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
+                  onSendDelegate={handleSendDelegate}
+                />
+              )}
+              {colonyViews.length > 0 && (
+                <ColonyPanel
+                  colonies={colonyViews}
+                  fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
+                  onBuild={handleBuildColony}
+                  onTrade={handleTradeWithColony}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <p className="drawer-empty">ゲーム開始後に表示されます。</p>
+        )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "legend"} title="タイル凡例" onClose={closeDrawer}>
+        <ul className="legend-list">
+          {TILE_LEGEND.map(item => (
+            <li key={item.name} className="legend-item">
+              <span className="legend-icon">{item.icon}</span>
+              <span>
+                <strong className="legend-name">{item.name}</strong>
+                <span className="legend-text">{item.text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </Drawer>
+
+      <Drawer open={openDrawer === "log"} title="ミッションログ" onClose={closeDrawer}>
+        <div className="log-container log-container--drawer">
+          {[...gameState.logs].reverse().map(log => {
+            let senderClass = "log-entry ";
+            if (log.sender === "player") senderClass += "player";
+            else if (log.sender === "cpu") senderClass += "cpu";
+            else senderClass += "system";
+
+            return (
+              <div key={log.id} className={senderClass}>
+                <span>[{log.timestamp}]</span> <span style={{ fontWeight: "bold" }}>{log.sender === "player" ? "あなた" : log.sender === "cpu" ? "CPU" : "システム"}:</span> {log.text}
+              </div>
+            );
+          })}
+        </div>
+      </Drawer>
 
       {/* Help Modal */}
       {(!gameState.onboarded || showHelp) && (
@@ -2519,7 +2605,7 @@ export default function Home() {
               </div>
             </div>
             <div className="modal-footer">
-              <button className="btn-primary" onClick={initGame}>
+              <button className="btn-primary" onClick={() => initGame()}>
                 新しいミッションを開始
               </button>
             </div>

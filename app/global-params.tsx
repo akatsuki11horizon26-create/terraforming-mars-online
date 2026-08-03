@@ -86,6 +86,42 @@ export function GlobalParameters({
   );
 }
 
+// The collapsed form of the planet data: symbol + number only, so the tracks
+// stay glanceable when the panel itself is shut.
+export function GlobalParametersCompact({
+  temperature,
+  oxygen,
+  oceans,
+  venus,
+  showVenus
+}: {
+  temperature: number;
+  oxygen: number;
+  oceans: number;
+  venus: number;
+  showVenus: boolean;
+}) {
+  const chips = [
+    { key: "temperature", icon: "🌡", value: `${temperature > 0 ? "+" : ""}${temperature}°`, done: temperature >= 8, color: "var(--accent-ember)", title: `気温 ${temperature}°C / 目標 +8°C` },
+    { key: "oxygen", icon: "O₂", value: `${oxygen}%`, done: oxygen >= 14, color: "var(--accent-green)", title: `酸素 ${oxygen}% / 目標 14%` },
+    { key: "oceans", icon: "🌊", value: `${oceans}/9`, done: oceans >= 9, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 9枚` }
+  ];
+  if (showVenus) {
+    chips.push({ key: "venus", icon: "♀", value: `${venus}%`, done: venus >= 30, color: "var(--accent-violet)", title: `金星 ${venus}% / 目標 30%` });
+  }
+
+  return (
+    <div className="param-compact">
+      {chips.map(c => (
+        <span key={c.key} className="param-chip" data-done={c.done ? "true" : "false"} title={c.title}>
+          <span className="param-chip-icon" style={{ color: c.color }}>{c.icon}</span>
+          <span className="param-chip-value">{c.value}</span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
 // A compact resource row: stock on top, production below. The physical game's
 // player board pairs them, and separating them makes the engine hard to read.
 export function ResourceGrid({
