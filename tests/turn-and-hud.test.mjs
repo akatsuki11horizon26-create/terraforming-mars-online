@@ -72,3 +72,54 @@ test("Board tiles carry an explanation for hover and long-press", async () => {
   assert.ok(page.includes("配置ボーナス: 鋼鉄 +2"), "bonus squares explain their icon");
   assert.ok(page.includes("海洋専用マス。海洋タイルのみ配置できる。"));
 });
+
+test("A spread that shadows a compat accessor keeps the written value", async () => {
+  // `{ ...state, hand: [...] }` turns the non-enumerable accessor into an own
+  // data property. Re-attaching the accessors used to delete it outright, which
+  // silently threw away every card the player had just bought or drawn.
+  const { withLegacyPlayerAccessors } = await import("../app/player-state.js");
+  const state = getInitialState();
+
+  const spread = { ...state, hand: ["card-a", "card-b", "card-c"] };
+  const restored = withLegacyPlayerAccessors(spread);
+
+  assert.deepEqual(restored.players[0].hand, ["card-a", "card-b", "card-c"]);
+  assert.deepEqual(restored.hand, ["card-a", "card-b", "card-c"]);
+  assert.equal(
+    Object.getOwnPropertyDescriptor(restored, "hand").enumerable,
+    false,
+    "the accessor is restored, so saves never carry a stale mirror"
+  );
+  const saved = JSON.parse(JSON.stringify(restored));
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(saved, "hand"),
+    false,
+    "the top level carries no duplicate of the player's hand"
+  );
+  assert.deepEqual(saved.players[0].hand, ["card-a", "card-b", "card-c"]);
+});
+
+test("Buying starting cards fills the hand and charges the right price", async () => {
+  const { cloneGameState } = await import("../app/game-logic.js");
+  const state = getInitialState();
+  const startingMc = state.players[0].mc;
+  const buying = state.researchCards.slice(0, 4);
+
+  const next = cloneGameState(state);
+  next.hand = [...state.hand, ...buying];
+  next.mc -= buying.length * 3;
+
+  assert.deepEqual(next.players[0].hand, buying, "the cards reach the player the UI reads");
+  assert.equal(next.players[0].mc, startingMc - 12);
+  assert.ok(Number.isFinite(next.players[0].mc), "a dropped accessor would make this NaN");
+});
+
+test("Drawing again grows the hand instead of replacing it", async () => {
+  const { cloneGameState } = await import("../app/game-logic.js");
+  let state = cloneGameState(getInitialState());
+  state.hand = ["a", "b"];
+  state = cloneGameState(state);
+  state.hand = [...state.hand, "c"];
+
+  assert.deepEqual(state.players[0].hand, ["a", "b", "c"]);
+});

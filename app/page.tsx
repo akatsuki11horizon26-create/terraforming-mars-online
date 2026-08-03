@@ -55,6 +55,7 @@ import {
   getColonyTile as jsGetColonyTile,
   resolvePendingChoice as jsResolvePendingChoice,
   passPlayer as jsPassPlayer,
+  cloneGameState as jsCloneGameState,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
@@ -670,13 +671,11 @@ export default function Home() {
   };
 
   const executeLegacyPlayCardNoPlacement = (card: Card) => {
-    const nextState = {
-      ...gameState,
-      hand: [...gameState.hand],
-      deck: [...gameState.deck],
-      playedProjects: [...gameState.playedProjects],
-      board: { ...gameState.board }
-    };
+    const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.hand = [...gameState.hand];
+    nextState.deck = [...gameState.deck];
+    nextState.playedProjects = [...gameState.playedProjects];
+    nextState.board = { ...gameState.board };
     const costAfterDiscount = Math.max(0, card.cost - (steelUsed * 2) - (titaniumUsed * 3));
 
     nextState.mc -= costAfterDiscount;
@@ -785,15 +784,13 @@ export default function Home() {
   void executeLegacyPlayCardNoPlacement;
 
   const executePlayCardNoPlacement = (card: Card) => {
-    const nextState = {
-      ...gameState,
-      hand: [...gameState.hand],
-      deck: [...gameState.deck],
-      playedProjects: [...gameState.playedProjects],
-      board: { ...gameState.board },
-      cardResources: { ...gameState.cardResources },
-      cardPlacements: { ...gameState.cardPlacements },
-    };
+    const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.hand = [...gameState.hand];
+    nextState.deck = [...gameState.deck];
+    nextState.playedProjects = [...gameState.playedProjects];
+    nextState.board = { ...gameState.board };
+    nextState.cardResources = { ...gameState.cardResources };
+    nextState.cardPlacements = { ...gameState.cardPlacements };
     const { cost: costAfterDiscount, heatUsed } = payCardCost(nextState, card);
     nextState.hand = nextState.hand.filter(id => id !== card.id);
     nextState.playedProjects.push(card.id);
@@ -845,10 +842,8 @@ export default function Home() {
     // If pending ocean placement is active
     if (gameState.pendingOceans > 0) {
       if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
-      const nextState = {
-        ...gameState,
-        board: { ...gameState.board }
-      };
+      const nextState = jsCloneGameState(gameState) as GameState;
+      nextState.board = { ...gameState.board };
       nextState.board[`${cell.q},${cell.r}`] = {
         ...cell,
         tileType: "ocean",
@@ -872,15 +867,7 @@ export default function Home() {
     if (!placementMode) return;
     if (!isCellPlacementValid(cell, placementMode.type, gameState.board)) return;
 
-    let nextState = {
-      ...gameState,
-      hand: [...gameState.hand],
-      deck: [...gameState.deck],
-      playedProjects: [...gameState.playedProjects],
-      board: { ...gameState.board },
-      cardResources: { ...gameState.cardResources },
-      cardPlacements: { ...gameState.cardPlacements },
-    };
+    let nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
 
     const oldTemp = nextState.temperature;
@@ -1111,7 +1098,7 @@ export default function Home() {
 
   const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
     if (placementMode) return;
-    const nextState = { ...gameState };
+    const nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
 
     if (type === "power_plant") {
@@ -1198,7 +1185,7 @@ export default function Home() {
       setPlacementMode({ active: true, type: "forest", sourceProject: "ecoline" });
       return;
     }
-    const nextState = { ...gameState };
+    const nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
     if (gameState.corporationId === "corp-unmi") {
       if (gameState.tr <= gameState.generationStartTr || gameState.mc < 3) return;
@@ -1224,11 +1211,9 @@ export default function Home() {
       setIsSellingPatents(false);
       return;
     }
-    const nextState = {
-      ...gameState,
-      hand: gameState.hand.filter(id => !selectedSellCardIds.includes(id)),
-      discardPile: [...gameState.discardPile, ...selectedSellCardIds]
-    };
+    const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.hand = gameState.hand.filter(id => !selectedSellCardIds.includes(id));
+    nextState.discardPile = [...gameState.discardPile, ...selectedSellCardIds];
     nextState.mc += selectedSellCardIds.length;
     const localLogs = addLog(
       nextState.logs,
@@ -1248,7 +1233,8 @@ export default function Home() {
   };
 
   const handleCloseOnboard = () => {
-    const nextState = { ...gameState, onboarded: true };
+    const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.onboarded = true;
     saveState(nextState);
   };
 
@@ -1281,11 +1267,9 @@ export default function Home() {
     const setupCost = corporation?.effects?.freeStartingCards ? 0 : cost;
     if (setupCost > gameState.mc) return;
 
-    const nextState = {
-      ...gameState,
-      hand: [...gameState.hand, ...selectedResearchCardIds],
-      discardPile: [...gameState.discardPile, ...gameState.researchCards.filter(id => !selectedResearchCardIds.includes(id))]
-    };
+    const nextState = jsCloneGameState(gameState) as GameState;
+    nextState.hand = [...gameState.hand, ...selectedResearchCardIds];
+    nextState.discardPile = [...gameState.discardPile, ...gameState.researchCards.filter(id => !selectedResearchCardIds.includes(id))];
     nextState.mc -= setupCost;
     nextState.researchCards = [];
 
@@ -1339,7 +1323,7 @@ export default function Home() {
   };
 
   const handleFinalScoring = () => {
-    const nextState = { ...gameState };
+    const nextState = jsCloneGameState(gameState) as GameState;
     nextState.phase = "game_over";
     nextState.isGameOver = true;
     const isWin = isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);

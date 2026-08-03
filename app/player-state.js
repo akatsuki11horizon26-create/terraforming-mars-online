@@ -123,7 +123,17 @@ export function withLegacyPlayerAccessors(state) {
 
   for (const field of LEGACY_PLAYER_FIELDS) {
     if (Object.prototype.hasOwnProperty.call(state, field)) {
+      // A plain `{ ...state, hand: [...] }` spread turns the accessor into an own
+      // data property. Deleting it outright would discard whatever the caller
+      // just wrote, so carry the value down to the player it belongs to first.
+      const shadowed = state[field];
       delete state[field];
+      const owner = getCurrentPlayer(state) ?? state.players[0];
+      const index = owner ? state.players.findIndex(player => player.id === owner.id) : -1;
+      if (index >= 0 && !Object.is(shadowed, state.players[index][field])) {
+        const next = { ...state.players[index], [field]: shadowed };
+        state.players = state.players.map((player, i) => (i === index ? next : player));
+      }
     }
     Object.defineProperty(state, field, {
       configurable: true,

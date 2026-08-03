@@ -386,7 +386,7 @@ function getTitaniumValue(state) {
 // non-enumerable, so a plain spread would silently drop them and break the first
 // `state.mc`-style read after any engine call; re-attaching them here keeps the
 // compatibility surface alive across the whole engine.
-function cloneGameState(state) {
+export function cloneGameState(state) {
   const clone = {
     ...state,
     players: (state.players ?? []).map(player => ({
