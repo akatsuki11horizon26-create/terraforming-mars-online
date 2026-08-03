@@ -14,6 +14,11 @@ const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 const localBindingConfig = {
   main: "./worker/index.ts",
   compatibility_flags: ["nodejs_compat"],
+  // One Durable Object per multiplayer room. Declared here so `vite dev` gets
+  // the binding; wrangler.jsonc carries the same class for deploys.
+  durable_objects: {
+    bindings: [{ name: "ROOMS", class_name: "GameRoom" }],
+  },
   d1_databases: d1
     ? [
         {

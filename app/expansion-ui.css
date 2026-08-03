@@ -1,0 +1,782 @@
+/* Surfaces for hotseat play, target selection, milestones and awards, Turmoil
+   and Colonies. Uses the surface/text/accent tokens from globals.css, so these
+   panels follow the palette documented in DESIGN.md. */
+
+:root {
+  --color-mars: #FF7A4D;
+  --color-scientists: #5FD3E0;
+  --color-unity: #A78BDB;
+  --color-greens: #68D391;
+  --color-reds: #F2708C;
+  --color-kelvinists: #F0A23C;
+  
+  --shadow-raised: 0 2px 12px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* Player switcher */
+
+.player-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.player-chip {
+  flex: 1 1 140px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-hard);
+  border-left: 3px solid var(--color-rust);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: var(--color-panel);
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.player-chip:hover {
+  border-color: var(--accent-amber);
+}
+
+.player-chip[aria-current="true"] {
+  border-left-color: var(--color-ember);
+  box-shadow: var(--shadow-raised);
+  transform: translateY(-1px);
+}
+
+.player-chip[data-passed="true"] {
+  opacity: 0.55;
+}
+
+.player-chip-name {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.player-chip-stats {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-mid);
+  font-variant-numeric: tabular-nums;
+}
+
+.player-chip-tr {
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+/* Pending choice modal */
+
+.choice-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: rgba(8, 12, 18, 0.82);
+  backdrop-filter: blur(3px);
+}
+
+.choice-dialog {
+  width: min(560px, 100%);
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-panel);
+  border: 1px solid var(--line-hard);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+}
+
+.choice-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line-hard);
+}
+
+.choice-owner {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ember);
+}
+
+.choice-prompt {
+  margin-top: 4px;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.choice-options {
+  padding: 12px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+}
+
+.choice-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--line-hard);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.choice-option:hover {
+  background-color: rgba(240, 162, 60, 0.16);
+  border-color: var(--color-ember);
+}
+
+.choice-option-detail {
+  font-size: 12px;
+  color: var(--color-cyan);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.choice-footer {
+  padding: 10px 18px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 11px;
+  color: var(--text-low);
+}
+
+/* Milestones and awards */
+
+.claim-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.claim-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-1);
+}
+
+.claim-row[data-taken="true"] {
+  border-color: rgba(240, 162, 60, 0.5);
+  background-color: rgba(240, 162, 60, 0.08);
+}
+
+.claim-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.claim-desc {
+  font-size: 11px;
+  color: var(--text-low);
+}
+
+.claim-progress {
+  font-size: 11px;
+  color: var(--color-cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+.claim-owner {
+  font-size: 11px;
+  color: var(--color-gold);
+  font-weight: 700;
+}
+
+.claim-button {
+  padding: 6px 12px;
+  border: 1px solid var(--color-rust);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: var(--surface-2);
+  color: var(--color-ink);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.claim-button:hover:not(:disabled) {
+  background-color: var(--color-rust);
+}
+
+.claim-button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+/* Turmoil */
+
+.turmoil-parties {
+  display: grid;
+  gap: 6px;
+}
+
+.party-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--party-color, var(--color-rust));
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  background-color: var(--surface-1);
+}
+
+.party-row[data-ruling="true"] {
+  border-color: var(--party-color, var(--color-ember));
+  background-color: rgba(240, 162, 60, 0.1);
+}
+
+.party-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.party-meta {
+  font-size: 11px;
+  color: var(--text-low);
+}
+
+.delegate-dots {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  max-width: 96px;
+  justify-content: flex-end;
+}
+
+.delegate-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: var(--color-ember);
+  border: 1px solid rgba(8, 12, 18, 0.6);
+}
+
+.delegate-dot[data-neutral="true"] {
+  background-color: rgba(169, 182, 198, 0.35);
+}
+
+.turmoil-events {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.event-slot {
+  padding: 7px 10px;
+  border: 1px dashed rgba(95, 211, 224, 0.35);
+  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  font-size: 11px;
+}
+
+.event-slot[data-slot="current"] {
+  border-style: solid;
+  border-color: var(--color-cyan);
+  background-color: rgba(95, 211, 224, 0.08);
+}
+
+.event-slot-label {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-cyan);
+}
+
+/* Colonies */
+
+.colony-list {
+  display: grid;
+  gap: 8px;
+}
+
+.colony-tile {
+  padding: 9px 11px;
+  border: 1px solid rgba(95, 211, 224, 0.3);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: var(--surface-1);
+}
+
+.colony-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.colony-name {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.colony-benefit {
+  font-size: 11px;
+  color: var(--text-low);
+  margin-top: 2px;
+}
+
+.colony-track {
+  display: flex;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.track-step {
+  flex: 1;
+  min-width: 0;
+  padding: 3px 0;
+  text-align: center;
+  font-size: 10px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  background-color: rgba(95, 211, 224, 0.1);
+  color: var(--text-low);
+  font-variant-numeric: tabular-nums;
+}
+
+.track-step[data-active="true"] {
+  background-color: var(--color-cyan);
+  color: var(--color-void);
+  font-weight: 700;
+}
+
+.colony-slots {
+  display: flex;
+  gap: 4px;
+  margin-top: 7px;
+}
+
+.colony-slot {
+  width: 16px;
+  height: 16px;
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  border: 1px solid rgba(95, 211, 224, 0.4);
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.colony-slot[data-filled="true"] {
+  background-color: var(--color-cyan);
+  color: var(--color-void);
+}
+
+.colony-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Special tiles on the board */
+
+.hex-special {
+  font-size: 8px;
+  line-height: 1.1;
+  text-align: center;
+  padding: 0 2px;
+  color: var(--color-gold);
+  word-break: break-word;
+}
+
+/* Section headings shared by the new panels */
+
+.section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ember);
+  margin-bottom: 8px;
+}
+
+.section-note {
+  font-size: 10px;
+  color: var(--text-low);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+@media (max-width: 650px) {
+  .choice-dialog {
+    max-height: 88vh;
+  }
+  .player-chip {
+    flex-basis: 120px;
+  }
+  .delegate-dots {
+    max-width: 70px;
+  }
+}
+
+/* Global parameters, resources and opponents ---------------------------------
+   Modelled on the digital edition's layout: the three terraforming tracks read
+   together, stock and production sit in one cell, and opponents stay visible
+   instead of being buried below your own resources — a frequent complaint about
+   the official client. */
+
+.param-stack {
+  display: grid;
+  gap: 7px;
+}
+
+.param-track[data-done="true"] .param-label::after {
+  content: " 達成";
+  color: var(--accent-green);
+  font-size: 0.85em;
+}
+
+.param-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  margin-bottom: 3px;
+}
+
+.param-label {
+  color: var(--text-mid);
+  letter-spacing: 0.06em;
+}
+
+.param-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.param-target {
+  color: var(--text-low);
+  font-weight: 400;
+}
+
+.param-rail {
+  height: 6px;
+  background-color: var(--surface-base);
+  border: 1px solid var(--line-soft);
+  overflow: hidden;
+}
+
+.param-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.resource-cell {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "label prod" "stock prod";
+  align-items: center;
+  gap: 0 6px;
+  padding: 5px 7px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+}
+
+.resource-label {
+  grid-area: label;
+  font-size: 10px;
+  color: var(--text-low);
+  letter-spacing: 0.04em;
+}
+
+.resource-stock {
+  grid-area: stock;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-prod {
+  grid-area: prod;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-green);
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-prod[data-negative="true"] {
+  color: var(--accent-rose);
+}
+
+.opponent-strip {
+  display: grid;
+  gap: 4px;
+}
+
+.opponent-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+  font-size: 11px;
+}
+
+.opponent-card[data-active="true"] {
+  border-left-color: var(--accent-amber);
+  background-color: rgba(240, 162, 60, 0.1);
+}
+
+.opponent-card[data-passed="true"] {
+  opacity: 0.5;
+}
+
+.opponent-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.opponent-stats {
+  display: flex;
+  gap: 8px;
+  color: var(--text-mid);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Compact status readout: generation, TR and score on one line rather than a
+   stack of labelled rows, which is what let the old panel run past a screen. */
+
+.status-row {
+  display: flex;
+  gap: 5px;
+}
+
+.status-cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 5px 7px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+}
+
+.status-label {
+  font-size: 10px;
+  color: var(--text-low);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.status-value {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Project cards -------------------------------------------------------------
+   Laid out like the printed card: cost disc top left, tags top right, the type
+   banded by colour down the left edge (green automated, blue active, red
+   event), requirement above the effect, victory points bottom right.
+
+   Cards size themselves from --card-w so the whole hand can be fitted to the
+   strip without scrolling; page.tsx sets that from the hand size. */
+
+.tm-card {
+  --card-w: 148px;
+  width: var(--card-w);
+  height: calc(var(--card-w) * 1.4);
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 8px 6px;
+  background: linear-gradient(160deg, var(--surface-2) 0%, var(--surface-1) 100%);
+  border: 1px solid var(--line-hard);
+  border-left: 4px solid var(--tm-type-color, var(--line-hard));
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+  color: var(--text-hi);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+/* The three card types, coloured as they are printed. */
+.tm-card[data-type="automated"] { --tm-type-color: var(--accent-green); }
+.tm-card[data-type="active"] { --tm-type-color: var(--accent-cyan); }
+.tm-card[data-type="event"] { --tm-type-color: var(--accent-rose); }
+
+.tm-card:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: var(--accent-amber);
+}
+
+.tm-card[data-selected="true"] {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 1px var(--accent-amber), 0 6px 16px rgba(0, 0, 0, 0.55);
+  transform: translateY(-5px);
+}
+
+.tm-card[data-affordable="false"] {
+  opacity: 0.45;
+}
+
+.tm-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.tm-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* The cost disc, as printed in the top-left corner. */
+.tm-card-cost {
+  flex: 0 0 auto;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-amber);
+  color: var(--surface-base);
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  border-radius: 50%;
+}
+
+.tm-card-cost[data-discounted="true"] {
+  background-color: var(--accent-green);
+}
+
+.tm-card-tags {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.card-tag-compact {
+  padding: 1px 3px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.tm-card-name {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.tm-card-req {
+  font-size: 9px;
+  color: var(--accent-rose);
+  border-left: 2px solid var(--accent-rose);
+  padding-left: 4px;
+  line-height: 1.3;
+}
+
+.tm-card-body {
+  flex: 1;
+  min-height: 0;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: var(--text-mid);
+  overflow: hidden;
+}
+
+.tm-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  margin-top: auto;
+}
+
+.tm-card-type {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--tm-type-color, var(--text-low));
+  text-transform: uppercase;
+}
+
+/* Victory points sit in the bottom-right corner on the printed card. */
+.tm-card-vp {
+  min-width: 20px;
+  height: 20px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--accent-violet);
+  color: var(--surface-base);
+  font-size: 11px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  clip-path: polygon(50% 0%, 100% 35%, 82% 100%, 18% 100%, 0% 35%);
+}
+
+/* The hand fits the strip: cards wrap and shrink rather than scrolling away. */
+.hand-cards {
+  /* Takes the strip's remaining height so the fitting maths in page.tsx has a
+     real box to measure. */
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 6px;
+  overflow: hidden;
+  padding-bottom: 2px;
+}

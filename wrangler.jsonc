@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mars-frontier",
+  "main": "worker/index.ts",
+  // compatibility_flags live in vite.config.ts only: the two configs are merged
+  // and declaring nodejs_compat in both stops the runtime from starting.
+  "compatibility_date": "2025-06-01",
+  "assets": {
+    "directory": "dist/client",
+    "binding": "ASSETS"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // The ROOMS binding is declared in vite.config.ts. The two configs are merged,
+  // so declaring it here as well makes wrangler reject the deploy for duplicate
+  // bindings — the same trap as compatibility_flags.
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["GameRoom"]
+    }
+  ]
+}

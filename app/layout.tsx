@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "./expansion-ui.css";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MARS FRONTIER — 火星開拓戦略ゲーム",
-  description: "カードと資源を操り、CPUより先に赤い惑星を緑へ変えるブラウザ戦略ゲーム。",
+  description: "カードと資源を操り、赤い惑星を緑へ変えるブラウザ戦略ゲーム。ソロと2〜5人のホットシート対戦に対応。",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

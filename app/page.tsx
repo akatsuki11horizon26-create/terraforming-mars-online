@@ -6,6 +6,7 @@ import {
   CORPORATIONS as jsCORPORATIONS,
   PRELUDES as jsPRELUDES,
   getInitialState as jsGetInitialState,
+  getPlaceholderState as jsGetPlaceholderState,
   computeScore as jsComputeScore,
   getCardDiscount as jsGetCardDiscount,
   getCardPaymentCost as jsGetCardPaymentCost,
@@ -15,7 +16,6 @@ import {
   countAdjacentOceans as jsCountAdjacentOceans,
   checkParameterThresholds as jsCheckParameterThresholds,
   handleActionSpend as jsHandleActionSpend,
-  triggerProduction as jsTriggerProduction,
   isGameOverCheck as jsIsGameOverCheck,
   addLog as jsAddLog,
   applyCorporation as jsApplyCorporation,
@@ -27,6 +27,69 @@ import {
   applyCardAction as jsApplyCardAction,
   getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
+import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
+import {
+  AwardPanel,
+  ColonyPanel,
+  MilestonePanel,
+  PendingChoiceDialog,
+  PlayerBar,
+  TurmoilPanel
+} from "./expansion-panels";
+import {
+  MILESTONES as jsMILESTONES,
+  AWARDS as jsAWARDS,
+  PARTIES as jsPARTIES,
+  claimMilestone as jsClaimMilestone,
+  fundAward as jsFundAward,
+  getMilestoneStatus as jsGetMilestoneStatus,
+  getAwardStatus as jsGetAwardStatus,
+  getNextAwardCost as jsGetNextAwardCost,
+  getInfluence as jsGetInfluence,
+  sendDelegateToParty as jsSendDelegateToParty,
+  buildColonyOn as jsBuildColonyOn,
+  tradeWith as jsTradeWith,
+  canBuildColony as jsCanBuildColony,
+  canTrade as jsCanTrade,
+  availableFleets as jsAvailableFleets,
+  getColonyTile as jsGetColonyTile,
+  resolvePendingChoice as jsResolvePendingChoice,
+  passPlayer as jsPassPlayer,
+  GLOBAL_EVENTS as jsGLOBAL_EVENTS,
+  withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
+} from "./game-logic.js";
+import { BOARD_CENTRE } from "./tharsis-board.js";
+import { CardTags } from "./card-tags";
+import { ProjectCard } from "./project-card";
+import { GlobalParameters, OpponentStrip, ResourceGrid } from "./global-params";
+import { MultiplayerLobby } from "./multiplayer-lobby";
+import { useRoom } from "./use-room";
+
+// The GitHub Pages build is a static export with no server, so online play is
+// impossible there. The Workers build leaves this unset and offers it.
+const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
+
+interface PlayerRecord {
+  id: string;
+  name: string;
+  tr: number;
+  mc: number;
+  passed?: boolean;
+}
+interface MilestoneDefinition {
+  id: string;
+  name: string;
+  description: string;
+}
+type AwardDefinition = MilestoneDefinition;
+interface PartyDefinition {
+  id: string;
+  name: string;
+}
+interface ColonyDefinition {
+  name: string;
+  trade?: { description?: string; quantity?: number[]; resourceTrack?: string[] };
+}
 
 interface CellState {
   q: number;
@@ -124,13 +187,69 @@ interface GameState {
   isGameOver: boolean;
   gameResult: "win" | "loss" | null;
   onboarded: boolean;
+  // Canonical multiplayer state. The flat fields above remain readable through
+  // the compatibility accessors installed by player-state.js.
+  mode?: "solo" | "hotseat";
+  players?: PlayerRecord[];
+  turnOrder?: string[];
+  currentPlayerId?: string;
+  claimedMilestones?: { milestoneId: string; playerId: string }[];
+  fundedAwards?: { awardId: string; playerId: string }[];
+  pendingChoice?: {
+    id: string;
+    kind: string;
+    ownerPlayerId: string;
+    prompt: string;
+    optional: boolean;
+    options: {
+      id: string;
+      label: string;
+      targetCardId?: string;
+      targetCellKey?: string;
+      resource?: string;
+      amount?: number;
+    }[];
+    continuation: { remaining?: number };
+  } | null;
+  turmoil?: {
+    chairman: string;
+    rulingParty: string;
+    dominantParty: string;
+    parties: Record<string, { delegates: string[]; leader: string | null }>;
+    lobby: string[];
+    currentEvent: string | null;
+    comingEvent: string | null;
+    distantEvent: string | null;
+  } | null;
+  colonies?: {
+    tilesInPlay: string[];
+    tiles: Record<string, { id: string; trackPosition: number; colonies: string[] }>;
+    fleets: Record<string, number>;
+    usedFleets: Record<string, number>;
+  } | null;
 }
 
 // Cast untyped imports to strongly-typed constants
 const ALL_CARDS = jsALL_CARDS as unknown as Card[];
 const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
-const getInitialState = jsGetInitialState as unknown as () => GameState;
+const getInitialState = jsGetInitialState as unknown as (options?: {
+  playerCount?: number;
+  mode?: "solo" | "hotseat";
+  playerNames?: string[];
+  turmoil?: boolean;
+  colonies?: boolean;
+}) => GameState;
+const getPlaceholderState = jsGetPlaceholderState as unknown as () => GameState;
+
+// Board rendering geometry. The Tharsis map is 9 columns wide, so the hexes are
+// spaced slightly tighter than their 54px width to keep the widest row inside the
+// 460px planet.
+const SPHERE_RADIUS = 230;
+const HEX_WIDTH = 48;
+const HEX_HEIGHT = 41.6;
+const HEX_STEP_X = 46;
+const HEX_STEP_Y = 40;
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
@@ -140,7 +259,6 @@ const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellSta
 const countAdjacentOceans = jsCountAdjacentOceans as unknown as (q: number, r: number, board: Record<string, CellState>) => number;
 const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
-const triggerProduction = jsTriggerProduction as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const isGameOverCheck = jsIsGameOverCheck as unknown as (temp: number, oxy: number, oce: number) => boolean;
 const addLog = jsAddLog as unknown as (logsList: LogEntry[], sender: "player" | "cpu" | "system", text: string) => LogEntry[];
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
@@ -153,7 +271,65 @@ const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card:
 const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
-  const [gameState, setGameState] = useState<GameState>(getInitialState);
+  // getInitialState shuffles the deck, and solo neutral tiles are now placed from
+  // that shuffle, so calling it during render makes the server and client draw
+  // different boards and hydration fails. Start from a deterministic empty board
+  // and deal the real game once, on the client, after mount.
+  const [gameState, setGameState] = useState<GameState>(getPlaceholderState);
+  const [dealt, setDealt] = useState(false);
+
+  // New-game options. The setup panel opens from the header and replaces the
+  // board until a game is started, so multiplayer is reachable without editing
+  // code.
+  // The board is a fixed 460px design; scale it to whatever space the centre
+  // column has so the whole game stays on one screen without scrolling.
+  const boardRef = React.useRef<HTMLDivElement | null>(null);
+  const [boardScale, setBoardScale] = useState(1);
+
+  useEffect(() => {
+    const element = boardRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.contentRect;
+      if (!box) return;
+      const fit = Math.min(box.width / 470, box.height / 470);
+      setBoardScale(Math.max(0.45, Math.min(1, fit)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  // The hand must be readable at a glance without scrolling, so the cards are
+  // sized to whatever the strip can hold. More cards means smaller cards rather
+  // than cards disappearing off the edge.
+  const handRef = React.useRef<HTMLDivElement | null>(null);
+  const [handBox, setHandBox] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const element = handRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(entries => {
+      const box = entries[0]?.contentRect;
+      if (box) setHandBox({ width: box.width, height: box.height });
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  const [showLobby, setShowLobby] = useState(false);
+  const online = useRoom();
+
+  const [showGameSetup, setShowGameSetup] = useState(false);
+  const [setupPlayerCount, setSetupPlayerCount] = useState(1);
+  const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
+  const [setupTurmoil, setSetupTurmoil] = useState(false);
+  const [setupColonies, setSetupColonies] = useState(false);
+
+  // Swaps the placeholder for a real game and records that the deal happened.
+  const setDealtState = (next: GameState) => {
+    setGameState(jsWithLegacyPlayerAccessors(next) as GameState);
+    setDealt(true);
+  };
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
@@ -178,46 +354,232 @@ export default function Home() {
   const [selectedSellCardIds, setSelectedSellCardIds] = useState<string[]>([]);
 
   useEffect(() => {
-    const saved = localStorage.getItem("mars_frontier_game");
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (
-          parsed &&
-          typeof parsed === "object" &&
-          parsed.rulesVersion === 3 &&
-          "generation" in parsed &&
-          typeof parsed.generationStartTr === "number" &&
-          ["setup", "research", "action", "production", "final_greenery", "game_over"].includes(parsed.phase) &&
-          Array.isArray(parsed.researchCards) &&
-          Array.isArray(parsed.corporationOptions) &&
-          Array.isArray(parsed.preludeOptions) &&
-          Array.isArray(parsed.selectedPreludeIds) &&
-          parsed.cardPlacements &&
-          typeof parsed.cardPlacements === "object" &&
-          typeof parsed.setupStep === "string" &&
-          typeof parsed.pendingOceans === "number"
-        ) {
-          setTimeout(() => {
-            setGameState(parsed);
-          }, 0);
-        } else {
-          localStorage.removeItem("mars_frontier_game");
-        }
-      } catch (e) {
-        console.error("Failed to parse saved game state", e);
-      }
-    }
+    const saved = localStorage.getItem(SAVE_KEY);
+    // v3 saves are converted to the canonical shape; unusable ones are dropped.
+    const restored = saved ? (loadSavedState(saved) as GameState | null) : null;
+    if (saved && !restored) localStorage.removeItem(SAVE_KEY);
+
+    // Dealing the game is nondeterministic (it shuffles), so it cannot happen
+    // during render without the server and client disagreeing. Doing it once on
+    // mount is the intended fix for hydration mismatch, which is what this rule
+    // would otherwise forbid.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDealtState(restored ?? (getInitialState() as GameState));
   }, []);
 
   const saveState = (newState: GameState) => {
-    setGameState(newState);
-    localStorage.setItem("mars_frontier_game", JSON.stringify(newState));
+    // page.tsx builds next states with `{ ...gameState }` in many places, which
+    // drops the non-enumerable single-player accessors. Re-attach them on the way
+    // through so `gameState.playedProjects` and friends never come back undefined.
+    const next = jsWithLegacyPlayerAccessors(newState) as GameState;
+    setGameState(next);
+    localStorage.setItem(SAVE_KEY, serializeSavedState(next));
   };
 
-  const initGame = () => {
-    const state = getInitialState();
+  // --- Expansion and multiplayer surfaces -------------------------------
+
+  // When connected to a room the server's filtered view is the state; the local
+  // game is only used offline. Rendering reads whichever is active.
+  const isOnline = Boolean(online.view);
+  const activeState = (online.view ?? gameState) as GameState & { viewerId?: string };
+
+  const players = (activeState.players ?? []) as PlayerRecord[];
+  // Online, "current player" for UI purposes is the seat this device owns; the
+  // engine's currentPlayerId still decides whose turn it is.
+  const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
+  const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
+  const turnHolderId = activeState.currentPlayerId ?? currentPlayerId;
+  const isMyTurn = !isOnline || turnHolderId === seatId;
+  const pendingChoice = activeState.pendingChoice ?? null;
+
+  const playerSummaries = players.map(player => ({
+    id: player.id,
+    name: player.name,
+    tr: player.tr,
+    mc: player.mc,
+    passed: player.passed
+  }));
+
+  const nameOf = (playerId?: string) =>
+    playerId === "NEUTRAL"
+      ? "中立"
+      : players.find(player => player.id === playerId)?.name ?? playerId ?? "";
+
+  const runEngine = (result: { state?: GameState; logs?: LogEntry[] }) => {
+    if (!result?.state) return;
+    const next = { ...result.state, logs: result.logs ?? result.state.logs };
+    saveState(next as GameState);
+  };
+
+  const handleResolveChoice = (optionId: string) => {
+    if (isOnline) return void online.sendAction("resolveChoice", { optionId });
+    runEngine(
+      jsResolvePendingChoice(activeState, optionId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const milestoneViews = (jsMILESTONES as MilestoneDefinition[]).map(milestone => {
+    const claimed = (activeState.claimedMilestones ?? []).find(
+      entry => entry.milestoneId === milestone.id
+    );
+    const status = jsGetMilestoneStatus(activeState, milestone.id, currentPlayerId) as {
+      claimable: boolean;
+      reason: string;
+      score: number;
+      threshold: number;
+      description: string;
+    };
+    return {
+      id: milestone.id,
+      name: milestone.name,
+      // Turmoil lowers the Terraformer requirement, so take the resolved text.
+      description: status.description || milestone.description,
+      score: status.score,
+      threshold: status.threshold,
+      claimable: status.claimable,
+      reason: status.reason,
+      ownerName: claimed ? nameOf(claimed.playerId) : undefined
+    };
+  });
+
+  const awardViews = (jsAWARDS as AwardDefinition[]).map(award => {
+    const funded = (activeState.fundedAwards ?? []).find(entry => entry.awardId === award.id);
+    const status = jsGetAwardStatus(activeState, award.id, currentPlayerId) as {
+      fundable: boolean;
+      reason: string;
+      cost: number;
+    };
+    return {
+      id: award.id,
+      name: award.name,
+      description: award.description,
+      fundable: status.fundable,
+      reason: status.reason,
+      cost: status.cost ?? 0,
+      ownerName: funded ? nameOf(funded.playerId) : undefined
+    };
+  });
+
+  const turmoilView = activeState.turmoil
+    ? {
+        chairmanName: nameOf(activeState.turmoil.chairman),
+        influence: jsGetInfluence(activeState.turmoil, currentPlayerId) as number,
+        parties: (jsPARTIES as PartyDefinition[]).map(party => {
+          const seat = activeState.turmoil!.parties[party.id];
+          return {
+            id: party.id,
+            name: party.name,
+            delegates: seat?.delegates ?? [],
+            leaderName: seat?.leader ? nameOf(seat.leader) : undefined,
+            isRuling: activeState.turmoil!.rulingParty === party.id,
+            isDominant: activeState.turmoil!.dominantParty === party.id
+          };
+        }),
+        events: (
+          [
+            ["current", "現行"],
+            ["coming", "次回"],
+            ["distant", "予告"]
+          ] as const
+        ).map(([slot, label]) => {
+          const id = activeState.turmoil![`${slot}Event` as const];
+          const event = (jsGLOBAL_EVENTS as { id: string; name: string }[]).find(
+            item => item.id === id
+          );
+          return { slot, label, name: event?.name ?? "—" };
+        })
+      }
+    : null;
+
+  const colonyViews = activeState.colonies
+    ? activeState.colonies.tilesInPlay.map(tileId => {
+        const tile = activeState.colonies!.tiles[tileId];
+        const definition = jsGetColonyTile(tileId) as ColonyDefinition;
+        const build = jsCanBuildColony(activeState.colonies, tileId, currentPlayerId) as {
+          ok: boolean;
+          reason: string;
+        };
+        const tradeCheck = jsCanTrade(activeState.colonies, tileId, currentPlayerId) as {
+          ok: boolean;
+          reason: string;
+        };
+        return {
+          id: tileId,
+          name: definition?.name ?? tileId,
+          tradeDescription: definition?.trade?.description ?? "",
+          track: definition?.trade?.quantity ?? definition?.trade?.resourceTrack ?? [],
+          trackPosition: tile?.trackPosition ?? 0,
+          colonies: (tile?.colonies ?? []).map(nameOf),
+          canBuild: build.ok,
+          buildReason: build.reason,
+          canTrade: tradeCheck.ok,
+          tradeReason: tradeCheck.reason
+        };
+      })
+    : [];
+
+  const handleClaimMilestone = (milestoneId: string) => {
+    if (isOnline) return void online.sendAction("claimMilestone", { milestoneId });
+    runEngine(
+      jsClaimMilestone(activeState, milestoneId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleFundAward = (awardId: string) => {
+    if (isOnline) return void online.sendAction("fundAward", { awardId });
+    runEngine(
+      jsFundAward(activeState, awardId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleSendDelegate = (partyId: string) => {
+    if (isOnline) return void online.sendAction("sendDelegate", { partyId });
+    runEngine(
+      jsSendDelegateToParty(activeState, partyId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleBuildColony = (tileId: string) => {
+    if (isOnline) return void online.sendAction("buildColony", { tileId });
+    runEngine(
+      jsBuildColonyOn(activeState, tileId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const handleTradeWithColony = (tileId: string) => {
+    if (isOnline) return void online.sendAction("trade", { tileId });
+    runEngine(
+      jsTradeWith(activeState, tileId, activeState.logs, currentPlayerId) as {
+        state: GameState;
+        logs: LogEntry[];
+      }
+    );
+  };
+
+  const initGame = (options?: {
+    playerCount?: number;
+    playerNames?: string[];
+    turmoil?: boolean;
+    colonies?: boolean;
+  }) => {
+    const state = getInitialState(options);
     saveState(state);
+    setShowGameSetup(false);
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
@@ -941,25 +1303,16 @@ export default function Home() {
   };
 
   const handlePass = () => {
-    const nextState = { ...gameState };
-    const localLogs = addLog(nextState.logs, "player", `パスを選択しました。この世代のアクションフェーズを終了します。`);
-    const resolved = triggerProduction(nextState, localLogs);
-    saveState(resolved);
+    if (isOnline) return void online.sendAction("pass");
+    // Passing leaves the action phase for this generation only; production runs
+    // once every player has passed.
+    const result = jsPassPlayer(gameState, gameState.logs, currentPlayerId) as {
+      state: GameState;
+      logs: LogEntry[];
+    };
+    runEngine(result);
     setSelectedCardId(null);
     setPlacementMode(null);
-  };
-
-  const handleEndTurnChoice = (action: "another" | "end") => {
-    const nextState = { ...gameState };
-    if (action === "another") {
-      nextState.turnStep = "second_action_allowed";
-      nextState.logs = addLog(nextState.logs, "player", "もう1アクションを実行します。");
-    } else {
-      nextState.actionsRemaining = 2;
-      nextState.turnStep = "start";
-      nextState.logs = addLog(nextState.logs, "player", "ターンを終了しました。新しいターンを開始します。");
-    }
-    saveState(nextState);
   };
 
   // Final greenery converters
@@ -986,6 +1339,24 @@ export default function Home() {
     if (!selectedCardId) return null;
     return ALL_CARDS.find(c => c.id === selectedCardId) || null;
   }, [selectedCardId]);
+
+  const handCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
+    gameState.hand ??
+    []) as string[];
+
+  // Find the largest card width whose rows still fit the strip's height. Cards
+  // are 1.4x tall, wrap on the cross axis, and have a 6px gap.
+  const cardWidth = useMemo(() => {
+    const { width, height } = handBox;
+    if (!width || !height || handCards.length === 0) return 148;
+    const GAP = 6;
+    for (let w = 148; w >= 78; w -= 2) {
+      const perRow = Math.max(1, Math.floor((width + GAP) / (w + GAP)));
+      const rows = Math.ceil(handCards.length / perRow);
+      if (rows * (w * 1.4 + GAP) - GAP <= height) return w;
+    }
+    return 78;
+  }, [handBox, handCards.length]);
 
   const activeCards = useMemo(() => gameState.playedProjects
     .map(id => ALL_CARDS.find(card => card.id === id))
@@ -1030,145 +1401,123 @@ export default function Home() {
           <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
             マニュアル表示
           </button>
+          {ONLINE_ENABLED && (
+            <button
+              className="btn-secondary"
+              style={{
+                padding: "4px 12px",
+                fontSize: "0.8rem",
+                borderColor: isOnline ? "var(--color-cyan)" : undefined,
+                color: isOnline ? "var(--color-cyan)" : undefined
+              }}
+              onClick={() => setShowLobby(true)}
+            >
+              {isOnline ? `オンライン: ${online.room?.code ?? ""}` : "オンライン対戦"}
+            </button>
+          )}
+          <button
+            className="btn-secondary"
+            style={{ padding: "4px 12px", fontSize: "0.8rem" }}
+            onClick={() => {
+              setSetupPlayerCount(gameState.players?.length ?? 1);
+              setSetupTurmoil(Boolean(gameState.turmoil));
+              setSetupColonies(Boolean(gameState.colonies));
+              setShowGameSetup(true);
+            }}
+          >
+            新規ゲーム設定
+          </button>
           <button className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowRestartConfirm(true)}>
             指令リセット
           </button>
-          <span className="header-version">UNOFFICIAL FAN-MADE PROTOTYPE</span>
+          <span className="header-version">非公式ファンメイド試作版</span>
         </div>
       </header>
+
+      {players.length > 1 && (
+        <div style={{ padding: "10px 16px 0" }}>
+          <PlayerBar players={playerSummaries} currentPlayerId={turnHolderId} />
+          {isOnline && !isMyTurn && (
+            <p style={{ marginTop: "6px", fontSize: "0.75rem", color: "var(--color-cyan)" }}>
+              {players.find(p => p.id === turnHolderId)?.name ?? "他のプレイヤー"} の手番です。お待ちください。
+            </p>
+          )}
+        </div>
+      )}
 
       <main className="main-content">
         {/* Left Column: Global Telemetry */}
         <div className="cyber-panel">
           <div className="cyber-panel-header">
-            <h2 className="cyber-panel-title">GLOBAL TELEMETRY</h2>
+            <h2 className="cyber-panel-title">惑星データ</h2>
           </div>
-          <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の世代 / 限界世代:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ember)" }}>G-{gameState.generation} / 14</span>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.75rem", color: "var(--color-ink)" }}>現在の進行フェーズ:</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "bold", color: "var(--color-gold)" }}>{getPhaseNameJP(gameState.phase)}</span>
-            </div>
-
-            {gameState.phase === "action" && (
-              <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-                <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>ターン内残りアクション:</span>
-                <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-gold)" }}>{gameState.actionsRemaining} / 2</span>
+          <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            <div className="status-row">
+              <div className="status-cell">
+                <span className="status-label">世代</span>
+                <span className="status-value">
+                  {activeState.generation}
+                  {activeState.mode === "solo" ? " / 14" : ""}
+                </span>
               </div>
-            )}
-
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>TR (開拓評価):</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-cyan)" }}>{gameState.tr}</span>
+              <div className="status-cell">
+                <span className="status-label">TR</span>
+                <span className="status-value" style={{ color: "var(--accent-cyan)" }}>
+                  {players.find(p => p.id === currentPlayerId)?.tr ?? 0}
+                </span>
+              </div>
+              <div className="status-cell">
+                <span className="status-label">得点</span>
+                <span className="status-value">{scoreValue}</span>
+              </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid rgba(168, 50, 32, 0.2)", paddingBottom: "6px" }}>
-              <span style={{ fontSize: "0.85rem", color: "var(--color-ink)" }}>現在スコア:</span>
-              <span style={{ fontSize: "1.2rem", fontWeight: "bold", color: "var(--color-ink)" }}>{scoreValue} 点</span>
+            <div className="status-row">
+              <div className="status-cell" style={{ flex: 2 }}>
+                <span className="status-label">フェーズ</span>
+                <span className="status-value" style={{ fontSize: "0.9rem" }}>
+                  {getPhaseNameJP(activeState.phase)}
+                </span>
+              </div>
+              {activeState.phase === "action" && (
+                <div className="status-cell">
+                  <span className="status-label">残アクション</span>
+                  <span className="status-value" style={{ color: "var(--accent-amber)" }}>
+                    {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0} / 2
+                  </span>
+                </div>
+              )}
             </div>
 
-            <div style={{ marginTop: "10px", display: "flex", flexDirection: "column", gap: "10px" }}>
+            <GlobalParameters
+              temperature={activeState.temperature}
+              oxygen={activeState.oxygen}
+              oceans={activeState.oceans}
+              venus={activeState.venus ?? 0}
+              showVenus={(activeState.venus ?? 0) > 0 || Boolean(activeState.colonies)}
+            />
+
+            {players.length > 1 && (
               <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>気温 (目標: +8°C)</span>
-                  <span style={{ color: "var(--color-ember)" }}>{gameState.temperature}°C</span>
+                <div className="section-title">
+                  <span>他プレイヤー</span>
                 </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-ember)",
-                      width: `${Math.min(100, Math.max(0, ((gameState.temperature - (-30)) / 38) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>酸素濃度 (目標: 14%)</span>
-                  <span style={{ color: "var(--color-cyan)" }}>{gameState.oxygen}%</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-cyan)",
-                      width: `${Math.min(100, Math.max(0, (gameState.oxygen / 14) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>海洋数 (目標: 9)</span>
-                  <span style={{ color: "var(--color-gold)" }}>{gameState.oceans} / 9</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-gold)",
-                      width: `${Math.min(100, Math.max(0, (gameState.oceans / 9) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.75rem", marginBottom: "2px" }}>
-                  <span>金星 (Venus Next)</span>
-                  <span style={{ color: "var(--color-cyan)" }}>{gameState.venus}%</span>
-                </div>
-                <div style={{ width: "100%", height: "8px", backgroundColor: "#080908", border: "1px solid var(--color-rust)", borderRadius: "4px" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      backgroundColor: "var(--color-cyan)",
-                      width: `${Math.min(100, Math.max(0, (gameState.venus / 30) * 100))}%`
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Turn step choice control when turnStep === "one_action_taken" */}
-            {gameState.phase === "action" && gameState.turnStep === "one_action_taken" && (
-              <div style={{ marginTop: "14px", padding: "12px", backgroundColor: "rgba(229, 181, 99, 0.08)", border: "2px solid var(--color-gold)", borderRadius: "6px" }}>
-                <div style={{ fontSize: "0.8rem", color: "var(--color-gold)", fontWeight: "bold", marginBottom: "8px", textAlign: "center" }}>
-                  ターン継続確認
-                </div>
-                <p style={{ fontSize: "0.7rem", color: "#c9bfae", marginBottom: "10px", lineHeight: "1.3" }}>
-                  1アクション目を完了しました。もう1アクション実行するか、このターンを終了するか選択してください。
-                </p>
-                <div style={{ display: "flex", gap: "8px", justifyContent: "center" }}>
-                  <button
-                    className="btn-primary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
-                    onClick={() => handleEndTurnChoice("another")}
-                  >
-                    もう1アクション
-                  </button>
-                  <button
-                    className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", width: "50%" }}
-                    onClick={() => handleEndTurnChoice("end")}
-                  >
-                    ターン終了
-                  </button>
-                </div>
+                <OpponentStrip
+                  players={players as never}
+                  selfId={currentPlayerId}
+                  turnHolderId={turnHolderId}
+                />
               </div>
             )}
           </div>
         </div>
 
         {/* Center Column: Mars Board */}
-        <div className="board-panel">
+        <div
+          className="board-panel"
+          ref={boardRef}
+          style={{ ["--board-scale" as string]: String(boardScale) }}
+        >
           {gameState.pendingOceans > 0 && (
             <div
               style={{
@@ -1237,8 +1586,13 @@ export default function Home() {
                   isValid = isCellPlacementValid(cell, placementMode.type, gameState.board);
                 }
 
-                const left = 230 + 52 * (cell.q + cell.r / 2) - 27;
-                const top = 230 + 45 * cell.r - 23.4;
+                // The axial origin is a corner of the Tharsis map, not its middle
+                // (q runs 0..8), so offset by BOARD_CENTRE or the whole board sits
+                // right of the planet. Spacing is scaled to keep 9 columns inside
+                // the sphere.
+                const left =
+                  SPHERE_RADIUS + HEX_STEP_X * ((cell.q - BOARD_CENTRE.q) + (cell.r - BOARD_CENTRE.r) / 2) - HEX_WIDTH / 2;
+                const top = SPHERE_RADIUS + HEX_STEP_Y * (cell.r - BOARD_CENTRE.r) - HEX_HEIGHT / 2;
 
                 let classes = "hex-cell ";
                 let content = "";
@@ -1302,58 +1656,10 @@ export default function Home() {
           {/* Resource Panel */}
           <div className="cyber-panel" style={{ flex: 1 }}>
             <div className="cyber-panel-header">
-              <h2 className="cyber-panel-title">RESOURCES</h2>
+              <h2 className="cyber-panel-title">資源</h2>
             </div>
             <div className="cyber-panel-content">
-              <div className="resources-grid">
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>💳 MegaCredits</span>
-                  </div>
-                  <span className="resource-value">{gameState.mc}</span>
-                  <span className="resource-prod">生産: {gameState.mcProd} (+{gameState.tr} TR)</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🤖 建材 (Steel)</span>
-                  </div>
-                  <span className="resource-value">{gameState.steel}</span>
-                  <span className="resource-prod">生産: {gameState.steelProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🚀 チタン (Titanium)</span>
-                  </div>
-                  <span className="resource-value">{gameState.titanium}</span>
-                  <span className="resource-prod">生産: {gameState.titaniumProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🌱 植物 (Plants)</span>
-                  </div>
-                  <span className="resource-value">{gameState.plants}</span>
-                  <span className="resource-prod">生産: {gameState.plantsProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>⚡ エネルギー (Energy)</span>
-                  </div>
-                  <span className="resource-value">{gameState.energy}</span>
-                  <span className="resource-prod">生産: {gameState.energyProd}</span>
-                </div>
-
-                <div className="resource-box">
-                  <div className="resource-name-container">
-                    <span>🔥 熱 (Heat)</span>
-                  </div>
-                  <span className="resource-value">{gameState.heat}</span>
-                  <span className="resource-prod">生産: {gameState.heatProd}</span>
-                </div>
-              </div>
+              <ResourceGrid player={(players.find(p => p.id === currentPlayerId) ?? players[0]) as never} />
             </div>
           </div>
 
@@ -1364,13 +1670,19 @@ export default function Home() {
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>2枚から1枚を選択。初期MC・資源・生産と企業効果が適用される。</p>
+                {!dealt && (
+                  <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
+                )}
                 {gameState.corporationOptions.map(id => {
                   const corporation = CORPORATIONS.find(item => item.id === id);
                   if (!corporation) return null;
                   const selected = selectedCorporationId === id;
                   return (
                     <button key={id} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
-                      <div style={{ fontWeight: "bold" }}>{corporation.name} [{corporation.tags.join(" / ") || "—"}]</div>
+                      <div style={{ fontWeight: "bold" }}>{corporation.name}</div>
+                      <div style={{ margin: "3px 0" }}>
+                        <CardTags tags={corporation.tags} />
+                      </div>
                       <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{corporation.effectText}</div>
                     </button>
                   );
@@ -1441,6 +1753,9 @@ export default function Home() {
                       >
                         <div>
                           <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                          <div style={{ margin: "3px 0" }}>
+                            <CardTags tags={card.tags} />
+                          </div>
                           <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
                         </div>
                         <div style={{
@@ -1480,7 +1795,7 @@ export default function Home() {
           {gameState.phase === "action" && (
             <div className="cyber-panel">
               <div className="cyber-panel-header">
-                <h2 className="cyber-panel-title">STANDARD PROJECTS</h2>
+                <h2 className="cyber-panel-title">標準プロジェクト</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(gameState.corporationId ?? "") && (
@@ -1658,8 +1973,47 @@ export default function Home() {
               </div>
             </div>
           )}
+
+          {/* Milestones, awards and the expansion boards. These only render
+              when the matching state exists, so a plain solo game is unchanged. */}
+          {gameState.phase !== "setup" && (
+            <div className="cyber-panel" style={{ marginTop: "12px" }}>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <MilestonePanel milestones={milestoneViews} onClaim={handleClaimMilestone} />
+                <AwardPanel
+                  awards={awardViews}
+                  nextCost={jsGetNextAwardCost(gameState) as number}
+                  onFund={handleFundAward}
+                />
+                {turmoilView && (
+                  <TurmoilPanel
+                    parties={turmoilView.parties}
+                    chairmanName={turmoilView.chairmanName}
+                    influence={turmoilView.influence}
+                    events={turmoilView.events}
+                    canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
+                    onSendDelegate={handleSendDelegate}
+                  />
+                )}
+                {colonyViews.length > 0 && (
+                  <ColonyPanel
+                    colonies={colonyViews}
+                    fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
+                    onBuild={handleBuildColony}
+                    onTrade={handleTradeWithColony}
+                  />
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </main>
+
+      <PendingChoiceDialog
+        choice={pendingChoice}
+        players={playerSummaries}
+        onResolve={handleResolveChoice}
+      />
 
       {/* Hand Cards area */}
       {gameState.phase === "action" && (
@@ -1696,61 +2050,39 @@ export default function Home() {
                   onClick={handlePass}
                   disabled={placementMode !== null || gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
                 >
-                  パス (世代終了)
+                  {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
+                    ? "ターン終了"
+                    : "パス (この世代を離脱)"}
                 </button>
               )}
             </div>
           </div>
 
-          <div className="hand-cards">
-            {gameState.hand.map(cardId => {
+          <div className="hand-cards" ref={handRef} style={{ ["--card-w" as string]: `${cardWidth}px` }}>
+            {handCards.map(cardId => {
               const cardObj = ALL_CARDS.find(c => c.id === cardId);
               if (!cardObj) return null;
-              
-              const isSelected = selectedCardId === cardId || (isSellingPatents && selectedSellCardIds.includes(cardId));
-              const cardReqMet = getCardPlayableStatus(cardObj, { ...gameState, mc: Number.MAX_SAFE_INTEGER }, 0, 0).playable;
-              const tagLabel: Record<string, string> = { Building: "建", Space: "宇", Plant: "植", Power: "電", Science: "科", Earth: "地", Jovian: "木", City: "都" };
+
+              const isSelected =
+                selectedCardId === cardId ||
+                (isSellingPatents && selectedSellCardIds.includes(cardId));
+              const status = getCardPlayableStatus(cardObj, gameState, 0, 0);
+              const payable = getCardPaymentCost(cardObj, gameState, 0, 0);
 
               return (
-                <button
+                <ProjectCard
                   key={cardId}
-                  className={`project-card ${isSelected ? "selected" : ""}`}
+                  card={cardObj as never}
+                  cost={payable}
+                  selected={isSelected}
+                  affordable={status.playable}
+                  disabled={
+                    !isMyTurn ||
+                    gameState.pendingOceans > 0 ||
+                    gameState.turnStep === "one_action_taken"
+                  }
                   onClick={() => handleCardClick(cardId)}
-                  disabled={gameState.pendingOceans > 0 || gameState.turnStep === "one_action_taken"}
-                  aria-pressed={isSelected}
-                  style={{ textAlign: "left", display: "flex", flexDirection: "column" }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div className="card-tags">
-                      {cardObj.tags.map(t => (
-                        <span key={t} className="card-tag">
-                          {tagLabel[t] ?? t}
-                        </span>
-                      ))}
-                    </div>
-                    <span style={{ fontSize: "0.55rem", padding: "1px 4px", borderRadius: "3px", backgroundColor: "rgba(242, 232, 220, 0.1)" }}>
-                      {cardObj.type === "event" ? "イベント" : cardObj.type === "active" ? "アクション" : "自動"}
-                    </span>
-                  </div>
-                  <div className="card-title">{cardObj.name}</div>
-                  {cardObj.expansion && (
-                    <div style={{ fontSize: "0.55rem", color: "var(--color-cyan)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {cardObj.expansion}
-                    </div>
-                  )}
-                  {cardObj.reqText !== "なし" && (
-                    <div className={`card-req ${cardReqMet ? "met" : ""}`}>
-                      要件: {cardObj.reqText}
-                    </div>
-                  )}
-                  <div className="card-effect">{cardObj.effectText}</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
-                    <span className="card-cost">{cardObj.cost} MC</span>
-                    {cardObj.victoryPoints ? (
-                      <span style={{ fontSize: "0.65rem", color: "var(--color-gold)" }}>⭐+{cardObj.victoryPoints}</span>
-                    ) : null}
-                  </div>
-                </button>
+                />
               );
             })}
           </div>
@@ -1786,6 +2118,9 @@ export default function Home() {
             >
               <div>
                 <span style={{ fontSize: "0.85rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
+                <span style={{ marginLeft: "8px", display: "inline-flex", verticalAlign: "middle" }}>
+                  <CardTags tags={selectedCard.tags} />
+                </span>
                 {!canPlaySelected && (
                   <span style={{ color: "var(--color-rust)", fontSize: "0.8rem", marginLeft: "10px" }}>
                     ※ {playDisableReason}
@@ -1871,7 +2206,7 @@ export default function Home() {
       {/* Log area */}
       <div className="cyber-panel" style={{ margin: "16px", flex: "none" }}>
         <div className="cyber-panel-header">
-          <h2 className="cyber-panel-title">MISSION LOGS</h2>
+          <h2 className="cyber-panel-title">ミッションログ</h2>
         </div>
         <div className="cyber-panel-content" style={{ padding: "8px" }}>
           <div className="log-container">
@@ -1951,6 +2286,153 @@ export default function Home() {
                 }}
               >
                 了解、ミッション開始
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {ONLINE_ENABLED && showLobby && (
+        <MultiplayerLobby
+          status={online.status}
+          room={online.room}
+          error={online.error}
+          playerId={online.playerId}
+          onConnect={online.connect}
+          onDisconnect={() => {
+            online.disconnect();
+            setShowLobby(false);
+          }}
+          onStart={online.startGame}
+          onClose={() => setShowLobby(false)}
+        />
+      )}
+
+      {/* New game setup: player count and expansions */}
+      {showGameSetup && (
+        <div className="overlay-container">
+          <div className="modal-content" style={{ maxWidth: "460px" }}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ color: "var(--color-gold)" }}>新規ゲーム設定</h3>
+            </div>
+            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <div className="section-title">
+                  <span>プレイ人数</span>
+                  <span className="section-note">
+                    {setupPlayerCount === 1 ? "公式ソロルール・14世代制限" : "ホットシート（1画面を交代で使用）"}
+                  </span>
+                </div>
+                <div style={{ display: "flex", gap: "6px" }}>
+                  {[1, 2, 3, 4, 5].map(count => (
+                    <button
+                      key={count}
+                      type="button"
+                      className="claim-button"
+                      style={{
+                        flex: 1,
+                        padding: "8px 0",
+                        fontSize: "0.9rem",
+                        backgroundColor:
+                          setupPlayerCount === count ? "var(--color-rust)" : "rgba(168, 50, 32, 0.2)"
+                      }}
+                      aria-pressed={setupPlayerCount === count}
+                      onClick={() => setSetupPlayerCount(count)}
+                    >
+                      {count}人
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {setupPlayerCount > 1 && (
+                <div>
+                  <div className="section-title">
+                    <span>プレイヤー名</span>
+                    <span className="section-note">空欄なら既定名</span>
+                  </div>
+                  <div style={{ display: "grid", gap: "6px" }}>
+                    {Array.from({ length: setupPlayerCount }, (_, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        value={setupPlayerNames[index] ?? ""}
+                        placeholder={`プレイヤー${index + 1}`}
+                        onChange={event => {
+                          const next = [...setupPlayerNames];
+                          next[index] = event.target.value;
+                          setSetupPlayerNames(next);
+                        }}
+                        style={{
+                          padding: "6px 10px",
+                          borderRadius: "4px",
+                          border: "1px solid rgba(242, 232, 220, 0.2)",
+                          backgroundColor: "rgba(8, 9, 8, 0.6)",
+                          color: "var(--color-ink)",
+                          fontSize: "0.8rem"
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="section-title">
+                  <span>拡張</span>
+                  <span className="section-note">任意</span>
+                </div>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginBottom: "8px" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupTurmoil}
+                    onChange={event => setSetupTurmoil(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>動乱 (Turmoil)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      6政党・代表者・議長・世界的イベント。毎世代 全員TR-1。
+                    </div>
+                  </span>
+                </label>
+                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={setupColonies}
+                    onChange={event => setSetupColonies(event.target.checked)}
+                  />
+                  <span>
+                    <strong style={{ fontSize: "0.8rem" }}>植民地 (Colonies)</strong>
+                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                      植民地タイル・交易船・交易報酬。
+                    </div>
+                  </span>
+                </label>
+              </div>
+
+              <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
+                開始すると現在の進行状況は消去されます。
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secondary" onClick={() => setShowGameSetup(false)}>
+                キャンセル
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() =>
+                  initGame({
+                    playerCount: setupPlayerCount,
+                    playerNames: setupPlayerNames
+                      .slice(0, setupPlayerCount)
+                      .map(name => name.trim())
+                      .map((name, index) => name || `プレイヤー${index + 1}`),
+                    turmoil: setupTurmoil,
+                    colonies: setupColonies
+                  })
+                }
+              >
+                この設定で開始
               </button>
             </div>
           </div>

@@ -1,4 +1,84 @@
 import { CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
+import {
+  DEFAULT_PLAYER_NAMES,
+  SOLO_STARTING_TR,
+  createPlayer,
+  getCurrentPlayer,
+  getPlayer,
+  updatePlayer,
+  withLegacyPlayerAccessors
+} from "./player-state.js";
+import { THARSIS_CELLS } from "./tharsis-board.js";
+import {
+  AWARDS,
+  MAX_AWARDS,
+  MAX_MILESTONES,
+  MILESTONES,
+  MILESTONE_COST,
+  computeAwardVp,
+  computeMilestoneVp,
+  getAward,
+  getMilestone,
+  getMilestoneDescription,
+  getMilestoneThreshold,
+  getNextAwardCost,
+  scoreAward
+} from "./milestones-awards.js";
+
+export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMilestoneThreshold, scoreAward };
+import {
+  buildBranchChoice,
+  buildResourceChoice,
+  buildStandardResourceChoice,
+  buildTileChoice,
+  findOption,
+  isChoiceOwnedBy
+} from "./pending-choice.js";
+import { getCardResourceType } from "./card-resource-types.js";
+
+export { STANDARD_RESOURCES } from "./pending-choice.js";
+export { getCardResourceType };
+import {
+  NEUTRAL,
+  PARTIES,
+  advanceTurmoil,
+  cloneTurmoil,
+  createTurmoilState,
+  getInfluence,
+  getParty,
+  getRulingPolicy,
+  hasPolicy,
+  normalizePartyId,
+  refillLobby,
+  sendDelegate,
+  totalDelegates
+} from "./turmoil.js";
+
+export {
+  NEUTRAL,
+  PARTIES,
+  getInfluence,
+  getParty,
+  getRulingPolicy,
+  totalDelegates
+};
+import {
+  COLONY_TILES,
+  availableFleets,
+  buildColony,
+  canBuildColony,
+  canTrade,
+  cloneColonies,
+  countColonies,
+  createColoniesState,
+  getColonyTile,
+  resetFleets,
+  trade as tradeWithColony
+} from "./colonies.js";
+
+export { COLONY_TILES, availableFleets, canBuildColony, canTrade, countColonies, getColonyTile };
+
+export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
 const LEGACY_CARDS = [
   {
@@ -211,45 +291,50 @@ void LEGACY_CARDS;
 export const ALL_CARDS = OFFICIAL_PROJECTS;
 export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS };
 
-export const INITIAL_CELLS = [
-  { q: 0, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -3, isOceanOnly: true, bonusType: "steel", bonusAmount: 1 },
-  { q: 2, r: -3, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -3, isOceanOnly: true, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: -2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: -2, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -2, isOceanOnly: false, bonusType: "steel", bonusAmount: 2 },
-  { q: 3, r: -2, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: -1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 0, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 1, r: -1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 3, r: -1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 0, isOceanOnly: false, bonusType: "mc", bonusAmount: 2 },
-  { q: 1, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 0, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: 3, r: 0, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 1, isOceanOnly: false, bonusType: "plant", bonusAmount: 1 },
-  { q: 1, r: 1, isOceanOnly: true, bonusType: "none", bonusAmount: 0 },
-  { q: 2, r: 1, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 2, isOceanOnly: false, bonusType: "titanium", bonusAmount: 1 },
-  { q: -1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 2, isOceanOnly: false, bonusType: "card", bonusAmount: 1 },
-  { q: 1, r: 2, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -3, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -2, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: -1, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 },
-  { q: 0, r: 3, isOceanOnly: false, bonusType: "none", bonusAmount: 0 }
-];
+// TileType numbers from the reference implementation's enum (src/common/TileType.ts).
+// Special tiles occupy a space like a city or greenery but keep their own name so
+// the board can show what was built there.
+const TILE_TYPE_BY_NUMBER = {
+  0: { tile: "forest" },
+  1: { tile: "ocean" },
+  2: { tile: "city" },
+  3: { tile: "city", specialName: "Capital" },
+  4: { tile: "special", specialName: "Commercial District" },
+  5: { tile: "special", specialName: "Ecological Zone" },
+  6: { tile: "special", specialName: "Industrial Center" },
+  7: { tile: "special", specialName: "Lava Flows" },
+  8: { tile: "special", specialName: "Mining Area" },
+  9: { tile: "special", specialName: "Mining Rights" },
+  10: { tile: "special", specialName: "Mohole Area" },
+  11: { tile: "special", specialName: "Natural Preserve" },
+  12: { tile: "special", specialName: "Nuclear Zone" },
+  13: { tile: "special", specialName: "Restricted Area" },
+  14: { tile: "special", specialName: "Deimos Down" },
+  15: { tile: "special", specialName: "Great Dam" },
+  16: { tile: "special", specialName: "Magnetic Field Generators" },
+  43: { tile: "special", specialName: "Special Tile" }
+};
+
+// Global parameter limits from the rulebook: nine ocean tiles, oxygen to 14%,
+// temperature from -30°C to +8°C in 2° steps.
+export const MAX_OCEANS = 9;
+// Each ocean tile pays 2 MC to a tile placed next to it.
+export const OCEAN_ADJACENCY_BONUS = 2;
+export const MAX_OXYGEN = 14;
+export const MAX_TEMPERATURE = 8;
+export const MIN_TEMPERATURE = -30;
+
+// Reasons normalizeBehavior records that the pendingChoice flow now resolves.
+const HANDLED_BY_PENDING_CHOICE = new Set([
+  "any-card-resource-choice",
+  "standard-resource-choice",
+  "choice"
+]);
+
+// The official Tharsis map. Generated from the reference implementation by
+// scripts/generate-tharsis-board.mjs, which verifies the axial conversion against
+// the reference adjacency rule before writing.
+export const INITIAL_CELLS = THARSIS_CELLS;
 
 export function formatLogTime() {
   const now = new Date();
@@ -297,27 +382,56 @@ function getTitaniumValue(state) {
   return getCorporation(state)?.effects?.titaniumValue ?? 3;
 }
 
+// Deep-copies shared state and every player. The legacy single-player accessors are
+// non-enumerable, so a plain spread would silently drop them and break the first
+// `state.mc`-style read after any engine call; re-attaching them here keeps the
+// compatibility surface alive across the whole engine.
 function cloneGameState(state) {
-  return {
+  const clone = {
     ...state,
-    hand: [...state.hand],
+    players: (state.players ?? []).map(player => ({
+      ...player,
+      researchCards: [...(player.researchCards ?? [])],
+      corporationOptions: [...(player.corporationOptions ?? [])],
+      preludeOptions: [...(player.preludeOptions ?? [])],
+      selectedPreludeIds: [...(player.selectedPreludeIds ?? [])],
+      hand: [...(player.hand ?? [])],
+      playedProjects: [...(player.playedProjects ?? [])],
+      cardResources: { ...(player.cardResources ?? {}) },
+      cardPlacements: { ...(player.cardPlacements ?? {}) },
+      cardDiscounts: {
+        all: player.cardDiscounts?.all ?? 0,
+        tags: { ...(player.cardDiscounts?.tags ?? {}) }
+      }
+    })),
+    turnOrder: [...(state.turnOrder ?? [])],
     deck: [...state.deck],
     discardPile: [...state.discardPile],
-    playedProjects: [...state.playedProjects],
-    selectedPreludeIds: [...(state.selectedPreludeIds ?? [])],
     board: Object.fromEntries(Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])),
-    cardResources: { ...(state.cardResources ?? {}) },
-    cardPlacements: { ...(state.cardPlacements ?? {}) },
-    cardDiscounts: { all: state.cardDiscounts?.all ?? 0, tags: { ...(state.cardDiscounts?.tags ?? {}) } },
     logs: [...state.logs],
+    claimedMilestones: [...(state.claimedMilestones ?? [])],
+    fundedAwards: [...(state.fundedAwards ?? [])],
+    resolvedChoices: Object.fromEntries(
+      Object.entries(state.resolvedChoices ?? {}).map(([id, stages]) => [id, [...stages]])
+    ),
+    turmoil: state.turmoil ? cloneTurmoil(state.turmoil) : null,
+    colonies: state.colonies ? cloneColonies(state.colonies) : null,
+    pendingChoice: state.pendingChoice
+      ? {
+          ...state.pendingChoice,
+          options: (state.pendingChoice.options ?? []).map(option => ({ ...option })),
+          continuation: { ...state.pendingChoice.continuation }
+        }
+      : null
   };
+  return withLegacyPlayerAccessors(clone);
 }
 
 function addResource(state, resource, amount) {
   if (resource in state) state[resource] += amount;
 }
 
-function addProduction(state, production) {
+export function applyProduction(state, production) {
   const keys = {
     mc: "mcProd",
     steel: "steelProd",
@@ -328,7 +442,12 @@ function addProduction(state, production) {
   };
   Object.entries(production ?? {}).forEach(([resource, amount]) => {
     const key = keys[resource];
-    if (key) state[key] += amount;
+    // Only MC production may go negative, and only to -5. Every other track
+    // floors at zero, so a card that reduces production can never push a player
+    // into producing a negative amount.
+    if (!key) return;
+    const floor = resource === "mc" ? -5 : 0;
+    state[key] = Math.max(floor, state[key] + amount);
   });
 }
 
@@ -346,9 +465,80 @@ const effectCache = new WeakMap();
 function addNormalizedStock(effect, stock, unsupported = []) {
   Object.entries(stock ?? {}).forEach(([source, amount]) => {
     const resource = SOURCE_RESOURCE_MAP[source];
-    if (resource && typeof amount === "number") effect[resource] = (effect[resource] ?? 0) + amount;
-    else if (resource) unsupported.push("dynamic-resource-gain");
+    if (!resource) return;
+    if (typeof amount === "number") {
+      effect[resource] = (effect[resource] ?? 0) + amount;
+      return;
+    }
+    // "Gain 1 MC per Building tag", "gain 1 plant per city", and similar counted
+    // amounts. Resolved against live state when the effect is applied.
+    if (amount && typeof amount === "object") {
+      const counted = normalizeCountedAmount(amount);
+      if (counted) {
+        effect.countedGains = [...(effect.countedGains ?? []), { resource, ...counted }];
+        return;
+      }
+    }
+    unsupported.push("dynamic-resource-gain");
   });
+}
+
+// Recognises the counting rules the official cards actually use. Anything that
+// depends on Colonies state is deferred until that expansion exists.
+function normalizeCountedAmount(amount) {
+  const each = amount.each ?? 1;
+
+  if (amount.colonies) return { kind: "colonies", each, allPlayers: amount.all === true };
+  if (amount.tag) {
+    // Tags count only the player's own unless `all` is set (reference Counter).
+    const tags = Array.isArray(amount.tag) ? amount.tag : [amount.tag];
+    return { kind: "tag", tags, each, allPlayers: amount.all === true };
+  }
+  // Board counts include every player's tiles unless `all` is explicitly false.
+  if (amount.cities) return { kind: "cities", each, allPlayers: amount.all !== false };
+  if (amount.greeneries) return { kind: "greeneries", each, allPlayers: amount.all !== false };
+  // Floaters are always counted on the active player's own cards.
+  if (amount.floaters) return { kind: "floaters", each, allPlayers: false };
+  return null;
+}
+
+function evaluateCountedGain(state, gain, ownerId) {
+  const players = gain.allPlayers ? state.players : state.players.filter(p => p.id === ownerId);
+
+  let units = 0;
+  switch (gain.kind) {
+    case "tag":
+      for (const player of players) {
+        for (const tag of gain.tags) units += countPlayedTag(state, tag, player);
+      }
+      break;
+    case "cities":
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "city") return false;
+        return gain.allPlayers || cell.placedBy === ownerId;
+      }).length;
+      break;
+    case "greeneries":
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "forest") return false;
+        return gain.allPlayers || cell.placedBy === ownerId;
+      }).length;
+      break;
+    case "floaters":
+      for (const player of players) {
+        for (const [cardId, count] of Object.entries(player.cardResources ?? {})) {
+          if (getCardResourceType(cardId) === "floater") units += count;
+        }
+      }
+      break;
+    case "colonies":
+      if (!state.colonies) return 0;
+      for (const player of players) units += countColonies(state.colonies, player.id);
+      break;
+    default:
+      return 0;
+  }
+  return units * (gain.each ?? 1);
 }
 
 function normalizeBehavior(raw, effect = {}, unsupported = []) {
@@ -389,11 +579,16 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.tileCount = raw.greenery.count ?? 1;
   }
   if (raw.tile && typeof raw.tile === "object") {
-    const typeMap = { 0: "forest", 1: "ocean", 2: "city", 3: "city" };
-    const mapped = typeMap[raw.tile.type];
+    // TileType numbers come from the reference implementation's enum. Special
+    // tiles behave as a marked land tile: they occupy a space, count as the
+    // player's tile for Landlord and city adjacency where applicable, and carry
+    // the card's own name.
+    const mapped = TILE_TYPE_BY_NUMBER[raw.tile.type];
     if (mapped) {
-      effect.tile = mapped;
+      effect.tile = mapped.tile;
       effect.tileCount = raw.tile.count ?? 1;
+      if (mapped.specialName) effect.specialName = mapped.specialName;
+      if (raw.tile.on) effect.tilePlacementRule = raw.tile.on;
     } else {
       unsupported.push(`tile:${raw.tile.type}`);
     }
@@ -411,7 +606,9 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
   }
   if (raw.standardResource) unsupported.push("standard-resource-choice");
   if (raw.addResourcesToAnyCard) unsupported.push("any-card-resource-choice");
-  if (raw.colonies || raw.turmoil) unsupported.push("expansion-state-choice");
+  // Recorded separately so each is only reported when its expansion is off.
+  if (raw.colonies) unsupported.push("colonies-state-choice");
+  if (raw.turmoil) unsupported.push("turmoil-state-choice");
   if (raw.or) {
     if (raw.or.autoSelect && Array.isArray(raw.or.behaviors) && raw.or.behaviors[0]) {
       normalizeBehavior(raw.or.behaviors[0], effect, unsupported);
@@ -471,6 +668,9 @@ function firstLegalSpace(state, type) {
 }
 
 function placeTile(state, type, count = 1, cardId) {
+  // Tiles belong to whoever is acting, not to a hardcoded "player": in a hotseat
+  // game that credited every tile, and the TR for it, to the first seat.
+  const ownerId = state.currentPlayerId ?? state.players?.[0]?.id ?? "player";
   let placed = 0;
   for (let i = 0; i < count; i++) {
     const cell = firstLegalSpace(state, type);
@@ -478,16 +678,16 @@ function placeTile(state, type, count = 1, cardId) {
     state.board[`${cell.q},${cell.r}`] = {
       ...cell,
       tileType: type,
-      placedBy: type === "ocean" ? null : "player",
+      placedBy: type === "ocean" ? null : ownerId,
     };
     if (cardId && i === 0) state.cardPlacements[cardId] = `${cell.q},${cell.r}`;
     if (type === "ocean") {
-      state.oceans = Math.min(9, state.oceans + 1);
-      state.tr += 1;
+      state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
+      bumpTr(state, ownerId, 1);
     }
     if (type === "forest") {
-      state.oxygen = Math.min(14, state.oxygen + 1);
-      state.tr += 1;
+      state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
+      bumpTr(state, ownerId, 1);
     }
     placed += 1;
   }
@@ -499,8 +699,27 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   let nextLogs = logs;
   if (!effect) return { state: nextState, logs: nextLogs };
 
-  if (effect.unsupported?.length) {
-    nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${effect.unsupported.join("、")}`);
+  // Choices handled by the pendingChoice flow are resolved by the player after
+  // this function returns, so they are not reported as unimplemented here.
+  // Expansion effects are only unimplemented when that expansion is switched off.
+  const stillUnsupported = (effect.unsupported ?? []).filter(reason => {
+    if (HANDLED_BY_PENDING_CHOICE.has(reason)) return false;
+    if (reason === "colonies-state-choice") return !nextState.colonies;
+    if (reason === "turmoil-state-choice") return !nextState.turmoil;
+    return true;
+  });
+  if (stillUnsupported.length) {
+    nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${stillUnsupported.join("、")}`);
+  }
+
+  if (effect.countedGains?.length) {
+    for (const gain of effect.countedGains) {
+      const amount = evaluateCountedGain(nextState, gain, nextState.currentPlayerId);
+      if (amount > 0) {
+        addResource(nextState, gain.resource, amount);
+        nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} を ${amount} 獲得しました。`);
+      }
+    }
   }
 
   if (effect.payMc) nextState.mc -= effect.payMc;
@@ -534,7 +753,7 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
     });
   }
 
-  addProduction(nextState, effect.production);
+  applyProduction(nextState, effect.production);
   if (effect.productionDecrease?.resource) {
     const productionKey = `${effect.productionDecrease.resource}Prod`;
     if (productionKey in nextState) nextState[productionKey] = Math.max(0, nextState[productionKey] - effect.productionDecrease.count);
@@ -587,7 +806,47 @@ export function applyCorporation(state, corporationId) {
     nextState[`${resource}Prod`] = corporation.starting.production?.[resource] ?? 0;
   });
   nextState.logs = addLog(nextState.logs, "player", `企業【${corporation.name}】を選択しました。`);
-  return nextState;
+  return advanceSetupTurn(nextState);
+}
+
+// In hotseat every player sets up in turn. Hand the seat to the next player who
+// still has a corporation to pick; once everyone is done, start the game.
+function advanceSetupTurn(state) {
+  const next = state;
+  const pending = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && !player.corporationId && player.corporationOptions.length > 0;
+  });
+
+  if (pending) {
+    next.currentPlayerId = pending;
+    next.phase = "setup";
+    return next;
+  }
+
+  // Everyone has a corporation. Preludes come next if any were dealt.
+  const withPreludes = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && player.preludeOptions.length >= 2 && player.selectedPreludeIds.length === 0;
+  });
+  if (withPreludes) {
+    next.currentPlayerId = withPreludes;
+    next.phase = "setup";
+    next.players = next.players.map(player =>
+      player.id === withPreludes ? { ...player, setupStep: "prelude" } : player
+    );
+    return next;
+  }
+
+  next.currentPlayerId = next.firstPlayerId;
+  next.phase = "action";
+  next.players = next.players.map(player => ({
+    ...player,
+    setupStep: "complete",
+    actionsRemaining: 2,
+    turnStep: "start"
+  }));
+  return next;
 }
 
 export function getPreludeCost(prelude) {
@@ -604,7 +863,6 @@ export function applyPreludes(state, preludeIds) {
   let nextState = cloneGameState(state);
   nextState.selectedPreludeIds = preludeIds;
   nextState.preludeOptions = [];
-  nextState.phase = "action";
   nextState.setupStep = "complete";
   nextState.actionsRemaining = 2;
   nextState.turnStep = "start";
@@ -624,7 +882,8 @@ export function applyPreludes(state, preludeIds) {
   nextState = initialAction.state;
   logs = initialAction.logs;
   nextState.logs = logs;
-  return nextState;
+  // Hand the seat on; the game only starts once every player has set up.
+  return advanceSetupTurn(nextState);
 }
 
 export function applyCorporationInitialAction(state, logs) {
@@ -651,9 +910,303 @@ export function applyCardEffect(state, card, logs, options = {}) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
   const effect = getCardEffect(card);
-  const result = applyEffect(nextState, effect, nextLogs, options);
+
+  // When the player will pick the space, suppress the automatic placement so the
+  // tile is not laid twice.
+  const willChooseTile =
+    !options.skipTile &&
+    Boolean(effect.tile) &&
+    legalCellsFor(nextState, effect.tile).length > 1;
+
+  const result = applyEffect(nextState, effect, nextLogs, {
+    ...options,
+    skipTile: options.skipTile || willChooseTile
+  });
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
-  return { state: result.state, logs: nextLogs };
+
+  // Effects that need the player to choose a target park the rest of the work in
+  // state.pendingChoice; the caller must not finish the turn until it resolves.
+  const pending = queuePendingChoices(result.state, card, {
+    sourceKind: options.sourceKind ?? "card",
+    sourceId: card.id,
+    consumedAction: options.consumedAction ?? true,
+    paid: true
+  });
+  if (pending) {
+    result.state.pendingChoice = pending;
+    nextLogs = addLog(nextLogs, "system", pending.prompt);
+    result.state.logs = nextLogs;
+    return { status: "pending", state: result.state, logs: nextLogs, pendingChoice: pending };
+  }
+
+  result.state.logs = nextLogs;
+  return { status: "resolved", state: result.state, logs: nextLogs };
+}
+
+// Inspects a card's raw spec for the parts applyEffect deliberately skips and
+// turns the first of them into a pending choice. Remaining choices are queued
+// again after each resolution, so a card with several can walk through them.
+function queuePendingChoices(state, card, context) {
+  const raw = card.effectSpec?.behavior;
+  if (!raw) return null;
+  const done = state.resolvedChoices?.[card.id] ?? [];
+
+  if (raw.or && !raw.or.autoSelect && Array.isArray(raw.or.behaviors) && !done.includes("effect-branch")) {
+    return buildBranchChoice(state, raw.or.behaviors, context);
+  }
+  // Where a tile goes is the player's decision, not the first legal space.
+  const effect = getCardEffect(card);
+  if (effect.tile && !done.includes("tile-placement")) {
+    const legal = legalCellsFor(state, effect.tile);
+    if (legal.length > 1) {
+      return buildTileChoice(
+        state,
+        effect.tile,
+        { ...context, remaining: effect.tileCount ?? 1, specialName: effect.specialName },
+        legal
+      );
+    }
+  }
+  if (raw.standardResource && !done.includes("standard-resource")) {
+    return buildStandardResourceChoice(state, raw.standardResource, context);
+  }
+  if (raw.addResourcesToAnyCard && !done.includes("any-card-resource")) {
+    const specs = Array.isArray(raw.addResourcesToAnyCard)
+      ? raw.addResourcesToAnyCard
+      : [raw.addResourcesToAnyCard];
+    for (const spec of specs) {
+      const built = buildResourceChoice(state, spec, {
+        ...context,
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType,
+        // A few cards count the amount from the table ("1 per science tag").
+        evaluateCount: rule => {
+          const counted = normalizeCountedAmount(rule);
+          return counted ? evaluateCountedGain(state, counted, state.currentPlayerId) : 1;
+        }
+      });
+      if (!built) continue;
+      // A single legal target needs no decision.
+      if (built.autoTarget) {
+        applyResourceToCard(state, built.autoTarget, built.count);
+        continue;
+      }
+      return built;
+    }
+  }
+  return null;
+}
+
+function applyResourceToCard(state, target, amount) {
+  // Guard the arithmetic: a non-numeric amount would concatenate into the total
+  // and silently turn a resource count into a string.
+  const delta = Number.isFinite(Number(amount)) ? Number(amount) : 1;
+  state.players = state.players.map(player => {
+    if (player.id !== target.targetPlayerId) return player;
+    const cardResources = { ...player.cardResources };
+    cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + delta;
+    return { ...player, cardResources };
+  });
+  return state;
+}
+
+function markChoiceResolved(state, sourceId, stage) {
+  const resolved = { ...(state.resolvedChoices ?? {}) };
+  resolved[sourceId] = [...(resolved[sourceId] ?? []), stage];
+  state.resolvedChoices = resolved;
+}
+
+// Applies the player's selection and either finishes the effect or produces the
+// next choice the same card still needs.
+export function resolvePendingChoice(state, optionId, logs, playerId) {
+  const choice = state.pendingChoice;
+  if (!choice) {
+    return { status: "resolved", state, logs: addLog(logs, "system", "解決すべき選択がありません。") };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  if (!isChoiceOwnedBy(choice, actorId)) {
+    return {
+      status: "pending",
+      state,
+      logs: addLog(logs, "system", "この選択は別のプレイヤーのものです。"),
+      pendingChoice: choice
+    };
+  }
+  const option = findOption(choice, optionId);
+  if (!option) {
+    return {
+      status: "pending",
+      state,
+      logs: addLog(logs, "system", "選択肢が不正です。"),
+      pendingChoice: choice
+    };
+  }
+
+  const next = cloneGameState(state);
+  let nextLogs = logs;
+  next.pendingChoice = null;
+  markChoiceResolved(next, choice.continuation.sourceId, choice.continuation.stage);
+
+  const card = ALL_CARDS.find(item => item.id === choice.continuation.sourceId);
+
+  switch (choice.kind) {
+    case "any-card-resource": {
+      applyResourceToCard(next, option, choice.continuation.remaining ?? 1);
+      nextLogs = addLog(nextLogs, "system", `${option.label}に資源を${choice.continuation.remaining ?? 1}個置きました。`);
+      break;
+    }
+    case "standard-resource": {
+      const amount = option.amount ?? 1;
+      next.players = next.players.map(player =>
+        player.id === actorId ? { ...player, [option.resource]: player[option.resource] + amount } : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${option.label}を${amount}獲得しました。`);
+      break;
+    }
+    case "effect-branch": {
+      const branch = card?.effectSpec?.behavior?.or?.behaviors?.[Number(option.id)];
+      if (branch) {
+        const branchEffect = normalizeBehavior(branch, {}, []);
+        const applied = applyEffect(next, { ...branchEffect, cardId: card.id }, nextLogs);
+        nextLogs = addLog(applied.logs, "system", `選択: ${option.label}`);
+      }
+      break;
+    }
+    case "ocean-placement":
+    case "tile-placement": {
+      const cell = next.board[option.targetCellKey];
+      const tileType = choice.continuation.payload?.tileType ?? "ocean";
+      if (cell) {
+        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId);
+        nextLogs = addLog(nextLogs, "system", `${option.label} にタイルを配置しました。`);
+      }
+      const remaining = (choice.continuation.remaining ?? 1) - 1;
+      if (remaining > 0) {
+        const followUp = buildTileChoice(next, tileType, { ...choice.continuation, remaining }, legalCellsFor(next, tileType));
+        if (followUp) {
+          next.pendingChoice = followUp;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  // The same card may still owe another decision.
+  if (card) {
+    const followUp = queuePendingChoices(next, card, choice.continuation);
+    if (followUp) {
+      next.pendingChoice = followUp;
+      nextLogs = addLog(nextLogs, "system", followUp.prompt);
+      next.logs = nextLogs;
+      return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+    }
+  }
+
+  next.logs = nextLogs;
+  return { status: "resolved", state: next, logs: nextLogs };
+}
+
+export function legalCellsFor(state, tileType, playerId) {
+  const owner = playerId ?? state.currentPlayerId;
+  return Object.values(state.board).filter(cell =>
+    isCellPlacementValid(cell, tileType, state.board, owner)
+  );
+}
+
+function placeTileAt(state, cell, tileType, ownerId, cardId) {
+  state.board = { ...state.board };
+  state.board[`${cell.q},${cell.r}`] = {
+    ...cell,
+    tileType,
+    placedBy: tileType === "ocean" ? null : ownerId
+  };
+
+  const player = getPlayer(state, ownerId);
+  if (player) {
+    if (cardId) {
+      state.players = state.players.map(p =>
+        p.id === ownerId
+          ? { ...p, cardPlacements: { ...p.cardPlacements, [cardId]: `${cell.q},${cell.r}` } }
+          : p
+      );
+    }
+    grantPlacementBonus(state, cell, ownerId);
+
+    // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
+    // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
+    // adjacent to the space just covered.
+    const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
+    if (adjacentOceans > 0) {
+      const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
+      state.players = state.players.map(p =>
+        p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
+      );
+    }
+  }
+
+  if (tileType === "ocean") {
+    state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
+    bumpTr(state, ownerId, 1);
+  }
+  if (tileType === "forest") {
+    state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
+    bumpTr(state, ownerId, 1);
+  }
+  return state;
+}
+
+function bumpTr(state, playerId, amount) {
+  state.players = state.players.map(player =>
+    player.id === playerId ? { ...player, tr: player.tr + amount } : player
+  );
+}
+
+// Placement bonuses printed on the space go to whoever covers it.
+function grantPlacementBonus(state, cell, ownerId) {
+  const grants = cell.bonusType === "multi" && Array.isArray(cell.bonus)
+    ? cell.bonus
+    : cell.bonusType && cell.bonusType !== "none"
+      ? [{ type: cell.bonusType, amount: cell.bonusAmount }]
+      : [];
+
+  for (const grant of grants) {
+    if (grant.type === "card") {
+      const drawn = drawFromDeck(state, grant.amount);
+      state.players = state.players.map(player =>
+        player.id === ownerId ? { ...player, hand: [...player.hand, ...drawn] } : player
+      );
+      continue;
+    }
+    const field = grant.type === "plant" ? "plants" : grant.type;
+    state.players = state.players.map(player =>
+      player.id === ownerId && field in player
+        ? { ...player, [field]: player[field] + grant.amount }
+        : player
+    );
+  }
+}
+
+function drawFromDeck(state, count) {
+  let deck = [...state.deck];
+  let discard = [...state.discardPile];
+  const drawn = [];
+  for (let i = 0; i < count; i++) {
+    if (deck.length === 0) {
+      if (discard.length === 0) break;
+      deck = shuffle(discard);
+      discard = [];
+    }
+    const [id, ...rest] = deck;
+    deck = rest;
+    if (id) drawn.push(id);
+  }
+  state.deck = deck;
+  state.discardPile = discard;
+  return drawn;
 }
 
 function applyPreludeFreePlay(state, effect, logs) {
@@ -673,6 +1226,9 @@ function applyPreludeFreePlay(state, effect, logs) {
 }
 
 export function getCardActionStatus(state, card) {
+  if (getCurrentPlayer(state)?.passed) {
+    return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
+  }
   const action = getCardEffect(card).action;
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   if (action.energyCost && state.energy < action.energyCost) {
@@ -785,7 +1341,104 @@ export function applyCorporationTriggers(state, card, logs) {
   return { state: nextState, logs: nextLogs };
 }
 
-export function getInitialState() {
+// Mirrors GameSetup.setupNeutralPlayer: for each of two neutral cities, discard a
+// card and use its cost to pick the nth available land space (scanning from the top
+// for the first city, from the bottom for the second), skipping spaces that already
+// neighbour a city, then place a greenery on an adjacent free space.
+function placeNeutralTiles(board, deck) {
+  let remainingDeck = [...deck];
+
+  const drawCost = () => {
+    const [drawn, ...rest] = remainingDeck;
+    remainingDeck = rest;
+    const card = drawn ? ALL_CARDS.find(c => c.id === drawn) : undefined;
+    return card?.cost ?? 0;
+  };
+
+  const isFree = cell => cell && cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor;
+
+  const placeCityAndForest = direction => {
+    const cost = drawCost();
+    const distance = Math.max(cost - 1, 0);
+
+    const ordered = Object.values(board)
+      .filter(isFree)
+      .sort((a, b) => (a.r - b.r) || (a.q - b.q));
+    if (direction === "bottom") ordered.reverse();
+
+    const candidates = ordered.filter(cell => {
+      const adjacent = getAdjacentCells(cell.q, cell.r)
+        .map(pos => board[`${pos.q},${pos.r}`])
+        .filter(Boolean);
+      return (
+        adjacent.every(neighbour => neighbour.tileType !== "city") &&
+        adjacent.some(isFree)
+      );
+    });
+    if (candidates.length === 0) return;
+
+    const citySpace = candidates[distance % candidates.length];
+    citySpace.tileType = "city";
+    citySpace.placedBy = "neutral";
+
+    const adjacentFree = getAdjacentCells(citySpace.q, citySpace.r)
+      .map(pos => board[`${pos.q},${pos.r}`])
+      .filter(isFree);
+    if (adjacentFree.length === 0) return;
+
+    const greeneryIndex = Math.max(drawCost() - 1, 0);
+    const greenerySpace = adjacentFree[greeneryIndex % adjacentFree.length];
+    greenerySpace.tileType = "forest";
+    greenerySpace.placedBy = "neutral";
+  };
+
+  placeCityAndForest("top");
+  placeCityAndForest("bottom");
+  return remainingDeck;
+}
+
+// A deterministic, unshuffled starting state. The server and the client both
+// render this, so hydration sees identical markup; the client then deals a real
+// game. It must not call shuffle() or place neutral tiles.
+export function getPlaceholderState() {
+  const board = {};
+  INITIAL_CELLS.forEach(cell => {
+    board[`${cell.q},${cell.r}`] = { ...cell, tileType: "empty", placedBy: null };
+  });
+
+  return withLegacyPlayerAccessors({
+    rulesVersion: 4,
+    mode: "solo",
+    generation: 1,
+    phase: "setup",
+    players: [createPlayer("player", DEFAULT_PLAYER_NAMES[0])],
+    turnOrder: ["player"],
+    currentPlayerId: "player",
+    firstPlayerId: "player",
+    temperature: -30,
+    oxygen: 0,
+    venus: 0,
+    oceans: 0,
+    board,
+    deck: [],
+    discardPile: [],
+    claimedMilestones: [],
+    fundedAwards: [],
+    pendingChoice: null,
+    resolvedChoices: {},
+    turmoil: null,
+    colonies: null,
+    logs: [],
+    isGameOver: false,
+    gameResult: null,
+    onboarded: false
+  });
+}
+
+export function getInitialState(options = {}) {
+  const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
+  const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
+  const names = options.playerNames ?? [];
   const board = {};
   INITIAL_CELLS.forEach(cell => {
     board[`${cell.q},${cell.r}`] = {
@@ -795,91 +1448,432 @@ export function getInitialState() {
     };
   });
 
-  // Setup neutral cities and greeneries deterministically
-  // City 1: (0,0), Greenery 1: (0,-1)
-  board["0,0"].tileType = "city";
-  board["0,0"].placedBy = "neutral";
-  board["0,-1"].tileType = "forest";
-  board["0,-1"].placedBy = "neutral";
-
-  // City 2: (-2,2), Greenery 2: (-3,3)
-  board["-2,2"].tileType = "city";
-  board["-2,2"].placedBy = "neutral";
-  board["-3,3"].tileType = "forest";
-  board["-3,3"].placedBy = "neutral";
-
   const allCardIds = ALL_CARDS.map(c => c.id);
-  const shuffledDeck = shuffle(allCardIds);
-  const setupCards = shuffledDeck.slice(0, 10);
-  const deck = shuffledDeck.slice(10);
-  const corporationOptions = shuffle(CORPORATIONS.map(corporation => corporation.id)).slice(0, 2);
-  const preludeOptions = shuffle(PRELUDES.map(prelude => prelude.id)).slice(0, 4);
+  let shuffledDeck = shuffle(allCardIds);
 
-  return {
-    rulesVersion: 3,
+  // Official solo rules seed the board with two neutral cities, each with an
+  // adjacent neutral greenery. The reference implementation discards a card per
+  // tile and counts that many available land spaces from the top, then the bottom.
+  if (mode === "solo") {
+    shuffledDeck = placeNeutralTiles(board, shuffledDeck);
+  }
+  const corporationPool = shuffle(CORPORATIONS.map(corporation => corporation.id));
+  const preludePool = shuffle(PRELUDES.map(prelude => prelude.id));
+
+  const players = [];
+  for (let i = 0; i < playerCount; i++) {
+    // "player" keeps the solo id stable so existing board ownership and saves line up.
+    const id = i === 0 ? "player" : `player${i + 1}`;
+    const researchCards = shuffledDeck.slice(0, 10);
+    shuffledDeck = shuffledDeck.slice(10);
+    players.push(
+      // `??` would accept an empty string, leaving a nameless player.
+      createPlayer(id, String(names[i] ?? "").trim() || DEFAULT_PLAYER_NAMES[i], {
+        // The solo variant opens at 14 TR instead of 20.
+        ...(mode === "solo" ? { tr: SOLO_STARTING_TR, generationStartTr: SOLO_STARTING_TR } : {}),
+        researchCards,
+        corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
+        preludeOptions: preludePool.slice(i * 4, i * 4 + 4)
+      })
+    );
+  }
+
+  const turnOrder = players.map(player => player.id);
+  const turmoil = options.turmoil
+    ? createTurmoilState(turnOrder, shuffle(GLOBAL_EVENTS.map(event => event.id)))
+    : null;
+  const colonies = options.colonies
+    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)))
+    : null;
+  const introText =
+    mode === "solo"
+      ? "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
+      : `${playerCount}人対戦を開始しました。全グローバルパラメータの達成でゲーム終了です。`;
+
+  return withLegacyPlayerAccessors({
+    rulesVersion: 4,
+    mode,
     generation: 1,
-    generationStartTr: 14,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
-    setupStep: "corporation",
-    turnStep: "start", // start, one_action_taken, second_action_allowed
-    pendingOceans: 0,
-    researchCards: setupCards,
-    corporationOptions,
-    corporationId: null,
-    preludeOptions,
-    selectedPreludeIds: [],
-    discardPile: [],
-    actionsRemaining: 2,
+    players,
+    turnOrder,
+    currentPlayerId: turnOrder[0],
+    firstPlayerId: turnOrder[0],
     temperature: -30,
     oxygen: 0,
     venus: 0,
-    globalRequirementBuffer: 0,
     oceans: 0,
-    tr: 14,
-    mc: 42,
-    mcProd: 0,
-    steel: 0,
-    steelProd: 0,
-    titanium: 0,
-    titaniumProd: 0,
-    plants: 0,
-    plantsProd: 0,
-    energy: 0,
-    energyProd: 0,
-    heat: 0,
-    heatProd: 0,
-    hand: [],
-    deck,
-    playedProjects: [],
-    cardResources: {},
-    cardPlacements: {},
-    cardDiscounts: { all: 0, tags: {} },
     board,
+    deck: shuffledDeck,
+    discardPile: [],
+    claimedMilestones: [],
+    fundedAwards: [],
+    pendingChoice: null,
+    resolvedChoices: {},
+    turmoil,
+    colonies,
     logs: [
       {
         id: "init",
         timestamp: "12:00:00",
         sender: "system",
-        text: "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
+        text: introText
       }
     ],
     isGameOver: false,
     gameResult: null,
     onboarded: false
+  });
+}
+
+// Applies a colony build/trade/colony benefit to one player.
+function grantColonyBenefit(state, benefit, playerId, logs) {
+  if (!benefit) return { state, logs };
+  let nextLogs = logs;
+  const amount = benefit.amount ?? benefit.quantity ?? 1;
+  const player = getPlayer(state, playerId);
+  if (!player) return { state, logs };
+
+  switch (benefit.type) {
+    case "GAIN_RESOURCES": {
+      if (!benefit.resource) break;
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, [benefit.resource]: p[benefit.resource] + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: ${benefit.resource} +${amount}`);
+      break;
+    }
+    case "GAIN_PRODUCTION": {
+      if (!benefit.resource) break;
+      const field = `${benefit.resource === "mc" ? "mc" : benefit.resource}Prod`;
+      state.players = state.players.map(p =>
+        p.id === playerId && field in p ? { ...p, [field]: p[field] + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: ${field} +${amount}`);
+      break;
+    }
+    case "DRAW_CARDS": {
+      const drawn = drawFromDeck(state, amount);
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, hand: [...p.hand, ...drawn] } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: カードを${drawn.length}枚引きました。`);
+      break;
+    }
+    case "GAIN_TR": {
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, tr: p.tr + amount } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: TR +${amount}`);
+      break;
+    }
+    case "PLACE_OCEAN_TILE": {
+      const legal = legalCellsFor(state, "ocean", playerId);
+      if (legal.length > 0) {
+        placeTileAt(state, legal[0], "ocean", playerId);
+        nextLogs = addLog(nextLogs, "system", `${player.name}: 海洋タイルを配置しました。`);
+      }
+      break;
+    }
+    default:
+      // Benefits tied to card resources or other expansions are reported rather
+      // than silently dropped.
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `植民地ボーナス「${benefit.description}」は未対応のため適用されませんでした。`
+      );
+      break;
+  }
+  return { state, logs: nextLogs };
+}
+
+export function buildColonyOn(state, tileId, logs, playerId) {
+  if (!state.colonies) {
+    return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), built: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const result = buildColony(state.colonies, tileId, actorId);
+  if (!result.built) {
+    return { state, logs: addLog(logs, "system", result.reason), built: false };
+  }
+
+  const next = cloneGameState(state);
+  next.colonies = result.colonies;
+  const tile = getColonyTile(tileId);
+  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} に入植しました。`);
+
+  const granted = grantColonyBenefit(next, result.bonus, actorId, nextLogs);
+  next.logs = granted.logs;
+  return { state: next, logs: granted.logs, built: true };
+}
+
+export function tradeWith(state, tileId, logs, playerId) {
+  if (!state.colonies) {
+    return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), traded: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const result = tradeWithColony(state.colonies, tileId, actorId);
+  if (!result.traded) {
+    return { state, logs: addLog(logs, "system", result.reason), traded: false };
+  }
+
+  const next = cloneGameState(state);
+  next.colonies = result.colonies;
+  const tile = getColonyTile(tileId);
+  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} と交易しました。`);
+
+  const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs);
+  nextLogs = traded.logs;
+
+  // Every colony owner on the tile collects the colony bonus, including the trader.
+  for (const owner of result.colonyOwners) {
+    const granted = grantColonyBenefit(next, result.colonyBonus, owner, nextLogs);
+    nextLogs = granted.logs;
+  }
+
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, traded: true };
+}
+
+// Pays a ruling party's bonus to every player, then swaps in the new ruling
+// party and advances the global event queue.
+export function runTurmoilPhase(state, logs) {
+  if (!state.turmoil) return { state, logs };
+  const next = cloneGameState(state);
+  let nextLogs = logs;
+
+  // The turmoil phase opens with every player losing 1 TR.
+  next.players = next.players.map(player => ({ ...player, tr: Math.max(0, player.tr - 1) }));
+  nextLogs = addLog(nextLogs, "system", "動乱フェーズ: 全プレイヤーが TR -1。");
+
+  const outgoing = getParty(next.turmoil.rulingParty);
+  if (outgoing) {
+    // The first bonus of the ruling party is the one that pays out.
+    const bonus = outgoing.bonuses[0];
+    next.players = next.players.map(player => {
+      const amount = evaluatePartyBonus(next, bonus, player);
+      if (amount <= 0) return player;
+      const field = bonus.resource;
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${outgoing.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
+      );
+      return { ...player, [field]: player[field] + amount };
+    });
+
+    if (bonus.kind === "lowestTr" || bonus.kind === "highestTr") {
+      next.players = applyTrSwing(next.players, bonus);
+    }
+  }
+
+  const result = advanceTurmoil(next.turmoil);
+  next.turmoil = refillLobby(result.turmoil, next.turnOrder);
+
+  // The chairman gains 1 TR on taking office.
+  if (result.newChairman && result.newChairman !== NEUTRAL) {
+    next.players = next.players.map(player =>
+      player.id === result.newChairman ? { ...player, tr: player.tr + 1 } : player
+    );
+    const chairman = getPlayer(next, result.newChairman);
+    nextLogs = addLog(nextLogs, "system", `${chairman?.name ?? result.newChairman} が議長に就任し TR +1。`);
+  } else {
+    nextLogs = addLog(nextLogs, "system", "中立の代表者が議長になりました。");
+  }
+
+  const ruling = getParty(result.rulingParty);
+  nextLogs = addLog(nextLogs, "system", `与党は ${ruling?.name ?? result.rulingParty} になりました。`);
+
+  if (result.resolvedEvent) {
+    const event = GLOBAL_EVENTS.find(item => item.id === result.resolvedEvent);
+    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? result.resolvedEvent}`);
+  }
+
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs };
+}
+
+function evaluatePartyBonus(state, bonus, player) {
+  if (!bonus) return 0;
+  switch (bonus.kind) {
+    case "tag": {
+      const tags = Array.isArray(bonus.tag) ? bonus.tag : [bonus.tag];
+      return tags.reduce((sum, tag) => sum + countPlayedTag(state, tag, player), 0);
+    }
+    case "ownTiles":
+      return Object.values(state.board).filter(
+        cell =>
+          cell.placedBy === player.id &&
+          cell.tileType !== "empty" &&
+          (!bonus.tileType || cell.tileType === bonus.tileType)
+      ).length * (bonus.each ?? 1);
+    case "handSize":
+      return Math.floor(player.hand.length / (bonus.per ?? 1));
+    case "production":
+      return player[bonus.production] ?? 0;
+    default:
+      return 0;
+  }
+}
+
+function applyTrSwing(players, bonus) {
+  const values = players.map(player => player.tr);
+  const target = bonus.kind === "lowestTr" ? Math.min(...values) : Math.max(...values);
+  return players.map(player =>
+    player.tr === target ? { ...player, tr: Math.max(0, player.tr + bonus.amount) } : player
+  );
+}
+
+// Reds make terraforming cost money; the surcharge is paid when TR rises.
+export function getTrSurcharge(state, steps) {
+  const policy = hasPolicy(state.turmoil, "trSurcharge");
+  if (!policy) return 0;
+  return policy.amount * Math.max(0, steps);
+}
+
+export function sendDelegateToParty(state, partyId, logs, playerId) {
+  if (!state.turmoil) {
+    return { state, logs: addLog(logs, "system", "Turmoilは有効ではありません。"), sent: false };
+  }
+  const actorId = playerId ?? state.currentPlayerId;
+  const fromLobby = state.turmoil.lobby.includes(actorId);
+  const result = sendDelegate(state.turmoil, actorId, partyId, { fromLobby });
+  if (!result.sent) {
+    return { state, logs: addLog(logs, "system", result.reason), sent: false };
+  }
+
+  const next = cloneGameState(state);
+  next.turmoil = result.turmoil;
+  const party = getParty(partyId);
+  const player = getPlayer(next, actorId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? actorId} が ${party?.name ?? partyId} に代表者を送りました。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, sent: true };
+}
+
+function milestoneContext(state, player) {
+  return {
+    player,
+    board: state.board,
+    cards: ALL_CARDS,
+    corporation: CORPORATIONS.find(c => c.id === player.corporationId)
   };
+}
+
+export function getMilestoneStatus(state, milestoneId, playerId) {
+  const milestone = getMilestone(milestoneId);
+  if (!milestone) return { claimable: false, reason: "不明なマイルストーンです。", score: 0, threshold: 0, description: "" };
+
+  const player = getPlayer(state, playerId);
+  if (!player) return { claimable: false, reason: "プレイヤーが見つかりません。", score: 0, threshold: 0, description: "" };
+
+  const threshold = getMilestoneThreshold(milestone, state);
+  const description = getMilestoneDescription(milestone, state);
+  const score = milestone.getScore(milestoneContext(state, player));
+  const claimed = (state.claimedMilestones ?? []).find(entry => entry.milestoneId === milestoneId);
+
+  if (claimed) {
+    const owner = getPlayer(state, claimed.playerId);
+    return { claimable: false, reason: `${owner?.name ?? claimed.playerId}が獲得済みです。`, score, threshold, description };
+  }
+  if ((state.claimedMilestones ?? []).length >= MAX_MILESTONES) {
+    return { claimable: false, reason: "マイルストーンは3つまでしか獲得できません。", score, threshold, description };
+  }
+  if (score < threshold) {
+    return { claimable: false, reason: `条件を満たしていません (${score}/${threshold})。`, score, threshold, description };
+  }
+  if (player.mc < MILESTONE_COST) {
+    return { claimable: false, reason: `${MILESTONE_COST} MC必要です。`, score, threshold, description };
+  }
+  return { claimable: true, reason: "", score, threshold, description };
+}
+
+export function claimMilestone(state, milestoneId, logs, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const status = getMilestoneStatus(state, milestoneId, targetId);
+  if (!status.claimable) {
+    return { state, logs: addLog(logs, "system", status.reason), claimed: false };
+  }
+
+  const milestone = getMilestone(milestoneId);
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === targetId ? { ...player, mc: player.mc - MILESTONE_COST } : player
+  );
+  next.claimedMilestones = [...(next.claimedMilestones ?? []), { milestoneId, playerId: targetId }];
+
+  const player = getPlayer(next, targetId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? targetId}がマイルストーン「${milestone.name}」を獲得しました (${MILESTONE_COST} MC)。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, claimed: true };
+}
+
+export function getAwardStatus(state, awardId, playerId) {
+  const award = getAward(awardId);
+  if (!award) return { fundable: false, reason: "不明な表彰です。" };
+
+  const player = getPlayer(state, playerId);
+  if (!player) return { fundable: false, reason: "プレイヤーが見つかりません。" };
+
+  const cost = getNextAwardCost(state);
+  if ((state.fundedAwards ?? []).some(entry => entry.awardId === awardId)) {
+    return { fundable: false, reason: "この表彰はすでに設立されています。", cost };
+  }
+  if ((state.fundedAwards ?? []).length >= MAX_AWARDS) {
+    return { fundable: false, reason: "表彰は3つまでしか設立できません。", cost };
+  }
+  if (player.mc < cost) {
+    return { fundable: false, reason: `${cost} MC必要です。`, cost };
+  }
+  return { fundable: true, reason: "", cost };
+}
+
+export function fundAward(state, awardId, logs, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const status = getAwardStatus(state, awardId, targetId);
+  if (!status.fundable) {
+    return { state, logs: addLog(logs, "system", status.reason), funded: false };
+  }
+
+  const award = getAward(awardId);
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === targetId ? { ...player, mc: player.mc - status.cost } : player
+  );
+  next.fundedAwards = [...(next.fundedAwards ?? []), { awardId, playerId: targetId }];
+
+  const player = getPlayer(next, targetId);
+  const nextLogs = addLog(
+    logs,
+    "system",
+    `${player?.name ?? targetId}が表彰「${award.name}」を設立しました (${status.cost} MC)。`
+  );
+  next.logs = nextLogs;
+  return { state: next, logs: nextLogs, funded: true };
 }
 
 export function isGameOverCheck(temp, oxy, oce) {
   return temp >= 8 && oxy >= 14 && oce >= 9;
 }
 
-export function computeScore(state) {
-  let score = state.tr;
+export function computeScore(state, playerId) {
+  const targetId = playerId ?? state.currentPlayerId;
+  const player = getPlayer(state, targetId) ?? state.players[0];
+  let score = player.tr;
   
   // Count player greeneries (1 VP each)
   let playerGreeneriesCount = 0;
   Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === "player" && cell.tileType === "forest") {
+    if (cell.placedBy === targetId && cell.tileType === "forest") {
       playerGreeneriesCount += 1;
     }
   });
@@ -888,7 +1882,7 @@ export function computeScore(state) {
   // Count adjacent greeneries for each player city (1 VP each greenery, regardless of ownership)
   let cityVp = 0;
   Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === "player" && cell.tileType === "city") {
+    if (cell.placedBy === targetId && cell.tileType === "city") {
       const adj = getAdjacentCells(cell.q, cell.r);
       adj.forEach(pos => {
         const key = `${pos.q},${pos.r}`;
@@ -902,30 +1896,36 @@ export function computeScore(state) {
   score += cityVp;
 
   // Add card VPs
-  state.playedProjects.forEach(cardId => {
+  player.playedProjects.forEach(cardId => {
     const card = ALL_CARDS.find(c => c.id === cardId);
     if (card && card.victoryPoints) {
       score += card.victoryPoints;
     }
     if (card?.victoryPointSpec && !card.dynamicVictory) {
       const spec = card.victoryPointSpec;
-      const resources = state.cardResources?.[cardId] ?? 0;
+      const resources = player.cardResources?.[cardId] ?? 0;
       if (spec.resourcesHere !== undefined) score += spec.per ? Math.floor(resources / spec.per) : resources * (spec.each ?? 1);
-      if (spec.tag) score += countPlayedTag(state, spec.tag);
-      const placementKey = state.cardPlacements?.[cardId];
+      if (spec.tag) score += countPlayedTag(state, spec.tag, player);
+      const placementKey = player.cardPlacements?.[cardId];
       const placement = placementKey ? state.board[placementKey] : undefined;
       if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
       if (placement && spec.cities !== undefined) {
         score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
       }
     }
-    if (cardId === "p-search-for-life" && (state.cardResources?.[cardId] ?? 0) > 0) score += 3;
+    if (cardId === "p-search-for-life" && (player.cardResources?.[cardId] ?? 0) > 0) score += 3;
     if (cardId === "p-capital") {
-      const key = state.cardPlacements?.[cardId];
+      const key = player.cardPlacements?.[cardId];
       const capital = key ? state.board[key] : undefined;
       if (capital) score += countAdjacentOceans(capital.q, capital.r, state.board);
     }
   });
+
+  // Milestones and awards are scored from shared state, so each player's own
+  // corporation is resolved inside the scorer rather than passed in here.
+  const milestoneVp = computeMilestoneVp(state)[targetId] ?? 0;
+  const awardVp = computeAwardVp(state, { cards: ALL_CARDS, corporations: CORPORATIONS })[targetId] ?? 0;
+  score += milestoneVp + awardVp;
 
   return score;
 }
@@ -947,12 +1947,14 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
 }
 
-function countPlayedTag(state, tag) {
+function countPlayedTag(state, tag, player) {
+  const owner = player ?? getCurrentPlayer(state) ?? state.players?.[0];
   const normalized = String(tag).toLowerCase();
-  return state.playedProjects.reduce((sum, id) => {
+  const corporation = CORPORATIONS.find(c => c.id === owner?.corporationId);
+  return (owner?.playedProjects ?? []).reduce((sum, id) => {
     const projectCard = ALL_CARDS.find(item => item.id === id);
     return sum + (projectCard?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
-  }, 0) + (getCorporation(state)?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
+  }, 0) + (corporation?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
 }
 
 function getGeneratedRequirementStatus(card, state, buffer) {
@@ -976,12 +1978,48 @@ function getGeneratedRequirementStatus(card, state, buffer) {
     if (requirement.greeneries !== undefined && Object.values(state.board).filter(cell => cell.tileType === "forest").length < requirement.greeneries) return { playable: false, reason: "緑地数の条件を満たしていません。" };
     if (requirement.cities !== undefined && Object.values(state.board).filter(cell => cell.tileType === "city").length < requirement.cities) return { playable: false, reason: "都市数の条件を満たしていません。" };
     if (requirement.floaters !== undefined && Object.values(state.cardResources ?? {}).reduce((sum, value) => sum + value, 0) < requirement.floaters) return { playable: false, reason: "フローター数の条件を満たしていません。" };
-    if (requirement.party || requirement.chairman || requirement.partyLeader || requirement.colonies || requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
+    if (requirement.party !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      const wanted = normalizePartyId(requirement.party);
+      if (state.turmoil.rulingParty !== wanted) {
+        return { playable: false, reason: `${getParty(wanted)?.name ?? wanted}が与党である必要があります。` };
+      }
+      continue;
+    }
+    if (requirement.chairman !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      if (state.turmoil.chairman !== state.currentPlayerId) {
+        return { playable: false, reason: "あなたが議長である必要があります。" };
+      }
+      continue;
+    }
+    if (requirement.partyLeader !== undefined) {
+      if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+      const isLeader = PARTIES.some(
+        party => state.turmoil.parties[party.id]?.leader === state.currentPlayerId
+      );
+      if (!isLeader) return { playable: false, reason: "いずれかの政党の党首である必要があります。" };
+      continue;
+    }
+    if (requirement.colonies !== undefined) {
+      if (!state.colonies) return { playable: false, reason: "Coloniesが有効ではありません。" };
+      const owned = countColonies(state.colonies, state.currentPlayerId);
+      const needed = requirement.count ?? 1;
+      if (owned < needed) {
+        return { playable: false, reason: `植民地が${needed}個以上必要です。` };
+      }
+      continue;
+    }
+    if (requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
   }
   return { playable: true, reason: "" };
 }
 
 export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed = 0) {
+  // A pass is final for the generation: no further actions until the next one.
+  if (getCurrentPlayer(state)?.passed) {
+    return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
+  }
   const { maxSteel, maxTitanium } = getCardDiscount(card, state);
   if (steelUsed > maxSteel || titaniumUsed > maxTitanium) {
     return { playable: false, reason: "資源割引の上限を超えています。" };
@@ -1046,12 +2084,12 @@ export function hasAdjacentCity(q, r, board) {
   });
 }
 
-export function getPlayerOwnedTiles(board) {
-  return Object.values(board).filter(c => c.placedBy === "player");
+export function getPlayerOwnedTiles(board, playerId = "player") {
+  return Object.values(board).filter(c => c.placedBy === playerId);
 }
 
-export function getLegalOwnedAdjacentSpaces(board) {
-  const playerTiles = getPlayerOwnedTiles(board);
+export function getLegalOwnedAdjacentSpaces(board, playerId = "player") {
+  const playerTiles = getPlayerOwnedTiles(board, playerId);
   const adjacentKeys = new Set();
   playerTiles.forEach(tile => {
     const adj = getAdjacentCells(tile.q, tile.r);
@@ -1066,20 +2104,29 @@ export function getLegalOwnedAdjacentSpaces(board) {
   return Array.from(adjacentKeys);
 }
 
-export function isCellPlacementValid(cell, type, board) {
+export function isCellPlacementValid(cell, type, board, playerId = "player") {
   if (cell.tileType !== "empty") return false;
+  // Noctis City's space is reserved for that card alone.
+  if (cell.reservedFor && cell.reservedFor !== type) return false;
 
   if (type === "ocean") {
+    // There are exactly nine ocean tiles. The counter saturated at 9 while the
+    // board kept accepting them, so a tenth could be placed.
+    const placed = Object.values(board).filter(space => space.tileType === "ocean").length;
+    if (placed >= MAX_OCEANS) return false;
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
     return !hasAdjacentCity(cell.q, cell.r, board);
+  } else if (type === "special") {
+    // Special tiles ignore the greenery adjacency rule; they only need dry land.
+    return !cell.isOceanOnly;
   } else {
     // forest (greenery)
     if (cell.isOceanOnly) return false;
     
     // Greenery adjacency rule: must be adjacent to player's owned tiles if valid adjacent space exists
-    const legalAdjacentSpaces = getLegalOwnedAdjacentSpaces(board);
+    const legalAdjacentSpaces = getLegalOwnedAdjacentSpaces(board, playerId);
     if (legalAdjacentSpaces.length > 0) {
       const key = `${cell.q},${cell.r}`;
       return legalAdjacentSpaces.includes(key);
@@ -1101,7 +2148,7 @@ export function countAdjacentOceans(q, r, board) {
 }
 
 export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state, logs) {
-  let nextState = { ...state };
+  let nextState = cloneGameState(state);
   let currentLogs = logs;
   let effectiveTemp = newTemp;
 
@@ -1143,82 +2190,214 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
   return { state: nextState, logs: currentLogs };
 }
 
+// Finds the next player who has not passed, starting after `fromId`. Returns
+// null when everyone has passed and the generation is over.
+function nextActivePlayer(state, fromId) {
+  const order = state.turnOrder;
+  if (order.length === 0) return null;
+  const start = Math.max(0, order.indexOf(fromId));
+
+  for (let step = 1; step <= order.length; step++) {
+    const candidate = order[(start + step) % order.length];
+    const player = getPlayer(state, candidate);
+    if (player && !player.passed) return candidate;
+  }
+  return null;
+}
+
+export function allPlayersPassed(state) {
+  return state.players.every(player => player.passed);
+}
+
+// Ends the current turn without passing. A turn may be one action or two, and
+// stopping after one is a real choice: "１回だけのアクションにも利点はあります".
+export function endTurn(state, logAcc, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const next = cloneGameState(state);
+  next.actionsRemaining = 2;
+  next.turnStep = "start";
+
+  let logs = logAcc;
+  const following = nextActivePlayer(next, actorId);
+  if (following && following !== actorId) {
+    next.currentPlayerId = following;
+    const upcoming = getPlayer(next, following);
+    logs = addLog(logs, "system", `${upcoming?.name ?? following} の手番です。`);
+  } else {
+    logs = addLog(logs, "system", "ターンが終了しました。新しいターンを開始します。");
+  }
+
+  next.logs = logs;
+  return { state: next, logs };
+}
+
 export function handleActionSpend(state, logAcc) {
-  const nextState = { ...state };
+  const nextState = cloneGameState(state);
+  const actorId = nextState.currentPlayerId;
   nextState.actionsRemaining -= 1;
   nextState.logs = logAcc;
 
-  // Turn ending logic
-  if (nextState.actionsRemaining <= 0) {
-    nextState.actionsRemaining = 2;
-    nextState.turnStep = "start";
-    nextState.logs = addLog(nextState.logs, "system", "あなたのターンが終了しました。新しいターンを開始します。");
-  } else {
+  if (nextState.actionsRemaining > 0) {
     nextState.turnStep = "one_action_taken";
+    return nextState;
+  }
+
+  // A turn is two actions, then the seat passes on. Solo has nobody to pass to,
+  // so the same player simply starts a new turn.
+  nextState.actionsRemaining = 2;
+  nextState.turnStep = "start";
+
+  const next = nextActivePlayer(nextState, actorId);
+  if (next && next !== actorId) {
+    nextState.currentPlayerId = next;
+    const player = getPlayer(nextState, next);
+    nextState.logs = addLog(nextState.logs, "system", `${player?.name ?? next} の手番です。`);
+  } else {
+    nextState.logs = addLog(nextState.logs, "system", "ターンが終了しました。新しいターンを開始します。");
   }
 
   return nextState;
 }
 
-export function triggerProduction(state, logAcc) {
-  const nextState = { ...state };
-  const energyToHeat = nextState.energy;
-  nextState.heat += energyToHeat;
-  nextState.energy = 0;
+// A player passing leaves the action phase for this generation only. Production
+// runs once everyone has passed, not when the first player does.
+export function passPlayer(state, logAcc, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const actor = getPlayer(state, actorId);
 
-  // Clamp MC production at minimum -5
-  const mcProdClamped = Math.max(-5, nextState.mcProd);
-  const addedMc = mcProdClamped + nextState.tr;
-  nextState.mc += addedMc;
-  nextState.steel += nextState.steelProd;
-  nextState.titanium += nextState.titaniumProd;
-  nextState.plants += nextState.plantsProd;
-  nextState.energy += nextState.energyProd;
-  nextState.heat += nextState.heatProd;
+  // The rulebook defines a pass as taking no action that turn: "１つもアクショ
+  // ンを実行しなければ（パス）". Having already acted, the turn simply ends and
+  // the seat moves on; the player is still in the generation.
+  if (actor && actor.actionsRemaining < 2) {
+    const ended = endTurn(state, logAcc, actorId);
+    return { state: ended.state, logs: ended.logs, generationEnded: false, endedTurnOnly: true };
+  }
 
-  let localLog = addLog(
-    logAcc,
-    "system",
-    `生産フェーズ完了: MC +${addedMc} (TR ${nextState.tr} + 生産 ${mcProdClamped}), 建材 +${nextState.steelProd}, チタン +${nextState.titaniumProd}, 植物 +${nextState.plantsProd}, エネルギー +${nextState.energyProd}, 熱 +${nextState.heatProd}。エネルギー ${energyToHeat} を熱に変換。`
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === actorId ? { ...player, passed: true } : player
   );
+
+  const player = getPlayer(next, actorId);
+  let logs = addLog(logAcc, "player", `${player?.name ?? actorId} はパスしました。`);
+
+  if (allPlayersPassed(next)) {
+    logs = addLog(logs, "system", "全員がパスしました。生産フェーズに移行します。");
+    next.logs = logs;
+    const produced = triggerProduction(next, logs);
+    return { state: produced, logs: produced.logs, generationEnded: true };
+  }
+
+  const following = nextActivePlayer(next, actorId);
+  if (following) {
+    next.currentPlayerId = following;
+    next.actionsRemaining = 2;
+    next.turnStep = "start";
+    const upcoming = getPlayer(next, following);
+    logs = addLog(logs, "system", `${upcoming?.name ?? following} の手番です。`);
+  }
+
+  next.logs = logs;
+  return { state: next, logs, generationEnded: false };
+}
+
+export function triggerProduction(state, logAcc) {
+  const nextState = cloneGameState(state);
+  let localLog = logAcc;
+
+  // Production resolves for every player, not just the active one.
+  nextState.players = nextState.players.map(player => {
+    const energyToHeat = player.energy;
+    const mcProdClamped = Math.max(-5, player.mcProd);
+    // "各世代でのＭ€収入がマイナスになることがありません" — TR is the base, so a
+    // generation's income floors at zero however negative MC production is.
+    const addedMc = Math.max(0, mcProdClamped + player.tr);
+    const produced = {
+      ...player,
+      mc: player.mc + addedMc,
+      steel: player.steel + player.steelProd,
+      titanium: player.titanium + player.titaniumProd,
+      plants: player.plants + player.plantsProd,
+      energy: player.energyProd,
+      heat: player.heat + energyToHeat + player.heatProd,
+      passed: false
+    };
+    const who = nextState.players.length > 1 ? `${player.name}: ` : "生産フェーズ完了: ";
+    localLog = addLog(
+      localLog,
+      "system",
+      `${who}MC +${addedMc} (TR ${player.tr} + 生産 ${mcProdClamped}), 建材 +${player.steelProd}, チタン +${player.titaniumProd}, 植物 +${player.plantsProd}, エネルギー +${player.energyProd}, 熱 +${player.heatProd}。エネルギー ${energyToHeat} を熱に変換。`
+    );
+    return produced;
+  });
 
   nextState.logs = localLog;
 
-  if (nextState.generation >= 14 || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
+  const generationLimitReached = nextState.mode === "solo" && nextState.generation >= 14;
+  if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
     nextState.phase = "final_greenery";
-    const reason = nextState.generation >= 14 ? "第14世代の生産" : "全パラメータ達成";
+    const reason = generationLimitReached ? "第14世代の生産" : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
     nextState.generation += 1;
-    nextState.generationStartTr = nextState.tr;
     nextState.phase = "research";
-    nextState.actionsRemaining = 2;
-    nextState.turnStep = "start";
 
-    // Draw 4 cards for research
     let deck = [...nextState.deck];
     let discard = [...nextState.discardPile];
-    const researchCards = [];
 
-    for (let i = 0; i < 4; i++) {
-      if (deck.length === 0) {
-        if (discard.length > 0) {
-          deck = shuffle(discard);
-          discard = [];
-          localLog = addLog(localLog, "system", "山札が空になったため、捨て札をシャッフルして再構成しました。");
-        } else {
-          break;
+    // Each player draws their own research hand.
+    nextState.players = nextState.players.map(player => {
+      const researchCards = [];
+      for (let i = 0; i < 4; i++) {
+        if (deck.length === 0) {
+          if (discard.length > 0) {
+            deck = shuffle(discard);
+            discard = [];
+            localLog = addLog(localLog, "system", "山札が空になったため、捨て札をシャッフルして再構成しました。");
+          } else {
+            break;
+          }
+        }
+        const [drawn, ...rest] = deck;
+        if (drawn) {
+          researchCards.push(drawn);
+          deck = rest;
         }
       }
-      const [drawn, ...rest] = deck;
-      if (drawn) {
-        researchCards.push(drawn);
-        deck = rest;
-      }
-    }
+      return {
+        ...player,
+        researchCards,
+        generationStartTr: player.tr,
+        actionsRemaining: 2,
+        turnStep: "start",
+        passed: false
+      };
+    });
+
     nextState.deck = deck;
     nextState.discardPile = discard;
-    nextState.researchCards = researchCards;
+
+    // Trade fleets return at the end of each generation.
+    if (nextState.colonies) {
+      nextState.colonies = resetFleets(nextState.colonies);
+    }
+
+    // Turmoil resolves between production and the next research phase.
+    if (nextState.turmoil) {
+      const turmoilResult = runTurmoilPhase(nextState, localLog);
+      Object.assign(nextState, turmoilResult.state);
+      localLog = turmoilResult.logs;
+    }
+
+    // First player marker passes clockwise each generation.
+    if (nextState.turnOrder.length > 1) {
+      const firstIndex = nextState.turnOrder.indexOf(nextState.firstPlayerId);
+      const nextFirst = nextState.turnOrder[(firstIndex + 1) % nextState.turnOrder.length];
+      nextState.firstPlayerId = nextFirst;
+      nextState.currentPlayerId = nextFirst;
+    } else {
+      nextState.currentPlayerId = nextState.turnOrder[0];
+    }
     nextState.logs = addLog(localLog, "system", `第 ${nextState.generation} 世代の研究フェーズが開始されました。カードを4枚引きました。購入するカードを選択してください。`);
   }
 

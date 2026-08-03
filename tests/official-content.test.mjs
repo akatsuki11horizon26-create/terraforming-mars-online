@@ -14,6 +14,7 @@ import {
   getCardPaymentCost,
   getCardPlayableStatus,
   getInitialState,
+  resolvePendingChoice,
 } from "../app/game-logic.js";
 import {
   FULL_CATALOG_COUNTS,
@@ -44,7 +45,9 @@ test("corporation setup applies official starting values", () => {
   const state = getInitialState();
   state.corporationOptions = ["corp-ecoline"];
   const nextState = applyCorporation(state, "corp-ecoline");
-  assert.equal(nextState.setupStep, "projects");
+  // Setup hands the seat on once a corporation is chosen; with preludes dealt
+  // the same player moves straight to picking them.
+  assert.equal(nextState.setupStep, "prelude");
   assert.equal(nextState.mc, 36);
   assert.equal(nextState.plants, 3);
   assert.equal(nextState.plantsProd, 2);
@@ -107,7 +110,18 @@ test("official automated and active effects mutate the correct resources", () =>
   const iceAsteroid = ALL_CARDS.find(card => card.id === "p-ice-asteroid");
   const powerResult = applyCardEffect(state, powerPlant, []);
   assert.equal(powerResult.state.energyProd, 1);
-  const iceResult = applyCardEffect(state, iceAsteroid, []);
+  // Ice Asteroid places two oceans, and the player now picks each space, so the
+  // effect pauses until both choices are resolved.
+  let iceResult = applyCardEffect(state, iceAsteroid, []);
+  assert.equal(iceResult.status, "pending");
+  assert.equal(iceResult.pendingChoice.kind, "tile-placement");
+
+  for (let i = 0; i < 2; i++) {
+    assert.equal(iceResult.state.pendingChoice.kind, "tile-placement");
+    const target = iceResult.state.pendingChoice.options[0];
+    iceResult = resolvePendingChoice(iceResult.state, target.id, iceResult.logs, "player");
+  }
+  assert.equal(iceResult.status, "resolved");
   assert.equal(iceResult.state.oceans, 2);
 });
 
@@ -126,15 +140,15 @@ test("active card action enforces payment and applies its effect", () => {
 
 test("generated catalog effects cover production, discounts, and dynamic VP", () => {
   const state = getInitialState();
-  const earthCatapult = ALL_CARDS.find(card => card.name === "Earth Catapult");
-  const adaptation = ALL_CARDS.find(card => card.name === "Adaptation Technology");
-  const ants = ALL_CARDS.find(card => card.name === "Ants");
+  const earthCatapult = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Earth Catapult");
+  const adaptation = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Adaptation Technology");
+  const ants = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Ants");
   const catapultResult = applyCardEffect(state, earthCatapult, []);
   assert.equal(catapultResult.state.cardDiscounts.all, 2);
   assert.equal(getCardPaymentCost({ ...ants, cost: 10 }, catapultResult.state), 8);
   const adaptationResult = applyCardEffect(state, adaptation, []);
   assert.equal(adaptationResult.state.globalRequirementBuffer, 2);
-  const acquiredCompany = ALL_CARDS.find(card => card.name === "Acquired Company");
+  const acquiredCompany = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Acquired Company");
   assert.equal(getCardPlayableStatus({ ...acquiredCompany, cost: 0 }, adaptationResult.state).playable, true);
   const antResult = applyCardEffect(state, ants, []);
   antResult.state.cardResources[ants.id] = 4;
