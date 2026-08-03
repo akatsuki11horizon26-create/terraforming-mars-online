@@ -263,3 +263,77 @@ test("A spent action stays spent across a save and reload", async () => {
   assert.deepEqual(restored.players[0].usedCardActions, [card.id]);
   assert.equal(getCardActionStatus(restored, card).playable, false, "reloading is not a free reset");
 });
+
+test("Mars University lets the player pick the discard instead of taking hand[0]", async () => {
+  // "手札1枚を捨てて1枚引いてよい" — optional, and the player chooses. The old
+  // code shifted hand[0] automatically, throwing away cards they meant to keep.
+  const { cloneGameState, applyCorporationTriggers, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const science = OFFICIAL_PROJECTS.find(
+    c => c.tags.includes("Science") && c.id !== "p-mars-university"
+  );
+
+  let state = cloneGameState(getInitialState());
+  state.phase = "action";
+  state.playedProjects = ["p-mars-university"];
+  state.hand = ["a1", "a2", "a3"];
+
+  const triggered = applyCorporationTriggers(state, science, state.logs).state;
+  assert.equal(triggered.pendingChoice?.kind, "discard-card");
+  assert.equal(triggered.pendingChoice.optional, true, "the card says 'よい'");
+  assert.deepEqual(
+    triggered.pendingChoice.options.map(o => o.id),
+    ["a1", "a2", "a3"],
+    "every held card is offered"
+  );
+  assert.deepEqual(triggered.players[0].hand, ["a1", "a2", "a3"], "nothing goes until chosen");
+
+  const resolved = resolvePendingChoice(triggered, "a2", triggered.logs, "player");
+  assert.equal(resolved.state.players[0].hand.includes("a2"), false, "the chosen card leaves");
+  assert.ok(resolved.state.discardPile.includes("a2"));
+  assert.equal(resolved.state.players[0].hand.length, 3, "and a replacement is drawn");
+  assert.equal(resolved.state.pendingChoice, null);
+});
+
+test("An optional choice can be declined", async () => {
+  const { cloneGameState, applyCorporationTriggers, resolvePendingChoice, DECLINE_CHOICE } =
+    await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const science = OFFICIAL_PROJECTS.find(
+    c => c.tags.includes("Science") && c.id !== "p-mars-university"
+  );
+
+  let state = cloneGameState(getInitialState());
+  state.phase = "action";
+  state.playedProjects = ["p-mars-university"];
+  state.hand = ["a1", "a2"];
+
+  const triggered = applyCorporationTriggers(state, science, state.logs).state;
+  const declined = resolvePendingChoice(triggered, DECLINE_CHOICE, triggered.logs, "player");
+
+  assert.equal(declined.status, "resolved");
+  assert.deepEqual(declined.state.players[0].hand, ["a1", "a2"], "declining costs nothing");
+  assert.equal(declined.state.pendingChoice, null);
+});
+
+test("Mars University does not require owning a corporation", async () => {
+  const { cloneGameState, applyCorporationTriggers } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const science = OFFICIAL_PROJECTS.find(
+    c => c.tags.includes("Science") && c.id !== "p-mars-university"
+  );
+
+  let state = cloneGameState(getInitialState());
+  state.phase = "action";
+  state.corporationId = null;
+  state.playedProjects = ["p-mars-university"];
+  state.hand = ["a1"];
+
+  const triggered = applyCorporationTriggers(state, science, state.logs).state;
+  assert.equal(
+    triggered.pendingChoice?.kind,
+    "discard-card",
+    "the effect belongs to the project, not the corporation"
+  );
+});

@@ -29,6 +29,7 @@ export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMiles
 import {
   buildBranchChoice,
   buildResourceChoice,
+  buildDiscardChoice,
   buildStandardResourceChoice,
   buildTileChoice,
   findOption,
@@ -1058,6 +1059,8 @@ function markChoiceResolved(state, sourceId, stage) {
 
 // Applies the player's selection and either finishes the effect or produces the
 // next choice the same card still needs.
+export const DECLINE_CHOICE = "__decline__";
+
 export function resolvePendingChoice(state, optionId, logs, playerId) {
   const choice = state.pendingChoice;
   if (!choice) {
@@ -1072,6 +1075,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       pendingChoice: choice
     };
   }
+  // An optional choice can be waived; the effect simply does not happen.
+  if (optionId === DECLINE_CHOICE && choice.optional) {
+    const declined = cloneGameState(state);
+    declined.pendingChoice = null;
+    markChoiceResolved(declined, choice.continuation.sourceId, choice.continuation.stage);
+    const declinedLogs = addLog(logs, "system", "任意の効果を使用しませんでした。");
+    declined.logs = declinedLogs;
+    return { status: "resolved", state: declined, logs: declinedLogs };
+  }
+
   const option = findOption(choice, optionId);
   if (!option) {
     return {
@@ -1101,6 +1114,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         player.id === actorId ? { ...player, [option.resource]: player[option.resource] + amount } : player
       );
       nextLogs = addLog(nextLogs, "system", `${option.label}を${amount}獲得しました。`);
+      break;
+    }
+    case "discard-card": {
+      const discardedId = option.cardId ?? option.id;
+      next.hand = next.hand.filter(id => id !== discardedId);
+      next.discardPile = [...next.discardPile, discardedId];
+      const discardedCard = ALL_CARDS.find(item => item.id === discardedId);
+      const drawn = drawCards(next, 1);
+      const drawnCard = ALL_CARDS.find(item => item.id === drawn[0]);
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `【${discardedCard?.name ?? discardedId}】を捨て、【${drawnCard?.name ?? drawn[0] ?? "―"}】を引きました。`
+      );
       break;
     }
     case "effect-branch": {
@@ -1349,6 +1376,26 @@ export function applyCardAction(state, card, logs) {
 export function applyCorporationTriggers(state, card, logs) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
+  if (card.tags.includes("Science") && nextState.playedProjects.some(id => id === "p-mars-university")) {
+    if (nextState.hand.length > 0 && nextState.deck.length > 0) {
+      // The card reads "捨ててよい": the player chooses which card goes, and may
+      // decline. Discarding hand[0] for them threw away cards they meant to keep.
+      const choice = buildDiscardChoice(nextState, nextState.hand, {
+        sourceKind: "card",
+        sourceId: "p-mars-university",
+        stage: "mars-university",
+        prompt: "Mars University: 手札1枚を捨てて1枚引けます。捨てるカードを選んでください。",
+        optional: true,
+        consumedAction: false
+      }, ALL_CARDS);
+      if (choice) {
+        nextState.pendingChoice = choice;
+        nextLogs = addLog(nextLogs, "system", "Mars University: 手札1枚を捨てて1枚引けます。");
+      }
+    } else {
+      nextLogs = addLog(nextLogs, "system", "Mars University: 科学タグ効果を使用できますが、交換できる手札または山札がありません。");
+    }
+  }
   const corporation = getCorporation(nextState);
   if (!corporation) return { state: nextState, logs: nextLogs };
   if (corporation.effects.eventBonus && card.type === "event") {
@@ -1370,20 +1417,6 @@ export function applyCorporationTriggers(state, card, logs) {
   if (corporation.effects.earthDraw && card.tags.includes("Earth")) {
     drawCards(nextState, corporation.effects.earthDraw);
     nextLogs = addLog(nextLogs, "system", "Point Luna: Earthタグ効果でカードを1枚引きました。");
-  }
-  if (card.tags.includes("Science") && nextState.playedProjects.some(id => id === "p-mars-university")) {
-    if (nextState.hand.length > 0 && nextState.deck.length > 0) {
-      const discarded = nextState.hand.shift();
-      const [drawn, ...rest] = nextState.deck;
-      nextState.deck = rest;
-      nextState.discardPile.push(discarded);
-      nextState.hand.push(drawn);
-      const discardedCard = ALL_CARDS.find(item => item.id === discarded);
-      const drawnCard = ALL_CARDS.find(item => item.id === drawn);
-      nextLogs = addLog(nextLogs, "system", `Mars University: 手札の【${discardedCard?.name ?? discarded}】を捨て、【${drawnCard?.name ?? drawn}】を引きました。`);
-    } else {
-      nextLogs = addLog(nextLogs, "system", "Mars University: 科学タグ効果を使用できますが、交換できる手札または山札がありません。");
-    }
   }
   return { state: nextState, logs: nextLogs };
 }

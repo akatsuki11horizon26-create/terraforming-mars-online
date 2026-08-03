@@ -106,6 +106,13 @@ export function PendingChoiceDialog({
             </button>
           ))}
         </div>
+        {choice.optional ? (
+          <div className="choice-footer">
+            <button type="button" className="choice-decline" onClick={() => onResolve("__decline__")}>
+              使用しない
+            </button>
+          </div>
+        ) : null}
         {remaining > 1 ? (
           <div className="choice-footer">残り {remaining} 回の選択があります。</div>
         ) : null}

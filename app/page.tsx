@@ -86,6 +86,11 @@ interface PlayerRecord {
   actionsRemaining?: number;
   hand?: string[];
   usedCardActions?: string[];
+  steel?: number;
+  titanium?: number;
+  plants?: number;
+  energy?: number;
+  heat?: number;
 }
 interface MilestoneDefinition {
   id: string;
@@ -363,12 +368,26 @@ export default function Home() {
 
   // Panels that used to occupy the screen permanently now open on demand, so
   // the board keeps the space.
+  // Spending an action is irreversible, so every entry point routes through a
+  // confirmation naming the cost and the effect.
+  const [pendingConfirm, setPendingConfirm] = useState<
+    null | { title: string; detail: string; onConfirm: () => void }
+  >(null);
+  const confirmAction = useCallback(
+    (title: string, detail: string, run: () => void) => {
+      setPendingConfirm({ title, detail, onConfirm: run });
+    },
+    []
+  );
+
   const [openDrawer, setOpenDrawer] = useState<
     null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies"
   >(null);
   const closeDrawer = useCallback(() => setOpenDrawer(null), []);
 
   const [hoveredCell, setHoveredCell] = useState<{ key: string; text: string } | null>(null);
+
+
 
   // Setup / Research phase card selection state
   const [selectedCorporationId, setSelectedCorporationId] = useState<string | null>(null);
@@ -415,6 +434,50 @@ export default function Home() {
   const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
   const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
   const turnHolderId = activeState.currentPlayerId ?? currentPlayerId;
+
+  // Everything used to change instantly and silently, so a turn gave no sense of
+  // what it had done. Diff the numbers that moved and float them on screen.
+  const [changeFlashes, setChangeFlashes] = useState<
+    { id: number; label: string; delta: number }[]
+  >([]);
+  const trackedRef = React.useRef<Record<string, number> | null>(null);
+  const flashSeq = React.useRef(0);
+
+  useEffect(() => {
+    const me = activeState.players?.find(p => p.id === currentPlayerId);
+    if (!me) return;
+    const snapshot: Record<string, number> = {
+      MC: me.mc,
+      TR: me.tr,
+      建材: me.steel ?? 0,
+      チタン: me.titanium ?? 0,
+      植物: me.plants ?? 0,
+      エネルギー: me.energy ?? 0,
+      熱: me.heat ?? 0,
+      気温: activeState.temperature,
+      酸素: activeState.oxygen,
+      海洋: activeState.oceans,
+      金星: activeState.venus ?? 0
+    };
+
+    const previous = trackedRef.current;
+    trackedRef.current = snapshot;
+    if (!previous) return;
+
+    const moved = Object.entries(snapshot)
+      .map(([label, value]) => ({ label, delta: value - (previous[label] ?? value) }))
+      .filter(entry => entry.delta !== 0)
+      .map(entry => ({ ...entry, id: ++flashSeq.current }));
+    if (moved.length === 0) return;
+
+    setChangeFlashes(current => [...current, ...moved]);
+    const ids = new Set(moved.map(entry => entry.id));
+    const timer = setTimeout(
+      () => setChangeFlashes(current => current.filter(entry => !ids.has(entry.id))),
+      1800
+    );
+    return () => clearTimeout(timer);
+  }, [activeState, currentPlayerId]);
 
   const corporationActionUsed = (
     (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
@@ -1858,11 +1921,48 @@ export default function Home() {
         </div>
       </main>
 
+      {changeFlashes.length > 0 && (
+        <div className="change-flash-stack" aria-live="polite">
+          {changeFlashes.map(flash => (
+            <div key={flash.id} className="change-flash" data-sign={flash.delta > 0 ? "up" : "down"}>
+              {flash.label} {flash.delta > 0 ? "+" : ""}{flash.delta}
+            </div>
+          ))}
+        </div>
+      )}
+
       <PendingChoiceDialog
         choice={pendingChoice}
         players={playerSummaries}
         onResolve={handleResolveChoice}
       />
+
+      {pendingConfirm && (
+        <div className="choice-overlay" role="dialog" aria-modal="true" aria-label={pendingConfirm.title}>
+          <div className="choice-dialog">
+            <div className="choice-header">
+              <div className="choice-owner">実行の確認</div>
+              <div className="choice-prompt">{pendingConfirm.title}</div>
+            </div>
+            <p className="confirm-detail">{pendingConfirm.detail}</p>
+            <div className="confirm-buttons">
+              <button className="btn-secondary" onClick={() => setPendingConfirm(null)}>
+                やめる
+              </button>
+              <button
+                className="btn-primary"
+                onClick={() => {
+                  const run = pendingConfirm.onConfirm;
+                  setPendingConfirm(null);
+                  run();
+                }}
+              >
+                実行する
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hand Cards area */}
       {gameState.phase === "action" && (
@@ -1939,7 +2039,7 @@ export default function Home() {
                 {activeCards.map(card => {
                   const actionStatus = getCardActionStatus(gameState, card);
                   return (
-                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => handleCardAction(card)} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
+                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => confirmAction(`【${card.name}】のアクション`, `${card.effectText} この世代はこのカードのアクションを再度使用できません。`, () => handleCardAction(card))} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
                       {card.name} — アクション
                     </button>
                   );
@@ -2030,14 +2130,30 @@ export default function Home() {
                 <button
                   className="btn-primary"
                   disabled={!canPlaySelected}
-                  onClick={handlePlayCardInit}
+                  onClick={() =>
+                    confirmAction(
+                      `【${selectedCard.name}】をプレイ`,
+                      `支払い ${getCardPaymentCost(selectedCard, gameState, steelUsed, titaniumUsed)} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}。アクションを1回消費します。`,
+                      handlePlayCardInit
+                    )
+                  }
                 >
                   {selectedCard.placementType ? "配置フェーズへ進む" : "プレイを実行"}
                 </button>
                 {selectedCard.type === "active" && gameState.playedProjects.includes(selectedCard.id) && (() => {
                   const actionStatus = getCardActionStatus(gameState, selectedCard);
                   return (
-                    <button className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => handleCardAction(selectedCard)}>
+                    <button
+                      className="btn-secondary"
+                      disabled={!actionStatus.playable || placementMode !== null}
+                      onClick={() =>
+                        confirmAction(
+                          `【${selectedCard.name}】のアクション`,
+                          `${selectedCard.effectText} この世代はこのカードのアクションを再度使用できません。`,
+                          () => handleCardAction(selectedCard)
+                        )
+                      }
+                    >
                       アクション実行
                     </button>
                   );
@@ -2125,7 +2241,7 @@ export default function Home() {
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={handleCorporationAction}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={() => confirmAction("企業アクション", `${gameState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : gameState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
@@ -2138,7 +2254,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(11) || placementMode !== null || gameState.pendingOceans > 0}
-                  onClick={() => handleStandardProjectPlay("power_plant")}
+                  onClick={() => confirmAction("発電所の建設", "11 MC を支払い、エネルギー生産量を1段階上げます。", () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
                 </button>
@@ -2154,7 +2270,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(14) || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
-                  onClick={() => handleStandardProjectPlay("asteroid")}
+                  onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
                 </button>
@@ -2170,7 +2286,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(18) || placementMode !== null || gameState.pendingOceans > 0 || gameState.oceans >= 9}
-                  onClick={() => handleStandardProjectPlay("ocean")}
+                  onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
                 </button>
@@ -2186,7 +2302,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(23) || placementMode !== null || gameState.pendingOceans > 0}
-                  onClick={() => handleStandardProjectPlay("greenery")}
+                  onClick={() => confirmAction("緑化プロジェクト", "23 MC を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
                 </button>
@@ -2202,7 +2318,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(25) || placementMode !== null || gameState.pendingOceans > 0}
-                  onClick={() => handleStandardProjectPlay("city")}
+                  onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
                 >
                   配置
                 </button>
@@ -2219,7 +2335,7 @@ export default function Home() {
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={gameState.heat < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
-                    onClick={() => handleStandardProjectPlay("heat_convert")}
+                    onClick={() => confirmAction("熱の変換", "熱 8 を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
                   </button>
@@ -2237,7 +2353,7 @@ export default function Home() {
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={gameState.plants < 8 || placementMode !== null || gameState.pendingOceans > 0}
-                    onClick={() => handleStandardProjectPlay("plants_convert")}
+                    onClick={() => confirmAction("植物の変換", "植物 8 を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
                   </button>

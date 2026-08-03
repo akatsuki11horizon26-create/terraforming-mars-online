@@ -102,6 +102,36 @@ export function buildResourceChoice(state, spec, context) {
   };
 }
 
+// "手札1枚を捨てて1枚引いてよい" — the player picks which card leaves the hand,
+// and may decline entirely, so this cannot be resolved on their behalf.
+export function buildDiscardChoice(state, hand, context, cards) {
+  if (!hand || hand.length === 0) return null;
+
+  return {
+    id: makeChoiceId("discard-card", context.sourceId, state.currentPlayerId),
+    kind: "discard-card",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: context.prompt ?? "捨てるカードを選んでください。",
+    optional: context.optional ?? true,
+    options: hand.map(cardId => {
+      const card = (cards ?? []).find(item => item.id === cardId);
+      return {
+        id: cardId,
+        label: card?.name ?? cardId,
+        cardId
+      };
+    }),
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: context.stage ?? "discard-card",
+      consumedAction: context.consumedAction ?? false,
+      paid: context.paid ?? true,
+      remaining: context.remaining ?? 1
+    }
+  };
+}
+
 export function buildStandardResourceChoice(state, spec, context) {
   const count = resolveCount(spec, context);
   return {
