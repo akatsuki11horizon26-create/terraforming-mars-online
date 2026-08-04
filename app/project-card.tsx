@@ -3,6 +3,7 @@
 import React from "react";
 import { CardTag } from "./card-tags";
 import { CardArt } from "./card-art";
+import { completeEffectText } from "./effect-summary";
 
 // A project card laid out like the printed one: cost in a disc at the top left,
 // tags at the top right, the card type banded by colour (green automated, blue
@@ -16,6 +17,7 @@ export interface ProjectCardData {
   type: string;
   reqText?: string;
   effectText?: string;
+  effectSpec?: Record<string, unknown>;
   victoryPoints?: number;
   victoryPointSpec?: Record<string, unknown>;
 }
@@ -78,6 +80,9 @@ export function ProjectCard({
   footer?: React.ReactNode;
 }) {
   const requirement = readableRequirement(card.reqText);
+  // Catalog text sometimes omits part of what the card does; the engine applies
+  // the whole spec, so the card must show the whole spec too.
+  const effectText = completeEffectText(card as never);
   const vp = victoryPointLabel(card);
   const payable = cost ?? card.cost;
 
@@ -91,7 +96,7 @@ export function ProjectCard({
       disabled={disabled}
       onClick={onClick}
       aria-pressed={selected}
-      title={card.effectText}
+      title={effectText}
     >
       <span className="tm-card-top">
         <span className="tm-card-cost" data-discounted={payable !== card.cost ? "true" : "false"}>
@@ -110,7 +115,7 @@ export function ProjectCard({
 
       {requirement && <span className="tm-card-req">{requirement}</span>}
 
-      <span className="tm-card-body">{card.effectText}</span>
+      <span className="tm-card-body">{effectText}</span>
 
       <span className="tm-card-bottom">
         <span className="tm-card-type">{TYPE_LABEL[card.type] ?? card.type}</span>

@@ -455,3 +455,57 @@ test("a card action offering a choice asks instead of always spending", async ()
   assert.equal(added.players[0].cardResources[bacteria.id], 4);
   assert.equal(added.temperature, -30);
 });
+
+test("attacking production lets the player pick the victim", async () => {
+  const { applyCorporation, completeSetupPurchase, applyCardEffect, resolvePendingChoice, cloneGameState, getPlayer, ALL_CARDS } =
+    await import("../app/game-logic.js");
+  const birds = ALL_CARDS.find(card => card.id === "card-base-birds");
+
+  function table(count) {
+    let state = getInitialState({ playerCount: count });
+    for (const player of state.players) {
+      state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+    }
+    let guard = 0;
+    while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+    state = cloneGameState(state);
+    state.phase = "action";
+    state.oxygen = 14;
+    state.players = state.players.map(player => ({ ...player, plantsProd: 5, mc: 80 }));
+    return state;
+  }
+
+  const multi = applyCardEffect(table(3), birds, []);
+  assert.equal(multi.state.pendingChoice?.kind, "production-attack");
+  // The decrement must wait for the answer, or the acting player is hit too.
+  assert.deepEqual(multi.state.players.map(p => p.plantsProd), [5, 5, 5]);
+
+  const resolved = resolvePendingChoice(multi.state, "player2", [], "player").state;
+  assert.deepEqual(
+    resolved.players.map(p => p.plantsProd),
+    [5, 3, 5],
+    "only the chosen player loses production"
+  );
+
+  // Solo has nobody else to hit, so it applies without asking.
+  const solo = applyCardEffect(table(1), birds, []);
+  assert.equal(solo.state.pendingChoice, null);
+  assert.equal(solo.state.players[0].plantsProd, 3);
+});
+
+test("card text states every effect the engine applies", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { completeEffectText } = await import("../app/effect-summary.js");
+
+  const birds = ALL_CARDS.find(card => card.id === "card-base-birds");
+  // The catalog text mentions only the action, never the production it costs.
+  assert.doesNotMatch(birds.effectText, /生産/);
+  assert.match(completeEffectText(birds), /植物生産量を2下げる/);
+
+  const catapult = ALL_CARDS.find(card => card.id === "card-base-electro-catapult");
+  assert.match(completeEffectText(catapult), /電力生産量-1/);
+
+  // A card whose text is already complete must not be padded.
+  const capital = ALL_CARDS.find(card => card.id === "p-capital");
+  assert.equal(completeEffectText(capital), capital.effectText);
+});

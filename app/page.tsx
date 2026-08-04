@@ -65,7 +65,7 @@ import {
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
-import { CardTags } from "./card-tags";
+import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { Drawer } from "./ui-drawer";
@@ -318,7 +318,7 @@ const getPreludeCost = jsGetPreludeCost as unknown as (prelude: Prelude) => numb
 const applyCardEffect = jsApplyCardEffect as unknown as (state: GameState, card: Card, logs: LogEntry[], options?: { skipTile?: boolean }) => { state: GameState; logs: LogEntry[] };
 const applyCorporationTriggers = jsApplyCorporationTriggers as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const getCardActionStatus = jsGetCardActionStatus as unknown as (state: GameState, card: Card) => { playable: boolean; reason: string };
-const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[]; playable: boolean };
+const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[]; playable: boolean; awaitingChoice?: boolean };
 const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
@@ -422,7 +422,7 @@ export default function Home() {
   );
 
   const [openDrawer, setOpenDrawer] = useState<
-    null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies"
+    null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies" | "tags"
   >(null);
   const closeDrawer = useCallback(() => setOpenDrawer(null), []);
 
@@ -987,6 +987,13 @@ export default function Home() {
     const oldOxy = gameState.oxygen;
     const actionResult = applyCardAction(gameState, card, gameState.logs);
     if (!actionResult.playable) return;
+    // The card offered a branch. Show it and stop: the action is only spent
+    // once the player has answered, inside resolvePendingChoice.
+    if (actionResult.awaitingChoice) {
+      setSelectedCardId(null);
+      saveState({ ...actionResult.state, logs: actionResult.logs });
+      return;
+    }
     const thresholdResult = checkParameterThresholds(
       oldTemp,
       actionResult.state.temperature,
@@ -1530,6 +1537,27 @@ export default function Home() {
     return MIN_CARD_WIDTH;
   }, [handBox, handCards.length]);
 
+  // Tag totals decide whether requirement cards are playable, so the count has
+  // to include the corporation's own tags the same way the engine does.
+  const tagTally = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const id of gameState.playedProjects) {
+      const card = ALL_CARDS.find(item => item.id === id);
+      for (const tag of card?.tags ?? []) counts[tag] = (counts[tag] ?? 0) + 1;
+    }
+    const corporation = CORPORATIONS.find(item => item.id === gameState.corporationId);
+    for (const tag of corporation?.tags ?? []) counts[tag] = (counts[tag] ?? 0) + 1;
+    return Object.entries(TAG_INFO).map(([tag, info]) => ({
+      tag,
+      label: info.label,
+      symbol: info.symbol,
+      color: info.color,
+      count: counts[tag] ?? 0
+    }));
+  }, [gameState.playedProjects, gameState.corporationId]);
+
+  const playedCardCount = gameState.playedProjects.length;
+
   const activeCards = useMemo(() => gameState.playedProjects
     .map(id => ALL_CARDS.find(card => card.id === id))
     .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [gameState.playedProjects]);
@@ -1718,6 +1746,7 @@ export default function Home() {
             {colonyViews.length > 0 && (
               <button className="hud-btn" onClick={() => setOpenDrawer("colonies")}>植民地</button>
             )}
+            <button className="hud-btn" onClick={() => setOpenDrawer("tags")}>シンボル集計</button>
             <button className="hud-btn" onClick={() => setOpenDrawer("legend")}>タイル凡例</button>
             <button className="hud-btn" onClick={() => setOpenDrawer("log")}>ミッションログ</button>
           </div>
@@ -2564,6 +2593,26 @@ export default function Home() {
         ) : (
           <p className="drawer-empty">この試合では植民地拡張を使用していません。</p>
         )}
+      </Drawer>
+
+      <Drawer open={openDrawer === "tags"} title="シンボル集計" onClose={closeDrawer}>
+        <p className="drawer-note">
+          プレイ済みカードと企業が持つタグの合計。カードの条件（「科学タグ3個以上」など）はこの数で判定される。
+        </p>
+        <ul className="tag-tally">
+          {tagTally.map(entry => (
+            <li key={entry.tag} className="tag-tally-row" data-empty={entry.count === 0 ? "true" : "false"}>
+              <span className="tag-tally-symbol" style={{ color: entry.color }}>{entry.symbol}</span>
+              <span className="tag-tally-name">{entry.label}</span>
+              <span className="tag-tally-count" style={{ color: entry.count > 0 ? entry.color : undefined }}>
+                {entry.count}
+              </span>
+            </li>
+          ))}
+        </ul>
+        <p className="drawer-note">
+          プレイ済みカード {playedCardCount} 枚 · 合計タグ {tagTally.reduce((sum, e) => sum + e.count, 0)} 個
+        </p>
       </Drawer>
 
       <Drawer open={openDrawer === "legend"} title="タイル凡例" onClose={closeDrawer}>

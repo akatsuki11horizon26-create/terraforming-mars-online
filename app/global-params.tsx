@@ -124,6 +124,48 @@ export function GlobalParametersCompact({
 
 // A compact resource row: stock on top, production below. The physical game's
 // player board pairs them, and separating them makes the engine hard to read.
+// Counts from the old value to the new one so a change is something the player
+// watches happen rather than a number that was already different by the time
+// they looked. Instant when the motion preference asks for it.
+function AnimatedNumber({ value, className, style }: { value: number; className?: string; style?: React.CSSProperties }) {
+  const [shown, setShown] = React.useState(value);
+  const [dir, setDir] = React.useState<"up" | "down" | null>(null);
+  const fromRef = React.useRef(value);
+
+  React.useEffect(() => {
+    const from = fromRef.current;
+    if (from === value) return;
+    fromRef.current = value;
+    setDir(value > from ? "up" : "down");
+
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setShown(value);
+      const done = window.setTimeout(() => setDir(null), 600);
+      return () => window.clearTimeout(done);
+    }
+
+    const span = Math.abs(value - from);
+    const duration = Math.min(700, 180 + span * 45);
+    const start = performance.now();
+    let frame = 0;
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - start) / duration);
+      // Ease out: the number decelerates into its final value.
+      setShown(Math.round(from + (value - from) * (1 - (1 - t) ** 3)));
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else setDir(null);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [value]);
+
+  return (
+    <span className={className} style={style} data-trend={dir ?? undefined}>
+      {shown}
+    </span>
+  );
+}
+
 export function ResourceGrid({
   player
 }: {
@@ -156,9 +198,7 @@ export function ResourceGrid({
       {rows.map(row => (
         <div key={row.key} className="resource-cell">
           <span className="resource-label">{row.label}</span>
-          <span className="resource-stock" style={{ color: row.color }}>
-            {row.stock}
-          </span>
+          <AnimatedNumber className="resource-stock" style={{ color: row.color }} value={row.stock} />
           <span
             className="resource-prod"
             data-negative={row.prod < 0 ? "true" : "false"}

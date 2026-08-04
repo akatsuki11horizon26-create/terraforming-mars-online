@@ -215,3 +215,47 @@ export function isChoiceOwnedBy(choice, playerId) {
 export function findOption(choice, optionId) {
   return choice?.options.find(option => option.id === optionId);
 }
+
+// "Decrease any player's production" is an attack: the rulebook lets the player
+// pick the victim, and picking yourself is legal but rarely wanted. Without this
+// the effect silently hit the acting player every time.
+export function buildProductionAttackChoice(state, resource, count, context) {
+  const key = `${resource}Prod`;
+  const floor = resource === "mc" ? -5 : 0;
+  const targets = (state.players ?? []).filter(player => (player[key] ?? 0) > floor);
+  if (targets.length === 0) return null;
+
+  const label = PRODUCTION_LABELS[resource] ?? resource;
+  const options = targets.map(player => ({
+    id: player.id,
+    targetPlayerId: player.id,
+    label: `${player.name}（${label}生産 ${player[key]}）`
+  }));
+
+  return {
+    id: makeChoiceId("production-attack", context.sourceId, state.currentPlayerId),
+    kind: "production-attack",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: `${label}生産量を${count}下げる対象を選んでください。`,
+    optional: false,
+    options,
+    payload: { resource, count },
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "production-attack",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      payload: { resource, count }
+    }
+  };
+}
+
+const PRODUCTION_LABELS = {
+  mc: "MC",
+  steel: "建材",
+  titanium: "チタン",
+  plants: "植物",
+  energy: "電力",
+  heat: "熱"
+};

@@ -28,6 +28,7 @@ import {
 export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMilestoneThreshold, scoreAward };
 import {
   buildBranchChoice,
+  buildProductionAttackChoice,
   buildResourceChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
@@ -698,7 +699,8 @@ function placeTile(state, type, count = 1, cardId) {
   return placed;
 }
 
-function applyEffect(state, effect, logs, { skipTile = false } = {}) {
+function applyEffect(state, effect, logs, options = {}) {
+  const { skipTile = false } = options;
   let nextState = state;
   let nextLogs = logs;
   if (!effect) return { state: nextState, logs: nextLogs };
@@ -767,9 +769,16 @@ function applyEffect(state, effect, logs, { skipTile = false } = {}) {
   }
 
   applyProduction(nextState, effect.production);
-  if (effect.productionDecrease?.resource) {
-    const productionKey = `${effect.productionDecrease.resource}Prod`;
-    if (productionKey in nextState) nextState[productionKey] = Math.max(0, nextState[productionKey] - effect.productionDecrease.count);
+  if (effect.productionDecrease?.resource && !options.skipProductionAttack) {
+    // Choosing the victim belongs to queuePendingChoices; hitting the acting
+    // player here would turn every attack card into a self-inflicted one.
+    const { resource, count } = effect.productionDecrease;
+    const target = options.productionAttackTargetId ?? nextState.currentPlayerId;
+    const key = `${resource}Prod`;
+    const floor = resource === "mc" ? -5 : 0;
+    nextState.players = nextState.players.map(player =>
+      player.id === target ? { ...player, [key]: Math.max(floor, (player[key] ?? 0) - count) } : player
+    );
   }
 
   if (effect.temperatureSteps) {
@@ -959,9 +968,17 @@ export function applyCardEffect(state, card, logs, options = {}) {
     Boolean(effect.tile) &&
     legalCellsFor(nextState, effect.tile).length > 1;
 
+  // The victim is picked after the fact, so the decrement must not also run
+  // here — otherwise the acting player is hit and then the chosen one is too.
+  const willChooseVictim =
+    !options.skipProductionAttack &&
+    Boolean(card.effectSpec?.behavior?.decreaseAnyProduction?.type) &&
+    (nextState.players ?? []).length > 1;
+
   const result = applyEffect(nextState, effect, nextLogs, {
     ...options,
-    skipTile: options.skipTile || willChooseTile
+    skipTile: options.skipTile || willChooseTile,
+    skipProductionAttack: options.skipProductionAttack || willChooseVictim
   });
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
 
@@ -1008,6 +1025,15 @@ function queuePendingChoices(state, card, context) {
       );
     }
   }
+  // Attacks name a victim. Solo play has nobody else, and a single legal target
+  // needs no prompt, so the choice only appears when it is a real decision.
+  if (raw.decreaseAnyProduction?.type && !done.includes("production-attack")) {
+    const spec = raw.decreaseAnyProduction;
+    const resource = SOURCE_RESOURCE_MAP[spec.type] ?? spec.type;
+    const built = buildProductionAttackChoice(state, resource, spec.count, context);
+    if (built && built.options.length > 1) return built;
+  }
+
   if (raw.standardResource && !done.includes("standard-resource")) {
     return buildStandardResourceChoice(state, raw.standardResource, context);
   }
@@ -1128,6 +1154,19 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         "system",
         `【${discardedCard?.name ?? discardedId}】を捨て、【${drawnCard?.name ?? drawn[0] ?? "―"}】を引きました。`
       );
+      break;
+    }
+    case "production-attack": {
+      const { resource, count } = choice.continuation.payload ?? {};
+      const key = `${resource}Prod`;
+      const floor = resource === "mc" ? -5 : 0;
+      const victim = getPlayer(next, option.targetPlayerId);
+      next.players = next.players.map(player =>
+        player.id === option.targetPlayerId
+          ? { ...player, [key]: Math.max(floor, (player[key] ?? 0) - count) }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${victim?.name ?? option.targetPlayerId} の生産量を ${count} 下げました。`);
       break;
     }
     case "effect-branch": {
