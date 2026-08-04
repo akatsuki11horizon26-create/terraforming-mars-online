@@ -54,6 +54,53 @@ const EFFECT_CUES = [
   [/獲得/, "資源の受け取り"]
 ];
 
+// Words that qualify the subject rather than being it. "Aerobraked Ammonia
+// Asteroid" is an asteroid; "Advanced Ecosystems" is an ecosystem.
+const MODIFIERS = new Set([
+  "advanced", "adapted", "aerobraked", "acquired", "artificial", "automated",
+  "big", "black", "bio", "commercial", "deep", "designed", "developed", "double",
+  "early", "extreme", "giant", "great", "greater", "heavy", "high", "huge",
+  "immigration", "important", "improved", "indentured", "industrial", "inter",
+  "interplanetary", "interstellar", "large", "local", "lunar", "magnetic",
+  "martian", "mass", "medical", "micro", "mini", "modular", "nitrogen",
+  "optimal", "permafrost", "personal", "physics", "power", "protected", "quantum",
+  "regolith", "release", "restricted", "self", "small", "solar", "special",
+  "standard", "strip", "sub", "symbiotic", "titanium", "toll", "trans", "under",
+  "urbanized", "vital", "water", "wave", "new", "of", "the", "a", "an", "and",
+  "from", "for", "with", "on", "in", "to"
+]);
+
+// Nouns that name no object at all. Drawing "Technology" is meaningless, so
+// these fall back to the whole card name and lean on the tags instead.
+const ABSTRACT = new Set([
+  "technology", "project", "system", "systems", "program", "contest",
+  "contacts", "network", "partnership", "sponsors", "effect", "central",
+  "research", "development", "industries", "incorporated", "inc", "ltd",
+  "corporation", "corp", "initiative", "venture", "operations", "services"
+]);
+
+// The single thing the picture is OF. Everything else in the brief describes
+// how to render it; without this the effect text hijacked the subject and an
+// "Asteroid" card came back as vegetation and culture vats.
+function headNoun(name) {
+  const cleaned = name.replace(/[:'"(),.]/g, " ").trim();
+  if (/[ぁ-んァ-ヶ一-龠]/.test(cleaned)) {
+    // Japanese names are already head-final and short; take them whole.
+    return cleaned;
+  }
+  const words = cleaned.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return name;
+  for (let i = words.length - 1; i >= 0; i--) {
+    const word = words[i].toLowerCase();
+    if (MODIFIERS.has(word)) continue;
+    // An abstract head names nothing drawable on its own, so keep the full
+    // title and let the tags supply the concrete imagery.
+    if (ABSTRACT.has(word)) return null;
+    return words[i];
+  }
+  return words[words.length - 1];
+}
+
 function briefFor(card) {
   const tags = card.tags ?? [];
   const art = tags.map(tag => TAG_ART[tag]).filter(Boolean);
@@ -72,10 +119,13 @@ function briefFor(card) {
     tags,
     type: card.type,
     cost: card.cost,
-    subject: motifs.length > 0 ? motifs.join(" / ") : "火星表面の無属性の情景",
+    // The card's own noun outranks every other field. Tags tint it, the type
+    // frames it and the effect decorates it, but this is what is drawn.
+    focus: headNoun(card.name) ?? `${card.name}（抽象名。タグの主題を具体物として描く）`,
+    setting: motifs.length > 0 ? motifs.join(" / ") : "火星表面の無属性の情景",
     palette: palettes.length > 0 ? palettes.join(" + ") : "赤錆と灰の火星色",
     mood: TYPE_ART[card.type] ?? "",
-    depicts: cues.length > 0 ? cues.join("、") : "カード名が示すものそのもの",
+    supporting: cues.length > 0 ? cues.join("、") : null,
     effect: effect.slice(0, 90),
     requirement: hasReadableReq ? requirement : null
   };
@@ -103,11 +153,12 @@ if (args.json) {
   for (const b of briefs) {
     console.log(
       `${b.id}.svg | ${b.name} | タグ:${b.tags.join("/") || "なし"} | 種別:${b.type}\n` +
-      `  主題: ${b.subject}\n` +
+      `  ★中心に描くもの(最重要): ${b.focus}\n` +
+      `  背景・文脈: ${b.setting}\n` +
       `  色調: ${b.palette}\n` +
       `  画の性格: ${b.mood}\n` +
-      `  描くもの: ${b.depicts}\n` +
-      (b.requirement ? `  条件: ${b.requirement}\n` : "") +
+      (b.supporting ? `  添える要素(脇役): ${b.supporting}\n` : "") +
+      (b.requirement ? `  条件(背景に含める): ${b.requirement}\n` : "") +
       `  効果: ${b.effect}\n`
     );
   }
