@@ -189,3 +189,62 @@ test("Colony requirements read live state", () => {
   assert.equal(countColonies(state.colonies, "player"), 1);
   assert.equal(getCardPlayableStatus(card, state).playable, true);
 });
+
+test("trading and building colonies cost what the rulebook says", async () => {
+  const {
+    getInitialState, applyCorporation, completeSetupPurchase, cloneGameState,
+    getPlayer, tradeWith, buildColonyOn, tradePaymentOptions, TRADE_COST, COLONY_BUILD_COST
+  } = await import("../app/game-logic.js");
+
+  // Colonies rulebook: "Pay the cost: 9 M€, or 3 energy, or 3 titanium".
+  assert.deepEqual(TRADE_COST, { mc: 9, energy: 3, titanium: 3 });
+  assert.equal(COLONY_BUILD_COST, 17);
+
+  function table(overrides) {
+    let state = getInitialState({ playerCount: 2, colonies: true });
+    for (const player of state.players) {
+      state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+    }
+    let guard = 0;
+    while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+    state = cloneGameState(state);
+    state.phase = "action";
+    state.players = state.players.map(player => ({ ...player, ...overrides }));
+    return state;
+  }
+
+  // Colony tiles are drawn at random each game, so the tile has to come from
+  // the same state it is used against.
+  function seed(overrides) {
+    const state = table(overrides);
+    return { state, tile: Object.keys(state.colonies.tiles)[0] };
+  }
+
+  const mcRun = seed({ mc: 40, energy: 0, titanium: 0 });
+  const paidMc = tradeWith(mcRun.state, mcRun.tile, [], "player");
+  assert.equal(paidMc.traded, true);
+  assert.equal(paidMc.state.players[0].mc, 31, "trading costs 9 M€");
+
+  // Energy and titanium are spent ahead of megacredits when available.
+  const energyRun = seed({ mc: 40, energy: 5, titanium: 0 });
+  const paidEnergy = tradeWith(energyRun.state, energyRun.tile, [], "player");
+  assert.equal(paidEnergy.state.players[0].energy, 2);
+  assert.equal(paidEnergy.state.players[0].mc, 40);
+
+  const brokeRun = seed({ mc: 2, energy: 0, titanium: 0 });
+  const broke = tradeWith(brokeRun.state, brokeRun.tile, [], "player");
+  assert.equal(broke.traded, false, "a player who cannot pay cannot trade");
+
+  // Cryo-Sleep reduces the cost by one resource of whichever kind is paid.
+  const discountRun = seed({ mc: 40, energy: 0, titanium: 0, playedProjects: ["card-colonies-cryo-sleep"] });
+  assert.deepEqual(tradePaymentOptions(discountRun.state, "player"), [{ resource: "mc", cost: 8 }]);
+  assert.equal(tradeWith(discountRun.state, discountRun.tile, [], "player").state.players[0].mc, 32);
+
+  const buildRun = seed({ mc: 40 });
+  const built = buildColonyOn(buildRun.state, buildRun.tile, [], "player");
+  assert.equal(built.built, true);
+  assert.equal(built.state.players[0].mc, 23, "building a colony costs 17 M€");
+
+  const poorRun = seed({ mc: 10 });
+  assert.equal(buildColonyOn(poorRun.state, poorRun.tile, [], "player").built, false);
+});

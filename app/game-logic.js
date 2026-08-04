@@ -1802,11 +1802,41 @@ function grantColonyBenefit(state, benefit, playerId, logs) {
   return { state, logs: nextLogs };
 }
 
+// Colonies rulebook: "Pay the cost: 9 M€, or 3 energy, or 3 titanium" to trade,
+// and 17 M€ to build a colony. Cards such as Cryo-Sleep and Rim Freighters
+// reduce the trade cost by one resource of whichever kind is paid.
+export const COLONY_BUILD_COST = 17;
+export const TRADE_COST = { mc: 9, energy: 3, titanium: 3 };
+const TRADE_LABELS = { mc: "MC", energy: "電力", titanium: "チタン" };
+
+function tradeDiscountFor(state, playerId) {
+  const player = getPlayer(state, playerId);
+  return (player?.playedProjects ?? []).reduce((sum, id) => {
+    const card = ALL_CARDS.find(item => item.id === id);
+    const value = card?.effectSpec?.behavior?.colonies?.tradeDiscount;
+    return sum + (typeof value === "number" ? value : 0);
+  }, 0);
+}
+
+// The cheapest way the player can actually pay, or null when none is affordable.
+export function tradePaymentOptions(state, playerId) {
+  const player = getPlayer(state, playerId);
+  if (!player) return [];
+  const discount = tradeDiscountFor(state, playerId);
+  return Object.entries(TRADE_COST)
+    .map(([resource, base]) => ({ resource, cost: Math.max(0, base - discount) }))
+    .filter(entry => (player[entry.resource] ?? 0) >= entry.cost);
+}
+
 export function buildColonyOn(state, tileId, logs, playerId) {
   if (!state.colonies) {
     return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), built: false };
   }
   const actorId = playerId ?? state.currentPlayerId;
+  const builder = getPlayer(state, actorId);
+  if ((builder?.mc ?? 0) < COLONY_BUILD_COST) {
+    return { state, logs: addLog(logs, "system", `入植には ${COLONY_BUILD_COST} MC が必要です。`), built: false };
+  }
   const result = buildColony(state.colonies, tileId, actorId);
   if (!result.built) {
     return { state, logs: addLog(logs, "system", result.reason), built: false };
@@ -1814,6 +1844,9 @@ export function buildColonyOn(state, tileId, logs, playerId) {
 
   const next = cloneGameState(state);
   next.colonies = result.colonies;
+  next.players = next.players.map(player =>
+    player.id === actorId ? { ...player, mc: player.mc - COLONY_BUILD_COST } : player
+  );
   const tile = getColonyTile(tileId);
   let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} に入植しました。`);
 
@@ -1827,6 +1860,19 @@ export function tradeWith(state, tileId, logs, playerId) {
     return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), traded: false };
   }
   const actorId = playerId ?? state.currentPlayerId;
+  const payable = tradePaymentOptions(state, actorId);
+  if (payable.length === 0) {
+    const discount = tradeDiscountFor(state, actorId);
+    const shown = Object.entries(TRADE_COST)
+      .map(([resource, base]) => `${Math.max(0, base - discount)}${TRADE_LABELS[resource]}`)
+      .join(" / ");
+    return { state, logs: addLog(logs, "system", `交易には ${shown} のいずれかが必要です。`), traded: false };
+  }
+  // Pay with whichever resource is least useful elsewhere: energy and titanium
+  // before megacredits, matching how the cost is normally settled at the table.
+  const priority = ["energy", "titanium", "mc"];
+  const payment = payable.slice().sort((a, b) => priority.indexOf(a.resource) - priority.indexOf(b.resource))[0];
+
   const result = tradeWithColony(state.colonies, tileId, actorId);
   if (!result.traded) {
     return { state, logs: addLog(logs, "system", result.reason), traded: false };
@@ -1834,8 +1880,17 @@ export function tradeWith(state, tileId, logs, playerId) {
 
   const next = cloneGameState(state);
   next.colonies = result.colonies;
+  next.players = next.players.map(player =>
+    player.id === actorId
+      ? { ...player, [payment.resource]: (player[payment.resource] ?? 0) - payment.cost }
+      : player
+  );
   const tile = getColonyTile(tileId);
-  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} と交易しました。`);
+  let nextLogs = addLog(
+    logs,
+    "system",
+    `${tile?.name ?? tileId} と交易しました（${payment.cost}${TRADE_LABELS[payment.resource]} 支払い）。`
+  );
 
   const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs);
   nextLogs = traded.logs;
