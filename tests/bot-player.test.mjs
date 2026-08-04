@@ -64,8 +64,12 @@ test("A bot's card resolves for the bot, not the human", () => {
   state.currentPlayerId = "player";
 
   const mine = engine.ALL_CARDS.find(card => card.id === "p-mine");
+  // Six corporations start with steel production, and which one a seat drew is
+  // random. Zero it so the assertion measures the card, not the shuffle.
   state.players = state.players.map(p =>
-    p.id === "player2" ? { ...p, mc: 60, hand: [mine.id] } : p
+    p.id === "player2"
+      ? { ...p, mc: 60, hand: [mine.id], steelProd: 0 }
+      : { ...p, steelProd: 0 }
   );
 
   const move = { kind: "play", card: mine, cost: 4 };

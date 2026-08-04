@@ -229,10 +229,20 @@ test("trading and building colonies cost what the rulebook says", async () => {
     return { state, tile };
   }
 
+  // Colony tiles pay their trade income in different currencies, and some pay
+  // in M€, so compare against the same tile traded for free rather than a fixed
+  // number. Only the payment is under test here.
   const mcRun = seed({ mc: 40, energy: 0, titanium: 0 });
   const paidMc = tradeWith(mcRun.state, mcRun.tile, [], "player");
   assert.equal(paidMc.traded, true);
-  assert.equal(paidMc.state.players[0].mc, 31, "trading costs 9 M€");
+
+  const freeRun = seed({ mc: 40, energy: 3, titanium: 0 });
+  const paidEnergyInstead = tradeWith(freeRun.state, freeRun.tile, [], "player");
+  assert.equal(
+    paidMc.state.players[0].mc,
+    paidEnergyInstead.state.players[0].mc - 9,
+    "paying with megacredits costs exactly 9 more than not paying with them"
+  );
 
   // Energy and titanium are spent ahead of megacredits when available.
   const energyRun = seed({ mc: 40, energy: 5, titanium: 0 });

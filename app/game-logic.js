@@ -733,20 +733,10 @@ function placeTile(state, type, count = 1, cardId) {
   for (let i = 0; i < count; i++) {
     const cell = firstLegalSpace(state, type);
     if (!cell) break;
-    state.board[`${cell.q},${cell.r}`] = {
-      ...cell,
-      tileType: type,
-      placedBy: type === "ocean" ? null : ownerId,
-    };
-    if (cardId && i === 0) state.cardPlacements[cardId] = `${cell.q},${cell.r}`;
-    if (type === "ocean") {
-      state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
-      bumpTr(state, ownerId, 1);
-    }
-    if (type === "forest") {
-      state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
-      bumpTr(state, ownerId, 1);
-    }
+    // Delegating keeps automatic placements — preludes, corporation openings,
+    // cards that place without asking — paying the same placement bonus, ocean
+    // adjacency bonus and TR as one the player positioned by hand.
+    placeTileAt(state, cell, type, ownerId, cardId && i === 0 ? cardId : undefined);
     placed += 1;
   }
   return placed;
