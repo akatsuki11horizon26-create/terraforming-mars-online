@@ -356,3 +356,27 @@ test("Mars University does not require owning a corporation", async () => {
     "the effect belongs to the project, not the corporation"
   );
 });
+
+test("tiles at a capped global parameter award no TR", async () => {
+  const { applyCorporation, completeSetupPurchase, placeTileAt, legalCellsFor } =
+    await import("../app/game-logic.js");
+
+  for (const [tile, param, cap] of [["ocean", "oceans", 9], ["forest", "oxygen", 14]]) {
+    for (const start of [cap - 1, cap]) {
+      let state = getInitialState({ playerCount: 1 });
+      state = applyCorporation(state, state.players[0].corporationOptions[0]);
+      state = completeSetupPurchase(state);
+      state[param] = start;
+
+      const before = state.players[0].tr;
+      placeTileAt(state, legalCellsFor(state, tile, "player")[0], tile, "player");
+
+      assert.equal(
+        state.players[0].tr,
+        start === cap ? before : before + 1,
+        `${tile} at ${param}=${start}`
+      );
+      assert.equal(state[param], Math.min(cap, start + 1), `${param} stays clamped`);
+    }
+  }
+});

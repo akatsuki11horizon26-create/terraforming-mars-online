@@ -1215,13 +1215,17 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
     }
   }
 
+  // TR follows the parameter actually moving. At the cap the track is clamped,
+  // so the tile still gets placed but no terraforming rating is awarded.
   if (tileType === "ocean") {
+    const before = state.oceans;
     state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
-    bumpTr(state, ownerId, 1);
+    if (state.oceans > before) bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
+    const before = state.oxygen;
     state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
-    bumpTr(state, ownerId, 1);
+    if (state.oxygen > before) bumpTr(state, ownerId, 1);
   }
   return state;
 }
