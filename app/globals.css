@@ -1355,3 +1355,11 @@ div[tabindex="0"]:focus-visible {
     transform: none;
   }
 }
+
+/* Map picker on the setup screen */
+
+.board-picker {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}

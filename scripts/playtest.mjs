@@ -48,6 +48,7 @@ const USE_COLONIES = Boolean(args.colonies);
 const USE_PRELUDE = Boolean(args.prelude);
 const USE_VENUS = Boolean(args.venus);
 const USE_PROMO = Boolean(args.promo);
+const BOARD = args.board ? String(args.board) : undefined;
 const MAX_STEPS = 4000;
 
 const issues = [];
@@ -184,7 +185,8 @@ function playGame(seed) {
   const rng = makeRng(seed);
   let state = getInitialState({
     playerCount: PLAYERS,
-    turmoil: USE_TURMOIL,
+    board: BOARD,
+      turmoil: USE_TURMOIL,
     colonies: USE_COLONIES,
     prelude: USE_PRELUDE,
     venus: USE_VENUS,

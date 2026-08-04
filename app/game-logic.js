@@ -9,6 +9,7 @@ import {
   withLegacyPlayerAccessors
 } from "./player-state.js";
 import { THARSIS_CELLS } from "./tharsis-board.js";
+import { ALTERNATE_BOARDS } from "./alternate-boards.js";
 import {
   AWARDS,
   MAX_AWARDS,
@@ -342,6 +343,23 @@ const HANDLED_BY_PENDING_CHOICE = new Set([
 // scripts/generate-tharsis-board.mjs, which verifies the axial conversion against
 // the reference adjacency rule before writing.
 export const INITIAL_CELLS = THARSIS_CELLS;
+
+// Tharsis plus the four alternate maps. Each is the same 61 spaces in the same
+// axial layout, so only the bonuses, ocean areas and named spaces differ.
+export const BOARDS = {
+  tharsis: {
+    id: "tharsis",
+    name: "タルシス",
+    englishName: "Tharsis",
+    noVolcanicRestriction: false,
+    cells: THARSIS_CELLS
+  },
+  ...ALTERNATE_BOARDS
+};
+
+export function getBoardCells(boardId) {
+  return (BOARDS[boardId] ?? BOARDS.tharsis).cells;
+}
 
 export function formatLogTime() {
   const now = new Date();
@@ -1721,8 +1739,9 @@ export function getInitialState(options = {}) {
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
   const botDifficulty = options.botDifficulty ?? null;
   const names = options.playerNames ?? [];
+  const boardId = BOARDS[options.board] ? options.board : "tharsis";
   const board = {};
-  INITIAL_CELLS.forEach(cell => {
+  getBoardCells(boardId).forEach(cell => {
     board[`${cell.q},${cell.r}`] = {
       ...cell,
       tileType: "empty",
@@ -1780,6 +1799,7 @@ export function getInitialState(options = {}) {
     rulesVersion: 4,
     mode,
     botDifficulty,
+    boardId,
     generation: 1,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
     players,

@@ -12,13 +12,13 @@ export const MILESTONE_VP = 5;
 export const AWARD_FIRST_VP = 5;
 export const AWARD_SECOND_VP = 2;
 
-function countTiles(board, playerId, tileType) {
+export function countTiles(board, playerId, tileType) {
   return Object.values(board).filter(
     cell => cell.placedBy === playerId && cell.tileType === tileType
   ).length;
 }
 
-function countTags(player, cards, tag, corporation) {
+export function countTags(player, cards, tag, corporation) {
   const normalized = String(tag).toLowerCase();
   const fromCards = player.playedProjects.reduce((sum, id) => {
     const card = cards.find(item => item.id === id);
@@ -115,12 +115,29 @@ export const AWARDS = [
   }
 ];
 
+// The alternate maps bring their own milestones and awards. They register here
+// so an id can be resolved without this module importing them, which would be
+// circular.
+const EXTRA_MILESTONES = [];
+const EXTRA_AWARDS = [];
+
+export function registerBoardMilestones(milestones, awards) {
+  for (const milestone of milestones) {
+    if (!EXTRA_MILESTONES.some(entry => entry.id === milestone.id)) EXTRA_MILESTONES.push(milestone);
+  }
+  for (const award of awards) {
+    if (!EXTRA_AWARDS.some(entry => entry.id === award.id)) EXTRA_AWARDS.push(award);
+  }
+}
+
 export function getMilestone(id) {
-  return MILESTONES.find(milestone => milestone.id === id);
+  return MILESTONES.find(milestone => milestone.id === id) ??
+    EXTRA_MILESTONES.find(milestone => milestone.id === id);
 }
 
 export function getAward(id) {
-  return AWARDS.find(award => award.id === id);
+  return AWARDS.find(award => award.id === id) ??
+    EXTRA_AWARDS.find(award => award.id === id);
 }
 
 export function getMilestoneThreshold(milestone, state) {

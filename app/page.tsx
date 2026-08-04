@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ALL_CARDS as jsALL_CARDS,
+  BOARDS as jsBOARDS,
   CORPORATIONS as jsCORPORATIONS,
   PRELUDES as jsPRELUDES,
   getInitialState as jsGetInitialState,
@@ -37,8 +38,6 @@ import {
   TurmoilPanel
 } from "./expansion-panels";
 import {
-  MILESTONES as jsMILESTONES,
-  AWARDS as jsAWARDS,
   PARTIES as jsPARTIES,
   claimMilestone as jsClaimMilestone,
   fundAward as jsFundAward,
@@ -68,6 +67,7 @@ import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
+import { milestonesForBoard, awardsForBoard } from "./board-milestones";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup } from "./title-screen";
 import {
@@ -213,6 +213,7 @@ interface GameState {
   venus: number;
   venusEnabled?: boolean;
   botDifficulty?: string | null;
+  boardId?: string;
   usedCardActions: string[];
   oceans: number;
   tr: number;
@@ -283,6 +284,7 @@ interface GameState {
 // Cast untyped imports to strongly-typed constants
 const ALL_CARDS = jsALL_CARDS as unknown as Card[];
 const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
+const BOARDS = jsBOARDS as unknown as Record<string, { id: string; name: string; englishName: string }>;
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
 const getInitialState = jsGetInitialState as unknown as (options?: {
   playerCount?: number;
@@ -380,6 +382,7 @@ export default function Home() {
 
   const [showGameSetup, setShowGameSetup] = useState(false);
   const [setupPlayerCount, setSetupPlayerCount] = useState(1);
+  const [selectedBoard, setSelectedBoard] = useState("tharsis");
   const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
   const [setupTurmoil, setSetupTurmoil] = useState(false);
   const [setupColonies, setSetupColonies] = useState(false);
@@ -594,7 +597,11 @@ export default function Home() {
     );
   };
 
-  const milestoneViews = (jsMILESTONES as MilestoneDefinition[]).map(milestone => {
+  // Each map prints its own five milestones and five awards.
+  const boardMilestones = milestonesForBoard(activeState.boardId) as MilestoneDefinition[];
+  const boardAwards = awardsForBoard(activeState.boardId) as AwardDefinition[];
+
+  const milestoneViews = boardMilestones.map(milestone => {
     const claimed = (activeState.claimedMilestones ?? []).find(
       entry => entry.milestoneId === milestone.id
     );
@@ -618,7 +625,7 @@ export default function Home() {
     };
   });
 
-  const awardViews = (jsAWARDS as AwardDefinition[]).map(award => {
+  const awardViews = boardAwards.map(award => {
     const funded = (activeState.fundedAwards ?? []).find(entry => entry.awardId === award.id);
     const status = jsGetAwardStatus(activeState, award.id, currentPlayerId) as {
       fundable: boolean;
@@ -754,8 +761,9 @@ export default function Home() {
     promo?: boolean;
     mode?: "solo" | "hotseat" | "robot";
     botDifficulty?: string;
+    board?: string;
   }) => {
-    const state = getInitialState(options);
+    const state = getInitialState({ board: selectedBoard, ...options });
     saveState(state);
     setShowGameSetup(false);
     setSelectedCardId(null);
@@ -2879,6 +2887,24 @@ export default function Home() {
 
               <div>
                 <div className="section-title">
+                  <span>マップ</span>
+                  <span className="section-note">盤面ごとに配置ボーナス・称号・褒賞が変わる</span>
+                </div>
+                <div className="board-picker">
+                  {Object.values(BOARDS).map(board => (
+                    <button
+                      key={board.id}
+                      type="button"
+                      className={selectedBoard === board.id ? "btn-primary" : "btn-secondary"}
+                      style={{ padding: "6px 14px", fontSize: "0.78rem" }}
+                      onClick={() => setSelectedBoard(board.id)}
+                    >
+                      {board.name}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="section-title" style={{ marginTop: "14px" }}>
                   <span>拡張</span>
                   <span className="section-note">任意</span>
                 </div>
