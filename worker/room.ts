@@ -21,7 +21,8 @@ import {
   tradeWith,
   getCardPaymentCost,
   getCardPlayableStatus,
-  ALL_CARDS
+  ALL_CARDS,
+  CORPORATIONS
 } from "../app/game-logic.js";
 import {
   CLIENT_MESSAGES,
@@ -367,6 +368,9 @@ export class GameRoom {
         const player = (state.players as { id: string; researchCards: string[]; mc: number; hand: string[] }[])
           .find(p => p.id === seat);
         if (!player) return null;
+        // includes() alone accepts ["A","A","A"] against a single offered A,
+        // which duplicated the card into the hand.
+        if (new Set(ids).size !== ids.length) return null;
         if (!ids.every(id => player.researchCards.includes(id))) return null;
         const cost = ids.length * RESEARCH_CARD_COST;
         if (player.mc < cost) return null;
@@ -392,16 +396,31 @@ export class GameRoom {
       case "playCard": {
         const card = ALL_CARDS.find((c: { id: string }) => c.id === String(payload.cardId));
         if (!card) return null;
+        // A client can send any card id. Without this it could play a card it
+        // never drew, since the engine only checks whether the card is legal.
+        const actor = (state.players as { id: string; hand: string[] }[]).find(p => p.id === seat);
+        if (!actor?.hand.includes(card.id)) return null;
         const status = getCardPlayableStatus(card, asState, 0, 0) as { playable: boolean };
         if (!status.playable) return null;
         const cost = getCardPaymentCost(card, asState, 0, 0) as number;
+
+        // Helion may pay with heat. getCardPlayableStatus counts it towards the
+        // cost, so spending only megacredits drove MC negative.
+        const corporation = CORPORATIONS.find(
+          (item: { id: string }) => item.id === (actor as unknown as { corporationId?: string }).corporationId
+        ) as { effects?: { heatAsMoney?: boolean } } | undefined;
+        const wallet = actor as unknown as { mc: number; heat: number };
+        const heatPaid = corporation?.effects?.heatAsMoney
+          ? Math.max(0, Math.min(wallet.heat ?? 0, cost - (wallet.mc ?? 0)))
+          : 0;
 
         let next = { ...state } as Record<string, unknown>;
         next.players = (state.players as Record<string, unknown>[]).map(p =>
           p.id === seat
             ? {
                 ...p,
-                mc: (p.mc as number) - cost,
+                mc: (p.mc as number) - (cost - heatPaid),
+                heat: (p.heat as number) - heatPaid,
                 hand: (p.hand as string[]).filter(id => id !== card.id),
                 playedProjects: [...(p.playedProjects as string[]), card.id]
               }
@@ -413,8 +432,12 @@ export class GameRoom {
       }
 
       case "cardAction": {
-        const card = ALL_CARDS.find((c: { id: string }) => c.id === String(payload.cardId));
+        const card = ALL_CARDS.find((c: { id: string; type: string }) => c.id === String(payload.cardId));
         if (!card) return null;
+        // Only a blue card the sender has actually played carries an action.
+        const owner = (state.players as { id: string; playedProjects: string[] }[]).find(p => p.id === seat);
+        if (!owner?.playedProjects.includes(card.id)) return null;
+        if (card.type !== "active") return null;
         const result = applyCardAction(asState, card, logs) as { state: never; playable: boolean };
         if (!result.playable) return null;
         return handleActionSpend(result.state, (result.state as { logs: unknown[] }).logs) as never;
