@@ -11,6 +11,9 @@ import {
 import { THARSIS_CELLS } from "./tharsis-board.js";
 import { ALTERNATE_BOARDS } from "./alternate-boards.js";
 import { createDraft, pickDraftCard, isDraftComplete, draftedHandFor, DRAFT_HAND_SIZE } from "./draft.js";
+// Importing registers the alternate maps' milestones and awards so their ids
+// resolve; without it a Hellas milestone cannot be claimed at all.
+import "./board-milestones.js";
 import {
   AWARDS,
   MAX_AWARDS,
@@ -2204,7 +2207,9 @@ function milestoneContext(state, player) {
     player,
     board: state.board,
     cards: ALL_CARDS,
-    corporation: CORPORATIONS.find(c => c.id === player.corporationId)
+    corporation: CORPORATIONS.find(c => c.id === player.corporationId),
+    // Utopia's Pioneer milestone counts colonies, which live outside the player.
+    colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0
   };
 }
 

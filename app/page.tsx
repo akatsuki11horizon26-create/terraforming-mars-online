@@ -86,6 +86,18 @@ const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
 // The human always holds the first seat; robot opponents fill the rest.
 const HUMAN_ID = "player";
 
+const BONUS_LABELS: Record<string, string> = {
+  plant: "植物",
+  steel: "建材",
+  titanium: "チタン",
+  mc: "MC",
+  heat: "熱",
+  energy: "電力",
+  card: "カード",
+  microbe: "微生物",
+  animal: "動物"
+};
+
 // Log lines carry the acting player's name in their text once more than one
 // player is at the table, so labelling every one of them "あなた" was wrong.
 function logLabel(log: { sender: string; playerName?: string }) {
@@ -152,7 +164,11 @@ interface CellState {
   q: number;
   r: number;
   isOceanOnly: boolean;
-  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card";
+  // The alternate maps add heat, energy, microbe and animal spaces, and spaces
+  // paying more than one resource carry the list in `bonus`.
+  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card" | "heat" | "energy" | "microbe" | "animal" | "multi" | "ocean-tile";
+  bonus?: { type: string; amount: number }[];
+  placementCost?: number;
   bonusAmount: number;
   tileType: "empty" | "forest" | "city" | "ocean";
   placedBy: "player" | "cpu" | "neutral" | null;
@@ -610,10 +626,33 @@ export default function Home() {
       ? "中立"
       : players.find(player => player.id === playerId)?.name ?? playerId ?? "";
 
-  const runEngine = (result: { state?: GameState; logs?: LogEntry[] }) => {
+  // Claiming a milestone, funding an award, sending a delegate, building a
+  // colony and trading are each one action. The engine reports whether the
+  // attempt succeeded; only a successful one may spend the turn.
+  const runEngine = (
+    result: {
+      state?: GameState;
+      logs?: LogEntry[];
+      claimed?: boolean;
+      funded?: boolean;
+      sent?: boolean;
+      built?: boolean;
+      traded?: boolean;
+    },
+    spendsAction = false
+  ) => {
     if (!result?.state) return;
-    const next = { ...result.state, logs: result.logs ?? result.state.logs };
-    saveState(next as GameState);
+    const succeeded =
+      result.claimed || result.funded || result.sent || result.built || result.traded;
+    let next = result.state;
+    if (result.logs) {
+      next = jsCloneGameState(next) as GameState;
+      next.logs = result.logs;
+    }
+    if (spendsAction && succeeded) {
+      next = handleActionSpend(next, next.logs) as GameState;
+    }
+    saveState(next);
   };
 
   const handleResolveChoice = (optionId: string) => {
@@ -736,7 +775,10 @@ export default function Home() {
       jsClaimMilestone(activeState, milestoneId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
+        claimed?: boolean;
       }
+      ,
+      true
     );
   };
 
@@ -746,7 +788,10 @@ export default function Home() {
       jsFundAward(activeState, awardId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
+        funded?: boolean;
       }
+      ,
+      true
     );
   };
 
@@ -756,7 +801,10 @@ export default function Home() {
       jsSendDelegateToParty(activeState, partyId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
+        sent?: boolean;
       }
+      ,
+      true
     );
   };
 
@@ -766,7 +814,10 @@ export default function Home() {
       jsBuildColonyOn(activeState, tileId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
+        built?: boolean;
       }
+      ,
+      true
     );
   };
 
@@ -776,7 +827,10 @@ export default function Home() {
       jsTradeWith(activeState, tileId, activeState.logs, currentPlayerId) as {
         state: GameState;
         logs: LogEntry[];
+        traded?: boolean;
       }
+      ,
+      true
     );
   };
 
@@ -1106,13 +1160,11 @@ export default function Home() {
 
       localLogs = addLog(localLogs, "player", `タイルを配置しました: 【${placementMode.type === "ocean" ? "海洋" : placementMode.type === "city" ? "都市" : "緑地"}】 (${cell.q}, ${cell.r})`);
 
-      // Ocean adjacency bonus MC
+      // placeTile already paid the ocean adjacency bonus; this only reports it.
       if (placementMode.type !== "ocean") {
         const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
         if (adjOceans > 0) {
-          const bonusMc = adjOceans * 2;
-          nextState.mc += bonusMc;
-          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
+          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${adjOceans * 2} (隣接海洋数: ${adjOceans})`);
         }
       }
 
@@ -1183,12 +1235,9 @@ export default function Home() {
 
         placeTile(nextState, cell, "city", currentPlayerId);
 
-        // Ocean adjacency bonus
         const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
         if (adjOceans > 0) {
-          const bonusMc = adjOceans * 2;
-          nextState.mc += bonusMc;
-          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
+          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${adjOceans * 2} (隣接海洋数: ${adjOceans})`);
         }
 
         localLogs = addLog(localLogs, "system", "MC生産量 +1");
@@ -1209,29 +1258,23 @@ export default function Home() {
       localLogs = addLog(localLogs, "system", `Tharsis Republic: MC生産量 +${cityProduction}${ownCityBonus ? `、MC +${ownCityBonus}` : ""}`);
     }
 
-    // Apply cell placement bonus exactly once
-    if (cell.bonusType !== "none") {
-      if (cell.bonusType === "plant") {
-        nextState.plants += cell.bonusAmount;
-        localLogs = addLog(localLogs, "system", `配置ボーナス獲得: 植物 +${cell.bonusAmount}`);
-      } else if (cell.bonusType === "steel") {
-        nextState.steel += cell.bonusAmount;
-        localLogs = addLog(localLogs, "system", `配置ボーナス獲得: 建材 +${cell.bonusAmount}`);
-      } else if (cell.bonusType === "titanium") {
-        nextState.titanium += cell.bonusAmount;
-        localLogs = addLog(localLogs, "system", `配置ボーナス獲得: チタン +${cell.bonusAmount}`);
-      } else if (cell.bonusType === "mc") {
-        nextState.mc += cell.bonusAmount;
-        localLogs = addLog(localLogs, "system", `配置ボーナス獲得: MC +${cell.bonusAmount}`);
-      } else if (cell.bonusType === "card") {
-        if (nextState.deck.length > 0) {
-          const [drawn, ...rest] = nextState.deck;
-          nextState.hand.push(drawn);
-          nextState.deck = rest;
-          const cardObj = ALL_CARDS.find(c => c.id === drawn);
-          localLogs = addLog(localLogs, "system", `配置ボーナス獲得: カードを引きました 【${cardObj?.name || drawn}】`);
-        }
-      }
+    // placeTile paid the placement bonus, including multi-resource spaces the
+    // hand-rolled version could not represent. This only names what was gained.
+    const grants =
+      cell.bonusType === "multi" && Array.isArray(cell.bonus)
+        ? (cell.bonus as { type: string; amount: number }[])
+        : cell.bonusType && cell.bonusType !== "none"
+          ? [{ type: cell.bonusType, amount: cell.bonusAmount }]
+          : [];
+    for (const grant of grants) {
+      const label = BONUS_LABELS[grant.type] ?? grant.type;
+      localLogs = addLog(
+        localLogs,
+        "system",
+        grant.type === "card"
+          ? `配置ボーナス獲得: カードを${grant.amount}枚引きました`
+          : `配置ボーナス獲得: ${label} +${grant.amount}`
+      );
     }
 
     // Run parameter threshold check

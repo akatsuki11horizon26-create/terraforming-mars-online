@@ -1,7 +1,5 @@
 import {
   ALL_CARDS,
-  MILESTONES,
-  AWARDS,
   getCardPlayableStatus,
   getCardPaymentCost,
   getCardActionStatus,
@@ -9,6 +7,7 @@ import {
   getAwardStatus,
   getPlayer
 } from "./game-logic.js";
+import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
 
 export const BOT_DIFFICULTIES = [
   {
@@ -169,13 +168,14 @@ export function enumerateBotMoves(state, botId) {
     }
   }
 
-  for (const milestone of MILESTONES) {
+  // Each map prints its own five; the bot used to chase Tharsis's on every board.
+  for (const milestone of milestonesForBoard(state.boardId)) {
     if (getMilestoneStatus(state, milestone.id, botId).claimable) {
       moves.push({ kind: "milestone", id: milestone.id, bonus: 5 * 3 });
     }
   }
 
-  for (const award of AWARDS) {
+  for (const award of awardsForBoard(state.boardId)) {
     if (getAwardStatus(state, award.id, botId).fundable) {
       moves.push({ kind: "award", id: award.id, bonus: 4 });
     }
@@ -395,9 +395,9 @@ export const BOT_STANDARD_PROJECTS = [
       const cells = engine.legalCellsFor(next, "ocean", botId);
       if (cells.length === 0) return null;
       const cell = cells[0];
+      // placeTileAt already raises the ocean count and TR; adding them here
+      // moved both twice for a single project.
       engine.placeTileAt(next, next.board[`${cell.q},${cell.r}`] ?? cell, "ocean", botId, "standard-ocean");
-      next.oceans = Math.min(9, (next.oceans ?? 0) + 1);
-      next.tr += 1;
       return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【海洋の沈降】を実行しました。") };
     }
   },
@@ -428,10 +428,6 @@ export const BOT_STANDARD_PROJECTS = [
       if (cells.length === 0) return null;
       const cell = cells[0];
       engine.placeTileAt(next, next.board[`${cell.q},${cell.r}`] ?? cell, "forest", botId, "standard-greenery");
-      if ((next.oxygen ?? 0) < 14) {
-        next.oxygen = Math.min(14, (next.oxygen ?? 0) + 1);
-        next.tr += 1;
-      }
       return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【緑化プロジェクト】を実行しました。") };
     }
   },

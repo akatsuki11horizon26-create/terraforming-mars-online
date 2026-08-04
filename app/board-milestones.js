@@ -102,7 +102,7 @@ export const BOARD_MILESTONES = {
       threshold: 3,
       getScore: context => Object.values(context.board).filter(
         cell => cell.placedBy === context.player.id &&
-          !["empty", "city", "greenery", "ocean"].includes(cell.tileType)
+          !["empty", "city", "forest", "ocean"].includes(cell.tileType)
       ).length
     },
     { id: "pioneer", name: "開拓者", description: "植民地3つ以上", threshold: 3, getScore: context => context.colonyCount ?? 0 },
@@ -114,7 +114,7 @@ export const BOARD_MILESTONES = {
 
 export const BOARD_AWARDS = {
   hellas: [
-    { id: "cultivator", name: "耕作者", description: "緑地タイル数が最多", getScore: context => countTiles(context.board, context.player.id, "greenery") },
+    { id: "cultivator", name: "耕作者", description: "緑地タイル数が最多", getScore: context => countTiles(context.board, context.player.id, "forest") },
     { id: "magnate", name: "大立者", description: "自動カード（緑）が最多", getScore: context => cardTypeCount(context, "automated") },
     { id: "space-baron", name: "宇宙男爵", description: "宇宙タグが最多（イベントを除く）", getScore: context => tagsExcludingEvents(context, "Space") },
     { id: "excentric", name: "変人", description: "カード上の資源が最多", getScore: context => Object.values(context.player.cardResources ?? {}).reduce((sum, value) => sum + value, 0) },

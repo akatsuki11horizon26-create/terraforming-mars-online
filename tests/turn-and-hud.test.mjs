@@ -558,3 +558,14 @@ test("a robot game hands the seat to the bots", async () => {
     assert.match(body, /if \(!isMyTurn\) return;/, `${handler} must guard on isMyTurn`);
   }
 });
+
+test("the UI does not pay placement bonuses a second time", async () => {
+  const source = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  // placeTileAt pays the placement bonus and the ocean adjacency bonus. The UI
+  // used to add both again, so a plant space gave 2 and an adjacent ocean 4 M€.
+  const handler = source.slice(source.indexOf("const handleCellClick"), source.indexOf("const handlePass"));
+  assert.doesNotMatch(handler, /nextState\.mc \+= bonusMc/, "ocean adjacency must not be re-added");
+  assert.doesNotMatch(handler, /nextState\.(plants|steel|titanium) \+= cell\.bonusAmount/, "placement bonus must not be re-added");
+  assert.doesNotMatch(handler, /nextState\.hand\.push\(drawn\)/, "the bonus card must not be drawn twice");
+});

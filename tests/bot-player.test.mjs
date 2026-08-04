@@ -10,7 +10,8 @@ import {
   applyBotMove,
   runBotTurn,
   runBotResearch,
-  advanceRobotGame
+  advanceRobotGame,
+  BOT_STANDARD_PROJECTS
 } from "../app/bot-player.js";
 
 function seatedGame(playerCount = 2) {
@@ -167,4 +168,39 @@ test("A robot game records its difficulty so a reload keeps it", async () => {
 
   const restored = loadSavedState(serializeSavedState(state));
   assert.equal(restored.botDifficulty, "hard", "the opponent does not change strength on reload");
+});
+
+test("a bot's standard projects move each parameter exactly once", () => {
+  const state = seatedGame();
+  state.phase = "action";
+  state.players = state.players.map(p => ({ ...p, mc: 80 }));
+
+  const before = { oceans: state.oceans, oxygen: state.oxygen };
+  const beforeTr = engine.getPlayer(state, "player2").tr;
+
+  // placeTileAt already raises the parameter and TR. The bot added them again,
+  // so one ocean project moved the track two steps and paid two TR.
+  const ocean = BOT_STANDARD_PROJECTS.find(project => project.id === "ocean");
+  const afterOcean = ocean.apply(engine, state, "player2", []).state;
+  assert.equal(afterOcean.oceans, before.oceans + 1, "one ocean per project");
+  assert.equal(engine.getPlayer(afterOcean, "player2").tr, beforeTr + 1, "and one TR");
+
+  const greenery = BOT_STANDARD_PROJECTS.find(project => project.id === "greenery");
+  const afterGreenery = greenery.apply(engine, state, "player2", []).state;
+  assert.equal(afterGreenery.oxygen, before.oxygen + 1, "one oxygen per greenery");
+  assert.equal(engine.getPlayer(afterGreenery, "player2").tr, beforeTr + 1);
+});
+
+test("a bot chases the milestones printed on the map it is playing", () => {
+  const state = engine.getInitialState({ playerCount: 2, board: "hellas" });
+  const seeded = engine.cloneGameState(state);
+  seeded.phase = "action";
+  seeded.players = seeded.players.map(p => ({ ...p, mc: 80, energyProd: 9 }));
+
+  const moves = enumerateBotMoves(seeded, "player2");
+  const milestones = moves.filter(move => move.kind === "milestone").map(move => move.id);
+
+  // Energizer is a Hellas milestone; Tharsis has no such id.
+  assert.ok(milestones.includes("energizer"), "the bot must see the Hellas milestones");
+  assert.equal(milestones.includes("mayor"), false, "and not Tharsis's");
 });

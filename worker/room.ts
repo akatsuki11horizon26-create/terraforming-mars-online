@@ -334,6 +334,24 @@ export class GameRoom {
     const logs = state.logs as unknown[];
     const asState = state as never;
 
+    // Milestones, awards, delegates, colonies and trades each cost an action.
+    // A refused attempt must not spend one.
+    const spendOnSuccess = (result: {
+      state?: unknown;
+      logs?: unknown;
+      claimed?: boolean;
+      funded?: boolean;
+      sent?: boolean;
+      built?: boolean;
+      traded?: boolean;
+    }): Record<string, unknown> | null => {
+      if (!result?.state) return null;
+      const succeeded = result.claimed || result.funded || result.sent || result.built || result.traded;
+      if (!succeeded) return result.state as Record<string, unknown>;
+      const spent = handleActionSpend(result.state as never, (result.logs ?? logs) as never);
+      return spent as unknown as Record<string, unknown>;
+    };
+
     switch (action) {
       case "chooseCorporation":
         return applyCorporation(asState, String(payload.corporationId), seat) as never;
@@ -412,20 +430,21 @@ export class GameRoom {
         return result.state as never;
       }
 
+      // Each of these is one action, and only a successful attempt spends it.
       case "claimMilestone":
-        return (claimMilestone(asState, String(payload.milestoneId), logs, seat) as { state: never }).state as never;
+        return spendOnSuccess(claimMilestone(asState, String(payload.milestoneId), logs, seat));
 
       case "fundAward":
-        return (fundAward(asState, String(payload.awardId), logs, seat) as { state: never }).state as never;
+        return spendOnSuccess(fundAward(asState, String(payload.awardId), logs, seat));
 
       case "sendDelegate":
-        return (sendDelegateToParty(asState, String(payload.partyId), logs, seat) as { state: never }).state as never;
+        return spendOnSuccess(sendDelegateToParty(asState, String(payload.partyId), logs, seat));
 
       case "buildColony":
-        return (buildColonyOn(asState, String(payload.tileId), logs, seat) as { state: never }).state as never;
+        return spendOnSuccess(buildColonyOn(asState, String(payload.tileId), logs, seat));
 
       case "trade":
-        return (tradeWith(asState, String(payload.tileId), logs, seat) as { state: never }).state as never;
+        return spendOnSuccess(tradeWith(asState, String(payload.tileId), logs, seat));
 
       case "pass":
         // Only ends the generation once every player has passed. After acting,

@@ -84,3 +84,61 @@ test("the maps differ from each other", () => {
     seen.set(print, id);
   }
 });
+
+test("board milestones read the same tile names the engine writes", async () => {
+  const { getInitialState, applyCorporation, completeSetupPurchase, cloneGameState, getPlayer, placeTileAt, ALL_CARDS } =
+    await import("../app/game-logic.js");
+  const { milestonesForBoard, awardsForBoard } = await import("../app/board-milestones.js");
+
+  let state = getInitialState({ playerCount: 2, board: "hellas" });
+  for (const player of state.players) {
+    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+  }
+  let guard = 0;
+  while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+
+  const { legalCellsFor } = await import("../app/game-logic.js");
+  for (let i = 0; i < 2; i++) {
+    placeTileAt(state, legalCellsFor(state, "forest", "player")[0], "forest", "player");
+  }
+
+  const context = {
+    player: getPlayer(state, "player"),
+    board: state.board,
+    cards: ALL_CARDS,
+    corporation: null,
+    colonyCount: 0
+  };
+
+  // The engine writes greeneries as "forest"; scoring them as "greenery" meant
+  // nobody could ever win Cultivator.
+  const cultivator = awardsForBoard("hellas").find(award => award.id === "cultivator");
+  assert.equal(cultivator.getScore(context), 2, "Cultivator counts the greeneries placed");
+
+  // And Manager counts special tiles, which an ordinary greenery is not.
+  const manager = milestonesForBoard("utopia").find(milestone => milestone.id === "manager");
+  assert.equal(manager.getScore(context), 0, "an ordinary greenery is not a special tile");
+});
+
+test("Pioneer reads the live colony count", async () => {
+  const { getInitialState, applyCorporation, completeSetupPurchase, cloneGameState, getPlayer, buildColonyOn, getMilestoneStatus } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({ playerCount: 2, colonies: true, board: "utopia" });
+  for (const player of state.players) {
+    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+  }
+  let guard = 0;
+  while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+  state.players = state.players.map(player => ({ ...player, mc: 80 }));
+
+  const tile = Object.keys(state.colonies.tiles)[0];
+  state = buildColonyOn(state, tile, [], "player").state;
+
+  // milestoneContext did not pass colonyCount, so Pioneer was unclaimable.
+  assert.equal(getMilestoneStatus(state, "pioneer", "player").score, 1);
+});
