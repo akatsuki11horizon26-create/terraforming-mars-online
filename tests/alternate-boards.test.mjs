@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, BOARDS, getBoardCells } from "../app/game-logic.js";
+import { getInitialState, getBoardCells } from "../app/game-logic.js";
 import { milestonesForBoard, awardsForBoard } from "../app/board-milestones.js";
 import { getMilestone, getAward } from "../app/milestones-awards.js";
 

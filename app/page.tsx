@@ -284,6 +284,16 @@ interface GameState {
 // Cast untyped imports to strongly-typed constants
 const ALL_CARDS = jsALL_CARDS as unknown as Card[];
 const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
+// Placing a tile also pays its placement bonus, the ocean adjacency bonus, and
+// raises the matching global parameter and TR. Writing to state.board directly
+// skips all of that, which is how greeneries stopped paying steel and TR.
+const placeTile = jsPlaceTileAt as unknown as (
+  state: GameState,
+  cell: CellState,
+  tileType: string,
+  ownerId: string | null,
+  cardId?: string
+) => GameState;
 const BOARDS = jsBOARDS as unknown as Record<string, { id: string; name: string; englishName: string }>;
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
 const getInitialState = jsGetInitialState as unknown as (options?: {
@@ -1023,18 +1033,11 @@ export default function Home() {
       if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
       const nextState = jsCloneGameState(gameState) as GameState;
       nextState.board = { ...gameState.board };
-      nextState.board[`${cell.q},${cell.r}`] = {
-        ...cell,
-        tileType: "ocean",
-        placedBy: null
-      };
-
       const oldOceans = nextState.oceans;
-      nextState.oceans = Math.min(9, nextState.oceans + 1);
+      placeTile(nextState, cell, "ocean", currentPlayerId);
       
       let localLogs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
       if (oldOceans < 9) {
-        nextState.tr += 1;
         localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
       }
       nextState.pendingOceans -= 1;
@@ -1070,14 +1073,15 @@ export default function Home() {
         );
       }
 
-      nextState.board[`${cell.q},${cell.r}`] = {
-        ...cell,
-        tileType: placementMode.type,
-        placedBy: placementMode.type === "ocean" ? null : "player"
-      };
-      if (placementMode.sourceCardId && !placementMode.cardPaymentDone) {
-        nextState.cardPlacements[placementMode.sourceCardId] = `${cell.q},${cell.r}`;
-      }
+      placeTile(
+        nextState,
+        cell,
+        placementMode.type,
+        currentPlayerId,
+        placementMode.sourceCardId && !placementMode.cardPaymentDone
+          ? placementMode.sourceCardId
+          : undefined
+      );
 
       localLogs = addLog(localLogs, "player", `タイルを配置しました: 【${placementMode.type === "ocean" ? "海洋" : placementMode.type === "city" ? "都市" : "緑地"}】 (${cell.q}, ${cell.r})`);
 
@@ -1091,18 +1095,11 @@ export default function Home() {
         }
       }
 
-      if (placementMode.type === "forest") {
-        nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-        if (oldOxy < 14) {
-          nextState.tr += 1;
-          localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
-        }
-      } else if (placementMode.type === "ocean") {
-        nextState.oceans = Math.min(9, nextState.oceans + 1);
-        if (oldOceans < 9) {
-          nextState.tr += 1;
-          localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
-        }
+      // placeTile already raised the parameter and TR; these only report it.
+      if (placementMode.type === "forest" && oldOxy < 14) {
+        localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
+      } else if (placementMode.type === "ocean" && oldOceans < 9) {
+        localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
       }
 
       if (isFirstPlacement) {
@@ -1117,13 +1114,7 @@ export default function Home() {
       if (placementMode.sourceProject === "ecoline") {
         nextState.usedCardActions = [...(nextState.usedCardActions ?? []), CORPORATION_ACTION_ID];
         nextState.plants -= 7;
-        nextState.board[`${cell.q},${cell.r}`] = {
-          ...cell,
-          tileType: "forest",
-          placedBy: "player"
-        };
-        nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-        if (oldOxy < 14) nextState.tr += 1;
+        placeTile(nextState, cell, "forest", currentPlayerId);
         localLogs = addLog(localLogs, "player", "Ecoline: 植物7を支払い緑地を配置しました。");
       } else if (placementMode.sourceProject === "greenery" || placementMode.sourceProject === "plants") {
         const payInPlants = placementMode.sourceProject === "plants";
@@ -1140,42 +1131,23 @@ export default function Home() {
           }
         }
 
-        nextState.board[`${cell.q},${cell.r}`] = {
-          ...cell,
-          tileType: "forest",
-          placedBy: "player"
-        };
-
-        // Ocean adjacency bonus
-        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
-        if (adjOceans > 0) {
-          const bonusMc = adjOceans * 2;
-          nextState.mc += bonusMc;
-          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${bonusMc} (隣接海洋数: ${adjOceans})`);
-        }
+        placeTile(nextState, cell, "forest", currentPlayerId);
 
         if (isFinalGreenery) {
+          // placeTile raised them; the final greenery phase scores neither.
+          nextState.oxygen = oldOxy;
+          if (nextState.oxygen < 14) nextState.tr -= 1;
           localLogs = addLog(localLogs, "system", "最終緑化: 酸素濃度とTRは変化しません。");
-        } else {
-          nextState.oxygen = Math.min(14, nextState.oxygen + 1);
-          if (oldOxy < 14) {
-            nextState.tr += 1;
-            localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
-          }
+        } else if (oldOxy < 14) {
+          localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
         }
         localLogs = addLog(localLogs, "player", `緑地を (${cell.q}, ${cell.r}) に配置しました。`);
       } else if (placementMode.sourceProject === "ocean") {
         const heatUsed = payStandardCost(nextState, 18);
         localLogs = addLog(localLogs, "player", `標準プロジェクト【海洋の沈降】を実行しました (支払: MC ${18 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
 
-        nextState.board[`${cell.q},${cell.r}`] = {
-          ...cell,
-          tileType: "ocean",
-          placedBy: null
-        };
-        nextState.oceans = Math.min(9, nextState.oceans + 1);
+        placeTile(nextState, cell, "ocean", currentPlayerId);
         if (oldOceans < 9) {
-          nextState.tr += 1;
           localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
         }
         localLogs = addLog(localLogs, "player", `海洋を (${cell.q}, ${cell.r}) に配置しました。`);
@@ -1188,11 +1160,7 @@ export default function Home() {
           localLogs = addLog(localLogs, "system", "CrediCor: 高額標準プロジェクトの支払いでMC +4");
         }
 
-        nextState.board[`${cell.q},${cell.r}`] = {
-          ...cell,
-          tileType: "city",
-          placedBy: "player"
-        };
+        placeTile(nextState, cell, "city", currentPlayerId);
 
         // Ocean adjacency bonus
         const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);

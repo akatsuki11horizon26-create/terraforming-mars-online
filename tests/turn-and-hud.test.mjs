@@ -509,3 +509,32 @@ test("card text states every effect the engine applies", async () => {
   const capital = ALL_CARDS.find(card => card.id === "p-capital");
   assert.equal(completeEffectText(capital), capital.effectText);
 });
+
+test("placing a tile pays its placement bonus and raises TR once", async () => {
+  const { applyCorporation, completeSetupPurchase, cloneGameState, placeTileAt, computeScore } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({ playerCount: 1 });
+  state = applyCorporation(state, state.players[0].corporationOptions[0]);
+  state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+
+  // A space printed with a steel bonus: the UI used to write to state.board
+  // directly, which skipped the bonus entirely.
+  const cell = Object.values(state.board).find(
+    space => space.bonusType === "steel" && !space.isOceanOnly
+  );
+  const before = {
+    tr: state.players[0].tr,
+    steel: state.players[0].steel,
+    oxygen: state.oxygen
+  };
+
+  placeTileAt(state, cell, "forest", "player");
+
+  assert.equal(state.players[0].steel, before.steel + cell.bonusAmount, "the placement bonus is paid");
+  assert.equal(state.oxygen, before.oxygen + 1, "a greenery raises oxygen");
+  assert.equal(state.players[0].tr, before.tr + 1, "and TR exactly once");
+  void computeScore;
+});
