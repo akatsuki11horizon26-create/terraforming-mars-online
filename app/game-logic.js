@@ -1131,11 +1131,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "effect-branch": {
-      const branch = card?.effectSpec?.behavior?.or?.behaviors?.[Number(option.id)];
+      // A branch raised by a card action lives under effectSpec.action, not
+      // .behavior, and using the action also spends it for the generation.
+      const fromAction = choice.continuation.sourceKind === "card-action";
+      const branches = fromAction
+        ? card?.effectSpec?.action?.or?.behaviors
+        : card?.effectSpec?.behavior?.or?.behaviors;
+      const branch = branches?.[Number(option.id)];
       if (branch) {
         const branchEffect = normalizeBehavior(branch, {}, []);
         const applied = applyEffect(next, { ...branchEffect, cardId: card.id }, nextLogs);
         nextLogs = addLog(applied.logs, "system", `選択: ${option.label}`);
+        if (fromAction && !(applied.state.usedCardActions ?? []).includes(card.id)) {
+          applied.state.usedCardActions = [...(applied.state.usedCardActions ?? []), card.id];
+        }
       }
       break;
     }
@@ -1306,6 +1315,22 @@ export function getCardActionStatus(state, card) {
   if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
     return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
   }
+
+  // A card offering "remove N resources for X, or add one" is usable whenever
+  // any branch is, so it must not be judged by the collapsed first branch —
+  // that made every such card unusable until it already held the resources it
+  // could only gain by using it.
+  const branches = card.effectSpec?.action?.or?.behaviors;
+  if (Array.isArray(branches) && branches.length > 0) {
+    const held = getCurrentPlayer(state)?.cardResources?.[card.id] ?? 0;
+    const usable = branches.some(behavior => {
+      const need = behavior.spend?.resourcesHere;
+      return !need || held >= need;
+    });
+    return usable
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "このカードの資源が不足しています。" };
+  }
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
@@ -1327,11 +1352,43 @@ export function getCardActionStatus(state, card) {
   return { playable: true, reason: "" };
 }
 
-export function applyCardAction(state, card, logs) {
+export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
-  const action = getCardEffect(card).action;
+
+  // "Remove N resources for X, or add one" is a choice the player makes every
+  // turn. Normalising it collapsed the branch to the first entry, so the card
+  // always spent resources and could never accumulate them.
+  const rawOr = card.effectSpec?.action?.or;
+  const branches = Array.isArray(rawOr?.behaviors) ? rawOr.behaviors : null;
+  let action = getCardEffect(card).action;
+  if (branches) {
+    const affordable = branches
+      .map((behavior, index) => ({ behavior, index }))
+      .filter(({ behavior }) => {
+        const need = behavior.spend?.resourcesHere;
+        return !need || (state.cardResources?.[card.id] ?? 0) >= need;
+      });
+    if (affordable.length === 0) return { state, logs, playable: false };
+    const chosen =
+      branchIndex !== undefined
+        ? affordable.find(entry => entry.index === Number(branchIndex))
+        : affordable.length === 1
+          ? affordable[0]
+          : null;
+    if (!chosen) {
+      const choice = buildBranchChoice(nextState, branches, {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        consumedAction: false,
+        paid: false
+      });
+      nextState.pendingChoice = choice;
+      return { state: nextState, logs, playable: true, awaitingChoice: true };
+    }
+    action = normalizeBehavior(chosen.behavior, {}, []);
+  }
   // Mark the card spent for this generation before anything else can fail; the
   // rulebook's player marker stays until the production phase clears it.
   nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
@@ -1366,7 +1423,10 @@ export function applyCardAction(state, card, logs) {
     nextState.discardPile = discard;
   }
 
-  const effect = { ...action };
+  // "このカードに資源を1つ置く" resolves against whichever card the action came
+  // from, so the id has to travel with the effect; without it applyEffect
+  // silently drops the resource and the card never scores.
+  const effect = { cardId: card.id, ...action };
   delete effect.energyCost;
   delete effect.mcCost;
   delete effect.steelCost;

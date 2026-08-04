@@ -380,3 +380,78 @@ test("tiles at a capped global parameter award no TR", async () => {
     }
   }
 });
+
+test("card actions place their resource on the card that raised them", async () => {
+  const { applyCorporation, completeSetupPurchase, applyCardAction, computeScore, cloneGameState, ALL_CARDS } =
+    await import("../app/game-logic.js");
+  const birds = ALL_CARDS.find(card => card.id === "card-base-birds");
+
+  let state = getInitialState({ playerCount: 1 });
+  state = applyCorporation(state, state.players[0].corporationOptions[0]);
+  state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+  state.oxygen = 14;
+  state.players = state.players.map(player => ({
+    ...player,
+    playedProjects: [birds.id],
+    mc: 50
+  }));
+
+  const before = computeScore(state, "player");
+  for (let i = 0; i < 3; i++) {
+    state = applyCardAction(state, birds, state.logs).state;
+    state = cloneGameState(state);
+    state.usedCardActions = [];
+  }
+
+  assert.equal(
+    state.players[0].cardResources[birds.id],
+    3,
+    "three actions must leave three animals on the card"
+  );
+  // Birds score one VP per animal; without the card id the resource vanished
+  // and the card scored nothing no matter how often it was used.
+  assert.equal(computeScore(state, "player") - before, 3);
+});
+
+test("a card action offering a choice asks instead of always spending", async () => {
+  const { applyCorporation, completeSetupPurchase, applyCardAction, getCardActionStatus, resolvePendingChoice, cloneGameState, ALL_CARDS } =
+    await import("../app/game-logic.js");
+  const bacteria = ALL_CARDS.find(card => card.id === "card-base-ghg-producing-bacteria");
+
+  function seed(resources) {
+    let state = getInitialState({ playerCount: 1 });
+    state = applyCorporation(state, state.players[0].corporationOptions[0]);
+    state = completeSetupPurchase(state);
+    state = cloneGameState(state);
+    state.phase = "action";
+    state.oxygen = 8;
+    state.players = state.players.map(player => ({
+      ...player,
+      playedProjects: [bacteria.id],
+      cardResources: { [bacteria.id]: resources },
+      mc: 50
+    }));
+    return state;
+  }
+
+  // With nothing on the card only "add one" is possible, so it must run without
+  // asking — and the card must not be judged unusable by the spending branch.
+  assert.equal(getCardActionStatus(seed(0), bacteria).playable, true);
+  const empty = applyCardAction(seed(0), bacteria, []);
+  assert.equal(empty.state.players[0].cardResources[bacteria.id], 1);
+
+  // Once both branches are affordable the player decides.
+  const stocked = applyCardAction(seed(3), bacteria, []);
+  assert.equal(stocked.awaitingChoice, true);
+  assert.equal(stocked.state.pendingChoice.kind, "effect-branch");
+
+  const spent = resolvePendingChoice(stocked.state, "0", stocked.state.logs, "player").state;
+  assert.equal(spent.players[0].cardResources[bacteria.id], 1, "two microbes are removed");
+  assert.equal(spent.temperature, -28, "and the temperature rises one step");
+
+  const added = resolvePendingChoice(stocked.state, "1", stocked.state.logs, "player").state;
+  assert.equal(added.players[0].cardResources[bacteria.id], 4);
+  assert.equal(added.temperature, -30);
+});
