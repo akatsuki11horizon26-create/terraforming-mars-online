@@ -29,6 +29,7 @@ export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMiles
 import {
   buildBranchChoice,
   buildProductionAttackChoice,
+  buildColonyChoice,
   buildResourceChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
@@ -70,6 +71,8 @@ import {
   buildColony,
   canBuildColony,
   canTrade,
+  increaseTrack,
+  addFleet,
   cloneColonies,
   countColonies,
   createColoniesState,
@@ -610,16 +613,43 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.productionDecrease = { resource: SOURCE_RESOURCE_MAP[raw.decreaseAnyProduction.type] ?? raw.decreaseAnyProduction.type, count: raw.decreaseAnyProduction.count };
   }
   if (raw.standardResource) unsupported.push("standard-resource-choice");
-  if (raw.addResourcesToAnyCard) unsupported.push("any-card-resource-choice");
+  // Handled by queuePendingChoices, which asks which card receives them and
+  // places them directly when only one card can. Not a gap.
+  if (raw.addResourcesToAnyCard) effect.addResourcesToAnyCard = raw.addResourcesToAnyCard;
   // Recorded separately so each is only reported when its expansion is off.
-  if (raw.colonies) unsupported.push("colonies-state-choice");
-  if (raw.turmoil) unsupported.push("turmoil-state-choice");
+  if (raw.colonies) {
+    // These need no decision from the player, so they apply directly instead of
+    // being parked as unsupported: an extra trade fleet, a permanent bonus to
+    // the trade track, and a trade discount handled where trading is paid for.
+    if (typeof raw.colonies.addTradeFleet === "number") {
+      effect.addTradeFleet = (effect.addTradeFleet ?? 0) + raw.colonies.addTradeFleet;
+    }
+    if (typeof raw.colonies.tradeOffset === "number") {
+      effect.tradeOffset = (effect.tradeOffset ?? 0) + raw.colonies.tradeOffset;
+    }
+    if (raw.colonies.buildColony) effect.buildColony = raw.colonies.buildColony;
+    const handled =
+      raw.colonies.addTradeFleet ||
+      raw.colonies.tradeOffset ||
+      raw.colonies.tradeDiscount ||
+      raw.colonies.buildColony;
+    if (!handled) unsupported.push("colonies-state-choice");
+  }
+  if (raw.turmoil) {
+    // A permanent influence bonus needs no decision, so it applies directly
+    // rather than being parked as an unsupported choice.
+    if (typeof raw.turmoil.influenceBonus === "number") {
+      effect.influenceBonus = (effect.influenceBonus ?? 0) + raw.turmoil.influenceBonus;
+    }
+    if (raw.turmoil.sendDelegates) effect.sendDelegates = raw.turmoil.sendDelegates;
+    if (!raw.turmoil.influenceBonus && !raw.turmoil.sendDelegates) unsupported.push("turmoil-state-choice");
+  }
   if (raw.or) {
     if (raw.or.autoSelect && Array.isArray(raw.or.behaviors) && raw.or.behaviors[0]) {
       normalizeBehavior(raw.or.behaviors[0], effect, unsupported);
-    } else {
-      unsupported.push("choice");
     }
+    // A branch without autoSelect becomes a pending choice in
+    // queuePendingChoices / applyCardAction, so it is not a gap either.
   }
   return effect;
 }
@@ -769,6 +799,31 @@ function applyEffect(state, effect, logs, options = {}) {
   }
 
   applyProduction(nextState, effect.production);
+  if (effect.addTradeFleet && nextState.colonies) {
+    nextState.colonies = addFleet(nextState.colonies, nextState.currentPlayerId, effect.addTradeFleet);
+  }
+
+  // Turmoil: a permanent influence bonus, and delegates sent straight to a
+  // party. Neither asks the player anything, so both settle here.
+  if (effect.influenceBonus && nextState.turmoil) {
+    const owner = nextState.currentPlayerId;
+    const bonuses = { ...(nextState.turmoil.playersInfluenceBonus ?? {}) };
+    bonuses[owner] = (bonuses[owner] ?? 0) + effect.influenceBonus;
+    nextState.turmoil = { ...nextState.turmoil, playersInfluenceBonus: bonuses };
+  }
+  if (effect.sendDelegates && nextState.turmoil) {
+    const spec = effect.sendDelegates;
+    const count = typeof spec.count === "number"
+      ? spec.count
+      : countColonies(nextState.colonies, nextState.currentPlayerId);
+    const party = nextState.turmoil.dominantParty;
+    for (let i = 0; i < count; i++) {
+      const sent = sendDelegate(nextState.turmoil, nextState.currentPlayerId, party, {});
+      if (!sent.sent) break;
+      nextState.turmoil = sent.turmoil;
+    }
+  }
+
   if (effect.productionDecrease?.resource && !options.skipProductionAttack) {
     // Choosing the victim belongs to queuePendingChoices; hitting the acting
     // player here would turn every attack card into a self-inflicted one.
@@ -1034,6 +1089,17 @@ function queuePendingChoices(state, card, context) {
     if (built && built.options.length > 1) return built;
   }
 
+  // A card that places a colony lets the player pick the moon; the card has
+  // already paid, so the usual 17 M€ is not charged again.
+  if (raw.colonies?.buildColony && !done.includes("colony-placement")) {
+    const spec = raw.colonies.buildColony;
+    const legal = Object.values(state.colonies?.tiles ?? {})
+      .filter(tile => canBuildColony(state.colonies, tile.id, state.currentPlayerId).ok || spec.allowDuplicates)
+      .map(tile => ({ id: tile.id, name: getColonyTile(tile.id)?.name }));
+    const built = buildColonyChoice(state, spec, context, legal);
+    if (built) return built;
+  }
+
   if (raw.standardResource && !done.includes("standard-resource")) {
     return buildStandardResourceChoice(state, raw.standardResource, context);
   }
@@ -1154,6 +1220,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         "system",
         `【${discardedCard?.name ?? discardedId}】を捨て、【${drawnCard?.name ?? drawn[0] ?? "―"}】を引きました。`
       );
+      break;
+    }
+    case "colony-placement": {
+      const allowDuplicates = Boolean(choice.continuation.payload?.allowDuplicates);
+      const placed = buildColony(next.colonies, option.targetTileId, actorId, { allowDuplicates });
+      if (placed.built) {
+        next.colonies = placed.colonies;
+        const granted = grantColonyBenefit(next, placed.bonus, actorId, nextLogs);
+        nextLogs = addLog(granted.logs, "system", `${option.label} に入植しました。`);
+      }
       break;
     }
     case "production-attack": {
@@ -1809,6 +1885,15 @@ export const COLONY_BUILD_COST = 17;
 export const TRADE_COST = { mc: 9, energy: 3, titanium: 3 };
 const TRADE_LABELS = { mc: "MC", energy: "電力", titanium: "チタン" };
 
+function tradeOffsetFor(state, playerId) {
+  const player = getPlayer(state, playerId);
+  return (player?.playedProjects ?? []).reduce((sum, id) => {
+    const card = ALL_CARDS.find(item => item.id === id);
+    const value = card?.effectSpec?.behavior?.colonies?.tradeOffset;
+    return sum + (typeof value === "number" ? value : 0);
+  }, 0);
+}
+
 function tradeDiscountFor(state, playerId) {
   const player = getPlayer(state, playerId);
   return (player?.playedProjects ?? []).reduce((sum, id) => {
@@ -1873,7 +1958,10 @@ export function tradeWith(state, tileId, logs, playerId) {
   const priority = ["energy", "titanium", "mc"];
   const payment = payable.slice().sort((a, b) => priority.indexOf(a.resource) - priority.indexOf(b.resource))[0];
 
-  const result = tradeWithColony(state.colonies, tileId, actorId);
+  // Cards such as Trade Envoys read the track this many steps further along.
+  const offset = tradeOffsetFor(state, actorId);
+  const boosted = offset > 0 ? increaseTrack(state.colonies, tileId, offset) : state.colonies;
+  const result = tradeWithColony(boosted, tileId, actorId);
   if (!result.traded) {
     return { state, logs: addLog(logs, "system", result.reason), traded: false };
   }

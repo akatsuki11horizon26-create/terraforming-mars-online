@@ -186,3 +186,4 @@ export function cloneColonies(colonies) {
     usedFleets: { ...colonies.usedFleets }
   };
 }
+

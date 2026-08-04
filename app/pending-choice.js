@@ -259,3 +259,31 @@ const PRODUCTION_LABELS = {
   energy: "電力",
   heat: "熱"
 };
+
+// "Place a colony" lets the player choose the moon. Building is free here: the
+// card already paid for it, so this bypasses the usual 17 M€.
+export function buildColonyChoice(state, spec, context, tiles) {
+  const options = (tiles ?? []).map(tile => ({
+    id: tile.id,
+    targetTileId: tile.id,
+    label: tile.name ?? tile.id
+  }));
+  if (options.length === 0) return null;
+
+  return {
+    id: makeChoiceId("colony-placement", context.sourceId, state.currentPlayerId),
+    kind: "colony-placement",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: "入植する植民地を選んでください。",
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "colony-placement",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      payload: { allowDuplicates: Boolean(spec?.allowDuplicates) }
+    }
+  };
+}

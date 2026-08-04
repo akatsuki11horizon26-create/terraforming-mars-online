@@ -248,3 +248,54 @@ test("trading and building colonies cost what the rulebook says", async () => {
   const poorRun = seed({ mc: 10 });
   assert.equal(buildColonyOn(poorRun.state, poorRun.tile, [], "player").built, false);
 });
+
+test("every card's effect is implemented", async () => {
+  const { ALL_CARDS, getCardEffect } = await import("../app/game-logic.js");
+
+  // A card whose spec lands in `unsupported` is silently inert: it can be
+  // played, costs its money, and does nothing. There must be none.
+  const gaps = ALL_CARDS.filter(card => {
+    const effect = getCardEffect(card);
+    return [...(effect.unsupported ?? []), ...(effect.action?.unsupported ?? [])].length > 0;
+  });
+
+  assert.deepEqual(gaps.map(card => card.id), [], "cards with unimplemented effects");
+});
+
+test("Turmoil and Colonies card effects reach the game state", async () => {
+  const {
+    getInitialState, applyCorporation, completeSetupPurchase, cloneGameState,
+    getPlayer, applyCardEffect, availableFleets, ALL_CARDS
+  } = await import("../app/game-logic.js");
+
+  function table(options) {
+    let state = getInitialState({ playerCount: 2, ...options });
+    for (const player of state.players) {
+      state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+    }
+    let guard = 0;
+    while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+    state = cloneGameState(state);
+    state.phase = "action";
+    state.players = state.players.map(player => ({ ...player, mc: 60 }));
+    return state;
+  }
+
+  const analysts = ALL_CARDS.find(card => card.id === "card-turmoil-event-analysts");
+  const withBonus = applyCardEffect(table({ turmoil: true }), analysts, []).state;
+  assert.equal(withBonus.turmoil.playersInfluenceBonus.player, 1, "influence bonus is recorded");
+
+  const envoys = ALL_CARDS.find(card => card.id === "card-prelude2-envoys-from-venus");
+  const sent = applyCardEffect(table({ turmoil: true }), envoys, []).state;
+  const ruling = sent.turmoil.parties[sent.turmoil.dominantParty];
+  assert.equal(ruling.delegates.filter(id => id === "player").length, 2, "two delegates are sent");
+
+  const port = ALL_CARDS.find(card => card.id === "card-colonies-space-port");
+  const before = table({ colonies: true });
+  const after = applyCardEffect(before, port, []).state;
+  assert.equal(
+    availableFleets(after.colonies, "player"),
+    availableFleets(before.colonies, "player") + 1,
+    "the card grants an extra trade fleet"
+  );
+});
