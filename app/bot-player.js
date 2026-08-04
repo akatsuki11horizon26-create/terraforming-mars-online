@@ -15,22 +15,31 @@ export const BOT_DIFFICULTIES = [
     id: "easy",
     name: "初級ロボット",
     description: "手なりで動く。安い手を優先し、称号や褒賞はほとんど狙わない。",
-    noise: 14,
-    greed: 0.5
+    // Weakness comes from picking noisily among good moves, not from being blind
+    // to terraforming: discounting globalDelta made easy games run 5-10 extra
+    // generations because nobody pushed the parameters to their caps.
+    noise: 9,
+    greed: 0.9,
+    minMoveValue: 0,
+    researchReserve: 6
   },
   {
     id: "normal",
     name: "中級ロボット",
     description: "生産量とTRを地道に伸ばし、条件が揃えば称号も取りにくる。",
     noise: 5,
-    greed: 1
+    greed: 1.1,
+    minMoveValue: 0.5,
+    researchReserve: 9
   },
   {
     id: "hard",
     name: "上級ロボット",
     description: "終盤の得点効率まで見て動く。称号・褒賞の取り合いに積極的。",
     noise: 0,
-    greed: 1.4
+    greed: 1.3,
+    minMoveValue: 1,
+    researchReserve: 12
   }
 ];
 
@@ -202,7 +211,7 @@ export function chooseBotMove(state, botId, simulate, difficultyId, rng) {
 
   // A move has to beat doing nothing. Hoarding for a better generation is a real
   // option, so weak plays are declined rather than taken for their own sake.
-  const threshold = difficulty.greed >= 1.4 ? 1.5 : 0;
+  const threshold = difficulty.minMoveValue ?? 0;
   if (!best || bestScore < threshold) return null;
   return best;
 }
@@ -342,7 +351,7 @@ export function runBotResearch(engine, state, botId, difficultyId) {
   const bot = getPlayer(state, botId);
   if (!bot || (bot.researchCards?.length ?? 0) === 0) return state;
 
-  const reserve = Math.round(12 * difficulty.greed);
+  const reserve = difficulty.researchReserve ?? 12;
   const affordable = Math.max(0, Math.floor(((bot.mc ?? 0) - reserve) / 3));
   const wanted = bot.researchCards.filter(cardId => {
     const card = ALL_CARDS.find(item => item.id === cardId);
