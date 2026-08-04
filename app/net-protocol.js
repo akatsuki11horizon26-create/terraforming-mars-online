@@ -4,6 +4,8 @@
 // filtered for the player they are, never the full state: a hand you can read
 // off the wire is a hand your opponent can read too.
 
+import { withLegacyPlayerAccessors } from "./player-state.js";
+
 export const PROTOCOL_VERSION = 1;
 
 // Client -> server
@@ -81,7 +83,10 @@ function publicPlayer(player) {
 // everyone else is reduced to counts.
 export function viewForPlayer(state, viewerId) {
   if (!state) return null;
-  return {
+  // A plain spread drops the non-enumerable accessors that make state.hand and
+  // friends read the seated player, so the view is rebuilt with them and
+  // pointed at the viewer's own seat.
+  return withLegacyPlayerAccessors({
     ...state,
     players: state.players.map(player =>
       player.id === viewerId
@@ -108,8 +113,12 @@ export function viewForPlayer(state, viewerId) {
     deckCount: state.deck?.length ?? 0,
     discardPile: undefined,
     discardCount: state.discardPile?.length ?? 0,
+    // The accessors read whoever currentPlayerId names. In a view that has to be
+    // the viewer, or a client reads the seated player's hand instead of its own.
+    currentPlayerId: viewerId ?? state.currentPlayerId,
+    turnHolderId: state.currentPlayerId,
     viewerId
-  };
+  });
 }
 
 export function roomSummary(room) {

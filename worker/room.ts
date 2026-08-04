@@ -332,10 +332,10 @@ export class GameRoom {
 
     switch (action) {
       case "chooseCorporation":
-        return applyCorporation(asState, String(payload.corporationId)) as never;
+        return applyCorporation(asState, String(payload.corporationId), seat) as never;
 
       case "choosePreludes":
-        return applyPreludes(asState, payload.preludeIds as string[]) as never;
+        return applyPreludes(asState, payload.preludeIds as string[], seat) as never;
 
       case "buyResearch": {
         const ids = (payload.cardIds as string[]) ?? [];

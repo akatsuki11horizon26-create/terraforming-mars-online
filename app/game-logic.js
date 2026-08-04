@@ -366,16 +366,17 @@ export function formatLogTime() {
   return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`;
 }
 
-export function addLog(logsList, sender, text) {
-  return [
-    {
-      id: `${Date.now()}-${Math.random()}`,
-      timestamp: formatLogTime(),
-      sender,
-      text
-    },
-    ...logsList
-  ];
+// playerName is optional: with several players at the table the log has to say
+// who acted, and labelling every line "あなた" told the reader nothing.
+export function addLog(logsList, sender, text, playerName) {
+  const entry = {
+    id: `${Date.now()}-${Math.random()}`,
+    timestamp: formatLogTime(),
+    sender,
+    text
+  };
+  if (playerName) entry.playerName = playerName;
+  return [entry, ...logsList];
 }
 
 export function shuffle(array) {
@@ -886,10 +887,18 @@ function applyEffect(state, effect, logs, options = {}) {
   return { state: nextState, logs: nextLogs };
 }
 
-export function applyCorporation(state, corporationId) {
+// playerId matters online: the seat that sent the choice is not necessarily the
+// one holding currentPlayerId, and without it one client could pick everyone
+// else's corporation.
+export function applyCorporation(state, corporationId, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const actor = getPlayer(state, actorId);
   const corporation = CORPORATIONS.find(item => item.id === corporationId);
-  if (!corporation || !state.corporationOptions.includes(corporationId)) return state;
-  const nextState = cloneGameState(state);
+  if (!corporation || !actor || !(actor.corporationOptions ?? []).includes(corporationId)) return state;
+
+  const seated = cloneGameState(state);
+  seated.currentPlayerId = actorId;
+  const nextState = seated;
   nextState.corporationId = corporationId;
   nextState.corporationOptions = [];
   nextState.setupStep = "projects";
@@ -900,7 +909,8 @@ export function applyCorporation(state, corporationId) {
   ["mc", "steel", "titanium", "plants", "energy", "heat"].forEach(resource => {
     nextState[`${resource}Prod`] = corporation.starting.production?.[resource] ?? 0;
   });
-  nextState.logs = addLog(nextState.logs, "player", `企業【${corporation.name}】を選択しました。`);
+  nextState.logs = addLog(nextState.logs, "player", `${actor.name} が企業【${corporation.name}】を選択しました。`);
+  nextState.currentPlayerId = state.currentPlayerId;
   return advanceSetupTurn(nextState);
 }
 
@@ -964,14 +974,18 @@ export function getPreludeCost(prelude) {
   return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
-export function applyPreludes(state, preludeIds) {
-  if (state.setupStep !== "prelude" || preludeIds.length !== 2) return state;
-  if (preludeIds.some(id => !state.preludeOptions.includes(id))) return state;
+export function applyPreludes(state, preludeIds, playerId) {
+  const actorId = playerId ?? state.currentPlayerId;
+  const actor = getPlayer(state, actorId);
+  if (!actor || actor.setupStep !== "prelude" || preludeIds.length !== 2) return state;
+  if (preludeIds.some(id => !(actor.preludeOptions ?? []).includes(id))) return state;
   const selected = preludeIds.map(id => PRELUDES.find(prelude => prelude.id === id)).filter(Boolean);
   const totalCost = selected.reduce((sum, prelude) => sum + getPreludeCost(prelude), 0);
   if (state.mc < totalCost) return state;
 
   let nextState = cloneGameState(state);
+  const seatBefore = nextState.currentPlayerId;
+  nextState.currentPlayerId = actorId;
   nextState.selectedPreludeIds = preludeIds;
   nextState.preludeOptions = [];
   // advanceSetupTurn decides what comes next; marking the player complete here
@@ -995,6 +1009,7 @@ export function applyPreludes(state, preludeIds) {
   nextState = initialAction.state;
   logs = initialAction.logs;
   nextState.logs = logs;
+  nextState.currentPlayerId = seatBefore;
   // Hand the seat on; the game only starts once every player has set up.
   return advanceSetupTurn(nextState);
 }

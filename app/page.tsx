@@ -86,6 +86,15 @@ const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
 // The human always holds the first seat; robot opponents fill the rest.
 const HUMAN_ID = "player";
 
+// Log lines carry the acting player's name in their text once more than one
+// player is at the table, so labelling every one of them "あなた" was wrong.
+function logLabel(log: { sender: string; playerName?: string }) {
+  if (log.playerName) return log.playerName;
+  if (log.sender === "cpu") return "CPU";
+  if (log.sender === "player") return "プレイヤー";
+  return "システム";
+}
+
 // bot-player.js resolves moves through the engine handed to it, which keeps the
 // bot free of any dependency on this component.
 const engineForBot = {
@@ -488,7 +497,12 @@ export default function Home() {
   // engine's currentPlayerId still decides whose turn it is.
   const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
   const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
-  const turnHolderId = activeState.currentPlayerId ?? currentPlayerId;
+  // In an online view currentPlayerId is rewritten to the viewer so the legacy
+  // accessors read their own hand; turnHolderId carries who actually acts.
+  const turnHolderId =
+    (activeState as { turnHolderId?: string }).turnHolderId ??
+    activeState.currentPlayerId ??
+    currentPlayerId;
 
   // Everything used to change instantly and silently, so a turn gave no sense of
   // what it had done. Diff the numbers that moved and float them on screen.
@@ -1254,6 +1268,9 @@ export default function Home() {
   const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
     // The bots drive themselves; acting on their turn would spend their action.
     if (!isMyTurn) return;
+    // The drawer has served its purpose once a project is chosen, and it covers
+    // the board the tile placement needs.
+    setOpenDrawer(null);
     if (placementMode) return;
     const nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
@@ -2625,7 +2642,7 @@ export default function Home() {
 
             return (
               <div key={log.id} className={senderClass}>
-                <span>[{log.timestamp}]</span> <span style={{ fontWeight: "bold" }}>{log.sender === "player" ? "あなた" : log.sender === "cpu" ? "CPU" : "システム"}:</span> {log.text}
+                <span>[{log.timestamp}]</span> <span style={{ fontWeight: "bold" }}>{logLabel(log)}:</span> {log.text}
               </div>
             );
           })}

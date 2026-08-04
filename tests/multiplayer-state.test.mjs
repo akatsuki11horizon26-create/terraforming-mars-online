@@ -509,3 +509,40 @@ test("MC production itself still floors at -5", () => {
   applyProduction(state, { mc: -20 });
   assert.equal(state.players[0].mcProd, -5, "only MC may go negative, and only to -5");
 });
+
+test("each seat sets up its own corporation, not the current player's", async () => {
+  const { getInitialState, applyCorporation, getPlayer } = await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 3 });
+  // Online, the client that sends the choice is not necessarily the seated one.
+  // Without a playerId the engine applied it to whoever held currentPlayerId,
+  // so one client could pick everyone else's corporation.
+  const third = getPlayer(state, "player3");
+  const after = applyCorporation(state, third.corporationOptions[0], "player3");
+
+  assert.equal(getPlayer(after, "player3").corporationId, third.corporationOptions[0]);
+  assert.equal(getPlayer(after, "player").corporationId, null, "another seat is untouched");
+  assert.equal(getPlayer(after, "player2").corporationId, null);
+});
+
+test("a player's view reads their own hand, not the seated player's", async () => {
+  const { getInitialState, applyCorporation, getPlayer } = await import("../app/game-logic.js");
+  const { viewForPlayer } = await import("../app/net-protocol.js");
+
+  let state = getInitialState({ playerCount: 2 });
+  const first = getPlayer(state, "player");
+  state = applyCorporation(state, first.corporationOptions[0], "player");
+
+  for (const viewer of ["player", "player2"]) {
+    const view = viewForPlayer(state, viewer);
+    // The legacy accessors follow currentPlayerId, so a plain spread left every
+    // client reading whoever happened to hold the seat.
+    assert.ok(Array.isArray(view.researchCards), `${viewer} must see its own research cards`);
+    assert.equal(view.viewerId, viewer);
+    assert.equal(view.turnHolderId, state.currentPlayerId, "who acts is reported separately");
+
+    const opponent = view.players.find(player => player.id !== viewer);
+    assert.equal(opponent.researchCards, undefined, "an opponent's cards stay hidden");
+    assert.equal(typeof opponent.researchCardsCount, "number", "but their count is public");
+  }
+});
