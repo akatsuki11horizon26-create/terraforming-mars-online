@@ -2,6 +2,7 @@
 
 import React from "react";
 import { CardTag } from "./card-tags";
+import { CardArt } from "./card-art";
 
 // A project card laid out like the printed one: cost in a disc at the top left,
 // tags at the top right, the card type banded by colour (green automated, blue
@@ -18,6 +19,20 @@ export interface ProjectCardData {
   victoryPoints?: number;
   victoryPointSpec?: Record<string, unknown>;
 }
+
+// Card height as a multiple of its width. The hand-fitting maths needs the same
+// number the stylesheet uses, so it lives here rather than being written twice.
+export const CARD_ASPECT = 1.58;
+
+// The reference width the card's internal type sizes and spacing are drawn at.
+// Everything inside scales by --card-w / this, so a narrow card is the wide one
+// shrunk uniformly rather than the same chrome crushing the rules text.
+export const CARD_REFERENCE_WIDTH = 148;
+
+// Uniform scaling keeps the proportions at any size, but the 9.5px effect text
+// stops being readable below roughly 7px. That floor is what caps how far a
+// card may shrink; a hand that still does not fit scrolls instead.
+export const MIN_CARD_WIDTH = 110;
 
 const TYPE_LABEL: Record<string, string> = {
   automated: "自動",
@@ -88,6 +103,8 @@ export function ProjectCard({
           ))}
         </span>
       </span>
+
+      <CardArt cardId={card.id} tags={card.tags} />
 
       <span className="tm-card-name">{card.name}</span>
 

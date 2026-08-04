@@ -623,12 +623,20 @@
 .tm-card {
   --card-w: 148px;
   width: var(--card-w);
-  height: calc(var(--card-w) * 1.4);
+  /* Taller than the printed 1.4 ratio: the art band shows a full 16:9 drawing,
+     and the effect text still needs its own room underneath. CARD_ASPECT in
+     project-card.tsx must match, or the hand-fitting maths clips the last row. */
+  --card-aspect: 1.58;
+  height: calc(var(--card-w) * var(--card-aspect));
+  /* Everything inside the card is expressed as a multiple of this, so a narrow
+     card is the wide one scaled down rather than the same chrome squeezing the
+     rules text out of an unchanged box. 148px is the reference design. */
+  --s: calc(var(--card-w) / 148);
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 7px 8px 6px;
+  gap: calc(3 * var(--s));
+  padding: calc(7 * var(--s)) calc(8 * var(--s)) calc(6 * var(--s));
   background: linear-gradient(160deg, var(--surface-2) 0%, var(--surface-1) 100%);
   border: 1px solid var(--line-hard);
   border-left: 4px solid var(--tm-type-color, var(--line-hard));
@@ -670,21 +678,21 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 4px;
+  gap: calc(4 * var(--s));
 }
 
 /* The cost disc, as printed in the top-left corner. */
 .tm-card-cost {
   flex: 0 0 auto;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 4px;
+  min-width: calc(24 * var(--s));
+  height: calc(24 * var(--s));
+  padding: 0 calc(4 * var(--s));
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--accent-amber);
   color: var(--surface-base);
-  font-size: 13px;
+  font-size: calc(13 * var(--s));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   border-radius: 50%;
@@ -696,19 +704,40 @@
 
 .tm-card-tags {
   display: flex;
-  gap: 2px;
+  gap: calc(2 * var(--s));
   flex-wrap: wrap;
   justify-content: flex-end;
 }
 
 .card-tag-compact {
-  padding: 1px 3px;
-  font-size: 11px;
+  padding: calc(1 * var(--s)) calc(3 * var(--s));
+  font-size: calc(11 * var(--s));
   line-height: 1.2;
 }
 
+/* A fixed band, never flex: the effect text below must keep its room, so art
+   is what gets cropped on a short card rather than the rules text. The height
+   is derived from the card width so the band always matches the artwork's 16:9
+   and nothing is sliced off the top or bottom. */
+.tm-card-art {
+  display: block;
+  flex: 0 0 auto;
+  height: calc((var(--card-w) - 16 * var(--s)) * 9 / 16);
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--line-hard) 70%, transparent);
+  background-color: var(--surface-base);
+}
+
+/* preserveAspectRatio is stamped onto each SVG by scripts/build-card-art.mjs;
+   it is an attribute, not a CSS property, so it cannot be set from here. */
+.tm-card-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .tm-card-name {
-  font-size: 11px;
+  font-size: calc(11 * var(--s));
   font-weight: 700;
   line-height: 1.25;
   letter-spacing: 0.01em;
@@ -720,17 +749,17 @@
 }
 
 .tm-card-req {
-  font-size: 9px;
+  font-size: calc(9 * var(--s));
   color: var(--accent-rose);
   border-left: 2px solid var(--accent-rose);
-  padding-left: 4px;
+  padding-left: calc(4 * var(--s));
   line-height: 1.3;
 }
 
 .tm-card-body {
   flex: 1;
   min-height: 0;
-  font-size: 9.5px;
+  font-size: calc(9.5 * var(--s));
   line-height: 1.35;
   color: var(--text-mid);
   overflow: hidden;
@@ -740,12 +769,12 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 4px;
+  gap: calc(4 * var(--s));
   margin-top: auto;
 }
 
 .tm-card-type {
-  font-size: 9px;
+  font-size: calc(9 * var(--s));
   letter-spacing: 0.08em;
   color: var(--tm-type-color, var(--text-low));
   text-transform: uppercase;
@@ -753,15 +782,15 @@
 
 /* Victory points sit in the bottom-right corner on the printed card. */
 .tm-card-vp {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 3px;
+  min-width: calc(20 * var(--s));
+  height: calc(20 * var(--s));
+  padding: 0 calc(3 * var(--s));
   display: flex;
   align-items: center;
   justify-content: center;
   background-color: var(--accent-violet);
   color: var(--surface-base);
-  font-size: 11px;
+  font-size: calc(11 * var(--s));
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   clip-path: polygon(50% 0%, 100% 35%, 82% 100%, 18% 100%, 0% 35%);
@@ -777,6 +806,10 @@
   flex-wrap: wrap;
   align-content: flex-start;
   gap: 6px;
-  overflow: hidden;
+  /* Scrolls rather than hides: on a short screen the smallest allowed card
+     still may not fit, and a clipped bottom row is a hand the player cannot
+     reach at all. */
+  overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 2px;
 }

@@ -66,7 +66,7 @@ import {
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { CardTags } from "./card-tags";
-import { ProjectCard } from "./project-card";
+import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup } from "./title-screen";
@@ -1520,12 +1520,14 @@ export default function Home() {
     const { width, height } = handBox;
     if (!width || !height || handCards.length === 0) return 148;
     const GAP = 6;
-    for (let w = 148; w >= 78; w -= 2) {
+    for (let w = 148; w >= MIN_CARD_WIDTH; w -= 2) {
       const perRow = Math.max(1, Math.floor((width + GAP) / (w + GAP)));
       const rows = Math.ceil(handCards.length / perRow);
-      if (rows * (w * 1.4 + GAP) - GAP <= height) return w;
+      if (rows * (w * CARD_ASPECT + GAP) - GAP <= height) return w;
     }
-    return 78;
+    // Shrinking further would make the effect text too small to read, so the
+    // card stops here and .hand-cards scrolls instead.
+    return MIN_CARD_WIDTH;
   }, [handBox, handCards.length]);
 
   const activeCards = useMemo(() => gameState.playedProjects

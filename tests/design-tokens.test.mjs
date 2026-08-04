@@ -116,3 +116,53 @@ test("No hardcoded rust or ember values survive", () => {
   assert.equal(css.includes("rgba(168, 50, 32"), false);
   assert.equal(css.includes("rgba(239, 90, 50"), false);
 });
+
+test("card internals scale with the card, and the aspect ratios agree", async () => {
+  const cardCss = await readFile(new URL("../app/expansion-ui.css", import.meta.url), "utf8");
+  const tsx = await readFile(new URL("../app/project-card.tsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  const cssRatio = cardCss.match(/\.tm-card\s*\{[\s\S]*?--card-aspect:\s*([0-9.]+)/);
+  const jsRatio = tsx.match(/export const CARD_ASPECT = ([0-9.]+)/);
+  assert.ok(cssRatio, "--card-aspect must be declared in expansion-ui.css");
+  assert.ok(jsRatio, "CARD_ASPECT must be exported from project-card.tsx");
+  // page.tsx sizes the hand by CARD_ASPECT while the stylesheet lays the card
+  // out by --card-aspect; if they drift the last row is silently clipped.
+  assert.equal(cssRatio[1], jsRatio[1], "--card-aspect and CARD_ASPECT must match");
+
+  const ref = tsx.match(/export const CARD_REFERENCE_WIDTH = ([0-9.]+)/);
+  assert.ok(ref, "CARD_REFERENCE_WIDTH must be exported");
+  const scale = cardCss.match(/--s:\s*calc\(var\(--card-w\)\s*\/\s*([0-9.]+)\)/);
+  assert.ok(scale, "--s must divide --card-w by the reference width");
+  assert.equal(scale[1], ref[1], "--s divisor and CARD_REFERENCE_WIDTH must match");
+
+  // A narrow card has to be the wide one scaled down. Any bare px font-size
+  // inside the card would stay put while the box shrank, and squeeze the rules
+  // text out of the card entirely.
+  const card = cardCss.slice(cardCss.indexOf(".tm-card {"), cardCss.indexOf(".hand-cards"));
+  for (const [rule] of card.matchAll(/\.tm-card[\w-]*[^{]*\{[^}]*\}/g)) {
+    const bare = rule.match(/font-size:\s*[0-9.]+px/);
+    assert.equal(bare, null, `card font sizes must scale with --s: ${bare?.[0]}`);
+  }
+
+  assert.match(
+    page,
+    /for \(let w = 148; w >= MIN_CARD_WIDTH; w -= 2\)/,
+    "the hand must not shrink cards below the readable minimum"
+  );
+});
+
+test("a hand that cannot fit scrolls instead of hiding its bottom row", async () => {
+  const cardCss = await readFile(new URL("../app/expansion-ui.css", import.meta.url), "utf8");
+  const hand = cardCss.match(/\.hand-cards\s*\{[^}]*\}/);
+  assert.ok(hand, ".hand-cards must be styled");
+
+  // page.tsx floors the card width at 78px, so on a short screen the hand can
+  // genuinely exceed its box. Hiding that overflow makes cards unreachable.
+  assert.match(hand[0], /overflow-y:\s*auto/, "the hand must scroll vertically");
+  assert.doesNotMatch(
+    hand[0],
+    /overflow:\s*hidden/,
+    "a blanket overflow:hidden clips the last row of a hand that does not fit"
+  );
+});
