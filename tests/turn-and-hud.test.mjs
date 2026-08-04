@@ -196,7 +196,7 @@ test("The Venus track is visible from 0% when the expansion is on", () => {
 test("Raising the Venus scale pays TR and its threshold bonuses", async () => {
   const { cloneGameState, applyCardEffect } = await import("../app/game-logic.js");
   const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
-  const card = OFFICIAL_PROJECTS.find(c => c.name === "Venus Allies");
+  const card = OFFICIAL_PROJECTS.find(c => c.id === "card-prelude2-venus-allies");
 
   const plain = cloneGameState(getInitialState({ venus: true }));
   const trBefore = plain.players[0].tr;
@@ -227,7 +227,7 @@ test("A card action can only be used once per generation", async () => {
   const { cloneGameState, applyCardAction, getCardActionStatus, triggerProduction } =
     await import("../app/game-logic.js");
   const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
-  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+  const card = OFFICIAL_PROJECTS.find(c => c.id === "p-ai-central");
 
   let state = cloneGameState(getInitialState());
   state.phase = "action";
@@ -252,7 +252,7 @@ test("One player's spent action does not block another's", async () => {
   const { cloneGameState, applyCardAction, getCardActionStatus } =
     await import("../app/game-logic.js");
   const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
-  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+  const card = OFFICIAL_PROJECTS.find(c => c.id === "p-ai-central");
 
   let state = cloneGameState(getInitialState({ playerCount: 2 }));
   state.phase = "action";
@@ -270,7 +270,7 @@ test("A spent action stays spent across a save and reload", async () => {
     await import("../app/game-logic.js");
   const { loadSavedState, serializeSavedState } = await import("../app/save-migration.js");
   const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
-  const card = OFFICIAL_PROJECTS.find(c => c.name === "AI Central");
+  const card = OFFICIAL_PROJECTS.find(c => c.id === "p-ai-central");
 
   let state = cloneGameState(getInitialState());
   state.phase = "action";

@@ -62,7 +62,7 @@ test("A bot's card resolves for the bot, not the human", () => {
   state.phase = "action";
   state.currentPlayerId = "player";
 
-  const mine = engine.ALL_CARDS.find(card => card.name === "Mine");
+  const mine = engine.ALL_CARDS.find(card => card.id === "p-mine");
   state.players = state.players.map(p =>
     p.id === "player2" ? { ...p, mc: 60, hand: [mine.id] } : p
   );

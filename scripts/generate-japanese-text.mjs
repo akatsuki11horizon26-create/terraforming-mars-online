@@ -256,6 +256,14 @@ const RULES = [
 // Translations for the long tail the rules cannot reach. Card effects are mostly
 // formulaic, but a few hundred are one-off wordings where a rule per card buys
 // nothing over writing the sentence out.
+import { readFileSync } from "node:fs";
+
+// Card-by-card Japanese names. Venus reads 金星 throughout, place names stay
+// katakana.
+const CURATED_NAMES = JSON.parse(
+  readFileSync(new URL("./curated-card-names.json", import.meta.url), "utf8")
+);
+
 let CURATED_EFFECTS = {};
 try {
   const { CURATED_JAPANESE_EFFECTS } = await import(
@@ -464,7 +472,9 @@ const entries = {};
 let named = 0;
 for (const [, cards] of groups) {
   for (const card of cards) {
-    const name = translateName(card.name);
+    // A curated reading beats the rule-based transliteration; these were
+    // translated card by card rather than derived from the English.
+    const name = CURATED_NAMES[card.id] ?? translateName(card.name);
     // Curated wording wins over the rule output, which is a fallback for the
     // formulaic majority.
     const curated = SOURCE_TEXT_FIXES[card.id] ?? CURATED_EFFECTS[card.id];
@@ -479,6 +489,15 @@ for (const [, cards] of groups) {
     if (effectText && effectText !== card.effectText) record.effectText = effectText;
     if (Object.keys(record).length > 0) entries[card.id] = record;
   }
+}
+
+// The curated project list in official-content.js is not part of these catalogs,
+// so its ids never appear above. Emit their names anyway or the hand-written
+// cards stay English while every generated one is translated.
+for (const [id, name] of Object.entries(CURATED_NAMES)) {
+  if (entries[id]?.name) continue;
+  entries[id] = { ...(entries[id] ?? {}), name };
+  named += 1;
 }
 
 const body = Object.entries(entries)
