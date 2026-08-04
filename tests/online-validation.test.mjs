@@ -56,3 +56,35 @@ test("a Helion payment spends heat instead of driving MC negative", () => {
   assert.match(body, /heatAsMoney/, "the corporation's heat-as-money effect must be honoured");
   assert.match(body, /heat: \(p\.heat as number\) - heatPaid/, "and the heat actually deducted");
 });
+
+test("every action the server handles is reachable from the UI", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  const handled = new Set(
+    [...room.matchAll(/case "([a-zA-Z]+)":/g)].map(match => match[1])
+  );
+  const sent = new Set(
+    [...page.matchAll(/sendAction\("([a-zA-Z]+)"/g)].map(match => match[1])
+  );
+
+  // The UI used to send seven of the fourteen actions the server accepts, so
+  // playing a card online changed nothing on the server and rolled back on the
+  // next update. These are the ones a player must be able to reach.
+  for (const action of [
+    "playCard",
+    "cardAction",
+    "chooseCorporation",
+    "choosePreludes",
+    "buyResearch",
+    "claimMilestone",
+    "fundAward",
+    "sendDelegate",
+    "buildColony",
+    "trade",
+    "resolveChoice",
+    "pass"
+  ]) {
+    assert.ok(handled.has(action), `the server must handle ${action}`);
+    assert.ok(sent.has(action), `the UI must send ${action} online`);
+  }
+});

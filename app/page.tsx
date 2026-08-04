@@ -906,6 +906,14 @@ export default function Home() {
 
   const handlePlayCardInit = () => {
     if (!isMyTurn) return;
+    if (isOnline) {
+      if (!selectedCardId) return;
+      online.sendAction("playCard", { cardId: selectedCardId });
+      setSelectedCardId(null);
+      setSteelUsed(0);
+      setTitaniumUsed(0);
+      return;
+    }
     if (!selectedCardId) return;
     const card = ALL_CARDS.find(c => c.id === selectedCardId);
     if (!card) return;
@@ -1073,6 +1081,7 @@ export default function Home() {
 
   const handleCardAction = (card: Card) => {
     if (!isMyTurn) return;
+    if (isOnline) return void online.sendAction("cardAction", { cardId: card.id });
     if (card.type !== "active") return;
     const status = getCardActionStatus(gameState, card);
     if (!status.playable) return;
@@ -1460,6 +1469,12 @@ export default function Home() {
 
   const handleCorporationConfirm = () => {
     if (!selectedCorporationId) return;
+    // Online the server owns the state; sending the intent is the whole action.
+    if (isOnline) {
+      online.sendAction("chooseCorporation", { corporationId: selectedCorporationId });
+      setSelectedCorporationId(null);
+      return;
+    }
     const nextState = applyCorporation(gameState, selectedCorporationId);
     saveState(nextState);
     setSelectedCorporationId(null);
@@ -1473,6 +1488,11 @@ export default function Home() {
 
   const handlePreludeConfirm = () => {
     if (selectedPreludeIds.length !== 2) return;
+    if (isOnline) {
+      online.sendAction("choosePreludes", { preludeIds: selectedPreludeIds });
+      setSelectedPreludeIds([]);
+      return;
+    }
     const nextState = applyPreludes(gameState, selectedPreludeIds);
     if (nextState === gameState) return;
     saveState(nextState);
@@ -1481,6 +1501,11 @@ export default function Home() {
 
   // Setup/Research buy handler
   const handleBuyCardsConfirm = () => {
+    if (isOnline) {
+      online.sendAction("buyResearch", { cardIds: selectedResearchCardIds });
+      setSelectedResearchCardIds([]);
+      return;
+    }
     if (gameState.phase === "setup" && gameState.setupStep !== "projects") return;
     const cost = selectedResearchCardIds.length * 3;
     const corporation = CORPORATIONS.find(item => item.id === gameState.corporationId);
