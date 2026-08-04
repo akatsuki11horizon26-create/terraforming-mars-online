@@ -4,6 +4,16 @@ import React, { useState } from "react";
 import { generateRoomCode, normalizeRoomCode, isValidRoomCode } from "./net-protocol.js";
 import type { ConnectionStatus, RoomSummary } from "./use-room";
 
+// Kept as a literal so the lobby does not pull the whole engine in just to
+// name five maps.
+const BOARD_CHOICES = [
+  { id: "tharsis", name: "タルシス" },
+  { id: "hellas", name: "ヘラス" },
+  { id: "elysium", name: "エリシウム" },
+  { id: "utopia", name: "ユートピア平原" },
+  { id: "amazonis", name: "アマゾニス平原" }
+];
+
 const STATUS_LABEL: Record<ConnectionStatus, string> = {
   idle: "未接続",
   connecting: "接続中…",
@@ -28,13 +38,17 @@ export function MultiplayerLobby({
   playerId: string;
   onConnect: (code: string, name: string) => void;
   onDisconnect: () => void;
-  onStart: (options: { turmoil: boolean; colonies: boolean }) => void;
+  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; venus: boolean; promo: boolean; board: string }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
   const [turmoil, setTurmoil] = useState(false);
   const [colonies, setColonies] = useState(false);
+  const [prelude, setPrelude] = useState(false);
+  const [venus, setVenus] = useState(false);
+  const [promo, setPromo] = useState(false);
+  const [board, setBoard] = useState("tharsis");
 
   const isHost = room?.hostId === playerId;
   const canStart = isHost && (room?.members.length ?? 0) >= 2;
@@ -206,6 +220,33 @@ export function MultiplayerLobby({
                     <input type="checkbox" checked={colonies} onChange={e => setColonies(e.target.checked)} />
                     <span style={{ fontSize: "0.8rem" }}>植民地 (Colonies)</span>
                   </label>
+                  <label style={checkboxRow}>
+                    <input type="checkbox" checked={prelude} onChange={e => setPrelude(e.target.checked)} />
+                    <span style={{ fontSize: "0.8rem" }}>プレリュード (Prelude)</span>
+                  </label>
+                  <label style={checkboxRow}>
+                    <input type="checkbox" checked={venus} onChange={e => setVenus(e.target.checked)} />
+                    <span style={{ fontSize: "0.8rem" }}>金星 (Venus Next)</span>
+                  </label>
+                  <label style={checkboxRow}>
+                    <input type="checkbox" checked={promo} onChange={e => setPromo(e.target.checked)} />
+                    <span style={{ fontSize: "0.8rem" }}>プロモ (Promo)</span>
+                  </label>
+
+                  <div className="section-title" style={{ marginTop: "12px" }}><span>マップ</span></div>
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    {BOARD_CHOICES.map(choice => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className={board === choice.id ? "btn-primary" : "btn-secondary"}
+                        style={{ padding: "5px 12px", fontSize: "0.75rem" }}
+                        onClick={() => setBoard(choice.id)}
+                      >
+                        {choice.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -229,7 +270,7 @@ export function MultiplayerLobby({
                   className="btn-primary"
                   disabled={!canStart}
                   title={canStart ? undefined : "2人以上必要です"}
-                  onClick={() => onStart({ turmoil, colonies })}
+                  onClick={() => onStart({ turmoil, colonies, prelude, venus, promo, board })}
                 >
                   ゲーム開始
                 </button>

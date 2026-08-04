@@ -575,7 +575,12 @@ export default function Home() {
   const corporationActionUsed = (
     (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
   ).includes(CORPORATION_ACTION_ID);
-  const isMyTurn = !isOnline || turnHolderId === seatId;
+  // In a robot game the seat moves to the bots, and the driver effect plays for
+  // them. Treating every offline turn as the human's let the player act on the
+  // bot's turn, so the human was operating both sides.
+  const isMyTurn = isOnline
+    ? turnHolderId === seatId
+    : !isRobotGame || activeState.currentPlayerId === HUMAN_ID;
   const pendingChoice = activeState.pendingChoice ?? null;
 
   const playerSummaries = players.map(player => ({
@@ -832,6 +837,7 @@ export default function Home() {
   };
 
   const handlePlayCardInit = () => {
+    if (!isMyTurn) return;
     if (!selectedCardId) return;
     const card = ALL_CARDS.find(c => c.id === selectedCardId);
     if (!card) return;
@@ -998,6 +1004,7 @@ export default function Home() {
   };
 
   const handleCardAction = (card: Card) => {
+    if (!isMyTurn) return;
     if (card.type !== "active") return;
     const status = getCardActionStatus(gameState, card);
     if (!status.playable) return;
@@ -1245,6 +1252,8 @@ export default function Home() {
   };
 
   const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
+    // The bots drive themselves; acting on their turn would spend their action.
+    if (!isMyTurn) return;
     if (placementMode) return;
     const nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
@@ -1456,6 +1465,7 @@ export default function Home() {
   };
 
   const handlePass = () => {
+    if (!isMyTurn) return;
     if (isOnline) return void online.sendAction("pass");
     // Passing leaves the action phase for this generation only; production runs
     // once every player has passed.
@@ -2140,7 +2150,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
                   onClick={handlePass}
-                  disabled={placementMode !== null || gameState.pendingOceans > 0}
+                  disabled={!isMyTurn || placementMode !== null || gameState.pendingOceans > 0}
                 >
                   {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
                     ? "ターン終了"
@@ -2779,7 +2789,12 @@ export default function Home() {
             online.disconnect();
             setShowLobby(false);
           }}
-          onStart={online.startGame}
+          onStart={options => {
+            // Starting the match leaves the lobby; it used to stay open, so the
+            // player had to press "back to the board" to see the game begin.
+            online.startGame(options);
+            setShowLobby(false);
+          }}
           onClose={() => setShowLobby(false)}
         />
       )}

@@ -538,3 +538,23 @@ test("placing a tile pays its placement bonus and raises TR once", async () => {
   assert.equal(state.players[0].tr, before.tr + 1, "and TR exactly once");
   void computeScore;
 });
+
+test("a robot game hands the seat to the bots", async () => {
+  const source = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  // isMyTurn used to read `!isOnline || ...`, which made every offline turn the
+  // human's — so the player could act on the bots' turns and drive both sides.
+  assert.match(
+    source,
+    /const isMyTurn = isOnline[\s\S]{0,160}!isRobotGame \|\| activeState\.currentPlayerId === HUMAN_ID/,
+    "isMyTurn must be false while a bot holds the seat"
+  );
+
+  // Every action that spends a turn has to refuse when it is not the human's.
+  for (const handler of ["handlePlayCardInit", "handleCardAction", "handlePass", "handleStandardProjectPlay"]) {
+    const start = source.indexOf(`const ${handler} =`);
+    assert.ok(start > 0, `${handler} must exist`);
+    const body = source.slice(start, start + 400);
+    assert.match(body, /if \(!isMyTurn\) return;/, `${handler} must guard on isMyTurn`);
+  }
+});

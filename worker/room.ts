@@ -41,6 +41,10 @@ interface Member {
 interface RoomOptions {
   turmoil: boolean;
   colonies: boolean;
+  prelude: boolean;
+  venus: boolean;
+  promo: boolean;
+  board: string;
   maxPlayers: number;
 }
 
@@ -54,7 +58,7 @@ export class GameRoom {
   private code = "";
   private hostId: string | null = null;
   private started = false;
-  private options: RoomOptions = { turmoil: false, colonies: false, maxPlayers: 5 };
+  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, venus: false, promo: false, board: "tharsis", maxPlayers: 5 };
   private loaded = false;
   // member id -> the seat (engine player id) they occupy
   private seatMap = new Map<string, string | undefined>();
@@ -245,6 +249,10 @@ export class GameRoom {
     this.options = {
       turmoil: Boolean(options.turmoil),
       colonies: Boolean(options.colonies),
+      prelude: Boolean(options.prelude),
+      venus: Boolean(options.venus),
+      promo: Boolean(options.promo),
+      board: typeof options.board === "string" ? options.board : "tharsis",
       maxPlayers: this.members.length
     };
 
@@ -252,7 +260,11 @@ export class GameRoom {
       playerCount: this.members.length,
       playerNames: this.members.map(m => m.name),
       turmoil: this.options.turmoil,
-      colonies: this.options.colonies
+      colonies: this.options.colonies,
+      prelude: this.options.prelude,
+      venus: this.options.venus,
+      promo: this.options.promo,
+      board: this.options.board
     }) as Record<string, unknown>;
 
     // Bind each member to the seat they occupy, so a device can only ever act as
