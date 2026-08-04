@@ -127,7 +127,7 @@ export function useRoom() {
   }, []);
 
   const startGame = useCallback(
-    (options: { turmoil: boolean; colonies: boolean; prelude?: boolean; venus?: boolean; promo?: boolean; board?: string }) =>
+    (options: { turmoil: boolean; colonies: boolean; prelude?: boolean; venus?: boolean; promo?: boolean; board?: string; draft?: boolean }) =>
       send({ type: CLIENT_MESSAGES.START, options }),
     [send]
   );

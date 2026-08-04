@@ -193,7 +193,8 @@ test("Colony requirements read live state", () => {
 test("trading and building colonies cost what the rulebook says", async () => {
   const {
     getInitialState, applyCorporation, completeSetupPurchase, cloneGameState,
-    getPlayer, tradeWith, buildColonyOn, tradePaymentOptions, TRADE_COST, COLONY_BUILD_COST
+    getPlayer, tradeWith, buildColonyOn, tradePaymentOptions, TRADE_COST, COLONY_BUILD_COST,
+    getColonyTile
   } = await import("../app/game-logic.js");
 
   // Colonies rulebook: "Pay the cost: 9 M€, or 3 energy, or 3 titanium".
@@ -215,9 +216,17 @@ test("trading and building colonies cost what the rulebook says", async () => {
 
   // Colony tiles are drawn at random each game, so the tile has to come from
   // the same state it is used against.
+  // Colony tiles are drawn at random, and some pay their trade income in M€ —
+  // Luna gives 2, which would net against the 9 M€ the trade costs. Pick a tile
+  // whose income is something else so the payment is the only thing measured.
   function seed(overrides) {
     const state = table(overrides);
-    return { state, tile: Object.keys(state.colonies.tiles)[0] };
+    const tile = Object.keys(state.colonies.tiles).find(id => {
+      const definition = getColonyTile(id);
+      // Luna pays its trade income in M€, which would net against the cost.
+      return definition?.trade?.resource !== "mc";
+    }) ?? Object.keys(state.colonies.tiles)[0];
+    return { state, tile };
   }
 
   const mcRun = seed({ mc: 40, energy: 0, titanium: 0 });

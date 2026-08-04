@@ -38,7 +38,7 @@ export function MultiplayerLobby({
   playerId: string;
   onConnect: (code: string, name: string) => void;
   onDisconnect: () => void;
-  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; venus: boolean; promo: boolean; board: string }) => void;
+  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; venus: boolean; promo: boolean; board: string; draft: boolean }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -49,6 +49,7 @@ export function MultiplayerLobby({
   const [venus, setVenus] = useState(false);
   const [promo, setPromo] = useState(false);
   const [board, setBoard] = useState("tharsis");
+  const [draft, setDraft] = useState(false);
 
   const isHost = room?.hostId === playerId;
   const canStart = isHost && (room?.members.length ?? 0) >= 2;
@@ -233,6 +234,14 @@ export function MultiplayerLobby({
                     <span style={{ fontSize: "0.8rem" }}>プロモ (Promo)</span>
                   </label>
 
+                  <div className="section-title" style={{ marginTop: "12px" }}><span>カードの配り方</span></div>
+                  <label style={checkboxRow}>
+                    <input type="checkbox" checked={draft} onChange={e => setDraft(e.target.checked)} />
+                    <span style={{ fontSize: "0.8rem" }}>
+                      ドラフト制（1枚取って隣に回す・世代ごとに向きが反転）
+                    </span>
+                  </label>
+
                   <div className="section-title" style={{ marginTop: "12px" }}><span>マップ</span></div>
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
                     {BOARD_CHOICES.map(choice => (
@@ -270,7 +279,7 @@ export function MultiplayerLobby({
                   className="btn-primary"
                   disabled={!canStart}
                   title={canStart ? undefined : "2人以上必要です"}
-                  onClick={() => onStart({ turmoil, colonies, prelude, venus, promo, board })}
+                  onClick={() => onStart({ turmoil, colonies, prelude, venus, promo, board, draft })}
                 >
                   ゲーム開始
                 </button>

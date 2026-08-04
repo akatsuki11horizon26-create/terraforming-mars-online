@@ -6,6 +6,7 @@
 import {
   getInitialState,
   applyCorporation,
+  draftPick,
   applyPreludes,
   applyCardEffect,
   applyCardAction,
@@ -45,6 +46,7 @@ interface RoomOptions {
   venus: boolean;
   promo: boolean;
   board: string;
+  draft: boolean;
   maxPlayers: number;
 }
 
@@ -58,7 +60,7 @@ export class GameRoom {
   private code = "";
   private hostId: string | null = null;
   private started = false;
-  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, venus: false, promo: false, board: "tharsis", maxPlayers: 5 };
+  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, venus: false, promo: false, board: "tharsis", draft: false, maxPlayers: 5 };
   private loaded = false;
   // member id -> the seat (engine player id) they occupy
   private seatMap = new Map<string, string | undefined>();
@@ -253,6 +255,7 @@ export class GameRoom {
       venus: Boolean(options.venus),
       promo: Boolean(options.promo),
       board: typeof options.board === "string" ? options.board : "tharsis",
+      draft: Boolean(options.draft),
       maxPlayers: this.members.length
     };
 
@@ -264,7 +267,8 @@ export class GameRoom {
       prelude: this.options.prelude,
       venus: this.options.venus,
       promo: this.options.promo,
-      board: this.options.board
+      board: this.options.board,
+      draft: this.options.draft
     }) as Record<string, unknown>;
 
     // Bind each member to the seat they occupy, so a device can only ever act as
@@ -333,6 +337,9 @@ export class GameRoom {
     switch (action) {
       case "chooseCorporation":
         return applyCorporation(asState, String(payload.corporationId), seat) as never;
+
+      case "draftPick":
+        return draftPick(asState, String(payload.cardId), seat) as never;
 
       case "choosePreludes":
         return applyPreludes(asState, payload.preludeIds as string[], seat) as never;

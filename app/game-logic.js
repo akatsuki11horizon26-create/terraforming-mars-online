@@ -10,6 +10,7 @@ import {
 } from "./player-state.js";
 import { THARSIS_CELLS } from "./tharsis-board.js";
 import { ALTERNATE_BOARDS } from "./alternate-boards.js";
+import { createDraft, pickDraftCard, isDraftComplete, draftedHandFor, DRAFT_HAND_SIZE } from "./draft.js";
 import {
   AWARDS,
   MAX_AWARDS,
@@ -1016,6 +1017,30 @@ export function applyPreludes(state, preludeIds, playerId) {
 
 // The starting hand is bought during setup; once a player confirms, the seat
 // moves to whoever still has to set up, or the first action phase begins.
+// Takes one card in the draft. Once every card has been claimed the picks
+// become each player's research hand, which they then buy from as usual.
+export function draftPick(state, cardId, playerId) {
+  if (!state.draft) return state;
+  const actorId = playerId ?? state.currentPlayerId;
+  const result = pickDraftCard(state.draft, state.turnOrder, actorId, cardId);
+  if (!result.picked) return state;
+
+  const next = cloneGameState(state);
+  next.draft = result.draft;
+  const actor = getPlayer(next, actorId);
+  next.logs = addLog(next.logs, "player", "カードを1枚ドラフトしました。", actor?.name);
+
+  if (isDraftComplete(next.draft)) {
+    next.players = next.players.map(player => ({
+      ...player,
+      researchCards: draftedHandFor(next.draft, player.id)
+    }));
+    next.draft = null;
+    next.logs = addLog(next.logs, "system", "ドラフトが終了しました。購入するカードを選んでください。");
+  }
+  return next;
+}
+
 export function completeSetupPurchase(state) {
   const next = cloneGameState(state);
   next.players = next.players.map(player =>
@@ -1725,6 +1750,17 @@ export function getPlaceholderState() {
     gameResult: null,
     onboarded: false
   });
+
+  // The opening ten cards are drafted too when the option is on.
+  if (draftEnabled) {
+    const hands = Object.fromEntries(
+      state.players.map(player => [player.id, player.researchCards ?? []])
+    );
+    state.draft = createDraft(state.turnOrder, hands, 1);
+    state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+  }
+
+  return state;
 }
 
 // Only the expansions the player actually enabled belong in the pools. Without
@@ -1753,6 +1789,8 @@ export function getInitialState(options = {}) {
   const playerCount = Math.max(1, Math.min(5, options.playerCount ?? 1));
   const mode = options.mode ?? (playerCount > 1 ? "hotseat" : "solo");
   const botDifficulty = options.botDifficulty ?? null;
+  // Drafting only makes sense with more than one player at the table.
+  const draftEnabled = Boolean(options.draft) && playerCount > 1;
   const names = options.playerNames ?? [];
   const boardId = BOARDS[options.board] ? options.board : "tharsis";
   const board = {};
@@ -1810,11 +1848,13 @@ export function getInitialState(options = {}) {
       ? "公式ソロルール準拠ミッション開始。目標: 14世代以内に全グローバルパラメータの最大化。"
       : `${playerCount}人対戦を開始しました。全グローバルパラメータの達成でゲーム終了です。`;
 
-  return withLegacyPlayerAccessors({
+  const state = withLegacyPlayerAccessors({
     rulesVersion: 4,
     mode,
     botDifficulty,
     boardId,
+    draftEnabled,
+    draft: null,
     generation: 1,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
     players,
@@ -1849,6 +1889,17 @@ export function getInitialState(options = {}) {
     gameResult: null,
     onboarded: false
   });
+
+  // The opening ten cards are drafted too when the option is on.
+  if (draftEnabled) {
+    const hands = Object.fromEntries(
+      state.players.map(player => [player.id, player.researchCards ?? []])
+    );
+    state.draft = createDraft(state.turnOrder, hands, 1);
+    state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+  }
+
+  return state;
 }
 
 // Applies a colony build/trade/colony benefit to one player.
@@ -2757,9 +2808,10 @@ export function triggerProduction(state, logAcc) {
     let discard = [...nextState.discardPile];
 
     // Each player draws their own research hand.
+    const drawCount = nextState.draftEnabled ? DRAFT_HAND_SIZE : 4;
     nextState.players = nextState.players.map(player => {
       const researchCards = [];
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < drawCount; i++) {
         if (deck.length === 0) {
           if (discard.length > 0) {
             deck = shuffle(discard);
@@ -2787,6 +2839,15 @@ export function triggerProduction(state, logAcc) {
 
     nextState.deck = deck;
     nextState.discardPile = discard;
+
+    // With drafting on, those cards are passed around before anyone may buy.
+    if (nextState.draftEnabled && nextState.turnOrder.length > 1) {
+      const hands = Object.fromEntries(
+        nextState.players.map(player => [player.id, player.researchCards ?? []])
+      );
+      nextState.draft = createDraft(nextState.turnOrder, hands, nextState.generation);
+      nextState.players = nextState.players.map(player => ({ ...player, researchCards: [] }));
+    }
 
     // Trade fleets return at the end of each generation.
     if (nextState.colonies) {
