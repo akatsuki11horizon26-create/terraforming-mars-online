@@ -84,11 +84,21 @@ function shapes(svg) {
 const MIN_COVERAGE = 22;
 const MAX_OFFSET = 40;
 
+// A planet or sun parked in a corner is legitimately large but is scenery, not
+// the subject. Anything whose centre sits outside the middle band is treated as
+// background so it cannot masquerade as the main mass.
+function isBackdrop(box) {
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  return cx < W * 0.25 || cx > W * 0.75 || cy < H * 0.2 || cy > H * 0.85;
+}
+
 const results = [];
 for (const file of readdirSync(dir).filter(f => f.endsWith(".svg")).sort()) {
   const svg = readFileSync(join(dir, file), "utf8");
   let best = null;
   for (const box of shapes(svg)) {
+    if (isBackdrop(box)) continue;
     const area = (box.maxX - box.minX) * (box.maxY - box.minY);
     if (area > 0 && (!best || area > best.area)) best = { area, ...box };
   }
