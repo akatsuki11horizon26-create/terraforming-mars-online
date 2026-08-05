@@ -908,7 +908,12 @@ export default function Home() {
     if (!isMyTurn) return;
     if (isOnline) {
       if (!selectedCardId) return;
-      online.sendAction("playCard", { cardId: selectedCardId });
+      // The server recomputes the cost from these, so sending them is what
+      // makes steel and titanium usable online at all.
+      online.sendAction("playCard", {
+        cardId: selectedCardId,
+        payment: { steel: steelUsed, titanium: titaniumUsed }
+      });
       setSelectedCardId(null);
       setSteelUsed(0);
       setTitaniumUsed(0);

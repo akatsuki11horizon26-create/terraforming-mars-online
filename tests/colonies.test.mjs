@@ -193,8 +193,7 @@ test("Colony requirements read live state", () => {
 test("trading and building colonies cost what the rulebook says", async () => {
   const {
     getInitialState, applyCorporation, completeSetupPurchase, cloneGameState,
-    getPlayer, tradeWith, buildColonyOn, tradePaymentOptions, TRADE_COST, COLONY_BUILD_COST,
-    getColonyTile
+    getPlayer, tradeWith, buildColonyOn, tradePaymentOptions, TRADE_COST, COLONY_BUILD_COST
   } = await import("../app/game-logic.js");
 
   // Colonies rulebook: "Pay the cost: 9 M€, or 3 energy, or 3 titanium".

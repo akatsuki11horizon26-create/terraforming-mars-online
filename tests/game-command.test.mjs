@@ -203,3 +203,42 @@ test("playing a card fires threshold bonuses and corporation triggers", async ()
     "the -24C bonus is paid whichever mode played the card"
   );
 });
+
+test("a client cannot spend resources it does not hold", async () => {
+  const { ALL_CARDS, getCardPlayableStatus } = await import("../app/game-logic.js");
+  const { state, seat } = table();
+
+  const building = ALL_CARDS.find(
+    card => card.tags.includes("Building") && card.cost >= 10 && getCardPlayableStatus(card, state, 0, 0).playable
+  );
+  const ready = cloneGameState(state);
+  ready.players = ready.players.map(player =>
+    player.id === seat ? { ...player, mc: 50, steel: 5, hand: [building.id] } : player
+  );
+
+  // Steel is worth 2 M€ each against a building card.
+  const paid = executeGameCommand(ready, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: building.id,
+    payment: { steel: 3 }
+  });
+  assert.equal(paid.ok, true);
+  assert.equal(getPlayer(paid.state, seat).steel, 2, "three steel are spent");
+  assert.equal(getPlayer(paid.state, seat).mc, 50 - (building.cost - 6), "and discount the cost");
+
+  // The payment comes from the client, so asking for more than is held must be
+  // clamped rather than driving the stock negative.
+  for (const cheat of [999, -5, 2.7, Number.NaN]) {
+    const result = executeGameCommand(ready, {
+      type: COMMAND.PLAY_CARD,
+      playerId: seat,
+      cardId: building.id,
+      payment: { steel: cheat }
+    });
+    if (!result.ok) continue;
+    const steel = getPlayer(result.state, seat).steel;
+    assert.ok(steel >= 0, `steel went negative for payment ${cheat}`);
+    assert.ok(Number.isInteger(steel), `steel became fractional for payment ${cheat}`);
+  }
+});

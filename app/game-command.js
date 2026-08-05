@@ -123,8 +123,15 @@ const HANDLERS = {
       return fail(state, ERROR.CARD_NOT_IN_HAND, "そのカードは手札にありません。");
     }
 
-    const steelUsed = Number(command.payment?.steel ?? 0);
-    const titaniumUsed = Number(command.payment?.titanium ?? 0);
+    // A client picks these, so they are clamped to what the player actually
+    // holds and to whole non-negative numbers before anything is computed.
+    const held = (value, stock) => {
+      const asked = Math.floor(Number(value ?? 0));
+      if (!Number.isFinite(asked) || asked <= 0) return 0;
+      return Math.min(asked, stock ?? 0);
+    };
+    const steelUsed = held(command.payment?.steel, actor.steel);
+    const titaniumUsed = held(command.payment?.titanium, actor.titanium);
     const status = getCardPlayableStatus(card, state, steelUsed, titaniumUsed);
     if (!status.playable) return fail(state, ERROR.CARD_NOT_PLAYABLE, status.reason);
 
