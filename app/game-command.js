@@ -115,6 +115,32 @@ function checkTurn(state, command) {
   return null;
 }
 
+// Spending an action only means anything during the action phase. Nothing
+// enforced this, so a card could be played while the research offer was still
+// open — which the UI merely happened not to offer until the hand became
+// visible during buying.
+const ACTION_PHASE_COMMANDS = new Set([
+  COMMAND.PLAY_CARD,
+  COMMAND.USE_CARD_ACTION,
+  COMMAND.CORPORATION_ACTION,
+  COMMAND.STANDARD_PROJECT,
+  COMMAND.CLAIM_MILESTONE,
+  COMMAND.FUND_AWARD,
+  COMMAND.SEND_DELEGATE,
+  COMMAND.BUILD_COLONY,
+  COMMAND.TRADE,
+  COMMAND.PASS,
+  COMMAND.END_TURN
+]);
+
+function checkPhase(state, command) {
+  if (!ACTION_PHASE_COMMANDS.has(command.type)) return null;
+  if (state.phase !== "action") {
+    return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
+  }
+  return null;
+}
+
 // Spending the turn belongs to the command layer: an attempt the engine refused
 // must not cost an action, and one that succeeded must cost exactly one.
 function spend(state, result, flag) {
@@ -720,6 +746,9 @@ export function executeGameCommand(state, command) {
 
   const refused = checkTurn(state, command);
   if (refused) return refused;
+
+  const wrongPhase = checkPhase(state, command);
+  if (wrongPhase) return wrongPhase;
 
   return handler(state, command);
 }

@@ -689,3 +689,56 @@ test("a greenery that crosses 8% oxygen buys the temperature step", () => {
   assert.equal(settled.oxygen, 8);
   assert.equal(settled.temperature, -28, "the 8% bonus raises temperature one step");
 });
+
+test("actions are refused outside the action phase", () => {
+  const { state, seat } = table();
+
+  for (const phase of ["research", "production", "setup"]) {
+    const off = cloneGameState(state);
+    off.phase = phase;
+    const before = getPlayer(off, seat);
+
+    const played = executeGameCommand(off, {
+      type: COMMAND.PLAY_CARD,
+      playerId: seat,
+      cardId: "card-base-acquired-company"
+    });
+    assert.equal(played.ok, false, `a card was playable during ${phase}`);
+    assert.equal(played.error.code, ERROR.WRONG_PHASE);
+    assert.equal(getPlayer(played.state, seat).mc, before.mc, "and it cost nothing");
+
+    // The standard projects were reachable the same way.
+    const project = executeGameCommand(off, {
+      type: COMMAND.STANDARD_PROJECT,
+      playerId: seat,
+      projectId: "power-plant"
+    });
+    assert.equal(project.ok, false, `a project ran during ${phase}`);
+    assert.equal(project.error.code, ERROR.WRONG_PHASE);
+  }
+
+  // And the action phase itself is unaffected.
+  const allowed = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: "card-base-acquired-company"
+  });
+  assert.equal(allowed.ok, true);
+});
+
+test("buying research is still allowed in the research phase", () => {
+  const { state, seat } = table();
+  const buying = cloneGameState(state);
+  buying.phase = "research";
+  buying.players = buying.players.map(player =>
+    player.id === seat ? { ...player, mc: 40, researchCards: ["card-base-acquired-company"] } : player
+  );
+
+  const result = executeGameCommand(buying, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: ["card-base-acquired-company"]
+  });
+  assert.equal(result.ok, true, "the phase gate must not block the phase's own command");
+  assert.equal(getPlayer(result.state, seat).hand.includes("card-base-acquired-company"), true);
+});
