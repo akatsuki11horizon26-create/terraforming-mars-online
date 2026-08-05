@@ -1001,6 +1001,58 @@ div[tabindex="0"]:focus-visible {
 }
 
 /* Floating +N / -N readouts for whatever the last action moved. */
+/* Raising a global parameter is the goal of the game, so it is announced in the
+   middle of the screen with its reading rather than in the corner. */
+.param-cutin-stack {
+  position: fixed;
+  inset: 0;
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  /* Announcement only — the board underneath stays clickable. */
+  pointer-events: none;
+}
+
+.param-cutin {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 14px 40px;
+  background-color: color-mix(in srgb, var(--surface-1) 88%, transparent);
+  border-top: 2px solid var(--accent-cyan);
+  border-bottom: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 30px rgba(114, 217, 208, 0.35);
+  animation: param-cutin-in 1s ease-out forwards;
+}
+
+.param-cutin-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.3em;
+  color: var(--accent-cyan);
+}
+
+.param-cutin-reading {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-hi);
+}
+
+.param-cutin-arrow {
+  color: var(--accent-cyan);
+}
+
+@keyframes param-cutin-in {
+  0% { opacity: 0; transform: scale(0.88); }
+  15% { opacity: 1; transform: scale(1); }
+  70% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.04); }
+}
+
 .change-flash-stack {
   position: fixed;
   right: 16px;
@@ -1067,7 +1119,8 @@ div[tabindex="0"]:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .change-flash,
   .choice-dialog,
-  .modal-content {
+  .modal-content,
+  .param-cutin {
     animation-duration: 1ms;
   }
   .param-fill,

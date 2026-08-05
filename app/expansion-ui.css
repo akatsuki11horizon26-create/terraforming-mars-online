@@ -78,6 +78,42 @@
 
 /* Pending choice modal */
 
+/* A tile placement is answered on the map, so its prompt sits at the top and
+   leaves the board both visible and clickable. */
+.choice-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: min(560px, calc(100% - 24px));
+  padding: 10px 18px;
+  text-align: center;
+  background-color: color-mix(in srgb, var(--color-panel) 95%, transparent);
+  border: 1px solid var(--color-cyan);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+  box-shadow: var(--shadow-modal);
+  /* Only the decline button is interactive; the rest must not eat board clicks. */
+  pointer-events: none;
+}
+
+.choice-banner > button {
+  pointer-events: auto;
+  margin-top: 8px;
+}
+
+.choice-banner-prompt {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-cyan);
+}
+
+.choice-banner-note {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: #c9bfae;
+}
+
 .choice-overlay {
   position: fixed;
   inset: 0;

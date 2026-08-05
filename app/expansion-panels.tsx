@@ -74,15 +74,37 @@ export function PlayerBar({
 export function PendingChoiceDialog({
   choice,
   players,
-  onResolve
+  onResolve,
+  onBoard = false
 }: {
   choice: PendingChoice | null;
   players: PlayerSummary[];
   onResolve: (optionId: string) => void;
+  // The board itself is taking the answer, so this must not cover it.
+  onBoard?: boolean;
 }) {
   if (!choice) return null;
   const owner = players.find(player => player.id === choice.ownerPlayerId);
   const remaining = choice.continuation?.remaining ?? 1;
+
+  // Picking a space is done on the map. Listing "(3, -2)" over a blurred board
+  // asked the player to place a tile they could not see.
+  if (onBoard) {
+    return (
+      <div className="choice-banner" role="status" aria-label={choice.prompt}>
+        <div className="choice-banner-prompt">{choice.prompt}</div>
+        <div className="choice-banner-note">
+          光っているマスをクリックして配置してください。
+          {remaining > 1 ? ` (残り ${remaining} 回)` : ""}
+        </div>
+        {choice.optional ? (
+          <button type="button" className="choice-decline" onClick={() => onResolve("__decline__")}>
+            配置しない
+          </button>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="choice-overlay" role="dialog" aria-modal="true" aria-label={choice.prompt}>

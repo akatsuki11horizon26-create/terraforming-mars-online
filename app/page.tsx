@@ -70,7 +70,7 @@ import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid 
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
 import { executeGameCommand, CORPORATION_ACTION_ID } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
-import { TitleScreen, RobotSetup } from "./title-screen";
+import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
   advanceRobotGame as jsAdvanceRobotGame,
   makeBotRng as jsMakeBotRng,
@@ -86,6 +86,15 @@ const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
 
 // The human always holds the first seat; robot opponents fill the rest.
 const HUMAN_ID = "player";
+
+// Keys match the tracked snapshot's labels. Values are the unit printed after
+// the reading in the cut-in.
+const GLOBAL_PARAMETERS: Record<string, string> = {
+  気温: "℃",
+  酸素: "%",
+  海洋: "枚",
+  金星: "%"
+};
 
 const BONUS_LABELS: Record<string, string> = {
   plant: "植物",
@@ -239,6 +248,8 @@ interface GameState {
   oxygen: number;
   venus: number;
   venusEnabled?: boolean;
+  preludeEnabled?: boolean;
+  promoEnabled?: boolean;
   botDifficulty?: string | null;
   boardId?: string;
   usedCardActions: string[];
@@ -417,6 +428,10 @@ export default function Home() {
   const online = useRoom();
 
   const [showGameSetup, setShowGameSetup] = useState(false);
+  // Which entry opened the expansion panel. The title screen used to start a
+  // game the moment it was clicked, so the expansions could only be chosen by
+  // finding this panel in the header and starting over.
+  const [setupIntent, setSetupIntent] = useState<"custom" | "solo" | "robot">("custom");
   const [setupPlayerCount, setSetupPlayerCount] = useState(1);
   const [selectedBoard, setSelectedBoard] = useState("tharsis");
   const [setupPlayerNames, setSetupPlayerNames] = useState<string[]>([]);
@@ -526,6 +541,10 @@ export default function Home() {
   const [changeFlashes, setChangeFlashes] = useState<
     { id: number; label: string; delta: number }[]
   >([]);
+  // The four global parameters, shown centre-screen with their readings.
+  const [parameterCutIns, setParameterCutIns] = useState<
+    { id: number; label: string; from: number; to: number; unit: string }[]
+  >([]);
   const trackedRef = React.useRef<Record<string, number> | null>(null);
   const flashSeq = React.useRef(0);
 
@@ -556,13 +575,37 @@ export default function Home() {
       .map(entry => ({ ...entry, id: ++flashSeq.current }));
     if (moved.length === 0) return;
 
-    setChangeFlashes(current => [...current, ...moved]);
-    const ids = new Set(moved.map(entry => entry.id));
-    const timer = setTimeout(
-      () => setChangeFlashes(current => current.filter(entry => !ids.has(entry.id))),
+    // Terraforming a parameter is the point of the game, so it gets the centre
+    // of the screen and its actual reading — "-30 → -28", not "気温 +2" tucked
+    // into the corner with every resource tick.
+    const raised = moved
+      .filter(entry => GLOBAL_PARAMETERS[entry.label])
+      .map(entry => ({
+        id: entry.id,
+        label: entry.label,
+        from: previous[entry.label] ?? snapshot[entry.label],
+        to: snapshot[entry.label],
+        unit: GLOBAL_PARAMETERS[entry.label]
+      }));
+    const minor = moved.filter(entry => !GLOBAL_PARAMETERS[entry.label]);
+
+    if (minor.length > 0) setChangeFlashes(current => [...current, ...minor]);
+    if (raised.length > 0) setParameterCutIns(current => [...current, ...raised]);
+
+    const minorIds = new Set(minor.map(entry => entry.id));
+    const raisedIds = new Set(raised.map(entry => entry.id));
+    const minorTimer = setTimeout(
+      () => setChangeFlashes(current => current.filter(entry => !minorIds.has(entry.id))),
       1800
     );
-    return () => clearTimeout(timer);
+    const cutInTimer = setTimeout(
+      () => setParameterCutIns(current => current.filter(entry => !raisedIds.has(entry.id))),
+      1000
+    );
+    return () => {
+      clearTimeout(minorTimer);
+      clearTimeout(cutInTimer);
+    };
   }, [activeState, currentPlayerId]);
 
   // In a robot game every non-human seat is driven here. The delay is deliberate:
@@ -1466,6 +1509,15 @@ export default function Home() {
     }
   };
 
+  // The expansions chosen in the setup panel, whichever entry opened it.
+  const chosenExpansions = () => ({
+    turmoil: setupTurmoil,
+    colonies: setupColonies,
+    prelude: setupPrelude,
+    venus: setupVenus,
+    promo: setupPromo
+  });
+
   const startRobotGame = () => {
     const names = ["あなた"];
     for (let i = 0; i < robotOpponents; i++) {
@@ -1475,10 +1527,76 @@ export default function Home() {
       playerCount: robotOpponents + 1,
       playerNames: names,
       mode: "robot",
-      botDifficulty: robotDifficulty
+      botDifficulty: robotDifficulty,
+      ...chosenExpansions()
     });
     setShowRobotSetup(false);
     setShowTitle(false);
+  };
+
+  // Starting from the setup panel. Solo and robot arrive here from the title
+  // screen so they pick their expansions before the deck is dealt.
+  const startFromSetup = () => {
+    if (setupIntent === "solo") {
+      initGame({ playerCount: 1, ...chosenExpansions() });
+      setShowTitle(false);
+      return;
+    }
+    if (setupIntent === "robot") {
+      setShowGameSetup(false);
+      setShowRobotSetup(true);
+      return;
+    }
+    initGame({
+      playerCount: setupPlayerCount,
+      playerNames: setupPlayerNames
+        .slice(0, setupPlayerCount)
+        .map(name => name.trim())
+        .map((name, index) => name || `プレイヤー${index + 1}`),
+      ...chosenExpansions()
+    });
+  };
+
+  // A tile choice waiting on this seat, answered by clicking the board rather
+  // than by reading "(3, -2)" off a dialog that covers it.
+  const tileChoice =
+    pendingChoice &&
+    pendingChoice.ownerPlayerId === currentPlayerId &&
+    (pendingChoice.kind === "tile-placement" || pendingChoice.kind === "ocean-placement")
+      ? pendingChoice
+      : null;
+  const tileChoiceCells = tileChoice
+    ? new Set(
+        (tileChoice.options ?? [])
+          .map(option => option.targetCellKey)
+          .filter((key): key is string => Boolean(key))
+      )
+    : null;
+
+  // One set of props for the panel, which both the title screen and the running
+  // game render — the title screen returns early, so it needs its own copy.
+  const setupPanelProps = {
+    open: showGameSetup,
+    intent: setupIntent,
+    playerCount: setupPlayerCount,
+    onPlayerCount: setSetupPlayerCount,
+    playerNames: setupPlayerNames,
+    onPlayerNames: setSetupPlayerNames,
+    boards: Object.values(BOARDS) as { id: string; name: string }[],
+    selectedBoard,
+    onBoard: setSelectedBoard,
+    turmoil: setupTurmoil,
+    onTurmoil: setSetupTurmoil,
+    colonies: setupColonies,
+    onColonies: setSetupColonies,
+    prelude: setupPrelude,
+    onPrelude: setSetupPrelude,
+    venus: setupVenus,
+    onVenus: setSetupVenus,
+    promo: setupPromo,
+    onPromo: setSetupPromo,
+    onCancel: () => setShowGameSetup(false),
+    onStart: startFromSetup
   };
 
   if (showTitle) {
@@ -1489,10 +1607,13 @@ export default function Home() {
           hasSave={hasSave}
           onContinue={() => setShowTitle(false)}
           onSolo={() => {
-            initGame({ playerCount: 1 });
-            setShowTitle(false);
+            setSetupIntent("solo");
+            setShowGameSetup(true);
           }}
-          onRobot={() => setShowRobotSetup(true)}
+          onRobot={() => {
+            setSetupIntent("robot");
+            setShowGameSetup(true);
+          }}
           onOnline={() => {
             setShowTitle(false);
             setShowLobby(true);
@@ -1502,6 +1623,7 @@ export default function Home() {
             setShowHelp(true);
           }}
         />
+        <GameSetupPanel {...setupPanelProps} />
         {showRobotSetup && (
           <RobotSetup
             difficulty={robotDifficulty}
@@ -1509,7 +1631,11 @@ export default function Home() {
             opponents={robotOpponents}
             onOpponents={setRobotOpponents}
             onStart={startRobotGame}
-            onCancel={() => setShowRobotSetup(false)}
+            // Back from the opponents screen returns to the expansions.
+            onCancel={() => {
+              setShowRobotSetup(false);
+              if (setupIntent === "robot") setShowGameSetup(true);
+            }}
           />
         )}
       </>
@@ -1550,10 +1676,16 @@ export default function Home() {
             style={{ padding: "4px 12px", fontSize: "0.8rem" }}
             onClick={() => {
               // Defaults for starting a NEW local game, so they come from the
-              // local one — not from whatever room is currently open.
+              // local one — not from whatever room is currently open. Prelude,
+              // Venus and promo were left out, so they silently reset to off
+              // every time the panel was reopened.
               setSetupPlayerCount(gameState.players?.length ?? 1);
               setSetupTurmoil(Boolean(gameState.turmoil));
               setSetupColonies(Boolean(gameState.colonies));
+              setSetupPrelude(Boolean(gameState.preludeEnabled));
+              setSetupVenus(Boolean(gameState.venusEnabled));
+              setSetupPromo(Boolean(gameState.promoEnabled));
+              setSetupIntent("custom");
               setShowGameSetup(true);
             }}
           >
@@ -1698,7 +1830,12 @@ export default function Home() {
             <div className="hex-grid">
               {Object.values(activeState.board).map(cell => {
                 let isValid = false;
-                if (activeState.pendingOceans > 0) {
+                if (tileChoiceCells) {
+                  // A pending tile choice names its own legal spaces, so the
+                  // player picks them on the board instead of reading
+                  // coordinates off a dialog that covered the board.
+                  isValid = tileChoiceCells.has(`${cell.q},${cell.r}`);
+                } else if (activeState.pendingOceans > 0) {
                   isValid = cell.tileType === "empty" && cell.isOceanOnly;
                 } else if (placementMode?.active) {
                   isValid = isCellPlacementValid(cell, placementMode.type, activeState.board);
@@ -1746,7 +1883,13 @@ export default function Home() {
                   classes += " hex-placement-valid";
                 }
 
-                const isInteractionDisabled = activeState.pendingOceans > 0 ? !isValid : (placementMode?.active ? !isValid : true);
+                const isInteractionDisabled = tileChoiceCells
+                  ? !isValid
+                  : activeState.pendingOceans > 0
+                    ? !isValid
+                    : placementMode?.active
+                      ? !isValid
+                      : true;
 
                 const help = describeCell(cell);
 
@@ -1760,6 +1903,13 @@ export default function Home() {
                         // Not placeable, but the player still wants to know what
                         // the icon means — a tap has to explain rather than do nothing.
                         setHoveredCell({ key: `${cell.q},${cell.r}`, text: help });
+                        return;
+                      }
+                      if (tileChoice) {
+                        const option = (tileChoice.options ?? []).find(
+                          entry => entry.targetCellKey === `${cell.q},${cell.r}`
+                        );
+                        if (option) handleResolveChoice(option.id);
                         return;
                       }
                       handleCellClick(cell);
@@ -1976,10 +2126,28 @@ export default function Home() {
         </div>
       )}
 
+      {parameterCutIns.length > 0 && (
+        <div className="param-cutin-stack" aria-live="polite">
+          {parameterCutIns.map(cutIn => (
+            <div key={cutIn.id} className="param-cutin">
+              <span className="param-cutin-label">{cutIn.label}</span>
+              <span className="param-cutin-reading">
+                {cutIn.from}
+                {cutIn.unit}
+                <span className="param-cutin-arrow" aria-hidden="true"> → </span>
+                {cutIn.to}
+                {cutIn.unit}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <PendingChoiceDialog
         choice={pendingChoice}
         players={playerSummaries}
         onResolve={handleResolveChoice}
+        onBoard={Boolean(tileChoice)}
       />
 
       {pendingConfirm && (
@@ -2009,15 +2177,19 @@ export default function Home() {
         </div>
       )}
 
-      {/* Hand Cards area */}
-      {activeState.phase === "action" && (
+      {/* Hand Cards area. Shown while buying too: deciding what to buy means
+          knowing what is already held, and the hand used to vanish for the
+          whole research phase. */}
+      {(activeState.phase === "action" ||
+        activeState.phase === "research" ||
+        activeState.phase === "setup") && (
         <div className="hand-container">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
               PROJECT CARDS (手札: {activeState.hand.length}枚) {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
             </h2>
             <div style={{ display: "flex", gap: "10px" }}>
-              {isSellingPatents ? (
+              {activeState.phase !== "action" ? null : isSellingPatents ? (
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button
                     className="btn-primary"
@@ -2693,196 +2865,7 @@ export default function Home() {
         />
       )}
 
-      {/* New game setup: player count and expansions */}
-      {showGameSetup && (
-        <div className="overlay-container">
-          <div className="modal-content" style={{ maxWidth: "460px" }}>
-            <div className="modal-header">
-              <h3 className="modal-title" style={{ color: "var(--color-gold)" }}>新規ゲーム設定</h3>
-            </div>
-            <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              <div>
-                <div className="section-title">
-                  <span>プレイ人数</span>
-                  <span className="section-note">
-                    {setupPlayerCount === 1 ? "公式ソロルール・14世代制限" : "ホットシート（1画面を交代で使用）"}
-                  </span>
-                </div>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  {[1, 2, 3, 4, 5].map(count => (
-                    <button
-                      key={count}
-                      type="button"
-                      className="claim-button"
-                      style={{
-                        flex: 1,
-                        padding: "8px 0",
-                        fontSize: "0.9rem",
-                        backgroundColor:
-                          setupPlayerCount === count ? "var(--color-rust)" : "rgba(168, 50, 32, 0.2)"
-                      }}
-                      aria-pressed={setupPlayerCount === count}
-                      onClick={() => setSetupPlayerCount(count)}
-                    >
-                      {count}人
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {setupPlayerCount > 1 && (
-                <div>
-                  <div className="section-title">
-                    <span>プレイヤー名</span>
-                    <span className="section-note">空欄なら既定名</span>
-                  </div>
-                  <div style={{ display: "grid", gap: "6px" }}>
-                    {Array.from({ length: setupPlayerCount }, (_, index) => (
-                      <input
-                        key={index}
-                        type="text"
-                        value={setupPlayerNames[index] ?? ""}
-                        placeholder={`プレイヤー${index + 1}`}
-                        onChange={event => {
-                          const next = [...setupPlayerNames];
-                          next[index] = event.target.value;
-                          setSetupPlayerNames(next);
-                        }}
-                        style={{
-                          padding: "6px 10px",
-                          borderRadius: "4px",
-                          border: "1px solid rgba(242, 232, 220, 0.2)",
-                          backgroundColor: "rgba(8, 9, 8, 0.6)",
-                          color: "var(--color-ink)",
-                          fontSize: "0.8rem"
-                        }}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="section-title">
-                  <span>マップ</span>
-                  <span className="section-note">盤面ごとに配置ボーナス・称号・褒賞が変わる</span>
-                </div>
-                <div className="board-picker">
-                  {Object.values(BOARDS).map(board => (
-                    <button
-                      key={board.id}
-                      type="button"
-                      className={selectedBoard === board.id ? "btn-primary" : "btn-secondary"}
-                      style={{ padding: "6px 14px", fontSize: "0.78rem" }}
-                      onClick={() => setSelectedBoard(board.id)}
-                    >
-                      {board.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="section-title" style={{ marginTop: "14px" }}>
-                  <span>拡張</span>
-                  <span className="section-note">任意</span>
-                </div>
-                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginBottom: "8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={setupTurmoil}
-                    onChange={event => setSetupTurmoil(event.target.checked)}
-                  />
-                  <span>
-                    <strong style={{ fontSize: "0.8rem" }}>動乱 (Turmoil)</strong>
-                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
-                      6政党・代表者・議長・世界的イベント。毎世代 全員TR-1。
-                    </div>
-                  </span>
-                </label>
-                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
-                  <input
-                    type="checkbox"
-                    checked={setupColonies}
-                    onChange={event => setSetupColonies(event.target.checked)}
-                  />
-                  <span>
-                    <strong style={{ fontSize: "0.8rem" }}>植民地 (Colonies)</strong>
-                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
-                      植民地タイル・交易船・交易報酬。
-                    </div>
-                  </span>
-                </label>
-                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={setupPrelude}
-                    onChange={event => setSetupPrelude(event.target.checked)}
-                  />
-                  <span>
-                    <strong style={{ fontSize: "0.8rem" }}>プレリュード (Prelude)</strong>
-                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
-                      開始時に4枚から2枚を選び、即座に解決して加速する。
-                    </div>
-                  </span>
-                </label>
-                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={setupVenus}
-                    onChange={event => setSetupVenus(event.target.checked)}
-                  />
-                  <span>
-                    <strong style={{ fontSize: "0.8rem" }}>金星 (Venus Next)</strong>
-                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
-                      金星スケール(0〜30%)が4つ目のパラメータになる。2%ごとにTR+1。
-                    </div>
-                  </span>
-                </label>
-                <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
-                  <input
-                    type="checkbox"
-                    checked={setupPromo}
-                    onChange={event => setSetupPromo(event.target.checked)}
-                  />
-                  <span>
-                    <strong style={{ fontSize: "0.8rem" }}>プロモカード</strong>
-                    <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
-                      公式プロモーションカードを山札に加える。
-                    </div>
-                  </span>
-                </label>
-              </div>
-
-              <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
-                開始すると現在の進行状況は消去されます。
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secondary" onClick={() => setShowGameSetup(false)}>
-                キャンセル
-              </button>
-              <button
-                className="btn-primary"
-                onClick={() =>
-                  initGame({
-                    playerCount: setupPlayerCount,
-                    playerNames: setupPlayerNames
-                      .slice(0, setupPlayerCount)
-                      .map(name => name.trim())
-                      .map((name, index) => name || `プレイヤー${index + 1}`),
-                    turmoil: setupTurmoil,
-                    colonies: setupColonies,
-                    prelude: setupPrelude,
-                    venus: setupVenus,
-                    promo: setupPromo
-                  })
-                }
-              >
-                この設定で開始
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <GameSetupPanel {...setupPanelProps} />
 
       {/* Restart Confirm Modal */}
       {showRestartConfirm && (
