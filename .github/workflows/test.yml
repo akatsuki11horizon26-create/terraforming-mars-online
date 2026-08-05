@@ -1,0 +1,53 @@
+name: Test
+
+# Runs on every push and pull request. The deploy workflow builds and ships
+# whatever is on main, so this is the gate that says whether it should have.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Types
+        # The worker's Cloudflare ambient types are not installed here, so only
+        # the app's own errors are treated as failures.
+        run: |
+          npx tsc --noEmit -p tsconfig.json > tsc.log 2>&1 || true
+          if grep -E '^app/' tsc.log; then
+            echo "::error::type errors in app/"
+            exit 1
+          fi
+
+      - name: Tests
+        run: npm test
+
+      - name: Playtest
+        # Drives the engine through complete games; a rule that crashes or
+        # breaks an invariant fails here even when no unit test covers it.
+        run: |
+          node scripts/playtest.mjs --games=20 --players=1
+          node scripts/playtest.mjs --games=20 --players=2 --prelude --venus --colonies --turmoil --promo
+
+      - name: Playtest every map
+        run: |
+          for map in tharsis hellas elysium utopia amazonis; do
+            node scripts/playtest.mjs --games=10 --players=2 --board=$map
+          done
