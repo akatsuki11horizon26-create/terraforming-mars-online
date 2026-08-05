@@ -153,9 +153,13 @@ function placeOrAsk(state, command, tileType, label, source) {
   if (legal.length === 0) {
     return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
   }
+  // A greenery raises oxygen, which may cross 8% and buy a temperature step.
+  const before = { temperature: state.temperature, oxygen: state.oxygen };
   if (legal.length === 1) {
     placeTileAt(state, legal[0], tileType, command.playerId);
-    return source ? finishAction(state, command, label) : finishProject(state, command, label);
+    return source
+      ? finishAction(state, command, label, before)
+      : finishProject(state, command, label, before);
   }
   const choice = buildTileChoice(
     state,
@@ -164,7 +168,9 @@ function placeOrAsk(state, command, tileType, label, source) {
       sourceKind: source?.kind ?? "standard-project",
       sourceId: source?.id ?? command.projectId,
       consumedAction: true,
-      paid: true
+      paid: true,
+      // Settled when the space is chosen, exactly as it is when only one was legal.
+      afterPlay: { temperature: before.temperature, oxygen: before.oxygen }
     },
     legal
   );
@@ -227,22 +233,33 @@ const STANDARD_PROJECTS = {
   aquifer: {
     label: "海洋の沈降",
     cost: () => 18,
+    places: "ocean",
     blocked: state => (state.oceans >= 9 ? "海洋は上限に達しています。" : null),
     run: (state, command) => placeOrAsk(state, command, "ocean", "海洋の沈降")
   },
   greenery: {
     label: "緑化プロジェクト",
     cost: () => 23,
+    places: "forest",
     run: (state, command) => placeOrAsk(state, command, "forest", "緑化プロジェクト")
   },
   city: {
     label: "都市の建設",
     cost: () => 25,
-    run: (state, command) => placeOrAsk(state, command, "city", "都市の建設")
+    places: "city",
+    // P10「都市タイルを１枚配置し、Ｍ€の生産量を１段階上げる」— the production
+    // belongs to the project, so it is paid whether or not the space was chosen.
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId ? { ...player, mcProd: (player.mcProd ?? 0) + 1 } : player
+      );
+      return placeOrAsk(state, command, "city", "都市の建設");
+    }
   },
   "convert-plants": {
     label: "植物の緑化",
     pays: "plants",
+    places: "forest",
     cost: (state, corporation) => (corporation?.effects?.greeneryPlantCost ?? 8),
     run: (state, command) => placeOrAsk(state, command, "forest", "植物の緑化")
   },
@@ -265,6 +282,10 @@ const STANDARD_PROJECTS = {
       const actor = getPlayer(state, command.playerId);
       if (ids.length === 0 || !ids.every(id => actor.hand.includes(id))) {
         return fail(state, ERROR.CARD_NOT_IN_HAND, "手札にないカードは売却できません。");
+      }
+      // One card, named twice, used to pay twice while leaving the hand once.
+      if (new Set(ids).size !== ids.length) {
+        return fail(state, ERROR.DUPLICATE_CARD, "同じカードは1枚しか売却できません。");
       }
       state.players = state.players.map(player =>
         player.id === command.playerId
@@ -409,9 +430,21 @@ const HANDLERS = {
     const beforeOxygen = paid.oxygen;
     const result = applyCardEffect(paid, card, paid.logs);
     // A card that needs a target parks the rest of the work in pendingChoice;
-    // the action is spent once that resolves, not now.
+    // the action is spent once that resolves, not now. The triggers and the
+    // threshold bonuses wait with it — they used to be skipped outright, so
+    // Saturn Systems earned nothing from a Jovian card that asked a question.
     if (result.status === "pending") {
-      return { ok: true, state: result.state, events: [], pendingAction: result.pendingChoice };
+      const parked = result.state;
+      if (parked.pendingChoice) {
+        parked.pendingChoice = {
+          ...parked.pendingChoice,
+          continuation: {
+            ...parked.pendingChoice.continuation,
+            afterPlay: { cardId: card.id, temperature: beforeTemp, oxygen: beforeOxygen }
+          }
+        };
+      }
+      return { ok: true, state: parked, events: [], pendingAction: parked.pendingChoice };
     }
 
     // Corporation effects that watch for a tag, and the bonuses printed part
@@ -489,17 +522,50 @@ const HANDLERS = {
       return fail(state, ERROR.NOT_YOUR_CHOICE, "他のプレイヤーの選択です。");
     }
     const consumesAction = choice.continuation?.consumedAction ?? true;
+    const afterPlay = choice.continuation?.afterPlay ?? null;
     const result = resolvePendingChoice(state, command.optionId, state.logs, command.playerId);
+
+    let settled = result.state;
+    let settledLogs = result.logs ?? settled?.logs;
+
+    // The work a card left behind when it stopped to ask. It runs only once the
+    // last question is answered, and only if the answer did not raise another.
+    if (afterPlay && settled && !settled.pendingChoice) {
+      // A card played through a choice owes its triggers; a bare tile placement
+      // carries no card and owes only the threshold bonuses it crossed.
+      const card = afterPlay.cardId
+        ? ALL_CARDS.find(item => item.id === afterPlay.cardId)
+        : null;
+      if (card) {
+        const triggered = applyCorporationTriggers(settled, card, settledLogs);
+        settled = triggered.state;
+        settledLogs = triggered.logs;
+      }
+      // A trigger may itself ask something (Mars University); leave its
+      // question standing and settle the thresholds when that one resolves.
+      if (!settled.pendingChoice) {
+        const thresholds = checkParameterThresholds(
+          afterPlay.temperature,
+          settled.temperature,
+          afterPlay.oxygen,
+          settled.oxygen,
+          settled,
+          settledLogs
+        );
+        settled = thresholds.state;
+        settledLogs = thresholds.logs;
+      }
+    }
 
     // A card that asks for a target still costs one action, charged when the
     // last question is answered. Charging earlier would double up on a card
     // that asks twice; never charging made every such card free.
-    const stillChoosing = Boolean(result.state?.pendingChoice);
-    if (!stillChoosing && consumesAction && result.state?.phase === "action") {
-      const spent = handleActionSpend(result.state, result.logs ?? result.state.logs);
+    const stillChoosing = Boolean(settled?.pendingChoice);
+    if (!stillChoosing && consumesAction && settled?.phase === "action") {
+      const spent = handleActionSpend(settled, settledLogs ?? settled.logs);
       return { ok: true, state: spent, events: [] };
     }
-    return done(result.state, result.logs);
+    return done(settled, settledLogs);
   },
 
   [COMMAND.SELECT_CORPORATION](state, command) {
@@ -542,8 +608,30 @@ const HANDLERS = {
     const blocked = project.blocked?.(state, actor);
     if (blocked) return fail(state, ERROR.ACTION_REFUSED, blocked);
 
+    // Whether the tile has anywhere to go is settled before the money moves.
+    // Checking it afterwards returned a refusal carrying a state that had
+    // already been charged, so a full board cost 25 MC and built nothing.
+    if (project.places) {
+      const legal = legalCellsFor(state, project.places, command.playerId);
+      if (legal.length === 0) {
+        return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
+      }
+    }
+
     const next = cloneGameState(state);
     payProjectCost(next, command.playerId, project, cost, corporation);
+
+    // CrediCor: "基本コスト20以上のカードまたは標準プロジェクトを支払うとMC4".
+    // The card half already fires in applyCorporationTriggers; this is the half
+    // that only the UI used to pay, so the bot and the online build never got it.
+    const rebate = corporation?.effects?.expensivePaymentBonus ?? 0;
+    if (rebate > 0 && project.pays !== "plants" && project.pays !== "heat" && cost >= 20) {
+      next.players = next.players.map(player =>
+        player.id === command.playerId ? { ...player, mc: player.mc + rebate } : player
+      );
+      next.logs = addLog(next.logs, "system", `CrediCor: MC +${rebate}`);
+    }
+
     return project.run(next, command, cost);
   },
 

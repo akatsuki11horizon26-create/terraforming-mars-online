@@ -1055,10 +1055,10 @@ export function applyCorporationInitialAction(state, logs) {
     nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションでカードを${drawn.length}枚引きました。`);
   }
   if (corporation.effects.firstCity) {
+    // placeTileAt pays the city effects now, so adding them here as well is
+    // what made the opening city worth twice what every later one was.
     const placed = placeTile(nextState, "city");
     if (placed) {
-      nextState.mcProd += corporation.effects.cityProduction ?? 0;
-      nextState.mc += corporation.effects.ownCityBonus ?? 0;
       nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションで都市を配置しました。`);
     }
   }
@@ -1391,6 +1391,8 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
         p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
       );
     }
+
+    grantPlacementCorporationEffects(state, cell, tileType, ownerId);
   }
 
   // TR follows the parameter actually moving. At the cap the track is clamped,
@@ -1406,6 +1408,36 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
     if (state.oxygen > before) bumpTr(state, ownerId, 1);
   }
   return state;
+}
+
+// Corporation effects that fire on a tile being laid, wherever the tile came
+// from. They lived in the UI, so a city built through a card or by the bot paid
+// Tharsis nothing, and the standard project paid it only when clicked.
+function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
+  const owner = getPlayer(state, ownerId);
+  const ownerCorp = CORPORATIONS.find(item => item.id === owner?.corporationId);
+
+  if (ownerCorp?.effects?.miningBonus && (cell.bonusType === "steel" || cell.bonusType === "titanium")) {
+    state.players = state.players.map(player =>
+      player.id === ownerId ? { ...player, steelProd: (player.steelProd ?? 0) + 1 } : player
+    );
+  }
+
+  if (tileType !== "city") return;
+
+  // "都市が置かれるたびMC生産量+1" reads every city, not only one's own; the
+  // extra 3 MC is the part that asks whose it is.
+  for (const player of state.players) {
+    const corporation = CORPORATIONS.find(item => item.id === player.corporationId);
+    const perCity = corporation?.effects?.cityProduction ?? 0;
+    const ownBonus = player.id === ownerId ? corporation?.effects?.ownCityBonus ?? 0 : 0;
+    if (perCity === 0 && ownBonus === 0) continue;
+    state.players = state.players.map(entry =>
+      entry.id === player.id
+        ? { ...entry, mcProd: (entry.mcProd ?? 0) + perCity, mc: entry.mc + ownBonus }
+        : entry
+    );
+  }
 }
 
 function bumpTr(state, playerId, amount) {

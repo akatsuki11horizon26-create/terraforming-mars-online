@@ -203,6 +203,9 @@ export function buildTileChoice(state, tileType, context, legalCells) {
       consumedAction: context.consumedAction ?? true,
       paid: context.paid ?? true,
       remaining: context.remaining ?? 1,
+      // Work the caller parked until the space is chosen: the triggers a card
+      // still owes, and the parameter levels to measure the bonus against.
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {}),
       payload: { tileType, specialName: context.specialName ?? null }
     }
   };

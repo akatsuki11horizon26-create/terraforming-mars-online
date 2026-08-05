@@ -5,7 +5,8 @@ import {
   applyCorporation,
   completeSetupPurchase,
   cloneGameState,
-  getPlayer
+  getPlayer,
+  CORPORATIONS
 } from "../app/game-logic.js";
 import { executeGameCommand, getLegalCommands, COMMAND, ERROR } from "../app/game-command.js";
 
@@ -253,6 +254,12 @@ test("every standard project runs through the command layer", () => {
   // Measure against the state each run started from: corporations are dealt at
   // random and several grant starting energy production or resources, so a
   // fixed expected value would be reading the shuffle rather than the project.
+  // The corporation is cleared for the same reason: CrediCor is repaid 4 for a
+  // city and Tharsis Republic is paid 3, so "a city costs 25" was really
+  // asserting that neither had been dealt.
+  ready.players = ready.players.map(player =>
+    player.id === seat ? { ...player, corporationId: null } : player
+  );
   const before = getPlayer(ready, seat);
   const cases = [
     ["power-plant", after => assert.equal(getPlayer(after, seat).energyProd, before.energyProd + 1, "power plant raises energy production")],
@@ -451,4 +458,234 @@ test("a corporation with no action of its own is refused", () => {
   });
   assert.equal(result.ok, false);
   assert.equal(result.error.code, ERROR.NO_CORPORATION_ACTION);
+});
+
+test("answering the last question is what spends the action", () => {
+  const { state, seat } = table();
+  const rich = cloneGameState(state);
+  rich.players = rich.players.map(player => ({ ...player, mc: 90 }));
+
+  const asked = executeGameCommand(rich, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  assert.equal(asked.ok, true);
+  assert.ok(asked.state.pendingChoice, "the city asks where it goes");
+
+  const before = getPlayer(asked.state, seat).actionsRemaining;
+  const settled = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(settled.ok, true);
+
+  // Resolving the choice by calling the engine directly, as the solo UI once
+  // did, left this unchanged and made every such project a free action.
+  assert.equal(getPlayer(settled.state, seat).actionsRemaining, before - 1);
+});
+
+test("a choice belonging to another seat cannot be answered", () => {
+  const { state, seat, other } = table();
+  const rich = cloneGameState(state);
+  rich.players = rich.players.map(player => ({ ...player, mc: 90 }));
+
+  const asked = executeGameCommand(rich, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  const stolen = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: other,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(stolen.ok, false);
+  assert.equal(stolen.error.code, ERROR.NOT_YOUR_CHOICE);
+});
+
+test("a card that asks a question still fires its corporation trigger", () => {
+  const { state, seat } = table();
+  const saturn = CORPORATIONS.find(item => item.effects?.jovianProduction);
+  const armed = cloneGameState(state);
+  armed.players = armed.players.map(player =>
+    player.id === seat
+      ? {
+          ...player,
+          corporationId: saturn.id,
+          mc: 200,
+          titanium: 20,
+          hand: ["card-base-ganymede-colony"]
+        }
+      : player
+  );
+  const before = getPlayer(armed, seat);
+
+  // Ganymede Colony carries a Jovian tag and asks where its city goes. The
+  // trigger used to be skipped entirely, so Saturn Systems earned nothing.
+  const asked = executeGameCommand(armed, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: "card-base-ganymede-colony"
+  });
+  assert.equal(asked.ok, true);
+  assert.ok(asked.state.pendingChoice, "the colony asks where it goes");
+  assert.equal(
+    getPlayer(asked.state, seat).mcProd,
+    before.mcProd,
+    "the trigger waits for the answer"
+  );
+
+  const settled = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(settled.ok, true);
+
+  const after = getPlayer(settled.state, seat);
+  assert.equal(after.mcProd, before.mcProd + 1, "Saturn Systems is paid for the Jovian tag");
+  assert.equal(after.actionsRemaining, before.actionsRemaining - 1, "and it cost exactly one action");
+});
+
+test("the city project raises MC production for whoever builds it", () => {
+  const { state, seat } = table();
+  const rich = cloneGameState(state);
+  // Without clearing the corporation this reads the shuffle: Tharsis Republic
+  // adds its own +1 on top of the project's, so the seat would gain 2.
+  rich.players = rich.players.map(player =>
+    player.id === seat ? { ...player, mc: 90, corporationId: null } : { ...player, mc: 90 }
+  );
+  const before = getPlayer(rich, seat);
+
+  let settled = executeGameCommand(rich, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  }).state;
+  while (settled.pendingChoice?.ownerPlayerId === seat) {
+    settled = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: seat,
+      optionId: settled.pendingChoice.options[0].id
+    }).state;
+  }
+  assert.equal(getPlayer(settled, seat).mcProd, before.mcProd + 1);
+});
+
+test("a project with nowhere to put its tile is refused before it is paid", () => {
+  const { state, seat } = table();
+  const full = cloneGameState(state);
+  full.players = full.players.map(player => ({ ...player, mc: 90 }));
+  for (const key of Object.keys(full.board)) {
+    const cell = full.board[key];
+    if (cell.tileType === "empty" && !cell.isOceanOnly) {
+      full.board[key] = { ...cell, tileType: "city", placedBy: "neutral" };
+    }
+  }
+  const before = getPlayer(full, seat);
+
+  const result = executeGameCommand(full, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.NO_LEGAL_SPACE);
+  // The refusal used to carry a state that had already been charged 25 MC.
+  assert.equal(getPlayer(result.state, seat).mc, before.mc, "and nothing was paid");
+  assert.equal(getPlayer(result.state, seat).mcProd, before.mcProd);
+});
+
+test("the same card cannot be sold twice in one sale", () => {
+  const { state, seat } = table();
+  const before = getPlayer(state, seat);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "sell-patents",
+    cardIds: ["card-base-acquired-company", "card-base-acquired-company"]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.DUPLICATE_CARD);
+  assert.equal(getPlayer(result.state, seat).mc, before.mc, "one card never pays twice");
+});
+
+test("CrediCor is repaid for a standard project costing 20 or more", () => {
+  const credicor = CORPORATIONS.find(item => item.effects?.expensivePaymentBonus);
+  const { state, seat } = table();
+  const armed = cloneGameState(state);
+  armed.players = armed.players.map(player =>
+    player.id === seat ? { ...player, corporationId: credicor.id, mc: 120 } : player
+  );
+  const before = getPlayer(armed, seat);
+
+  let settled = executeGameCommand(armed, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  }).state;
+  while (settled.pendingChoice?.ownerPlayerId === seat) {
+    settled = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: seat,
+      optionId: settled.pendingChoice.options[0].id
+    }).state;
+  }
+  // 25 for the city, 4 back. Placement bonuses may add more, never less.
+  const spent = before.mc - getPlayer(settled, seat).mc;
+  assert.ok(spent <= 21, `CrediCor paid ${spent}, which is more than 25 less the 4 rebate`);
+});
+
+test("Tharsis Republic is paid for every city, and the 3 MC only for its own", () => {
+  const tharsis = CORPORATIONS.find(item => item.effects?.cityProduction);
+  const { state, seat, other } = table();
+  const armed = cloneGameState(state);
+  armed.players = armed.players.map(player =>
+    player.id === other
+      ? { ...player, corporationId: tharsis.id }
+      : { ...player, mc: 90 }
+  );
+  const before = getPlayer(armed, other);
+
+  let settled = executeGameCommand(armed, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  }).state;
+  while (settled.pendingChoice?.ownerPlayerId === seat) {
+    settled = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: seat,
+      optionId: settled.pendingChoice.options[0].id
+    }).state;
+  }
+  const after = getPlayer(settled, other);
+  assert.equal(after.mcProd, before.mcProd + 1, "every city counts, not only its own");
+  assert.equal(after.mc, before.mc, "but the 3 MC is for its own city only");
+});
+
+test("a greenery that crosses 8% oxygen buys the temperature step", () => {
+  const { state, seat } = table();
+  const warm = cloneGameState(state);
+  warm.oxygen = 7;
+  warm.temperature = -30;
+  warm.players = warm.players.map(player => ({ ...player, mc: 90 }));
+
+  let settled = executeGameCommand(warm, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "greenery"
+  }).state;
+  while (settled.pendingChoice?.ownerPlayerId === seat) {
+    settled = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: seat,
+      optionId: settled.pendingChoice.options[0].id
+    }).state;
+  }
+  assert.equal(settled.oxygen, 8);
+  assert.equal(settled.temperature, -28, "the 8% bonus raises temperature one step");
 });
