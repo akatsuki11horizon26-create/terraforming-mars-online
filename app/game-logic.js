@@ -1893,8 +1893,12 @@ export function getInitialState(options = {}) {
     oxygen: 0,
     venus: 0,
     // The Venus track has to be visible from 0%, so the panel cannot infer the
-    // expansion from a non-zero reading.
+    // expansion from a non-zero reading. Prelude is recorded for the same
+    // reason: once the preludes are chosen the pool is empty, and the setup
+    // panel could no longer tell whether the expansion had been on.
     venusEnabled: Boolean(options.venus),
+    preludeEnabled: Boolean(options.prelude),
+    promoEnabled: Boolean(options.promo),
     oceans: 0,
     board,
     deck: shuffledDeck,

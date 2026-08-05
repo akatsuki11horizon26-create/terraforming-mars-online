@@ -83,6 +83,242 @@ export function TitleScreen({
   );
 }
 
+// The expansions and map, chosen before the deck is dealt. Solo and robot open
+// this from the title screen; the header opens it to start a custom game. It
+// lives here rather than in page.tsx because the title screen returns early and
+// could not otherwise show it.
+export function GameSetupPanel({
+  open,
+  intent,
+  playerCount,
+  onPlayerCount,
+  playerNames,
+  onPlayerNames,
+  boards,
+  selectedBoard,
+  onBoard,
+  turmoil,
+  onTurmoil,
+  colonies,
+  onColonies,
+  prelude,
+  onPrelude,
+  venus,
+  onVenus,
+  promo,
+  onPromo,
+  onCancel,
+  onStart
+}: {
+  open: boolean;
+  intent: "custom" | "solo" | "robot";
+  playerCount: number;
+  onPlayerCount: (count: number) => void;
+  playerNames: string[];
+  onPlayerNames: (names: string[]) => void;
+  boards: { id: string; name: string }[];
+  selectedBoard: string;
+  onBoard: (id: string) => void;
+  turmoil: boolean;
+  onTurmoil: (on: boolean) => void;
+  colonies: boolean;
+  onColonies: (on: boolean) => void;
+  prelude: boolean;
+  onPrelude: (on: boolean) => void;
+  venus: boolean;
+  onVenus: (on: boolean) => void;
+  promo: boolean;
+  onPromo: (on: boolean) => void;
+  onCancel: () => void;
+  onStart: () => void;
+}) {
+  if (!open) return null;
+
+  // Solo is one seat by definition; robot counts its opponents on the next
+  // screen. Only a custom game asks here.
+  const asksPlayerCount = intent === "custom";
+
+  const EXPANSIONS: {
+    key: string;
+    name: string;
+    desc: string;
+    on: boolean;
+    set: (on: boolean) => void;
+  }[] = [
+    {
+      key: "turmoil",
+      name: "動乱 (Turmoil)",
+      desc: "6政党・代表者・議長・世界的イベント。毎世代 全員TR-1。",
+      on: turmoil,
+      set: onTurmoil
+    },
+    {
+      key: "colonies",
+      name: "植民地 (Colonies)",
+      desc: "植民地タイル・交易船・交易報酬。",
+      on: colonies,
+      set: onColonies
+    },
+    {
+      key: "prelude",
+      name: "プレリュード (Prelude)",
+      desc: "開始時に4枚から2枚を選び、即座に解決して加速する。",
+      on: prelude,
+      set: onPrelude
+    },
+    {
+      key: "venus",
+      name: "金星 (Venus Next)",
+      desc: "金星スケール(0〜30%)が4つ目のパラメータになる。2%ごとにTR+1。",
+      on: venus,
+      set: onVenus
+    },
+    {
+      key: "promo",
+      name: "プロモカード",
+      desc: "公式プロモーションカードを山札に加える。",
+      on: promo,
+      set: onPromo
+    }
+  ];
+
+  const heading =
+    intent === "solo" ? "ソロプレイの設定" : intent === "robot" ? "ロボット戦の設定" : "新規ゲーム設定";
+
+  return (
+    <div className="overlay-container">
+      <div className="modal-content" style={{ maxWidth: "460px" }}>
+        <div className="modal-header">
+          <h3 className="modal-title" style={{ color: "var(--color-gold)" }}>{heading}</h3>
+        </div>
+        <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {asksPlayerCount && (
+            <div>
+              <div className="section-title">
+                <span>プレイ人数</span>
+                <span className="section-note">
+                  {playerCount === 1 ? "公式ソロルール・14世代制限" : "ホットシート（1画面を交代で使用）"}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: "6px" }}>
+                {[1, 2, 3, 4, 5].map(count => (
+                  <button
+                    key={count}
+                    type="button"
+                    className="claim-button"
+                    style={{
+                      flex: 1,
+                      padding: "8px 0",
+                      fontSize: "0.9rem",
+                      backgroundColor:
+                        playerCount === count ? "var(--color-rust)" : "rgba(168, 50, 32, 0.2)"
+                    }}
+                    aria-pressed={playerCount === count}
+                    onClick={() => onPlayerCount(count)}
+                  >
+                    {count}人
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {asksPlayerCount && playerCount > 1 && (
+            <div>
+              <div className="section-title">
+                <span>プレイヤー名</span>
+                <span className="section-note">空欄なら既定名</span>
+              </div>
+              <div style={{ display: "grid", gap: "6px" }}>
+                {Array.from({ length: playerCount }, (_, index) => (
+                  <input
+                    key={index}
+                    type="text"
+                    value={playerNames[index] ?? ""}
+                    placeholder={`プレイヤー${index + 1}`}
+                    onChange={event => {
+                      const next = [...playerNames];
+                      next[index] = event.target.value;
+                      onPlayerNames(next);
+                    }}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: "4px",
+                      border: "1px solid rgba(242, 232, 220, 0.2)",
+                      backgroundColor: "rgba(8, 9, 8, 0.6)",
+                      color: "var(--color-ink)",
+                      fontSize: "0.8rem"
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <div className="section-title">
+              <span>マップ</span>
+              <span className="section-note">盤面ごとに配置ボーナス・称号・褒賞が変わる</span>
+            </div>
+            <div className="board-picker">
+              {boards.map(board => (
+                <button
+                  key={board.id}
+                  type="button"
+                  className={selectedBoard === board.id ? "btn-primary" : "btn-secondary"}
+                  style={{ padding: "6px 14px", fontSize: "0.78rem" }}
+                  onClick={() => onBoard(board.id)}
+                >
+                  {board.name}
+                </button>
+              ))}
+            </div>
+
+            <div className="section-title" style={{ marginTop: "14px" }}>
+              <span>拡張</span>
+              <span className="section-note">任意</span>
+            </div>
+            {EXPANSIONS.map(expansion => (
+              <label
+                key={expansion.key}
+                style={{
+                  display: "flex",
+                  gap: "8px",
+                  alignItems: "flex-start",
+                  cursor: "pointer",
+                  marginBottom: "8px"
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={expansion.on}
+                  onChange={event => expansion.set(event.target.checked)}
+                />
+                <span>
+                  <strong style={{ fontSize: "0.8rem" }}>{expansion.name}</strong>
+                  <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>{expansion.desc}</div>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
+            開始すると現在の進行状況は消去されます。
+          </p>
+        </div>
+        <div className="modal-footer">
+          <button className="btn-secondary" onClick={onCancel}>
+            キャンセル
+          </button>
+          <button className="btn-primary" onClick={onStart}>
+            {intent === "robot" ? "次へ (相手の設定)" : "この設定で開始"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function RobotSetup({
   difficulty,
   onDifficulty,
