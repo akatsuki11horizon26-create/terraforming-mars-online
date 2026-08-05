@@ -837,3 +837,41 @@ test("a project that asks where it goes still reports what was built", () => {
   );
   assert.equal(said, true, "the completed project must name itself in the log");
 });
+
+test("an open choice must be answered before the seat does anything else", () => {
+  const { state, seat, other } = table();
+  const rich = cloneGameState(state);
+  rich.players = rich.players.map(player => ({ ...player, mc: 90 }));
+
+  const asked = executeGameCommand(rich, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  assert.ok(asked.state.pendingChoice, "the city is waiting on a space");
+
+  // Acting now would resolve the choice against a state it was never built from.
+  const jumped = executeGameCommand(asked.state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: "card-base-acquired-company"
+  });
+  assert.equal(jumped.ok, false);
+  assert.equal(jumped.error.code, ERROR.ACTION_REFUSED);
+
+  // Only the seat that owes the answer is held up.
+  const bystander = executeGameCommand(asked.state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: other,
+    cardId: "card-base-acquired-company"
+  });
+  assert.equal(bystander.error.code, ERROR.NOT_YOUR_TURN, "not blocked by the choice");
+
+  // Answering it lets play continue.
+  const settled = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(settled.ok, true);
+});

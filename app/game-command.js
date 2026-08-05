@@ -141,6 +141,19 @@ function checkPhase(state, command) {
   return null;
 }
 
+// An open question has to be answered before anything else happens. Without
+// this a player asked where to put a city could play another card first, and
+// the choice would then resolve against a state it was never built from.
+function checkPendingChoice(state, command) {
+  const choice = state.pendingChoice;
+  if (!choice) return null;
+  if (command.type === COMMAND.RESOLVE_PENDING) return null;
+  // The seat that owes an answer is the only one blocked; the others were not
+  // going to act out of turn anyway, and setup choices resolve in parallel.
+  if (choice.ownerPlayerId !== command.playerId) return null;
+  return fail(state, ERROR.ACTION_REFUSED, "先に選択を解決してください。");
+}
+
 // Spending the turn belongs to the command layer: an attempt the engine refused
 // must not cost an action, and one that succeeded must cost exactly one.
 function spend(state, result, flag) {
@@ -794,6 +807,9 @@ export function executeGameCommand(state, command) {
 
   const wrongPhase = checkPhase(state, command);
   if (wrongPhase) return wrongPhase;
+
+  const owes = checkPendingChoice(state, command);
+  if (owes) return owes;
 
   return handler(state, command);
 }
