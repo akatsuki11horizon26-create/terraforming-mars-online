@@ -24,6 +24,7 @@ import {
   ALL_CARDS,
   CORPORATIONS
 } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import {
   CLIENT_MESSAGES,
   SERVER_MESSAGES,
@@ -326,6 +327,26 @@ export class GameRoom {
     void this.persist();
   }
 
+  // Actions the shared command layer owns. Routing them through it is what
+  // stops the server, the offline UI and the bot each enforcing their own
+  // version of a rule: the seat check, the possession check and spending an
+  // action now happen in exactly one place.
+  private static readonly COMMAND_MAP: Record<string, string> = {
+    playCard: COMMAND.PLAY_CARD,
+    cardAction: COMMAND.USE_CARD_ACTION,
+    claimMilestone: COMMAND.CLAIM_MILESTONE,
+    fundAward: COMMAND.FUND_AWARD,
+    sendDelegate: COMMAND.SEND_DELEGATE,
+    buildColony: COMMAND.BUILD_COLONY,
+    trade: COMMAND.TRADE,
+    pass: COMMAND.PASS,
+    endTurn: COMMAND.END_TURN,
+    resolveChoice: COMMAND.RESOLVE_PENDING,
+    chooseCorporation: COMMAND.SELECT_CORPORATION,
+    choosePreludes: COMMAND.SELECT_PRELUDES,
+    draftPick: COMMAND.DRAFT_PICK
+  };
+
   private applyAction(
     state: Record<string, unknown>,
     seat: string,
@@ -334,6 +355,18 @@ export class GameRoom {
   ): Record<string, unknown> | null {
     const logs = state.logs as unknown[];
     const asState = state as never;
+
+    const commandType = GameRoom.COMMAND_MAP[action];
+    if (commandType) {
+      // playerId comes from the authenticated seat, never from the payload.
+      const result = executeGameCommand(asState, {
+        ...payload,
+        type: commandType,
+        playerId: seat,
+        optionId: payload.optionId ?? payload.choiceId
+      } as never) as { ok: boolean; state: unknown };
+      return result.ok ? (result.state as Record<string, unknown>) : null;
+    }
 
     // Milestones, awards, delegates, colonies and trades each cost an action.
     // A refused attempt must not spend one.

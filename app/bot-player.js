@@ -8,6 +8,7 @@ import {
   getPlayer
 } from "./game-logic.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
+import { executeGameCommand, COMMAND } from "./game-command.js";
 
 export const BOT_DIFFICULTIES = [
   {
@@ -219,7 +220,7 @@ export function chooseBotMove(state, botId, simulate, difficultyId, rng) {
 // Applies a chosen move and returns { state, logs }. Kept next to the chooser so
 // simulation and execution can never drift apart.
 export function applyBotMove(engine, state, botId, move, logs) {
-  const { cloneGameState, applyCardEffect, applyCardAction, claimMilestone, fundAward } = engine;
+  const { cloneGameState, claimMilestone, fundAward } = engine;
 
   // Card effects resolve against currentPlayerId, so the seat has to be the bot
   // before anything is applied or the human is credited with the bot's card.
@@ -229,24 +230,26 @@ export function applyBotMove(engine, state, botId, move, logs) {
     state = seated;
   }
 
+  // Playing and acting go through the shared command layer, so the bot pays,
+  // draws triggers and spends its action by exactly the same rules the human
+  // does. Hand-rolling them here is how the bot came to skip corporation
+  // effects and double-count its standard projects.
   if (move.kind === "play") {
-    const spent = cloneGameState(state);
-    spent.players = spent.players.map(player =>
-      player.id === botId
-        ? {
-            ...player,
-            mc: player.mc - move.cost,
-            hand: player.hand.filter(id => id !== move.card.id),
-            playedProjects: [...player.playedProjects, move.card.id]
-          }
-        : player
-    );
-    return applyCardEffect(spent, move.card, logs);
+    const result = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD,
+      playerId: botId,
+      cardId: move.card.id
+    });
+    return { state: result.state, logs: result.state.logs ?? logs, actionSpent: true };
   }
 
   if (move.kind === "action") {
-    const result = applyCardAction(state, move.card, logs);
-    return { state: result.state, logs: result.logs };
+    const result = executeGameCommand(state, {
+      type: COMMAND.USE_CARD_ACTION,
+      playerId: botId,
+      cardId: move.card.id
+    });
+    return { state: result.state, logs: result.state.logs ?? logs, actionSpent: true };
   }
 
   if (move.kind === "milestone") {
@@ -330,7 +333,11 @@ export function runBotTurn(engine, state, botId, difficultyId, rng, logs) {
 
   const applied = applyBotMove(engine, state, botId, move, currentLogs);
   const settled = resolveBotChoices(engine, applied.state, botId, rng);
-  const spent = handleActionSpend(settled, settled.logs ?? applied.logs);
+  // Moves routed through the command layer have already spent the action;
+  // spending again would give the bot half the turns it should have.
+  const spent = applied.actionSpent
+    ? settled
+    : handleActionSpend(settled, settled.logs ?? applied.logs);
   return { state: spent, logs: spent.logs, move };
 }
 

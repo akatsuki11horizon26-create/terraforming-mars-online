@@ -88,3 +88,29 @@ test("every action the server handles is reachable from the UI", async () => {
     assert.ok(sent.has(action), `the UI must send ${action} online`);
   }
 });
+
+test("the server routes shared actions through the command layer", () => {
+  // Anything in COMMAND_MAP is dispatched before the switch, so the server no
+  // longer carries its own copy of these rules. The map is the contract.
+  const map = room.slice(room.indexOf("COMMAND_MAP"), room.indexOf("private applyAction"));
+  for (const action of [
+    "playCard",
+    "cardAction",
+    "claimMilestone",
+    "fundAward",
+    "sendDelegate",
+    "buildColony",
+    "trade",
+    "pass",
+    "resolveChoice",
+    "chooseCorporation",
+    "choosePreludes"
+  ]) {
+    assert.match(map, new RegExp(`${action}: COMMAND\.`), `${action} must go through the command layer`);
+  }
+
+  // And the seat must come from the connection, not from what the client sent.
+  const dispatch = room.slice(room.indexOf("const commandType"), room.indexOf("switch (action)"));
+  assert.match(dispatch, /playerId: seat/, "the authenticated seat must win");
+  assert.doesNotMatch(dispatch, /playerId: payload/, "a client-supplied playerId must never be trusted");
+});
