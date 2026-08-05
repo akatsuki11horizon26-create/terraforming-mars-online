@@ -30,6 +30,8 @@ import {
   getCardPaymentCost,
   getCardActionStatus,
   draftPick,
+  applyCorporationTriggers,
+  checkParameterThresholds,
   ALL_CARDS,
   CORPORATIONS
 } from "./game-logic.js";
@@ -143,13 +145,32 @@ const HANDLERS = {
         : player
     );
 
+    const beforeTemp = paid.temperature;
+    const beforeOxygen = paid.oxygen;
     const result = applyCardEffect(paid, card, paid.logs);
     // A card that needs a target parks the rest of the work in pendingChoice;
     // the action is spent once that resolves, not now.
     if (result.status === "pending") {
       return { ok: true, state: result.state, events: [], pendingAction: result.pendingChoice };
     }
-    const spent = handleActionSpend(result.state, result.logs);
+
+    // Corporation effects that watch for a tag, and the bonuses printed part
+    // way up the temperature and oxygen tracks, fire for every mode here
+    // rather than only for whichever one remembered to call them.
+    const triggered = applyCorporationTriggers(result.state, card, result.logs);
+    const thresholds = checkParameterThresholds(
+      beforeTemp,
+      triggered.state.temperature,
+      beforeOxygen,
+      triggered.state.oxygen,
+      triggered.state,
+      triggered.logs
+    );
+    if (thresholds.state.pendingChoice) {
+      return { ok: true, state: thresholds.state, events: [], pendingAction: thresholds.state.pendingChoice };
+    }
+
+    const spent = handleActionSpend(thresholds.state, thresholds.logs);
     return { ok: true, state: spent, events: [] };
   },
 
@@ -207,7 +228,17 @@ const HANDLERS = {
     if (choice.ownerPlayerId !== command.playerId) {
       return fail(state, ERROR.NOT_YOUR_CHOICE, "他のプレイヤーの選択です。");
     }
+    const consumesAction = choice.continuation?.consumedAction ?? true;
     const result = resolvePendingChoice(state, command.optionId, state.logs, command.playerId);
+
+    // A card that asks for a target still costs one action, charged when the
+    // last question is answered. Charging earlier would double up on a card
+    // that asks twice; never charging made every such card free.
+    const stillChoosing = Boolean(result.state?.pendingChoice);
+    if (!stillChoosing && consumesAction && result.state?.phase === "action") {
+      const spent = handleActionSpend(result.state, result.logs ?? result.state.logs);
+      return { ok: true, state: spent, events: [] };
+    }
     return done(result.state, result.logs);
   },
 

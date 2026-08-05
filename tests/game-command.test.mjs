@@ -140,3 +140,66 @@ test("legal commands are only those the seat can actually issue", () => {
     assert.equal(result.ok, true, `${command.type} was listed but refused`);
   }
 });
+
+test("a card that asks for a target still costs exactly one action", async () => {
+  const { ALL_CARDS, getCardEffect } = await import("../app/game-logic.js");
+  const { state, seat } = table();
+
+  const placing = ALL_CARDS.find(card => getCardEffect(card).tile === "forest");
+  const ready = cloneGameState(state);
+  ready.temperature = 8;
+  ready.oxygen = 14;
+  ready.players = ready.players.map(player =>
+    player.id === seat ? { ...player, mc: 80, plants: 20, hand: [placing.id] } : player
+  );
+
+  const played = executeGameCommand(ready, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: placing.id
+  });
+  assert.equal(played.ok, true);
+  assert.ok(played.state.pendingChoice, "placing a tile asks where");
+  // Charging before the answer would double up on a card that asks twice.
+  assert.equal(getPlayer(played.state, seat).actionsRemaining, 2, "not charged yet");
+
+  const resolved = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(
+    getPlayer(resolved.state, seat).actionsRemaining,
+    1,
+    "charged once the last question is answered"
+  );
+});
+
+test("playing a card fires threshold bonuses and corporation triggers", async () => {
+  const { ALL_CARDS, getCardEffect } = await import("../app/game-logic.js");
+  const { state, seat } = table();
+
+  const warming = ALL_CARDS.find(
+    card => getCardEffect(card).temperatureSteps === 1 && !getCardEffect(card).tile
+  );
+  const ready = cloneGameState(state);
+  // -26 to -24 crosses the printed heat production bonus.
+  ready.temperature = -26;
+  ready.players = ready.players.map(player =>
+    player.id === seat ? { ...player, mc: 80, hand: [warming.id] } : player
+  );
+
+  const result = executeGameCommand(ready, {
+    type: COMMAND.PLAY_CARD,
+    playerId: seat,
+    cardId: warming.id
+  });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.state.temperature, -24);
+  assert.equal(
+    getPlayer(result.state, seat).heatProd,
+    getPlayer(ready, seat).heatProd + 1,
+    "the -24C bonus is paid whichever mode played the card"
+  );
+});
