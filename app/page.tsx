@@ -55,7 +55,6 @@ import {
   resolvePendingChoice as jsResolvePendingChoice,
   passPlayer as jsPassPlayer,
   cloneGameState as jsCloneGameState,
-  completeSetupPurchase as jsCompleteSetupPurchase,
   legalCellsFor as jsLegalCellsFor,
   placeTileAt as jsPlaceTileAt,
   getPlayer as jsGetPlayer,
@@ -1237,7 +1236,7 @@ export default function Home() {
     }
 
     // Offline runs the same command; the rules live in the engine either way.
-    const result = executeGameCommand(gameState as never, {
+    const result = executeGameCommand(activeState as never, {
       type: "STANDARD_PROJECT",
       playerId: currentPlayerId,
       projectId,
@@ -1270,25 +1269,15 @@ export default function Home() {
     saveState(result.state);
   };
 
+  // Selling patents is the one standard project that needs to know which cards
+  // before it can run, so the button opens a selection mode and this confirms
+  // it. It used to write the state here directly, which the room never saw.
   const handleConfirmSellPatents = () => {
     if (selectedSellCardIds.length === 0) {
       setIsSellingPatents(false);
       return;
     }
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.hand = gameState.hand.filter(id => !selectedSellCardIds.includes(id));
-    nextState.discardPile = [...gameState.discardPile, ...selectedSellCardIds];
-    nextState.mc += selectedSellCardIds.length;
-    const localLogs = addLog(
-      nextState.logs,
-      "player",
-      `特許の売却を実行しました: カード ${selectedSellCardIds.length} 枚を売却 (MC +${selectedSellCardIds.length})`
-    );
-
-    setIsSellingPatents(false);
-    setSelectedSellCardIds([]);
-    const afterAction = handleActionSpend(nextState, localLogs);
-    saveState(afterAction);
+    handleStandardProjectPlay("sell_patents");
   };
 
   const handleConfirmRestart = () => {
@@ -1341,38 +1330,17 @@ export default function Home() {
       setSelectedResearchCardIds([]);
       return;
     }
-    if (gameState.phase === "setup" && gameState.setupStep !== "projects") return;
-    const cost = selectedResearchCardIds.length * 3;
-    const corporation = CORPORATIONS.find(item => item.id === gameState.corporationId);
-    const setupCost = corporation?.effects?.freeStartingCards ? 0 : cost;
-    if (setupCost > gameState.mc) return;
+    // The same command the room runs. This used to be a second implementation
+    // of buying — its own cost, its own phase advance, its own free-cards rule
+    // — so Beginner Corporation was free here and charged everywhere else.
+    const result = executeGameCommand(activeState as never, {
+      type: "BUY_RESEARCH",
+      playerId: currentPlayerId,
+      cardIds: selectedResearchCardIds
+    }) as { ok: boolean; state: GameState };
 
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.hand = [...gameState.hand, ...selectedResearchCardIds];
-    nextState.discardPile = [...gameState.discardPile, ...gameState.researchCards.filter(id => !selectedResearchCardIds.includes(id))];
-    nextState.mc -= setupCost;
-    nextState.researchCards = [];
-
-    let msg = "";
-    if (gameState.phase === "setup") {
-      msg = `初期カード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${setupCost})`;
-      nextState.setupStep = "complete";
-      const advanced = jsCompleteSetupPurchase(nextState) as GameState;
-      advanced.logs = addLog(advanced.logs, "player", msg);
-      saveState(advanced);
-      setSelectedResearchCardIds([]);
-      return;
-    } else {
-      msg = `研究フェーズカード購入確定: ${selectedResearchCardIds.length} 枚を購入しました (支払: MC ${cost})`;
-      nextState.phase = "action";
-      nextState.actionsRemaining = 2;
-      nextState.turnStep = "start";
-    }
-
-    const localLogs = addLog(nextState.logs, "player", msg);
-    nextState.logs = localLogs;
-
-    saveState(nextState);
+    if (!result.ok) return;
+    saveState(result.state);
     setSelectedResearchCardIds([]);
   };
 
@@ -2587,7 +2555,13 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={activeState.hand.length === 0 || placementMode !== null || activeState.pendingOceans > 0 || isSellingPatents}
-                  onClick={() => handleStandardProjectPlay("sell_patents")}
+                  onClick={() => {
+                    // Ask which cards first. Sending the project straight away
+                    // sent an empty list, which the engine refused every time.
+                    setOpenDrawer(null);
+                    setSelectedSellCardIds([]);
+                    setIsSellingPatents(true);
+                  }}
                 >
                   実行
                 </button>
