@@ -2927,7 +2927,7 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span>配置した緑地数:</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-ember)" }}>
-                    {Object.values(activeState.board).filter(c => c.placedBy === "player" && c.tileType === "forest").length} 点
+                    {Object.values(activeState.board).filter(c => c.placedBy === currentPlayerId && c.tileType === "forest").length} 点
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
@@ -2936,7 +2936,7 @@ export default function Home() {
                     {(() => {
                       let cityVp = 0;
                       Object.values(activeState.board).forEach(cell => {
-                        if (cell.placedBy === "player" && cell.tileType === "city") {
+                        if (cell.placedBy === currentPlayerId && cell.tileType === "city") {
                           const adj = getAdjacentCells(cell.q, cell.r);
                           adj.forEach(pos => {
                             const key = `${pos.q},${pos.r}`;
