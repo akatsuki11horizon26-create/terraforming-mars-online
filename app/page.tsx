@@ -68,7 +68,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand } from "./game-command.js";
+import { executeGameCommand, CORPORATION_ACTION_ID } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup } from "./title-screen";
 import {
@@ -128,7 +128,6 @@ const engineForBot = {
 
 // Corporation actions share the per-generation marker with card actions, under
 // an id no project card can collide with.
-const CORPORATION_ACTION_ID = "@corporation-action";
 
 interface PlayerRecord {
   id: string;
@@ -437,7 +436,7 @@ export default function Home() {
     active: boolean;
     type: "forest" | "city" | "ocean";
     sourceCardId?: string;
-    sourceProject?: "greenery" | "plants" | "ocean" | "city" | "ecoline";
+    sourceProject?: "greenery" | "plants" | "ocean" | "city";
     remainingPlacements?: number;
     cardPaymentDone?: boolean;
   } | null>(null);
@@ -1037,12 +1036,7 @@ export default function Home() {
         localLogs = triggerResult.logs;
       }
     } else if (placementMode.sourceProject) {
-      if (placementMode.sourceProject === "ecoline") {
-        nextState.usedCardActions = [...(nextState.usedCardActions ?? []), CORPORATION_ACTION_ID];
-        nextState.plants -= 7;
-        placeTile(nextState, cell, "forest", currentPlayerId);
-        localLogs = addLog(localLogs, "player", "Ecoline: 植物7を支払い緑地を配置しました。");
-      } else if (placementMode.sourceProject === "greenery" || placementMode.sourceProject === "plants") {
+      if (placementMode.sourceProject === "greenery" || placementMode.sourceProject === "plants") {
         const payInPlants = placementMode.sourceProject === "plants";
         const isFinalGreenery = gameState.phase === "final_greenery";
         if (payInPlants) {
@@ -1208,34 +1202,23 @@ export default function Home() {
   };
 
   const handleCorporationAction = () => {
+    if (!isMyTurn) return;
     if (placementMode || activeState.pendingOceans > 0) return;
-    // A corporation action is a blue action: once per generation, like any card.
-    if (corporationActionUsed) return;
-    if (gameState.corporationId === "corp-ecoline") {
-      if (gameState.plants < 7) return;
-      setPlacementMode({ active: true, type: "forest", sourceProject: "ecoline" });
+
+    if (isOnline) {
+      online.sendAction("corporationAction");
       return;
     }
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), CORPORATION_ACTION_ID];
-    let localLogs = nextState.logs;
-    if (gameState.corporationId === "corp-unmi") {
-      if (gameState.tr <= gameState.generationStartTr || gameState.mc < 3) return;
-      nextState.mc -= 3;
-      nextState.tr += 1;
-      localLogs = addLog(localLogs, "player", "UNMI: MC3を支払いTRを1上げました。");
-    } else if (gameState.corporationId === "corp-robinson") {
-      if (gameState.mc < 4) return;
-      nextState.mc -= 4;
-      const resources = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"] as const;
-      const lowest = Math.min(...resources.map(resource => nextState[resource]));
-      const target = resources.find(resource => nextState[resource] === lowest) ?? "mcProd";
-      nextState[target] += 1;
-      localLogs = addLog(localLogs, "player", `Robinson Industries: MC4で${target}を1段階上げました。`);
-    } else {
-      return;
-    }
-    saveState(handleActionSpend(nextState, localLogs));
+
+    // The engine decides whether it is affordable, whether it is still
+    // available this generation, and where a tile may go.
+    const result = executeGameCommand(gameState as never, {
+      type: "CORPORATION_ACTION",
+      playerId: currentPlayerId
+    }) as { ok: boolean; state: GameState; error?: { message: string } };
+
+    if (!result.ok) return;
+    saveState(result.state);
   };
 
   const handleConfirmSellPatents = () => {

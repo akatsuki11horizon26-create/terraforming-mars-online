@@ -346,7 +346,8 @@ export class GameRoom {
     choosePreludes: COMMAND.SELECT_PRELUDES,
     draftPick: COMMAND.DRAFT_PICK,
     buyResearch: COMMAND.BUY_RESEARCH,
-    standardProject: COMMAND.STANDARD_PROJECT
+    standardProject: COMMAND.STANDARD_PROJECT,
+    corporationAction: COMMAND.CORPORATION_ACTION
   };
 
   private applyAction(

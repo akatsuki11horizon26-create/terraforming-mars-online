@@ -308,3 +308,147 @@ test("a standard project nobody can pay for is refused for free", () => {
     "and costs no action"
   );
 });
+
+// A seat wearing a chosen corporation, with the resources its action needs.
+function seated(corporationId, overrides = {}) {
+  const { state, seat, other } = table();
+  const next = cloneGameState(state);
+  next.players = next.players.map(player =>
+    player.id === seat ? { ...player, corporationId, ...overrides } : player
+  );
+  return { state: next, seat, other };
+}
+
+test("Robinson Industries raises the lowest production and spends one action", () => {
+  const { state, seat } = seated("corp-robinson", {
+    mc: 40,
+    mcProd: 3,
+    steelProd: 2,
+    titaniumProd: 2,
+    plantsProd: 2,
+    energyProd: 2,
+    heatProd: 2
+  });
+  const before = getPlayer(state, seat);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(result.ok, true);
+
+  const after = getPlayer(result.state, seat);
+  assert.equal(after.mc, before.mc - 4);
+  // Steel is the first of the six at the lowest value, so it is the one raised.
+  assert.equal(after.steelProd, before.steelProd + 1);
+  assert.equal(after.mcProd, before.mcProd, "a production that was not lowest is untouched");
+  assert.equal(after.actionsRemaining, before.actionsRemaining - 1);
+});
+
+test("a corporation action cannot be used twice in one generation", () => {
+  const { state, seat } = seated("corp-robinson", { mc: 40 });
+  const first = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(first.ok, true);
+
+  const second = executeGameCommand(first.state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(second.ok, false);
+  assert.equal(second.error.code, ERROR.ACTION_ALREADY_USED);
+  assert.equal(
+    getPlayer(second.state, seat).mc,
+    getPlayer(first.state, seat).mc,
+    "and the refusal charges nothing"
+  );
+});
+
+test("UNMI may only buy a TR step in a generation where its TR already rose", () => {
+  const { state, seat } = seated("corp-unmi", { mc: 40, tr: 20, generationStartTr: 20 });
+
+  const tooEarly = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(tooEarly.ok, false, "TR has not risen this generation");
+  assert.equal(tooEarly.error.code, ERROR.ACTION_REFUSED);
+
+  const risen = cloneGameState(state);
+  risen.players = risen.players.map(player =>
+    player.id === seat ? { ...player, tr: 21 } : player
+  );
+  const before = getPlayer(risen, seat);
+  const result = executeGameCommand(risen, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(result.ok, true);
+
+  const after = getPlayer(result.state, seat);
+  assert.equal(after.tr, before.tr + 1);
+  assert.equal(after.mc, before.mc - 3);
+  assert.equal(after.actionsRemaining, before.actionsRemaining - 1);
+});
+
+test("Ecoline pays plants, asks where, and spends the action on the answer", () => {
+  const { state, seat } = seated("corp-ecoline", { plants: 9 });
+  const before = getPlayer(state, seat);
+
+  const asked = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(asked.ok, true);
+  assert.ok(asked.state.pendingChoice, "the board has more than one legal space");
+  assert.equal(
+    getPlayer(asked.state, seat).plants,
+    before.plants - 7,
+    "the plants are paid when the action starts"
+  );
+  assert.equal(
+    getPlayer(asked.state, seat).actionsRemaining,
+    before.actionsRemaining,
+    "and the action is not spent until the question is answered"
+  );
+
+  const forests = Object.values(asked.state.board).filter(cell => cell.tileType === "forest").length;
+  const settled = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(settled.ok, true);
+
+  assert.equal(
+    Object.values(settled.state.board).filter(cell => cell.tileType === "forest").length,
+    forests + 1
+  );
+  assert.equal(getPlayer(settled.state, seat).actionsRemaining, before.actionsRemaining - 1);
+});
+
+test("Ecoline without enough plants is refused for free", () => {
+  const { state, seat } = seated("corp-ecoline", { plants: 6 });
+  const before = getPlayer(state, seat);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.ACTION_REFUSED);
+  assert.equal(getPlayer(result.state, seat).plants, before.plants);
+  assert.equal(getPlayer(result.state, seat).actionsRemaining, before.actionsRemaining);
+});
+
+test("a corporation with no action of its own is refused", () => {
+  const { state, seat } = seated("corp-credicor", { mc: 40 });
+  const result = executeGameCommand(state, {
+    type: COMMAND.CORPORATION_ACTION,
+    playerId: seat
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.NO_CORPORATION_ACTION);
+});

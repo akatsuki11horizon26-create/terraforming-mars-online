@@ -57,8 +57,13 @@ export const COMMAND = {
   SELECT_PRELUDES: "SELECT_PRELUDES",
   DRAFT_PICK: "DRAFT_PICK",
   BUY_RESEARCH: "BUY_RESEARCH",
-  STANDARD_PROJECT: "STANDARD_PROJECT"
+  STANDARD_PROJECT: "STANDARD_PROJECT",
+  CORPORATION_ACTION: "CORPORATION_ACTION"
 };
+
+// A corporation's own action is a blue action: once per generation, and it
+// shares the used-action list with the cards so one flag covers both.
+export const CORPORATION_ACTION_ID = "@corporation-action";
 
 export const ERROR = {
   UNKNOWN_COMMAND: "UNKNOWN_COMMAND",
@@ -75,7 +80,9 @@ export const ERROR = {
   CARD_NOT_OFFERED: "CARD_NOT_OFFERED",
   DUPLICATE_CARD: "DUPLICATE_CARD",
   UNKNOWN_PROJECT: "UNKNOWN_PROJECT",
-  NO_LEGAL_SPACE: "NO_LEGAL_SPACE"
+  NO_LEGAL_SPACE: "NO_LEGAL_SPACE",
+  NO_CORPORATION_ACTION: "NO_CORPORATION_ACTION",
+  ACTION_ALREADY_USED: "ACTION_ALREADY_USED"
 };
 
 function fail(state, code, message) {
@@ -141,21 +148,21 @@ function payProjectCost(state, playerId, project, cost, corporation) {
 }
 
 // A project that places a tile asks where, unless only one space is legal.
-function placeOrAsk(state, command, tileType, label) {
+function placeOrAsk(state, command, tileType, label, source) {
   const legal = legalCellsFor(state, tileType, command.playerId);
   if (legal.length === 0) {
     return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
   }
   if (legal.length === 1) {
     placeTileAt(state, legal[0], tileType, command.playerId);
-    return finishProject(state, command, label);
+    return source ? finishAction(state, command, label) : finishProject(state, command, label);
   }
   const choice = buildTileChoice(
     state,
     tileType,
     {
-      sourceKind: "standard-project",
-      sourceId: command.projectId,
+      sourceKind: source?.kind ?? "standard-project",
+      sourceId: source?.id ?? command.projectId,
       consumedAction: true,
       paid: true
     },
@@ -171,6 +178,21 @@ function placeOrAsk(state, command, tileType, label) {
 function finishProject(state, command, label, before) {
   const actor = getPlayer(state, command.playerId);
   state.logs = addLog(state.logs, "player", `標準プロジェクト【${label}】を実行しました。`, actor?.name);
+  const settled = before
+    ? checkParameterThresholds(before.temperature, state.temperature, before.oxygen, state.oxygen, state, state.logs)
+    : { state, logs: state.logs };
+  if (settled.state.pendingChoice) {
+    return { ok: true, state: settled.state, events: [], pendingAction: settled.state.pendingChoice };
+  }
+  const spent = handleActionSpend(settled.state, settled.logs);
+  return { ok: true, state: spent, events: [] };
+}
+
+// The corporation-action counterpart of finishProject: same settle-and-spend,
+// but the log line names the corporation rather than a standard project.
+function finishAction(state, command, label, before) {
+  const actor = getPlayer(state, command.playerId);
+  state.logs = addLog(state.logs, "player", label, actor?.name);
   const settled = before
     ? checkParameterThresholds(before.temperature, state.temperature, before.oxygen, state.oxygen, state, state.logs)
     : { state, logs: state.logs };
@@ -270,6 +292,71 @@ function raiseTemperature(state, playerId) {
     );
   }
 }
+
+// The three corporations that carry an action of their own. Each states what it
+// costs and what it does; the handler below does the checking and the spending,
+// exactly as it does for a card action.
+const CORPORATION_ACTIONS = {
+  "corp-ecoline": {
+    label: "Ecoline: 植物7を支払い緑地を配置しました。",
+    blocked: actor => ((actor.plants ?? 0) < 7 ? "植物が不足しています。" : null),
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId ? { ...player, plants: (player.plants ?? 0) - 7 } : player
+      );
+      const before = { temperature: state.temperature, oxygen: state.oxygen };
+      const placed = placeOrAsk(state, command, "forest", "Ecoline: 植物7を支払い緑地を配置しました。", {
+        kind: "corporation-action",
+        id: "corp-ecoline"
+      });
+      // A greenery raises oxygen, so a threshold may have been crossed.
+      if (placed.ok && !placed.pendingAction) {
+        const settled = checkParameterThresholds(
+          before.temperature,
+          placed.state.temperature,
+          before.oxygen,
+          placed.state.oxygen,
+          placed.state,
+          placed.state.logs
+        );
+        return { ...placed, state: settled.state };
+      }
+      return placed;
+    }
+  },
+  "corp-unmi": {
+    label: "UNMI: MC3を支払いTRを1上げました。",
+    // UNMI may only buy a TR step in a generation where it already raised one.
+    blocked: actor => {
+      if ((actor.tr ?? 0) <= (actor.generationStartTr ?? 0)) {
+        return "この世代にまだTRが上がっていません。";
+      }
+      return (actor.mc ?? 0) < 3 ? "MCが不足しています。" : null;
+    },
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId ? { ...player, mc: player.mc - 3, tr: player.tr + 1 } : player
+      );
+      return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
+    }
+  },
+  "corp-robinson": {
+    label: "Robinson Industries: MC4で最も低い生産量を1段階上げました。",
+    blocked: actor => ((actor.mc ?? 0) < 4 ? "MCが不足しています。" : null),
+    run(state, command) {
+      const resources = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"];
+      const actor = getPlayer(state, command.playerId);
+      const lowest = Math.min(...resources.map(resource => actor[resource] ?? 0));
+      const target = resources.find(resource => (actor[resource] ?? 0) === lowest) ?? "mcProd";
+      state.players = state.players.map(player =>
+        player.id === command.playerId
+          ? { ...player, mc: player.mc - 4, [target]: (player[target] ?? 0) + 1 }
+          : player
+      );
+      return finishAction(state, command, `Robinson Industries: MC4で${target}を1段階上げました。`);
+    }
+  }
+};
 
 const HANDLERS = {
   [COMMAND.PLAY_CARD](state, command) {
@@ -458,6 +545,31 @@ const HANDLERS = {
     const next = cloneGameState(state);
     payProjectCost(next, command.playerId, project, cost, corporation);
     return project.run(next, command, cost);
+  },
+
+  // A corporation's own action. The UI used to run these itself, which is why
+  // it could raise Robinson's production without the engine ever seeing it.
+  [COMMAND.CORPORATION_ACTION](state, command) {
+    const actor = getPlayer(state, command.playerId);
+    const action = CORPORATION_ACTIONS[actor.corporationId];
+    if (!action) {
+      return fail(state, ERROR.NO_CORPORATION_ACTION, "この企業にはアクションがありません。");
+    }
+    if ((actor.usedCardActions ?? []).includes(CORPORATION_ACTION_ID)) {
+      return fail(state, ERROR.ACTION_ALREADY_USED, "この世代の企業アクションは使用済みです。");
+    }
+    const blocked = action.blocked?.(actor, state);
+    if (blocked) return fail(state, ERROR.ACTION_REFUSED, blocked);
+
+    const next = cloneGameState(state);
+    // Mark it used before running, so a placement that stops to ask cannot be
+    // started a second time while the question is open.
+    next.players = next.players.map(player =>
+      player.id === command.playerId
+        ? { ...player, usedCardActions: [...(player.usedCardActions ?? []), CORPORATION_ACTION_ID] }
+        : player
+    );
+    return action.run(next, command);
   },
 
   [COMMAND.BUY_RESEARCH](state, command) {
