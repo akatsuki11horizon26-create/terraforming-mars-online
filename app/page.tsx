@@ -1113,7 +1113,7 @@ export default function Home() {
 
   const handleCellClick = (cell: CellState) => {
     // If pending ocean placement is active
-    if (gameState.pendingOceans > 0) {
+    if (activeState.pendingOceans > 0) {
       if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
       const nextState = jsCloneGameState(gameState) as GameState;
       nextState.board = { ...gameState.board };
@@ -1131,7 +1131,7 @@ export default function Home() {
     }
 
     if (!placementMode) return;
-    if (!isCellPlacementValid(cell, placementMode.type, gameState.board)) return;
+    if (!isCellPlacementValid(cell, placementMode.type, activeState.board)) return;
 
     let nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
@@ -1405,7 +1405,7 @@ export default function Home() {
   };
 
   const handleCorporationAction = () => {
-    if (placementMode || gameState.pendingOceans > 0) return;
+    if (placementMode || activeState.pendingOceans > 0) return;
     // A corporation action is a blue action: once per generation, like any card.
     if (corporationActionUsed) return;
     if (gameState.corporationId === "corp-ecoline") {
@@ -1829,7 +1829,7 @@ export default function Home() {
           ref={boardRef}
           style={{ ["--board-scale" as string]: String(boardScale) }}
         >
-          {gameState.pendingOceans > 0 && (
+          {activeState.pendingOceans > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -1846,7 +1846,7 @@ export default function Home() {
               }}
             >
               <span style={{ fontSize: "0.85rem", color: "var(--color-cyan)", fontWeight: "bold" }}>
-                【気温0°Cボーナス】海洋タイルを配置する reserved スペースを選択してください（残り {gameState.pendingOceans}枚）
+                【気温0°Cボーナス】海洋タイルを配置する reserved スペースを選択してください（残り {activeState.pendingOceans}枚）
               </span>
             </div>
           )}
@@ -1889,9 +1889,9 @@ export default function Home() {
 
           <div className="mars-sphere">
             <div className="hex-grid">
-              {Object.values(gameState.board).map(cell => {
+              {Object.values(activeState.board).map(cell => {
                 let isValid = false;
-                if (gameState.pendingOceans > 0) {
+                if (activeState.pendingOceans > 0) {
                   isValid = cell.tileType === "empty" && cell.isOceanOnly;
                 } else if (placementMode?.active) {
                   isValid = isCellPlacementValid(cell, placementMode.type, gameState.board);
@@ -1939,7 +1939,7 @@ export default function Home() {
                   classes += " hex-placement-valid";
                 }
 
-                const isInteractionDisabled = gameState.pendingOceans > 0 ? !isValid : (placementMode?.active ? !isValid : true);
+                const isInteractionDisabled = activeState.pendingOceans > 0 ? !isValid : (placementMode?.active ? !isValid : true);
 
                 const help = describeCell(cell);
 
@@ -2235,7 +2235,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
                   onClick={handlePass}
-                  disabled={!isMyTurn || placementMode !== null || gameState.pendingOceans > 0}
+                  disabled={!isMyTurn || placementMode !== null || activeState.pendingOceans > 0}
                 >
                   {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
                     ? "ターン終了"
@@ -2263,7 +2263,7 @@ export default function Home() {
                   cost={payable}
                   selected={isSelected}
                   affordable={status.playable}
-                  disabled={!isMyTurn || gameState.pendingOceans > 0}
+                  disabled={!isMyTurn || activeState.pendingOceans > 0}
                   onClick={() => handleCardClick(cardId)}
                 />
               );
@@ -2479,7 +2479,7 @@ export default function Home() {
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || gameState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={() => confirmAction("企業アクション", `${gameState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : gameState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || activeState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={() => confirmAction("企業アクション", `${gameState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : gameState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
@@ -2491,7 +2491,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(11) || placementMode !== null || gameState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(11) || placementMode !== null || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("発電所の建設", "11 MC を支払い、エネルギー生産量を1段階上げます。", () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
@@ -2507,7 +2507,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(14) || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
+                  disabled={!canPayStandardCost(14) || placementMode !== null || activeState.pendingOceans > 0 || gameState.temperature >= 8}
                   onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
@@ -2523,7 +2523,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(18) || placementMode !== null || gameState.pendingOceans > 0 || gameState.oceans >= 9}
+                  disabled={!canPayStandardCost(18) || placementMode !== null || activeState.pendingOceans > 0 || gameState.oceans >= 9}
                   onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
@@ -2539,7 +2539,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(23) || placementMode !== null || gameState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(23) || placementMode !== null || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("緑化プロジェクト", "23 MC を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
@@ -2555,7 +2555,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(25) || placementMode !== null || gameState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(25) || placementMode !== null || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
                 >
                   配置
@@ -2572,7 +2572,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.heat < 8 || placementMode !== null || gameState.pendingOceans > 0 || gameState.temperature >= 8}
+                    disabled={gameState.heat < 8 || placementMode !== null || activeState.pendingOceans > 0 || gameState.temperature >= 8}
                     onClick={() => confirmAction("熱の変換", "熱 8 を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
@@ -2590,7 +2590,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.plants < 8 || placementMode !== null || gameState.pendingOceans > 0}
+                    disabled={gameState.plants < 8 || placementMode !== null || activeState.pendingOceans > 0}
                     onClick={() => confirmAction("植物の変換", "植物 8 を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
@@ -2607,7 +2607,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={gameState.hand.length === 0 || placementMode !== null || gameState.pendingOceans > 0 || isSellingPatents}
+                  disabled={gameState.hand.length === 0 || placementMode !== null || activeState.pendingOceans > 0 || isSellingPatents}
                   onClick={() => handleStandardProjectPlay("sell_patents")}
                 >
                   実行

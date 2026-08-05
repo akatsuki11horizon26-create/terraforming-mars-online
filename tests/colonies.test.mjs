@@ -214,58 +214,52 @@ test("trading and building colonies cost what the rulebook says", async () => {
     return state;
   }
 
-  // Colony tiles are drawn at random each game, so the tile has to come from
-  // the same state it is used against.
-  // Colony tiles are drawn at random, and some pay their trade income in M€ —
-  // Luna gives 2, which would net against the 9 M€ the trade costs. Pick a tile
-  // whose income is something else so the payment is the only thing measured.
-  function seed(overrides) {
-    const state = table(overrides);
-    const tile = Object.keys(state.colonies.tiles).find(id => {
-      const definition = getColonyTile(id);
-      // Luna pays its trade income in M€, which would net against the cost.
-      return definition?.trade?.resource !== "mc";
-    }) ?? Object.keys(state.colonies.tiles)[0];
-    return { state, tile };
+  // Colony tiles are drawn at random, and each seed() call deals a fresh game,
+  // so two runs need not share a tile. Build one game and fork it, which keeps
+  // every comparison on the same tile paying the same income.
+  const base = table({});
+  const tile = Object.keys(base.colonies.tiles)[0];
+  function fork(overrides) {
+    const state = cloneGameState(base);
+    state.players = state.players.map(player => ({ ...player, ...overrides }));
+    return state;
   }
 
-  // Colony tiles pay their trade income in different currencies, and some pay
-  // in M€, so compare against the same tile traded for free rather than a fixed
-  // number. Only the payment is under test here.
-  const mcRun = seed({ mc: 40, energy: 0, titanium: 0 });
-  const paidMc = tradeWith(mcRun.state, mcRun.tile, [], "player");
+  const paidMc = tradeWith(fork({ mc: 40, energy: 0, titanium: 0 }), tile, [], "player");
   assert.equal(paidMc.traded, true);
 
-  const freeRun = seed({ mc: 40, energy: 3, titanium: 0 });
-  const paidEnergyInstead = tradeWith(freeRun.state, freeRun.tile, [], "player");
+  // Energy is spent ahead of megacredits, so this run pays nothing in M€ and
+  // the difference between the two is exactly the megacredit price.
+  const paidEnergy = tradeWith(fork({ mc: 40, energy: 5, titanium: 0 }), tile, [], "player");
+  assert.equal(paidEnergy.state.players[0].energy, 2, "energy costs 3");
   assert.equal(
     paidMc.state.players[0].mc,
-    paidEnergyInstead.state.players[0].mc - 9,
-    "paying with megacredits costs exactly 9 more than not paying with them"
+    paidEnergy.state.players[0].mc - 9,
+    "paying in megacredits costs 9 more than not paying in them"
   );
 
-  // Energy and titanium are spent ahead of megacredits when available.
-  const energyRun = seed({ mc: 40, energy: 5, titanium: 0 });
-  const paidEnergy = tradeWith(energyRun.state, energyRun.tile, [], "player");
-  assert.equal(paidEnergy.state.players[0].energy, 2);
-  assert.equal(paidEnergy.state.players[0].mc, 40);
-
-  const brokeRun = seed({ mc: 2, energy: 0, titanium: 0 });
-  const broke = tradeWith(brokeRun.state, brokeRun.tile, [], "player");
+  const broke = tradeWith(fork({ mc: 2, energy: 0, titanium: 0 }), tile, [], "player");
   assert.equal(broke.traded, false, "a player who cannot pay cannot trade");
 
   // Cryo-Sleep reduces the cost by one resource of whichever kind is paid.
-  const discountRun = seed({ mc: 40, energy: 0, titanium: 0, playedProjects: ["card-colonies-cryo-sleep"] });
-  assert.deepEqual(tradePaymentOptions(discountRun.state, "player"), [{ resource: "mc", cost: 8 }]);
-  assert.equal(tradeWith(discountRun.state, discountRun.tile, [], "player").state.players[0].mc, 32);
+  const discounted = fork({
+    mc: 40,
+    energy: 0,
+    titanium: 0,
+    playedProjects: ["card-colonies-cryo-sleep"]
+  });
+  assert.deepEqual(tradePaymentOptions(discounted, "player"), [{ resource: "mc", cost: 8 }]);
+  assert.equal(
+    tradeWith(discounted, tile, [], "player").state.players[0].mc,
+    paidMc.state.players[0].mc + 1,
+    "the discount saves exactly one megacredit"
+  );
 
-  const buildRun = seed({ mc: 40 });
-  const built = buildColonyOn(buildRun.state, buildRun.tile, [], "player");
+  const built = buildColonyOn(fork({ mc: 40 }), tile, [], "player");
   assert.equal(built.built, true);
   assert.equal(built.state.players[0].mc, 23, "building a colony costs 17 M€");
 
-  const poorRun = seed({ mc: 10 });
-  assert.equal(buildColonyOn(poorRun.state, poorRun.tile, [], "player").built, false);
+  assert.equal(buildColonyOn(fork({ mc: 10 }), tile, [], "player").built, false);
 });
 
 test("every card's effect is implemented", async () => {
