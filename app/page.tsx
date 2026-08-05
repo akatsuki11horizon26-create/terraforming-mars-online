@@ -656,12 +656,16 @@ export default function Home() {
 
   const handleResolveChoice = (optionId: string) => {
     if (isOnline) return void online.sendAction("resolveChoice", { optionId });
-    runEngine(
-      jsResolvePendingChoice(activeState, optionId, activeState.logs, currentPlayerId) as {
-        state: GameState;
-        logs: LogEntry[];
-      }
-    );
+    // Through the command layer, not the engine directly: answering the last
+    // question is what spends the action, so resolving it here by hand made
+    // every project that asks where to place its tile a free one.
+    const result = executeGameCommand(activeState as never, {
+      type: "RESOLVE_PENDING",
+      playerId: currentPlayerId,
+      optionId
+    }) as { ok: boolean; state: GameState };
+    if (!result.ok) return;
+    saveState(result.state);
   };
 
   // Each map prints its own five milestones and five awards.
