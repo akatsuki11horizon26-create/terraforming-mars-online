@@ -139,6 +139,8 @@ interface PlayerRecord {
   hand?: string[];
   usedCardActions?: string[];
   researchCards?: string[];
+  playedProjects?: string[];
+  corporationId?: string;
   steel?: number;
   titanium?: number;
   plants?: number;
@@ -897,7 +899,7 @@ export default function Home() {
     return { cost, heatUsed };
   };
 
-  const canPayStandardCost = (cost: number) => gameState.mc + (CORPORATIONS.find(item => item.id === gameState.corporationId)?.effects?.heatAsMoney ? gameState.heat : 0) >= cost;
+  const canPayStandardCost = (cost: number) => activeState.mc + (CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.heatAsMoney ? activeState.heat : 0) >= cost;
 
   const payStandardCost = (state: GameState, cost: number) => {
     const heatAsMoney = CORPORATIONS.find(item => item.id === state.corporationId)?.effects?.heatAsMoney ? state.heat : 0;
@@ -1400,13 +1402,26 @@ export default function Home() {
 
   // Tag totals decide whether requirement cards are playable, so the count has
   // to include the corporation's own tags the same way the engine does.
+  // Everything below describes what the player is looking at, so it reads the
+  // active state: online that is the server's view of this seat, and the local
+  // game is a different game entirely.
+  const seatPlayedProjects = useMemo(
+    () =>
+      (activeState.players?.find(p => p.id === currentPlayerId)?.playedProjects ??
+        activeState.playedProjects ??
+        []) as string[],
+    [activeState, currentPlayerId]
+  );
+  const seatCorporationId = (activeState.players?.find(p => p.id === currentPlayerId)?.corporationId ??
+    activeState.corporationId) as string | undefined;
+
   const tagTally = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const id of gameState.playedProjects) {
+    for (const id of seatPlayedProjects) {
       const card = ALL_CARDS.find(item => item.id === id);
       for (const tag of card?.tags ?? []) counts[tag] = (counts[tag] ?? 0) + 1;
     }
-    const corporation = CORPORATIONS.find(item => item.id === gameState.corporationId);
+    const corporation = CORPORATIONS.find(item => item.id === seatCorporationId);
     for (const tag of corporation?.tags ?? []) counts[tag] = (counts[tag] ?? 0) + 1;
     return Object.entries(TAG_INFO).map(([tag, info]) => ({
       tag,
@@ -1415,27 +1430,27 @@ export default function Home() {
       color: info.color,
       count: counts[tag] ?? 0
     }));
-  }, [gameState.playedProjects, gameState.corporationId]);
+  }, [seatPlayedProjects, seatCorporationId]);
 
-  const playedCardCount = gameState.playedProjects.length;
+  const playedCardCount = seatPlayedProjects.length;
 
-  const activeCards = useMemo(() => gameState.playedProjects
+  const activeCards = useMemo(() => seatPlayedProjects
     .map(id => ALL_CARDS.find(card => card.id === id))
-    .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [gameState.playedProjects]);
+    .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [seatPlayedProjects]);
 
   const { playable: canPlaySelected, reason: playDisableReason } = selectedCard
-    ? getCardPlayableStatus(selectedCard, gameState, steelUsed, titaniumUsed)
+    ? getCardPlayableStatus(selectedCard, activeState, steelUsed, titaniumUsed)
     : { playable: false, reason: "" };
 
   const { maxSteel, maxTitanium } = selectedCard
-    ? getCardDiscount(selectedCard, gameState)
+    ? getCardDiscount(selectedCard, activeState)
     : { maxSteel: 0, maxTitanium: 0 };
 
-  const isPlantsConvertAffordable = gameState.plants >= 8;
-  const isHeatConvertAffordable = gameState.heat >= 8;
+  const isPlantsConvertAffordable = activeState.plants >= 8;
+  const isHeatConvertAffordable = activeState.heat >= 8;
 
-  const scoreValue = computeScore(gameState);
-  const selectedCardPurchaseCost = gameState.phase === "setup" && CORPORATIONS.find(item => item.id === gameState.corporationId)?.effects?.freeStartingCards
+  const scoreValue = computeScore(activeState);
+  const selectedCardPurchaseCost = activeState.phase === "setup" && CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards
     ? 0
     : selectedResearchCardIds.length * 3;
 
@@ -1534,6 +1549,8 @@ export default function Home() {
             className="btn-secondary"
             style={{ padding: "4px 12px", fontSize: "0.8rem" }}
             onClick={() => {
+              // Defaults for starting a NEW local game, so they come from the
+              // local one — not from whatever room is currently open.
               setSetupPlayerCount(gameState.players?.length ?? 1);
               setSetupTurmoil(Boolean(gameState.turmoil));
               setSetupColonies(Boolean(gameState.colonies));
@@ -1684,7 +1701,7 @@ export default function Home() {
                 if (activeState.pendingOceans > 0) {
                   isValid = cell.tileType === "empty" && cell.isOceanOnly;
                 } else if (placementMode?.active) {
-                  isValid = isCellPlacementValid(cell, placementMode.type, gameState.board);
+                  isValid = isCellPlacementValid(cell, placementMode.type, activeState.board);
                 }
 
                 // The axial origin is a corner of the Tharsis map, not its middle
@@ -1783,7 +1800,7 @@ export default function Home() {
             </div>
           </div>
 
-          {gameState.phase === "setup" && gameState.setupStep === "corporation" && (
+          {activeState.phase === "setup" && activeState.setupStep === "corporation" && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-gold)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(238, 190, 77, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>企業選択</h2>
@@ -1793,7 +1810,7 @@ export default function Home() {
                 {!dealt && (
                   <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
                 )}
-                {gameState.corporationOptions.map(id => {
+                {activeState.corporationOptions.map(id => {
                   const corporation = CORPORATIONS.find(item => item.id === id);
                   if (!corporation) return null;
                   const selected = selectedCorporationId === id;
@@ -1812,14 +1829,14 @@ export default function Home() {
             </div>
           )}
 
-          {gameState.phase === "setup" && gameState.setupStep === "prelude" && (
+          {activeState.phase === "setup" && activeState.setupStep === "prelude" && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>Prelude選択</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
                 <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>4枚から2枚を選択。選択した順に初期効果を解決する。</p>
-                {gameState.preludeOptions.map(id => {
+                {activeState.preludeOptions.map(id => {
                   const prelude = PRELUDES.find(item => item.id === id);
                   if (!prelude) return null;
                   const selected = selectedPreludeIds.includes(id);
@@ -1831,17 +1848,17 @@ export default function Home() {
                     </button>
                   );
                 })}
-                <button className="btn-primary" disabled={selectedPreludeIds.length !== 2 || selectedPreludeIds.reduce((sum, id) => sum + getPreludeCost(PRELUDES.find(item => item.id === id)!), 0) > gameState.mc} onClick={handlePreludeConfirm}>Preludeを確定</button>
+                <button className="btn-primary" disabled={selectedPreludeIds.length !== 2 || selectedPreludeIds.reduce((sum, id) => sum + getPreludeCost(PRELUDES.find(item => item.id === id)!), 0) > activeState.mc} onClick={handlePreludeConfirm}>Preludeを確定</button>
               </div>
             </div>
           )}
 
           {/* Setup or Research phase buying Panel */}
-          {((gameState.phase === "setup" && gameState.setupStep === "projects") || gameState.phase === "research") && (
+          {((activeState.phase === "setup" && activeState.setupStep === "projects") || activeState.phase === "research") && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>
-                  {gameState.phase === "setup" ? "初期カードの選定" : "研究開発フェーズ"}
+                  {activeState.phase === "setup" ? "初期カードの選定" : "研究開発フェーズ"}
                 </h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
@@ -1849,7 +1866,7 @@ export default function Home() {
                   提示されたプロジェクトから購入するカードを選択してください。(1枚あたり 3 MC。Beginner Corporationは無料)
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "250px", overflowY: "auto" }}>
-                  {gameState.researchCards.map(id => {
+                  {activeState.researchCards.map(id => {
                     const card = ALL_CARDS.find(c => c.id === id);
                     if (!card) return null;
                     const isSelected = selectedResearchCardIds.includes(id);
@@ -1901,7 +1918,7 @@ export default function Home() {
                   <button
                     className="btn-primary"
                     style={{ padding: "4px 12px", fontSize: "0.75rem" }}
-                    disabled={selectedCardPurchaseCost > gameState.mc}
+                    disabled={selectedCardPurchaseCost > activeState.mc}
                     onClick={handleBuyCardsConfirm}
                   >
                     購入を確定する
@@ -1914,20 +1931,20 @@ export default function Home() {
 
 
           {/* Final Greenery Conversion panel */}
-          {gameState.phase === "final_greenery" && (
+          {activeState.phase === "final_greenery" && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-gold)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(229, 181, 99, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>最終植物緑化フェーズ</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <p style={{ fontSize: "0.75rem", lineHeight: "1.3" }}>
-                  現在保有している植物資源（残り: {gameState.plants}）から最後の緑地を配置できます。(植物 8につき1枚)
+                  現在保有している植物資源（残り: {activeState.plants}）から最後の緑地を配置できます。(植物 8につき1枚)
                 </p>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
                     className="btn-primary"
                     style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem" }}
-                    disabled={gameState.plants < 8 || placementMode !== null}
+                    disabled={activeState.plants < 8 || placementMode !== null}
                     onClick={handleFinalGreeneryConvert}
                   >
                     緑地を配置する
@@ -1993,11 +2010,11 @@ export default function Home() {
       )}
 
       {/* Hand Cards area */}
-      {gameState.phase === "action" && (
+      {activeState.phase === "action" && (
         <div className="hand-container">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
-              PROJECT CARDS (手札: {gameState.hand.length}枚) {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
+              PROJECT CARDS (手札: {activeState.hand.length}枚) {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
             </h2>
             <div style={{ display: "flex", gap: "10px" }}>
               {isSellingPatents ? (
@@ -2043,8 +2060,8 @@ export default function Home() {
               const isSelected =
                 selectedCardId === cardId ||
                 (isSellingPatents && selectedSellCardIds.includes(cardId));
-              const status = getCardPlayableStatus(cardObj, gameState, 0, 0);
-              const payable = getCardPaymentCost(cardObj, gameState, 0, 0);
+              const status = getCardPlayableStatus(cardObj, activeState, 0, 0);
+              const payable = getCardPaymentCost(cardObj, activeState, 0, 0);
 
               return (
                 <ProjectCard
@@ -2065,7 +2082,7 @@ export default function Home() {
               <div style={{ fontSize: "0.72rem", color: "var(--color-cyan)", marginBottom: "6px" }}>場にあるアクションカード</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {activeCards.map(card => {
-                  const actionStatus = getCardActionStatus(gameState, card);
+                  const actionStatus = getCardActionStatus(activeState, card);
                   return (
                     <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => confirmAction(`【${card.name}】のアクション`, `${card.effectText} この世代はこのカードのアクションを再度使用できません。`, () => handleCardAction(card))} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
                       {card.name} — アクション
@@ -2126,7 +2143,7 @@ export default function Home() {
 
                     {selectedCard.tags.includes("Space") && maxTitanium > 0 && (
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
-                        <span>チタンを使用 (1チタン={String(CORPORATIONS.find(item => item.id === gameState.corporationId)?.effects?.titaniumValue ?? 3)}MC値引き):</span>
+                        <span>チタンを使用 (1チタン={String(CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.titaniumValue ?? 3)}MC値引き):</span>
                         <button
                           className="btn-secondary"
                           style={{ padding: "0 6px", fontSize: "0.7rem" }}
@@ -2148,7 +2165,7 @@ export default function Home() {
                     )}
 
                     <span style={{ fontSize: "0.75rem" }}>
-                      実質コスト: <strong style={{ color: "var(--color-ember)" }}>{getCardPaymentCost(selectedCard, gameState, steelUsed, titaniumUsed)}</strong> MC
+                      実質コスト: <strong style={{ color: "var(--color-ember)" }}>{getCardPaymentCost(selectedCard, activeState, steelUsed, titaniumUsed)}</strong> MC
                     </span>
                   </div>
                 )}
@@ -2161,15 +2178,15 @@ export default function Home() {
                   onClick={() =>
                     confirmAction(
                       `【${selectedCard.name}】をプレイ`,
-                      `支払い ${getCardPaymentCost(selectedCard, gameState, steelUsed, titaniumUsed)} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}。アクションを1回消費します。`,
+                      `支払い ${getCardPaymentCost(selectedCard, activeState, steelUsed, titaniumUsed)} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}。アクションを1回消費します。`,
                       handlePlayCardInit
                     )
                   }
                 >
                   {selectedCard.placementType ? "配置フェーズへ進む" : "プレイを実行"}
                 </button>
-                {selectedCard.type === "active" && gameState.playedProjects.includes(selectedCard.id) && (() => {
-                  const actionStatus = getCardActionStatus(gameState, selectedCard);
+                {selectedCard.type === "active" && activeState.playedProjects.includes(selectedCard.id) && (() => {
+                  const actionStatus = getCardActionStatus(activeState, selectedCard);
                   return (
                     <button
                       className="btn-secondary"
@@ -2253,23 +2270,23 @@ export default function Home() {
       </Drawer>
 
       <Drawer open={openDrawer === "standard"} title="標準プロジェクト" onClose={closeDrawer}>
-        {gameState.phase === "action" ? (
+        {activeState.phase === "action" ? (
 
           <div className="cyber-panel">
             <div className="cyber-panel-header">
               <h2 className="cyber-panel-title">標準プロジェクト</h2>
             </div>
             <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(gameState.corporationId ?? "") && (
+              {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(activeState.corporationId ?? "") && (
                 <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
                   <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
                   <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
-                    {gameState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : gameState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
+                    {activeState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : activeState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
                       {corporationActionUsed && (
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || activeState.pendingOceans > 0 || corporationActionUsed || (gameState.corporationId === "corp-ecoline" ? gameState.plants < 7 : gameState.corporationId === "corp-unmi" ? gameState.mc < 3 || gameState.tr <= gameState.generationStartTr : gameState.mc < 4)} onClick={() => confirmAction("企業アクション", `${gameState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : gameState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || activeState.pendingOceans > 0 || corporationActionUsed || (activeState.corporationId === "corp-ecoline" ? activeState.plants < 7 : activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
@@ -2297,7 +2314,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(14) || placementMode !== null || activeState.pendingOceans > 0 || gameState.temperature >= 8}
+                  disabled={!canPayStandardCost(14) || placementMode !== null || activeState.pendingOceans > 0 || activeState.temperature >= 8}
                   onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
@@ -2313,7 +2330,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(18) || placementMode !== null || activeState.pendingOceans > 0 || gameState.oceans >= 9}
+                  disabled={!canPayStandardCost(18) || placementMode !== null || activeState.pendingOceans > 0 || activeState.oceans >= 9}
                   onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
@@ -2362,7 +2379,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.heat < 8 || placementMode !== null || activeState.pendingOceans > 0 || gameState.temperature >= 8}
+                    disabled={activeState.heat < 8 || placementMode !== null || activeState.pendingOceans > 0 || activeState.temperature >= 8}
                     onClick={() => confirmAction("熱の変換", "熱 8 を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
@@ -2380,7 +2397,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={gameState.plants < 8 || placementMode !== null || activeState.pendingOceans > 0}
+                    disabled={activeState.plants < 8 || placementMode !== null || activeState.pendingOceans > 0}
                     onClick={() => confirmAction("植物の変換", "植物 8 を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
@@ -2397,7 +2414,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={gameState.hand.length === 0 || placementMode !== null || activeState.pendingOceans > 0 || isSellingPatents}
+                  disabled={activeState.hand.length === 0 || placementMode !== null || activeState.pendingOceans > 0 || isSellingPatents}
                   onClick={() => handleStandardProjectPlay("sell_patents")}
                 >
                   実行
@@ -2411,14 +2428,14 @@ export default function Home() {
       </Drawer>
 
       <Drawer open={openDrawer === "milestones"} title="マイルストーン / 表彰" onClose={closeDrawer}>
-        {gameState.phase !== "setup" ? (
+        {activeState.phase !== "setup" ? (
 
           <div className="cyber-panel" style={{ marginTop: "12px" }}>
             <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
               <MilestonePanel milestones={milestoneViews} onClaim={handleClaimMilestone} />
               <AwardPanel
                 awards={awardViews}
-                nextCost={jsGetNextAwardCost(gameState) as number}
+                nextCost={jsGetNextAwardCost(activeState) as number}
                 onFund={handleFundAward}
               />
             </div>
@@ -2435,7 +2452,7 @@ export default function Home() {
             chairmanName={turmoilView.chairmanName}
             influence={turmoilView.influence}
             events={turmoilView.events}
-            canSendDelegate={Boolean(gameState.turmoil?.lobby.includes(currentPlayerId))}
+            canSendDelegate={Boolean(activeState.turmoil?.lobby.includes(currentPlayerId))}
             onSendDelegate={handleSendDelegate}
           />
         ) : (
@@ -2447,7 +2464,7 @@ export default function Home() {
         {colonyViews.length > 0 ? (
           <ColonyPanel
             colonies={colonyViews}
-            fleets={jsAvailableFleets(gameState.colonies, currentPlayerId) as number}
+            fleets={jsAvailableFleets(activeState.colonies, currentPlayerId) as number}
             onBuild={handleBuildColony}
             onTrade={handleTradeWithColony}
           />
@@ -2492,7 +2509,7 @@ export default function Home() {
 
       <Drawer open={openDrawer === "log"} title="ミッションログ" onClose={closeDrawer}>
         <div className="log-container log-container--drawer">
-          {[...gameState.logs].reverse().map(log => {
+          {[...activeState.logs].reverse().map(log => {
             let senderClass = "log-entry ";
             if (log.sender === "player") senderClass += "player";
             else if (log.sender === "cpu") senderClass += "cpu";
@@ -2508,6 +2525,8 @@ export default function Home() {
       </Drawer>
 
       {/* Help Modal */}
+      {/* Onboarding is dismissed into the local save, never sent to the room,
+          so it is read from the same place it is written. */}
       {(!gameState.onboarded || showHelp) && (
         <div className="overlay-container">
           <div className="modal-content">
@@ -2888,27 +2907,27 @@ export default function Home() {
       )}
 
       {/* Game Over Modal */}
-      {gameState.isGameOver && (
+      {activeState.isGameOver && (
         <div className="overlay-container">
-          <div className="modal-content" style={{ maxWidth: "450px", border: `2px solid ${gameState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)"}` }}>
-            <div className="modal-header" style={{ backgroundColor: gameState.gameResult === "win" ? "rgba(114, 217, 208, 0.1)" : "rgba(168, 50, 32, 0.1)" }}>
-              <h3 className="modal-title" style={{ color: gameState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)" }}>
-                {gameState.gameResult === "win" ? "MISSION SUCCESS" : "MISSION FAILED"}
+          <div className="modal-content" style={{ maxWidth: "450px", border: `2px solid ${activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)"}` }}>
+            <div className="modal-header" style={{ backgroundColor: activeState.gameResult === "win" ? "rgba(114, 217, 208, 0.1)" : "rgba(168, 50, 32, 0.1)" }}>
+              <h3 className="modal-title" style={{ color: activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)" }}>
+                {activeState.gameResult === "win" ? "MISSION SUCCESS" : "MISSION FAILED"}
               </h3>
             </div>
             <div className="modal-body" style={{ textAlign: "center" }}>
               <p style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
-                {gameState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
+                {activeState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
               </p>
               <div style={{ padding: "16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "inline-block", minWidth: "250px", textAlign: "left", margin: "0 auto" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span>TR (開拓評価点):</span>
-                  <span style={{ fontWeight: "bold", color: "var(--color-cyan)" }}>{gameState.tr} 点</span>
+                  <span style={{ fontWeight: "bold", color: "var(--color-cyan)" }}>{activeState.tr} 点</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span>配置した緑地数:</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-ember)" }}>
-                    {Object.values(gameState.board).filter(c => c.placedBy === "player" && c.tileType === "forest").length} 点
+                    {Object.values(activeState.board).filter(c => c.placedBy === "player" && c.tileType === "forest").length} 点
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
@@ -2916,12 +2935,12 @@ export default function Home() {
                   <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>
                     {(() => {
                       let cityVp = 0;
-                      Object.values(gameState.board).forEach(cell => {
+                      Object.values(activeState.board).forEach(cell => {
                         if (cell.placedBy === "player" && cell.tileType === "city") {
                           const adj = getAdjacentCells(cell.q, cell.r);
                           adj.forEach(pos => {
                             const key = `${pos.q},${pos.r}`;
-                            const adjCell = gameState.board[key];
+                            const adjCell = activeState.board[key];
                             if (adjCell && adjCell.tileType === "forest") {
                               cityVp += 1;
                             }
@@ -2935,7 +2954,7 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
                   <span>プロジェクトカード勝利点:</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>
-                    {gameState.playedProjects.reduce((sum, id) => sum + (ALL_CARDS.find(c => c.id === id)?.victoryPoints || 0), 0)} 点
+                    {activeState.playedProjects.reduce((sum, id) => sum + (ALL_CARDS.find(c => c.id === id)?.victoryPoints || 0), 0)} 点
                   </span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(242, 232, 220, 0.2)", paddingTop: "8px", marginTop: "8px", fontSize: "1.1rem" }}>
