@@ -555,7 +555,9 @@ test("a robot game hands the seat to the bots", async () => {
     const start = source.indexOf(`const ${handler} =`);
     assert.ok(start > 0, `${handler} must exist`);
     const body = source.slice(start, start + 400);
-    assert.match(body, /if \(!isMyTurn\) return;/, `${handler} must guard on isMyTurn`);
+    // The guard may combine with other early returns, so match the test
+    // rather than the exact statement.
+    assert.match(body, /if \(!isMyTurn[^)]*\) return/, `${handler} must guard on isMyTurn`);
   }
 });
 

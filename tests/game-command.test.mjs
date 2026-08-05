@@ -250,14 +250,18 @@ test("every standard project runs through the command layer", () => {
     player.id === seat ? { ...player, mc: 100, plants: 20, heat: 20 } : player
   );
 
+  // Measure against the state each run started from: corporations are dealt at
+  // random and several grant starting energy production or resources, so a
+  // fixed expected value would be reading the shuffle rather than the project.
+  const before = getPlayer(ready, seat);
   const cases = [
-    ["power-plant", after => assert.equal(getPlayer(after, seat).energyProd, 1, "power plant raises energy production")],
+    ["power-plant", after => assert.equal(getPlayer(after, seat).energyProd, before.energyProd + 1, "power plant raises energy production")],
     ["asteroid", after => assert.equal(after.temperature, ready.temperature + 2, "asteroid warms two steps")],
-    ["convert-heat", after => assert.equal(getPlayer(after, seat).heat, 12, "eight heat are spent")],
-    ["aquifer", after => assert.equal(after.oceans, 1, "an ocean is placed")],
-    ["greenery", after => assert.equal(after.oxygen, 1, "a greenery raises oxygen")],
-    ["city", after => assert.equal(getPlayer(after, seat).mc, 75, "a city costs 25")],
-    ["convert-plants", after => assert.equal(getPlayer(after, seat).plants, 12, "eight plants are spent")]
+    ["convert-heat", after => assert.equal(getPlayer(after, seat).heat, before.heat - 8, "eight heat are spent")],
+    ["aquifer", after => assert.equal(after.oceans, ready.oceans + 1, "an ocean is placed")],
+    ["greenery", after => assert.equal(after.oxygen, ready.oxygen + 1, "a greenery raises oxygen")],
+    ["city", after => assert.equal(getPlayer(after, seat).mc, before.mc - 25, "a city costs 25")],
+    ["convert-plants", after => assert.equal(getPlayer(after, seat).plants, before.plants - 8, "eight plants are spent")]
   ];
 
   for (const [projectId, check] of cases) {

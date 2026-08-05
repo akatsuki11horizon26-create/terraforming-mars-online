@@ -23,9 +23,9 @@ import {
   applyPreludes as jsApplyPreludes,
   getPreludeCost as jsGetPreludeCost,
   applyCardEffect as jsApplyCardEffect,
+  applyCardAction as jsApplyCardAction,
   applyCorporationTriggers as jsApplyCorporationTriggers,
   getCardActionStatus as jsGetCardActionStatus,
-  applyCardAction as jsApplyCardAction,
   getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
 import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
@@ -356,7 +356,6 @@ const getPreludeCost = jsGetPreludeCost as unknown as (prelude: Prelude) => numb
 const applyCardEffect = jsApplyCardEffect as unknown as (state: GameState, card: Card, logs: LogEntry[], options?: { skipTile?: boolean }) => { state: GameState; logs: LogEntry[] };
 const applyCorporationTriggers = jsApplyCorporationTriggers as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const getCardActionStatus = jsGetCardActionStatus as unknown as (state: GameState, card: Card) => { playable: boolean; reason: string };
-const applyCardAction = jsApplyCardAction as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[]; playable: boolean; awaitingChoice?: boolean };
 const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
@@ -906,9 +905,9 @@ export default function Home() {
   };
 
   const handlePlayCardInit = () => {
-    if (!isMyTurn) return;
+    if (!isMyTurn || !selectedCardId) return;
+
     if (isOnline) {
-      if (!selectedCardId) return;
       // The server recomputes the cost from these, so sending them is what
       // makes steel and titanium usable online at all.
       online.sendAction("playCard", {
@@ -920,202 +919,41 @@ export default function Home() {
       setTitaniumUsed(0);
       return;
     }
-    if (!selectedCardId) return;
-    const card = ALL_CARDS.find(c => c.id === selectedCardId);
-    if (!card) return;
 
-    const { playable } = getCardPlayableStatus(card, gameState, steelUsed, titaniumUsed);
-    if (!playable) return;
+    // Offline runs the same command. Paying, drawing the corporation triggers,
+    // settling threshold bonuses and spending the action all happen there.
+    const result = executeGameCommand(gameState as never, {
+      type: "PLAY_CARD",
+      playerId: currentPlayerId,
+      cardId: selectedCardId,
+      payment: { steel: steelUsed, titanium: titaniumUsed }
+    }) as { ok: boolean; state: GameState };
 
-    if (card.placementType) {
-      setPlacementMode({
-        active: true,
-        type: card.placementType,
-        sourceCardId: card.id,
-        remainingPlacements: card.placementCount ?? 1,
-        cardPaymentDone: false
-      });
-    } else {
-      executePlayCardNoPlacement(card);
-    }
-  };
-
-  const executeLegacyPlayCardNoPlacement = (card: Card) => {
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.hand = [...gameState.hand];
-    nextState.deck = [...gameState.deck];
-    nextState.playedProjects = [...gameState.playedProjects];
-    nextState.board = { ...gameState.board };
-    const costAfterDiscount = Math.max(0, card.cost - (steelUsed * 2) - (titaniumUsed * 3));
-
-    nextState.mc -= costAfterDiscount;
-    nextState.steel -= steelUsed;
-    nextState.titanium -= titaniumUsed;
-    nextState.hand = nextState.hand.filter(id => id !== card.id);
-    nextState.playedProjects.push(card.id);
-
-    let localLogs = addLog(
-      nextState.logs,
-      "player",
-      `カードをプレイしました: 【${card.name}】 (支払: MC ${costAfterDiscount}${steelUsed ? `, 建材 ${steelUsed}` : ""}${titaniumUsed ? `, チタン ${titaniumUsed}` : ""})`
-    );
-
-    const oldTemp = nextState.temperature;
-    const oldOxy = nextState.oxygen;
-
-    if (card.id === "c1") {
-      nextState.energyProd += 3;
-      nextState.tr += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: エネルギー生産量 +3, TR +1");
-    } else if (card.id === "c2") {
-      nextState.temperature = Math.min(8, nextState.temperature + 4);
-      nextState.heat += 4;
-      const steps = Math.floor((nextState.temperature - oldTemp) / 2);
-      if (steps > 0) {
-        nextState.tr += steps;
-      }
-      nextState.tr += 2; // Card native TR
-      localLogs = addLog(localLogs, "system", `効果適用: 気温 +4°C, 熱 +4, TR +${steps + 2}`);
-    } else if (card.id === "c3") {
-      nextState.energyProd += 1;
-      nextState.heat += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: エネルギー生産量 +1, 熱 +2");
-    } else if (card.id === "c4") {
-      nextState.energyProd += 2;
-      nextState.heat += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: エネルギー生産量 +2, 熱 +1");
-    } else if (card.id === "c5") {
-      nextState.plantsProd += 2;
-      nextState.plants += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: 植物生産量 +2, 植物 +1 (勝利点 +1)");
-    } else if (card.id === "c6") {
-      nextState.plantsProd += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: 植物生産量 +1");
-      if (nextState.deck.length > 0) {
-        const [drawn, ...rest] = nextState.deck;
-        nextState.hand.push(drawn);
-        nextState.deck = rest;
-        const drawnObj = ALL_CARDS.find(c => c.id === drawn);
-        localLogs = addLog(localLogs, "system", `追加カードドロー: 【${drawnObj?.name || drawn}】`);
-      }
-    } else if (card.id === "c7") {
-      nextState.heatProd += 1;
-      nextState.heat += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: 熱生産量 +1, 熱 +2");
-    } else if (card.id === "c9") {
-      nextState.steelProd += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: 建材生産量 +2");
-    } else if (card.id === "c10") {
-      nextState.titaniumProd += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: チタン生産量 +1");
-    } else if (card.id === "c11") {
-      nextState.tr += 2;
-      nextState.plantsProd += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: TR +2, 植物生産量 +2");
-    } else if (card.id === "c12") {
-      nextState.plantsProd += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: 植物生産量 +1");
-    } else if (card.id === "c13") {
-      nextState.heatProd += 3;
-      localLogs = addLog(localLogs, "system", "効果適用: 熱生産量 +3");
-    } else if (card.id === "c14") {
-      nextState.steelProd += 1;
-      nextState.heatProd += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: 建材生産量 +1, 熱生産量 +2");
-    } else if (card.id === "c17") {
-      nextState.plantsProd += 2;
-      nextState.plants += 2;
-      localLogs = addLog(localLogs, "system", "効果適用: 植物生産量 +2, 植物 +2");
-    } else if (card.id === "c18") {
-      nextState.plantsProd += 1;
-      nextState.mcProd += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: 植物生産量 +1, MC生産量 +1");
-    } else if (card.id === "c19") {
-      nextState.mcProd += 2;
-      nextState.tr += 1;
-      localLogs = addLog(localLogs, "system", "効果適用: MC生産量 +2, TR +1 (勝利点 +2)");
-    }
-
-    const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
-      oldTemp, nextState.temperature,
-      oldOxy, nextState.oxygen,
-      nextState,
-      localLogs
-    );
-
+    if (!result.ok) return;
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
-
-    const afterAction = handleActionSpend(updatedState, updatedLogs);
-    saveState(afterAction);
+    saveState(result.state);
   };
 
-  void executeLegacyPlayCardNoPlacement;
-
-  const executePlayCardNoPlacement = (card: Card) => {
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.hand = [...gameState.hand];
-    nextState.deck = [...gameState.deck];
-    nextState.playedProjects = [...gameState.playedProjects];
-    nextState.board = { ...gameState.board };
-    nextState.cardResources = { ...gameState.cardResources };
-    nextState.cardPlacements = { ...gameState.cardPlacements };
-    const { cost: costAfterDiscount, heatUsed } = payCardCost(nextState, card);
-    nextState.hand = nextState.hand.filter(id => id !== card.id);
-    nextState.playedProjects.push(card.id);
-
-    const localLogs = addLog(nextState.logs, "player", `カードをプレイしました: 【${card.name}】 (支払: MC ${costAfterDiscount}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-    const oldTemp = nextState.temperature;
-    const oldOxy = nextState.oxygen;
-    const effectResult = applyCardEffect(nextState, card, localLogs);
-    const triggerResult = applyCorporationTriggers(effectResult.state, card, effectResult.logs);
-    const thresholdResult = checkParameterThresholds(
-      oldTemp,
-      triggerResult.state.temperature,
-      oldOxy,
-      triggerResult.state.oxygen,
-      triggerResult.state,
-      triggerResult.logs,
-    );
-    const afterAction = handleActionSpend(thresholdResult.state, thresholdResult.logs);
-    setSelectedCardId(null);
-    setSteelUsed(0);
-    setTitaniumUsed(0);
-    saveState(afterAction);
-  };
 
   const handleCardAction = (card: Card) => {
     if (!isMyTurn) return;
     if (isOnline) return void online.sendAction("cardAction", { cardId: card.id });
-    if (card.type !== "active") return;
-    const status = getCardActionStatus(gameState, card);
-    if (!status.playable) return;
-    const oldTemp = gameState.temperature;
-    const oldOxy = gameState.oxygen;
-    const actionResult = applyCardAction(gameState, card, gameState.logs);
-    if (!actionResult.playable) return;
-    // The card offered a branch. Show it and stop: the action is only spent
-    // once the player has answered, inside resolvePendingChoice.
-    if (actionResult.awaitingChoice) {
-      setSelectedCardId(null);
-      saveState({ ...actionResult.state, logs: actionResult.logs });
-      return;
-    }
-    const thresholdResult = checkParameterThresholds(
-      oldTemp,
-      actionResult.state.temperature,
-      oldOxy,
-      actionResult.state.oxygen,
-      actionResult.state,
-      actionResult.logs,
-    );
-    const afterAction = handleActionSpend(thresholdResult.state, thresholdResult.logs);
+
+    // Ownership, the once-per-generation marker and the action itself are all
+    // checked in the command layer.
+    const result = executeGameCommand(gameState as never, {
+      type: "USE_CARD_ACTION",
+      playerId: currentPlayerId,
+      cardId: card.id
+    }) as { ok: boolean; state: GameState };
+
+    if (!result.ok) return;
     setSelectedCardId(null);
-    setSteelUsed(0);
-    setTitaniumUsed(0);
-    saveState(afterAction);
+    saveState(result.state);
   };
+
 
   const handleCellClick = (cell: CellState) => {
     // If pending ocean placement is active
