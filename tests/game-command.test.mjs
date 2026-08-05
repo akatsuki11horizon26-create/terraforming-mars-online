@@ -242,3 +242,65 @@ test("a client cannot spend resources it does not hold", async () => {
     assert.ok(Number.isInteger(steel), `steel became fractional for payment ${cheat}`);
   }
 });
+
+test("every standard project runs through the command layer", () => {
+  const { state, seat } = table();
+  const ready = cloneGameState(state);
+  ready.players = ready.players.map(player =>
+    player.id === seat ? { ...player, mc: 100, plants: 20, heat: 20 } : player
+  );
+
+  const cases = [
+    ["power-plant", after => assert.equal(getPlayer(after, seat).energyProd, 1, "power plant raises energy production")],
+    ["asteroid", after => assert.equal(after.temperature, ready.temperature + 2, "asteroid warms two steps")],
+    ["convert-heat", after => assert.equal(getPlayer(after, seat).heat, 12, "eight heat are spent")],
+    ["aquifer", after => assert.equal(after.oceans, 1, "an ocean is placed")],
+    ["greenery", after => assert.equal(after.oxygen, 1, "a greenery raises oxygen")],
+    ["city", after => assert.equal(getPlayer(after, seat).mc, 75, "a city costs 25")],
+    ["convert-plants", after => assert.equal(getPlayer(after, seat).plants, 12, "eight plants are spent")]
+  ];
+
+  for (const [projectId, check] of cases) {
+    const played = executeGameCommand(cloneGameState(ready), {
+      type: COMMAND.STANDARD_PROJECT,
+      playerId: seat,
+      projectId
+    });
+    assert.equal(played.ok, true, `${projectId} was refused`);
+
+    // Projects that place a tile ask where first; the action is spent after.
+    const settled = played.state.pendingChoice
+      ? executeGameCommand(played.state, {
+          type: COMMAND.RESOLVE_PENDING,
+          playerId: seat,
+          optionId: played.state.pendingChoice.options[0].id
+        }).state
+      : played.state;
+
+    check(settled);
+    assert.equal(
+      getPlayer(settled, seat).actionsRemaining,
+      1,
+      `${projectId} must cost exactly one action`
+    );
+  }
+});
+
+test("a standard project nobody can pay for is refused for free", () => {
+  const { state, seat } = table();
+  const broke = cloneGameState(state);
+  broke.players = broke.players.map(player => ({ ...player, mc: 0, plants: 0, heat: 0 }));
+
+  const result = executeGameCommand(broke, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.CANNOT_AFFORD);
+  assert.equal(
+    getPlayer(result.state, seat).actionsRemaining,
+    getPlayer(broke, seat).actionsRemaining,
+    "and costs no action"
+  );
+});

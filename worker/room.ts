@@ -345,7 +345,8 @@ export class GameRoom {
     chooseCorporation: COMMAND.SELECT_CORPORATION,
     choosePreludes: COMMAND.SELECT_PRELUDES,
     draftPick: COMMAND.DRAFT_PICK,
-    buyResearch: COMMAND.BUY_RESEARCH
+    buyResearch: COMMAND.BUY_RESEARCH,
+    standardProject: COMMAND.STANDARD_PROJECT
   };
 
   private applyAction(
@@ -365,7 +366,8 @@ export class GameRoom {
         type: commandType,
         playerId: seat,
         optionId: payload.optionId ?? payload.choiceId,
-        cardIds: payload.cardIds
+        cardIds: payload.cardIds,
+        projectId: payload.projectId
       } as never) as { ok: boolean; state: unknown };
       return result.ok ? (result.state as Record<string, unknown>) : null;
     }

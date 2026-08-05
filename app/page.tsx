@@ -68,6 +68,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
+import { executeGameCommand } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup } from "./title-screen";
 import {
@@ -1322,6 +1323,19 @@ export default function Home() {
     saveState(afterAction);
   };
 
+  // The eight standard projects are named the same way everywhere now; these
+  // are the UI's older labels for them.
+  const PROJECT_IDS: Record<string, string> = {
+    power_plant: "power-plant",
+    asteroid: "asteroid",
+    ocean: "aquifer",
+    greenery: "greenery",
+    city: "city",
+    plants_convert: "convert-plants",
+    heat_convert: "convert-heat",
+    sell_patents: "sell-patents"
+  };
+
   const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
     // The bots drive themselves; acting on their turn would spend their action.
     if (!isMyTurn) return;
@@ -1329,84 +1343,30 @@ export default function Home() {
     // the board the tile placement needs.
     setOpenDrawer(null);
     if (placementMode) return;
-    const nextState = jsCloneGameState(gameState) as GameState;
-    let localLogs = nextState.logs;
 
-    if (type === "power_plant") {
-      const heatUsed = payStandardCost(nextState, 11);
-      nextState.energyProd += 1;
-      localLogs = addLog(localLogs, "player", `標準プロジェクト【発電所の建設】を実行しました (支払: MC ${11 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-      localLogs = addLog(localLogs, "system", "エネルギー生産量 +1");
-      const afterAction = handleActionSpend(nextState, localLogs);
-      saveState(afterAction);
-    } else if (type === "asteroid") {
-      const heatUsed = payStandardCost(nextState, 14);
-      const oldTemp = nextState.temperature;
-      nextState.temperature = Math.min(8, nextState.temperature + 2);
-      if (oldTemp < 8) {
-        nextState.tr += 1;
-        localLogs = addLog(localLogs, "player", `標準プロジェクト【小惑星の衝突】を実行しました (支払: MC ${14 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-        localLogs = addLog(localLogs, "system", "気温 +2°C, TR +1");
-      } else {
-        localLogs = addLog(localLogs, "player", `標準プロジェクト【小惑星の衝突】を実行しました (支払: MC ${14 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-        localLogs = addLog(localLogs, "system", "気温 +2°C (気温上限のためTR増加なし)");
-      }
-      const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
-        oldTemp, nextState.temperature,
-        nextState.oxygen, nextState.oxygen,
-        nextState,
-        localLogs
-      );
-      const afterAction = handleActionSpend(updatedState, updatedLogs);
-      saveState(afterAction);
-    } else if (type === "heat_convert") {
-      nextState.heat -= 8;
-      const oldTemp = nextState.temperature;
-      nextState.temperature = Math.min(8, nextState.temperature + 2);
-      if (oldTemp < 8) {
-        nextState.tr += 1;
-        localLogs = addLog(localLogs, "player", "熱の放出を実行しました (支払: 熱 8)");
-        localLogs = addLog(localLogs, "system", "気温 +2°C, TR +1");
-      } else {
-        localLogs = addLog(localLogs, "player", "熱の放出を実行しました (支払: 熱 8)");
-        localLogs = addLog(localLogs, "system", "気温 +2°C (気温上限のためTR増加なし)");
-      }
-      const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
-        oldTemp, nextState.temperature,
-        nextState.oxygen, nextState.oxygen,
-        nextState,
-        localLogs
-      );
-      const afterAction = handleActionSpend(updatedState, updatedLogs);
-      saveState(afterAction);
-    } else if (type === "greenery") {
-      setPlacementMode({
-        active: true,
-        type: "forest",
-        sourceProject: "greenery"
+    const projectId = PROJECT_IDS[type];
+    if (isOnline) {
+      online.sendAction("standardProject", {
+        projectId,
+        cardIds: type === "sell_patents" ? selectedSellCardIds : undefined
       });
-    } else if (type === "plants_convert") {
-      setPlacementMode({
-        active: true,
-        type: "forest",
-        sourceProject: "plants"
-      });
-    } else if (type === "ocean") {
-      setPlacementMode({
-        active: true,
-        type: "ocean",
-        sourceProject: "ocean"
-      });
-    } else if (type === "city") {
-      setPlacementMode({
-        active: true,
-        type: "city",
-        sourceProject: "city"
-      });
-    } else if (type === "sell_patents") {
-      setIsSellingPatents(true);
+      setIsSellingPatents(false);
       setSelectedSellCardIds([]);
+      return;
     }
+
+    // Offline runs the same command; the rules live in the engine either way.
+    const result = executeGameCommand(gameState as never, {
+      type: "STANDARD_PROJECT",
+      playerId: currentPlayerId,
+      projectId,
+      cardIds: type === "sell_patents" ? selectedSellCardIds : undefined
+    }) as { ok: boolean; state: GameState; error?: { message: string } };
+
+    if (!result.ok) return;
+    setIsSellingPatents(false);
+    setSelectedSellCardIds([]);
+    saveState(result.state);
   };
 
   const handleCorporationAction = () => {

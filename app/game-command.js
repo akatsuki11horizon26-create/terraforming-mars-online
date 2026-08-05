@@ -32,12 +32,15 @@ import {
   draftPick,
   advanceSetupTurn,
   addLog,
+  legalCellsFor,
+  placeTileAt,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
   CORPORATIONS
 } from "./game-logic.js";
+import { buildTileChoice } from "./pending-choice.js";
 
 export const COMMAND = {
   PLAY_CARD: "PLAY_CARD",
@@ -53,7 +56,8 @@ export const COMMAND = {
   SELECT_CORPORATION: "SELECT_CORPORATION",
   SELECT_PRELUDES: "SELECT_PRELUDES",
   DRAFT_PICK: "DRAFT_PICK",
-  BUY_RESEARCH: "BUY_RESEARCH"
+  BUY_RESEARCH: "BUY_RESEARCH",
+  STANDARD_PROJECT: "STANDARD_PROJECT"
 };
 
 export const ERROR = {
@@ -69,7 +73,9 @@ export const ERROR = {
   NOT_YOUR_CHOICE: "NOT_YOUR_CHOICE",
   UNKNOWN_PLAYER: "UNKNOWN_PLAYER",
   CARD_NOT_OFFERED: "CARD_NOT_OFFERED",
-  DUPLICATE_CARD: "DUPLICATE_CARD"
+  DUPLICATE_CARD: "DUPLICATE_CARD",
+  UNKNOWN_PROJECT: "UNKNOWN_PROJECT",
+  NO_LEGAL_SPACE: "NO_LEGAL_SPACE"
 };
 
 function fail(state, code, message) {
@@ -110,6 +116,159 @@ function spend(state, result, flag) {
   }
   const spent = handleActionSpend(result.state, result.logs ?? result.state.logs);
   return { ok: true, state: spent, events: [] };
+}
+
+
+// Paying for a standard project. Helion may cover megacredits with heat; the
+// two conversion projects are paid in the resource they convert.
+function payProjectCost(state, playerId, project, cost, corporation) {
+  const actor = getPlayer(state, playerId);
+  if (project.pays === "plants" || project.pays === "heat") {
+    const field = project.pays;
+    state.players = state.players.map(player =>
+      player.id === playerId ? { ...player, [field]: (player[field] ?? 0) - cost } : player
+    );
+    return 0;
+  }
+  const heatAvailable = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+  const heatUsed = Math.min(heatAvailable, Math.max(0, cost - (actor.mc ?? 0)));
+  state.players = state.players.map(player =>
+    player.id === playerId
+      ? { ...player, mc: player.mc - (cost - heatUsed), heat: (player.heat ?? 0) - heatUsed }
+      : player
+  );
+  return heatUsed;
+}
+
+// A project that places a tile asks where, unless only one space is legal.
+function placeOrAsk(state, command, tileType, label) {
+  const legal = legalCellsFor(state, tileType, command.playerId);
+  if (legal.length === 0) {
+    return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
+  }
+  if (legal.length === 1) {
+    placeTileAt(state, legal[0], tileType, command.playerId);
+    return finishProject(state, command, label);
+  }
+  const choice = buildTileChoice(
+    state,
+    tileType,
+    {
+      sourceKind: "standard-project",
+      sourceId: command.projectId,
+      consumedAction: true,
+      paid: true
+    },
+    legal
+  );
+  state.pendingChoice = choice;
+  state.logs = addLog(state.logs, "system", choice.prompt);
+  return { ok: true, state, events: [], pendingAction: choice };
+}
+
+// Every project that resolves without asking ends the same way: report it,
+// settle any threshold bonus it crossed, and spend the action.
+function finishProject(state, command, label, before) {
+  const actor = getPlayer(state, command.playerId);
+  state.logs = addLog(state.logs, "player", `標準プロジェクト【${label}】を実行しました。`, actor?.name);
+  const settled = before
+    ? checkParameterThresholds(before.temperature, state.temperature, before.oxygen, state.oxygen, state, state.logs)
+    : { state, logs: state.logs };
+  if (settled.state.pendingChoice) {
+    return { ok: true, state: settled.state, events: [], pendingAction: settled.state.pendingChoice };
+  }
+  const spent = handleActionSpend(settled.state, settled.logs);
+  return { ok: true, state: spent, events: [] };
+}
+
+const STANDARD_PROJECTS = {
+  "power-plant": {
+    label: "発電所の建設",
+    cost: (state, corporation) => 11 - (corporation?.effects?.powerPlantDiscount ?? 0),
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId ? { ...player, energyProd: player.energyProd + 1 } : player
+      );
+      return finishProject(state, command, "発電所の建設");
+    }
+  },
+  asteroid: {
+    label: "小惑星の衝突",
+    cost: () => 14,
+    blocked: state => (state.temperature >= 8 ? "気温は上限に達しています。" : null),
+    run(state, command) {
+      const before = { temperature: state.temperature, oxygen: state.oxygen };
+      raiseTemperature(state, command.playerId);
+      return finishProject(state, command, "小惑星の衝突", before);
+    }
+  },
+  aquifer: {
+    label: "海洋の沈降",
+    cost: () => 18,
+    blocked: state => (state.oceans >= 9 ? "海洋は上限に達しています。" : null),
+    run: (state, command) => placeOrAsk(state, command, "ocean", "海洋の沈降")
+  },
+  greenery: {
+    label: "緑化プロジェクト",
+    cost: () => 23,
+    run: (state, command) => placeOrAsk(state, command, "forest", "緑化プロジェクト")
+  },
+  city: {
+    label: "都市の建設",
+    cost: () => 25,
+    run: (state, command) => placeOrAsk(state, command, "city", "都市の建設")
+  },
+  "convert-plants": {
+    label: "植物の緑化",
+    pays: "plants",
+    cost: (state, corporation) => (corporation?.effects?.greeneryPlantCost ?? 8),
+    run: (state, command) => placeOrAsk(state, command, "forest", "植物の緑化")
+  },
+  "convert-heat": {
+    label: "熱による加熱",
+    pays: "heat",
+    cost: () => 8,
+    blocked: state => (state.temperature >= 8 ? "気温は上限に達しています。" : null),
+    run(state, command) {
+      const before = { temperature: state.temperature, oxygen: state.oxygen };
+      raiseTemperature(state, command.playerId);
+      return finishProject(state, command, "熱による加熱", before);
+    }
+  },
+  "sell-patents": {
+    label: "パテントの売却",
+    cost: () => 0,
+    run(state, command) {
+      const ids = command.cardIds ?? [];
+      const actor = getPlayer(state, command.playerId);
+      if (ids.length === 0 || !ids.every(id => actor.hand.includes(id))) {
+        return fail(state, ERROR.CARD_NOT_IN_HAND, "手札にないカードは売却できません。");
+      }
+      state.players = state.players.map(player =>
+        player.id === command.playerId
+          ? {
+              ...player,
+              mc: player.mc + ids.length,
+              hand: player.hand.filter(id => !ids.includes(id))
+            }
+          : player
+      );
+      state.discardPile = [...state.discardPile, ...ids];
+      return finishProject(state, command, "パテントの売却");
+    }
+  }
+};
+
+// Two steps of temperature, and the TR that comes with each step actually taken.
+function raiseTemperature(state, playerId) {
+  const before = state.temperature;
+  state.temperature = Math.min(8, before + 2);
+  const steps = (state.temperature - before) / 2;
+  if (steps > 0) {
+    state.players = state.players.map(player =>
+      player.id === playerId ? { ...player, tr: player.tr + steps } : player
+    );
+  }
 }
 
 const HANDLERS = {
@@ -271,6 +430,36 @@ const HANDLERS = {
   // Buying from the research offer, in setup and every generation after. The
   // server had its own copy of this and never advanced the phase with it, so
   // an online game stalled once everyone had bought.
+  // The eight standard projects. The UI, the server and the bot each had their
+  // own copy of these, which is how the bot came to raise the ocean count twice
+  // and the online build could not run them at all.
+  [COMMAND.STANDARD_PROJECT](state, command) {
+    const project = STANDARD_PROJECTS[command.projectId];
+    if (!project) return fail(state, ERROR.UNKNOWN_PROJECT, "不明な標準プロジェクトです。");
+
+    const actor = getPlayer(state, command.playerId);
+    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const cost = project.cost(state, corporation);
+
+    if (project.pays === "plants") {
+      if ((actor.plants ?? 0) < cost) return fail(state, ERROR.CANNOT_AFFORD, "植物が不足しています。");
+    } else if (project.pays === "heat") {
+      if ((actor.heat ?? 0) < cost) return fail(state, ERROR.CANNOT_AFFORD, "熱が不足しています。");
+    } else {
+      const heatAsMoney = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+      if ((actor.mc ?? 0) + heatAsMoney < cost) {
+        return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
+      }
+    }
+
+    const blocked = project.blocked?.(state, actor);
+    if (blocked) return fail(state, ERROR.ACTION_REFUSED, blocked);
+
+    const next = cloneGameState(state);
+    payProjectCost(next, command.playerId, project, cost, corporation);
+    return project.run(next, command, cost);
+  },
+
   [COMMAND.BUY_RESEARCH](state, command) {
     const actor = getPlayer(state, command.playerId);
     const ids = command.cardIds ?? [];
