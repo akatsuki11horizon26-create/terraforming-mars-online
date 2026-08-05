@@ -334,6 +334,9 @@ export const MAX_OXYGEN = 14;
 export const MAX_TEMPERATURE = 8;
 export const MIN_TEMPERATURE = -30;
 // Venus Next: the scale runs 0-30%, two percent per step.
+// A research card costs 3 M€, in setup and in every generation after.
+export const RESEARCH_CARD_COST = 3;
+
 export const MAX_VENUS = 30;
 
 // Reasons normalizeBehavior records that the pendingChoice flow now resolves.
@@ -910,7 +913,7 @@ export function applyCorporation(state, corporationId, playerId) {
 
 // In hotseat every player sets up in turn. Hand the seat to the next player who
 // still has a corporation to pick; once everyone is done, start the game.
-function advanceSetupTurn(state) {
+export function advanceSetupTurn(state) {
   const next = state;
   const pending = next.turnOrder.find(id => {
     const player = getPlayer(next, id);

@@ -36,6 +36,12 @@ jobs:
             exit 1
           fi
 
+      - name: Static build
+        # Two tests read static-dist/index.html to check what the solo build
+        # renders. A local checkout usually has one lying around; a fresh
+        # runner does not, so build it here.
+        run: npm run build:static
+
       - name: Tests
         run: npm test
 

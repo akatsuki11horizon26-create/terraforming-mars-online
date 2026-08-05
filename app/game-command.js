@@ -30,6 +30,9 @@ import {
   getCardPaymentCost,
   getCardActionStatus,
   draftPick,
+  advanceSetupTurn,
+  addLog,
+  RESEARCH_CARD_COST,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
@@ -49,7 +52,8 @@ export const COMMAND = {
   RESOLVE_PENDING: "RESOLVE_PENDING",
   SELECT_CORPORATION: "SELECT_CORPORATION",
   SELECT_PRELUDES: "SELECT_PRELUDES",
-  DRAFT_PICK: "DRAFT_PICK"
+  DRAFT_PICK: "DRAFT_PICK",
+  BUY_RESEARCH: "BUY_RESEARCH"
 };
 
 export const ERROR = {
@@ -63,7 +67,9 @@ export const ERROR = {
   CANNOT_AFFORD: "CANNOT_AFFORD",
   ACTION_REFUSED: "ACTION_REFUSED",
   NOT_YOUR_CHOICE: "NOT_YOUR_CHOICE",
-  UNKNOWN_PLAYER: "UNKNOWN_PLAYER"
+  UNKNOWN_PLAYER: "UNKNOWN_PLAYER",
+  CARD_NOT_OFFERED: "CARD_NOT_OFFERED",
+  DUPLICATE_CARD: "DUPLICATE_CARD"
 };
 
 function fail(state, code, message) {
@@ -82,6 +88,7 @@ const SETUP_COMMANDS = new Set([
   COMMAND.SELECT_CORPORATION,
   COMMAND.SELECT_PRELUDES,
   COMMAND.DRAFT_PICK,
+  COMMAND.BUY_RESEARCH,
   COMMAND.RESOLVE_PENDING
 ]);
 
@@ -251,6 +258,56 @@ const HANDLERS = {
   [COMMAND.SELECT_PRELUDES](state, command) {
     const next = applyPreludes(state, command.preludeIds ?? [], command.playerId);
     if (next === state) return fail(state, ERROR.ACTION_REFUSED, "そのPreludeは選べません。");
+    return { ok: true, state: next, events: [] };
+  },
+
+  // Buying from the research offer, in setup and every generation after. The
+  // server had its own copy of this and never advanced the phase with it, so
+  // an online game stalled once everyone had bought.
+  [COMMAND.BUY_RESEARCH](state, command) {
+    const actor = getPlayer(state, command.playerId);
+    const ids = command.cardIds ?? [];
+    const offered = actor.researchCards ?? [];
+
+    if (new Set(ids).size !== ids.length) {
+      return fail(state, ERROR.DUPLICATE_CARD, "同じカードは1枚しか購入できません。");
+    }
+    if (!ids.every(id => offered.includes(id))) {
+      return fail(state, ERROR.CARD_NOT_OFFERED, "提示されていないカードです。");
+    }
+    const cost = ids.length * RESEARCH_CARD_COST;
+    if ((actor.mc ?? 0) < cost) {
+      return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
+    }
+
+    const next = cloneGameState(state);
+    next.players = next.players.map(player =>
+      player.id === command.playerId
+        ? {
+            ...player,
+            mc: player.mc - cost,
+            hand: [...player.hand, ...ids],
+            researchCards: [],
+            setupStep: player.setupStep === "projects" ? "complete" : player.setupStep
+          }
+        : player
+    );
+    next.discardPile = [...next.discardPile, ...offered.filter(id => !ids.includes(id))];
+    next.logs = addLog(
+      next.logs,
+      "player",
+      ids.length > 0 ? `カードを${ids.length}枚購入しました。` : "カードを購入しませんでした。",
+      actor.name
+    );
+
+    // Setup only ends once every seat has bought; the research phase only
+    // begins play once every seat has.
+    if (state.phase === "setup") return { ok: true, state: advanceSetupTurn(next), events: [] };
+    if (next.players.every(player => (player.researchCards ?? []).length === 0)) {
+      next.phase = "action";
+      next.currentPlayerId = next.firstPlayerId ?? next.turnOrder[0];
+      next.logs = addLog(next.logs, "system", "全員の購入が完了しました。アクションフェーズを開始します。");
+    }
     return { ok: true, state: next, events: [] };
   },
 

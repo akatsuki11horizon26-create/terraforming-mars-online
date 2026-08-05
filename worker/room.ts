@@ -344,7 +344,8 @@ export class GameRoom {
     resolveChoice: COMMAND.RESOLVE_PENDING,
     chooseCorporation: COMMAND.SELECT_CORPORATION,
     choosePreludes: COMMAND.SELECT_PRELUDES,
-    draftPick: COMMAND.DRAFT_PICK
+    draftPick: COMMAND.DRAFT_PICK,
+    buyResearch: COMMAND.BUY_RESEARCH
   };
 
   private applyAction(
@@ -363,7 +364,8 @@ export class GameRoom {
         ...payload,
         type: commandType,
         playerId: seat,
-        optionId: payload.optionId ?? payload.choiceId
+        optionId: payload.optionId ?? payload.choiceId,
+        cardIds: payload.cardIds
       } as never) as { ok: boolean; state: unknown };
       return result.ok ? (result.state as Record<string, unknown>) : null;
     }
