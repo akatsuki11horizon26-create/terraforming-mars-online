@@ -263,9 +263,27 @@ export function applyBotMove(engine, state, botId, move, logs) {
   }
 
   if (move.kind === "standard") {
-    const result = move.project.apply(engine, state, botId, logs);
-    if (!result) return { state, logs };
-    return result;
+    // The same command a human's click produces, so the bot pays what they pay
+    // and raises each parameter exactly as often.
+    const result = executeGameCommand(state, {
+      type: COMMAND.STANDARD_PROJECT,
+      playerId: botId,
+      projectId: move.project.commandId
+    });
+    if (!result.ok) return { state, logs };
+    // A project that places a tile asks where; the bot takes the first legal
+    // space, which is what its own version did.
+    let settled = result.state;
+    while (settled.pendingChoice?.ownerPlayerId === botId) {
+      const answered = executeGameCommand(settled, {
+        type: COMMAND.RESOLVE_PENDING,
+        playerId: botId,
+        optionId: settled.pendingChoice.options[0]?.id
+      });
+      if (!answered.ok) break;
+      settled = answered.state;
+    }
+    return { state: settled, logs: settled.logs ?? logs, actionSpent: true };
   }
 
   return { state, logs };
@@ -392,6 +410,7 @@ export function runBotResearch(engine, state, botId, difficultyId) {
 export const BOT_STANDARD_PROJECTS = [
   {
     id: "ocean",
+    commandId: "aquifer",
     name: "海洋の沈降",
     cost: 18,
     available: state => (state.oceans ?? 0) < 9,
@@ -410,6 +429,7 @@ export const BOT_STANDARD_PROJECTS = [
   },
   {
     id: "asteroid",
+    commandId: "asteroid",
     name: "小惑星の衝突",
     cost: 14,
     available: state => (state.temperature ?? -30) < 8,
@@ -424,6 +444,7 @@ export const BOT_STANDARD_PROJECTS = [
   },
   {
     id: "greenery",
+    commandId: "greenery",
     name: "緑化プロジェクト",
     cost: 23,
     available: state => (state.oxygen ?? 0) < 14,
@@ -440,6 +461,7 @@ export const BOT_STANDARD_PROJECTS = [
   },
   {
     id: "power_plant",
+    commandId: "power-plant",
     name: "発電所の建設",
     cost: 11,
     available: () => true,
