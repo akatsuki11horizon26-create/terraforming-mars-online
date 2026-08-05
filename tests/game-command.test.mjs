@@ -742,3 +742,98 @@ test("buying research is still allowed in the research phase", () => {
   assert.equal(result.ok, true, "the phase gate must not block the phase's own command");
   assert.equal(getPlayer(result.state, seat).hand.includes("card-base-acquired-company"), true);
 });
+
+test("the action phase starts with everyone holding two actions again", () => {
+  const { state, seat, other } = table();
+  const buying = cloneGameState(state);
+  buying.phase = "research";
+  // Whatever was left at the end of the last generation.
+  buying.players = buying.players.map(player => ({
+    ...player,
+    mc: 40,
+    actionsRemaining: 0,
+    researchCards: []
+  }));
+
+  const result = executeGameCommand(buying, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: []
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.phase, "action", "everyone has bought, so play begins");
+  // Only page.tsx replenished these, so a game driven through commands entered
+  // the generation unable to act.
+  assert.equal(getPlayer(result.state, seat).actionsRemaining, 2);
+  assert.equal(getPlayer(result.state, other).actionsRemaining, 2);
+});
+
+test("Beginner Corporation's opening hand is free, and later ones are not", () => {
+  const { state, seat } = table();
+  const beginner = CORPORATIONS.find(item => item.effects?.freeStartingCards);
+
+  const opening = cloneGameState(state);
+  opening.phase = "setup";
+  opening.players = opening.players.map(player =>
+    player.id === seat
+      ? {
+          ...player,
+          corporationId: beginner.id,
+          mc: 42,
+          setupStep: "projects",
+          researchCards: ["card-base-acquired-company", "p-capital"]
+        }
+      : player
+  );
+  const before = getPlayer(opening, seat).mc;
+
+  const bought = executeGameCommand(opening, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: ["card-base-acquired-company", "p-capital"]
+  });
+  assert.equal(bought.ok, true);
+  assert.equal(getPlayer(bought.state, seat).mc, before, "「初期10枚を無料で保持する」");
+
+  // The same corporation pays the usual 3 each once the game is running.
+  const later = cloneGameState(state);
+  later.phase = "research";
+  later.players = later.players.map(player =>
+    player.id === seat
+      ? { ...player, corporationId: beginner.id, mc: 42, researchCards: ["p-capital"] }
+      : { ...player, researchCards: [] }
+  );
+  const paid = executeGameCommand(later, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: ["p-capital"]
+  });
+  assert.equal(paid.ok, true);
+  assert.equal(getPlayer(paid.state, seat).mc, 39, "the free hand is the opening one only");
+});
+
+test("a project that asks where it goes still reports what was built", () => {
+  const { state, seat } = table();
+  const rich = cloneGameState(state);
+  rich.players = rich.players.map(player => ({ ...player, mc: 90 }));
+
+  const asked = executeGameCommand(rich, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "city"
+  });
+  assert.ok(asked.state.pendingChoice);
+
+  const settled = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(settled.ok, true);
+
+  // Only the coordinates were logged, so the log never said which project it was.
+  const said = settled.state.logs.some(entry =>
+    String(entry.message ?? entry.text ?? "").includes("都市の建設")
+  );
+  assert.equal(said, true, "the completed project must name itself in the log");
+});

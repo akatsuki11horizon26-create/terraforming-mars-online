@@ -195,8 +195,15 @@ function placeOrAsk(state, command, tileType, label, source) {
       sourceId: source?.id ?? command.projectId,
       consumedAction: true,
       paid: true,
-      // Settled when the space is chosen, exactly as it is when only one was legal.
-      afterPlay: { temperature: before.temperature, oxygen: before.oxygen }
+      // Settled when the space is chosen, exactly as it is when only one was
+      // legal — including the line saying what was built, which otherwise only
+      // appeared for projects that happened to have a single legal space.
+      afterPlay: {
+        temperature: before.temperature,
+        oxygen: before.oxygen,
+        label,
+        kind: source ? "action" : "project"
+      }
     },
     legal
   );
@@ -238,7 +245,11 @@ function finishAction(state, command, label, before) {
 const STANDARD_PROJECTS = {
   "power-plant": {
     label: "発電所の建設",
-    cost: (state, corporation) => 11 - (corporation?.effects?.powerPlantDiscount ?? 0),
+    // powerPlantDiscount matched no corporation, so this read as a discount
+    // nobody had. Thorgate's powerDiscount is deliberately NOT used here: its
+    // effect text in official-content.js is "電力タグのカードコスト-3", which
+    // game-logic applies to cards carrying the Power tag, not to this project.
+    cost: () => 11,
     run(state, command) {
       state.players = state.players.map(player =>
         player.id === command.playerId ? { ...player, energyProd: player.energyProd + 1 } : player
@@ -286,7 +297,12 @@ const STANDARD_PROJECTS = {
     label: "植物の緑化",
     pays: "plants",
     places: "forest",
-    cost: (state, corporation) => (corporation?.effects?.greeneryPlantCost ?? 8),
+    // greeneryPlantCost matched no corporation, so this was always 8 by
+    // accident rather than by decision. It stays 8 by decision: this codebase
+    // gives Ecoline its 7 plants as a once-per-generation corporation action
+    // (CORPORATION_ACTIONS below), and reading plantGreeneryCost here as well
+    // would hand it both a permanent discount and the action.
+    cost: () => 8,
     run: (state, command) => placeOrAsk(state, command, "forest", "植物の緑化")
   },
   "convert-heat": {
@@ -557,6 +573,22 @@ const HANDLERS = {
     // The work a card left behind when it stopped to ask. It runs only once the
     // last question is answered, and only if the answer did not raise another.
     if (afterPlay && settled && !settled.pendingChoice) {
+      // Say what was built. Without this the log recorded only "(4,-4) にタイル
+      // を配置しました", so a project that asked where to build left no trace of
+      // which project it was.
+      if (afterPlay.label) {
+        const actor = getPlayer(settled, command.playerId);
+        settledLogs = addLog(
+          settledLogs,
+          "player",
+          afterPlay.kind === "action"
+            ? afterPlay.label
+            : `標準プロジェクト【${afterPlay.label}】を実行しました。`,
+          actor?.name
+        );
+        settled = cloneGameState(settled);
+        settled.logs = settledLogs;
+      }
       // A card played through a choice owes its triggers; a bare tile placement
       // carries no card and owes only the threshold bonuses it crossed.
       const card = afterPlay.cardId
@@ -697,7 +729,12 @@ const HANDLERS = {
     if (!ids.every(id => offered.includes(id))) {
       return fail(state, ERROR.CARD_NOT_OFFERED, "提示されていないカードです。");
     }
-    const cost = ids.length * RESEARCH_CARD_COST;
+    // "初期10枚を無料で保持する" — Beginner Corporation pays nothing for its
+    // opening hand, but still pays 3 each in every later research phase. Only
+    // the UI knew this, so the room and the bot charged it 3 a card at setup.
+    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const free = state.phase === "setup" && Boolean(corporation?.effects?.freeStartingCards);
+    const cost = free ? 0 : ids.length * RESEARCH_CARD_COST;
     if ((actor.mc ?? 0) < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
     }
@@ -728,6 +765,14 @@ const HANDLERS = {
     if (next.players.every(player => (player.researchCards ?? []).length === 0)) {
       next.phase = "action";
       next.currentPlayerId = next.firstPlayerId ?? next.turnOrder[0];
+      // The generation starts with everyone holding two actions again. Only
+      // page.tsx did this, so a game driven through commands entered the action
+      // phase with whatever was left from the previous generation — zero.
+      next.players = next.players.map(player => ({
+        ...player,
+        actionsRemaining: 2,
+        turnStep: "start"
+      }));
       next.logs = addLog(next.logs, "system", "全員の購入が完了しました。アクションフェーズを開始します。");
     }
     return { ok: true, state: next, events: [] };
