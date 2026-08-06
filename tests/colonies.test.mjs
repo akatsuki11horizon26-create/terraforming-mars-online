@@ -230,7 +230,16 @@ test("trading and building colonies cost what the rulebook says", async () => {
   // Energy is spent ahead of megacredits, so this run pays nothing in M€ and
   // the difference between the two is exactly the megacredit price.
   const paidEnergy = tradeWith(fork({ mc: 40, energy: 5, titanium: 0 }), tile, [], "player");
-  assert.equal(paidEnergy.state.players[0].energy, 2, "energy costs 3");
+
+  // Some tiles pay energy as trade income -- Callisto pays 2 -- so the closing
+  // balance is not the price. Two runs differing only in starting energy share
+  // that income, and the gap between them is what the trade actually charged.
+  const spareEnergy = tradeWith(fork({ mc: 40, energy: 9, titanium: 0 }), tile, [], "player");
+  assert.equal(
+    spareEnergy.state.players[0].energy - paidEnergy.state.players[0].energy,
+    4,
+    "both runs paid the same 3 energy, so only the 4 extra remains"
+  );
   assert.equal(
     paidMc.state.players[0].mc,
     paidEnergy.state.players[0].mc - 9,

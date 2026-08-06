@@ -8,8 +8,10 @@ import {
   getAwardStatus,
   computeScore,
   getNextAwardCost,
+  cloneGameState,
   MILESTONES,
-  AWARDS
+  AWARDS,
+  PRELUDES
 } from "../app/game-logic.js";
 import { scoreAward, getAward, AWARD_COSTS, MILESTONE_COST } from "../app/milestones-awards.js";
 
@@ -196,6 +198,55 @@ test("Milestone and award victory points reach the final score", () => {
 
   const opponent = computeScore(state, "player2");
   assert.equal(opponent, computeScore(state, "player2"), "scoring is stable");
+});
+
+// Preludes are kept in selectedPreludeIds, so a scorer that only walks
+// playedProjects drops them silently -- no error, just missing points.
+test("a prelude's victory points reach the final score", () => {
+  const nobel = PRELUDES.find(prelude => prelude.id === "card-prelude2-nobel-prize");
+  assert.equal(nobel.victoryPoints, 2, "Nobel Prize is the flat-2 prelude");
+
+  const state = cloneGameState(getInitialState({ playerCount: 2 }));
+  const seat = state.players[0].id;
+  state.players = state.players.map(player =>
+    player.id === seat ? { ...player, corporationId: null } : player
+  );
+  const baseline = computeScore(state, seat);
+
+  const withPrelude = cloneGameState(state);
+  withPrelude.players = withPrelude.players.map(player =>
+    player.id === seat ? { ...player, selectedPreludeIds: [nobel.id] } : player
+  );
+
+  assert.equal(computeScore(withPrelude, seat), baseline + 2);
+});
+
+test("a prelude scoring per resource counts what is on it", () => {
+  const asteroids = PRELUDES.find(
+    prelude => prelude.id === "card-prelude2-main-belt-asteroids"
+  );
+  assert.equal(asteroids.victoryPointSpec.per, 2, "one point per two asteroids");
+
+  const state = cloneGameState(getInitialState({ playerCount: 2 }));
+  const seat = state.players[0].id;
+  state.players = state.players.map(player =>
+    player.id === seat ? { ...player, corporationId: null } : player
+  );
+  const baseline = computeScore(state, seat);
+
+  const stocked = cloneGameState(state);
+  stocked.players = stocked.players.map(player =>
+    player.id === seat
+      ? {
+          ...player,
+          selectedPreludeIds: [asteroids.id],
+          cardResources: { [asteroids.id]: 7 }
+        }
+      : player
+  );
+
+  // Seven asteroids at one point per two, rounded down.
+  assert.equal(computeScore(stocked, seat), baseline + 3);
 });
 
 test("Scoring counts only the requested player's tiles", () => {

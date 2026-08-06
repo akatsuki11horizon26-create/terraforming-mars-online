@@ -2372,9 +2372,18 @@ export function computeScore(state, playerId) {
   });
   score += cityVp;
 
-  // Add card VPs
-  player.playedProjects.forEach(cardId => {
-    const card = ALL_CARDS.find(c => c.id === cardId);
+  // Add card VPs. Preludes are scored the same way: two of them carry points
+  // (Nobel Prize a flat 2, Main Belt Asteroids one per two asteroids) and they
+  // live in selectedPreludeIds, not playedProjects.
+  const scoringCards = [
+    ...player.playedProjects.map(cardId => [cardId, ALL_CARDS.find(c => c.id === cardId)]),
+    ...(player.selectedPreludeIds ?? []).map(cardId => [
+      cardId,
+      PRELUDES.find(c => c.id === cardId)
+    ])
+  ];
+
+  scoringCards.forEach(([cardId, card]) => {
     if (card && card.victoryPoints) {
       score += card.victoryPoints;
     }
