@@ -1231,7 +1231,9 @@ function queuePendingChoices(state, card, context) {
           return true;
         }
       },
-      context
+      // Virus's animal half reads played cards, so the catalogue and the
+      // resource-type map travel with the context.
+      { ...context, cards: ALL_CARDS, getResourceType: getCardResourceType }
     );
     if (built) return built;
   }
@@ -1443,6 +1445,43 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "resource-steal": {
       const attackerId = choice.ownerPlayerId;
       const victim = getPlayer(next, option.targetPlayerId);
+
+      // Virus's animal half takes the resource off a card rather than out of a
+      // stock, so it settles on cardResources and never moves to the attacker.
+      if (option.targetCardId) {
+        const held = victim?.cardResources?.[option.targetCardId] ?? 0;
+        const taken = Math.min(held, option.count ?? 0);
+        next.players = next.players.map(player =>
+          player.id === option.targetPlayerId
+            ? {
+                ...player,
+                cardResources: {
+                  ...player.cardResources,
+                  [option.targetCardId]: held - taken
+                }
+              }
+            : player
+        );
+        if (taken > 0) {
+          recordAttack(next, {
+            attackerPlayerId: attackerId,
+            victimPlayerId: option.targetPlayerId,
+            sourceCardId: choice.continuation.sourceId,
+            kind: "resource-removal",
+            resource: option.cardResourceType,
+            amount: taken
+          });
+        }
+        const cardName = ALL_CARDS.find(item => item.id === option.targetCardId)?.name
+          ?? option.targetCardId;
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `${victim?.name ?? option.targetPlayerId} の ${cardName} から ${taken} 個取り除きました。`
+        );
+        break;
+      }
+
       const resource = option.resource;
       const before = victim?.[resource] ?? 0;
       const taken = Math.min(before, option.count ?? 0);

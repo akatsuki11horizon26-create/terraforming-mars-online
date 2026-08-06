@@ -1,6 +1,6 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-06 / コミット `b3edb88` / テスト312件
+最終更新: 2026-08-06 / コミット `dc03a5b` の次 / テスト325件
 
 このファイルは**着任した人が最初に読むもの**。
 章の順序は「知らないと事故る順」で、作業の時系列ではない。
@@ -35,7 +35,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、312件
+- テスト: `node --test`、325件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -136,10 +136,17 @@ state.players = state.players.map(p =>
 |---|---|---|
 | 資源の除去 | `resource-attack` | `resource-removal` |
 | 資源の奪取 | `resource-steal` | `resource-removal` |
+| カード上の資源の除去 | `resource-steal`（`targetCardId` 付き） | `resource-removal` |
 | 生産量の低下 | `production-attack` | `production-decrease` |
 
 **ソロは例外。** 相手がいないので直接適用する。
 `players.length > 1` で分岐しており、これを外すと**ソロで二重適用**になる。
+
+**ただし `resource-steal` にはこの分岐が無い。** ソロでも choice を出す。
+相手の手持ちを狙う選択肢は候補0になって自然に消えるが、
+Virus の動物のように**自分のカードが正当な対象になる**効果は
+ソロでも選択が必要だからで、これは意図的。ここに `players.length > 1` を
+足すと**ソロで Virus が何もしなくなる**。
 
 実際に減った場合だけ `generationAttackLedger` に記録される。
 自己攻撃・対象資源0・任意効果の辞退では記録しない（Law Suit の対象判定に使うため）。
@@ -166,6 +173,31 @@ state.players = state.players.map(p =>
 St. Joseph の `buildCathedral` は後者を使っている。
 Flooding は `{tr:{oceans:1}}` という誰も読まない形で書かれていて、
 **海洋を1枚も置いていなかった**。
+
+### 2.8 カード資源の種別は別ファイルにある
+
+**カタログ本体に `resourceType` は入っていない。** 動物・微生物・フローターなど
+「カードの上に乗る資源」の種別は `app/card-resource-types.js`（72枚、生成物）にある。
+リファレンス実装の `resourceType` 宣言から
+`scripts/generate-card-resource-types.mjs` が吸い出したもの。
+
+```js
+collectResourceTargets(state, "animal", ALL_CARDS, {
+  mustHaveResources: true,
+  getResourceType: getCardResourceType   // ← これを渡さないと1枚も見つからない
+});
+```
+
+**`getResourceType` を渡し忘れると、例外ではなく「対象0枚」になる**（§2.3の類型）。
+`collectResourceTargets` は `card.resourceType` を先に見て、無ければこの関数に訊く。
+両方空振りすると黙って候補から外れる。
+
+置く方向（`addResourcesToAnyCard`）と取り除く方向（Virus）で同じ関数を使う。
+Microbe / Science / Floater / Asteroid なども同じ経路で書ける。
+
+**カードの上の資源とプレイヤーの手持ちは別物。** `resource-steal` の選択肢は
+`targetCardId` があればカード上の資源、無ければ手持ちを指す。分岐を消すと
+Virus が相手の植物を消す側に落ちる。
 
 ---
 
@@ -264,6 +296,7 @@ engine 側に寄せるのが本筋だが未実施。
 | `app/net-protocol.js` | 通信形式と `viewForPlayer`（プライバシーフィルタ） |
 | `app/board-milestones.js` | マップ別の称号・褒賞 |
 | `app/full-card-catalog.js` | **生成物。直接編集しない**（`official-content.js` 経由） |
+| `app/card-resource-types.js` | **生成物**。カード上の資源種別72枚（§2.8） |
 | `app/card-art.data.js` | 428枚のカードアート（生成物、689KB） |
 
 ### 生成スクリプト
@@ -273,6 +306,7 @@ scripts/generate-boards.mjs        4マップ盤面（リファレンス実装�
 scripts/generate-japanese-text.mjs カード名・効果の日本語
 scripts/build-card-art.mjs         SVGアートの検証とバンドル
 scripts/check-card-art.mjs         主題が中央にあるかの機械検査
+scripts/generate-card-resource-types.mjs  カード上の資源種別（§2.8）
 scripts/playtest.mjs               完全なゲームを回して不変条件を検査
 ```
 
@@ -292,6 +326,9 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 - **特殊得点カード3枚**（Law Suit / Vermin / St. Joseph）— 得点・効果とも完全実装
 - **攻撃カード7枚**（Hired Raiders / Sabotage / Virus / Air Raid /
   Special Permit / Comet for Venus / Flooding）— 対象選択と履歴記録
+  - Virus は「任意のカードから動物2」「任意のプレイヤーから植物5」の
+    **両分岐とも実装済み**。1つのダイアログに両方が並ぶ（§2.8）
+  - Special Permit はグリーン与党を立てた実プレイ経路でテスト済み
 
 ---
 
@@ -301,10 +338,11 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 
 ### 6.1 ブラウザで一度も動作確認していない（最優先）
 
-**テスト312件・CI・プレイテストはすべて通っているが、実機は未確認。**
+**テスト325件・CI・プレイテストはすべて通っているが、実機は未確認。**
 型・lint・ビルドはどれも見た目を検証しない。
 
-このセッションでは Chrome 拡張が接続できず確認できなかった。
+**ロジックは完了扱いになっているが、ブラウザ確認だけは持ち越されている。**
+Chrome 拡張が接続できないセッションが続いたため、UI は一度も人間の目で見られていない。
 `npm run dev` で `localhost:3000` が上がることは確認済み。
 
 確認すべきもの:
@@ -323,6 +361,31 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 | 最終得点画面 | 内訳が合計と一致し、負の値も表示されるか |
 | **オンライン全般** | **テストで担保できていない**。2端末で企業選択・Prelude・研究購入 |
 
+#### 特殊カードの手動確認手順
+
+エンジン側はテスト済み。以下は**画面に出るか**だけを見るためのもので、
+値が合っているかはテストが担保している。すべて2人ソロ相当の卓で足りる。
+
+1. **Law Suit** — 相手に攻撃カードを撃たせてから Law Suit をプレイする。
+   対象選択に「今世代に自分から奪った人だけ」が並ぶか。
+   選ぶと MC が最大3移動し、相手の得点が −1 されるか。
+   *誰にも攻撃されていない世代では対象が0人になり、カードが出せないのが正しい。*
+2. **Vermin** — 都市を置くたびに Vermin に動物が乗るか。
+   二択アクションの両方が押せて、選んだ側だけが起きるか。
+3. **St. Joseph** — 都市を選ぶダイアログが出るか。
+   選んだ都市に大聖堂が描かれ、同じ都市が二度選べないか。
+4. **特殊VPのカード面** — Law Suit `-1` / Vermin `特殊` / St. Joseph `1` の
+   バッジが**カード表面**に出るか。
+5. **最終得点内訳** — 負の VP が `-1` と表示され、合計と内訳が一致するか。
+   **0で丸められていないこと**を必ず見る（丸めるのは実際にあったバグ）。
+6. **オンラインの秘匿** — 2端末で、片方の pending choice の選択肢と手札が
+   **もう片方の画面・DevTools のネットワークタブどちらにも出ない**こと。
+   `viewForPlayer` のフィルタは過去に破れている（§2.1）ので、
+   画面だけでなく**受信 JSON を直接見る**。
+7. **Virus** — 動物を乗せたカードが場にあるとき、
+   「動物2」と「植物5」が**同じ1つのダイアログに並ぶ**か。
+   動物が1個しかないカードは「動物 1」と表示されるか。
+
 ### 6.2 未実装・未検証のルール
 
 | 項目 | 状態 |
@@ -331,12 +394,7 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 | 植民地トラックが世代終了時に上昇しない | 未検証 |
 | Turmoil の世界的イベントが効果を発動しない | 未検証（ログ表示のみ） |
 | 有料代表者（予備から5MC）が無料で送れる | 未検証 |
-| Virus の「動物2個」分岐 | **未実装**（下記） |
 | Prelude ソロの世代数 | **出典待ち**（下記） |
-
-**Virus の動物分岐**: カタログにカードの資源種別メタデータが無く、
-「任意のカードから動物2個」を機械的に対象指定できない。植物5の分岐のみ動く。
-実装するならカタログに `resourceType` を足すところから。
 
 **Prelude ソロ14世代**: 監査は「公式は12世代」と指摘。実装は
 `generation >= 14` のハードコード1箇所で、Prelude の有無を見ていないのは実測で確認済み
@@ -346,8 +404,11 @@ Prelude 2 のルールブックだけで、solo の記載が無い（テキス�
 `grep -oiE ".{90}solo.{140}"` のような文字列検索で確認すること）。
 **根拠なしに世代数を変えない。**
 
-**Special Permit は実機プレイ未検証。** Turmoil のグリーン与党が前提条件のため、
-中立状態のテーブルではエンジンが正しく拒否する。スペックのみテスト済み。
+**Special Permit は実プレイ経路でテスト済み。** `createTurmoilState` で Turmoil を
+立てて `rulingParty` を差し替えれば、通常のコマンド経路で最後まで通せる。
+Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで確認してある
+（`createTurmoilState` は既定でグリーンが与党なので、テストは意図を明示するため
+与党を明示的に設定している）。
 
 ### 6.3 設計上の借り
 
@@ -364,7 +425,7 @@ Prelude 2 のルールブックだけで、solo の記載が無い（テキス�
 ### コマンド
 
 ```bash
-npm test                 # ビルド + 312テスト
+npm test                 # ビルド + 325テスト
 npm run lint             # ESLint
 npx tsc --noEmit -p tsconfig.json | grep '^app/'   # 型（worker/ の既存エラーは無視）
 node scripts/playtest.mjs --games=20 --players=2 --colonies --turmoil
@@ -441,3 +502,4 @@ curl で取得できる。既存のタルシス盤面と1行ずつ一致する�
 | `614ab38` | Vitor が動的VPに反応しない／Botがアクションを消費しない／内訳と合計の不一致 |
 | `4df3866` | 特殊VP3枚の効果、攻撃カード7枚のモデル化 |
 | `dad7643` | 特殊VP3枚のカード面表示 |
+| （最新） | Virus の動物2個分岐／Special Permit の実プレイ経路テスト |

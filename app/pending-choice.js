@@ -335,7 +335,7 @@ export function buildResourceStealChoice(state, spec, context) {
     // one else can be hit, which keeps a required attack resolvable.
     if (player.id === attackerId) continue;
     if (!eligible(player, state)) continue;
-    for (const choice of spec.resources) {
+    for (const choice of spec.resources ?? []) {
       const held = player[choice.resource] ?? 0;
       if (held <= 0) continue;
       const taken = Math.min(held, choice.count);
@@ -346,6 +346,31 @@ export function buildResourceStealChoice(state, spec, context) {
         resource: choice.resource,
         count: choice.count,
         label: `${player.name} から ${label} ${taken}`
+      });
+    }
+  }
+
+  // Virus removes animals from a *card*, not from a stock. Every card that can
+  // hold the named resource and currently holds at least one is a target,
+  // whoever owns it -- including the attacker, whose own cards are legal
+  // targets under the printed rules even though hitting them earns no
+  // grievance (`recordAttack` drops self-attacks).
+  for (const spent of spec.cardResources ?? []) {
+    const holders = collectResourceTargets(state, spent.resourceType, context.cards ?? [], {
+      mustHaveResources: true,
+      getResourceType: context.getResourceType
+    });
+    for (const target of holders) {
+      // A card holding one animal loses one, not two.
+      const taken = Math.min(target.amount, spent.count);
+      const label = CARD_RESOURCE_LABELS[spent.resourceType] ?? spent.resourceType;
+      options.push({
+        id: `card:${target.targetPlayerId}:${target.targetCardId}:${spent.resourceType}`,
+        targetPlayerId: target.targetPlayerId,
+        targetCardId: target.targetCardId,
+        cardResourceType: spent.resourceType,
+        count: spent.count,
+        label: `${target.label} から ${label} ${taken}`
       });
     }
   }
@@ -405,6 +430,16 @@ export function buildResourceAttackChoice(state, resource, count, context) {
     }
   };
 }
+
+const CARD_RESOURCE_LABELS = {
+  animal: "動物",
+  microbe: "微生物",
+  science: "サイエンス",
+  floater: "フローター",
+  asteroid: "小惑星",
+  fighter: "戦力",
+  camp: "キャンプ"
+};
 
 const PRODUCTION_LABELS = {
   mc: "MC",
