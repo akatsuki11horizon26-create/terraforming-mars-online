@@ -14,7 +14,6 @@ import {
   getCardPlayableStatus as jsGetCardPlayableStatus,
   getAdjacentCells as jsGetAdjacentCells,
   isCellPlacementValid as jsIsCellPlacementValid,
-  countAdjacentOceans as jsCountAdjacentOceans,
   checkParameterThresholds as jsCheckParameterThresholds,
   handleActionSpend as jsHandleActionSpend,
   isGameOverCheck as jsIsGameOverCheck,
@@ -24,7 +23,6 @@ import {
   getPreludeCost as jsGetPreludeCost,
   applyCardEffect as jsApplyCardEffect,
   applyCardAction as jsApplyCardAction,
-  applyCorporationTriggers as jsApplyCorporationTriggers,
   getCardActionStatus as jsGetCardActionStatus,
   getCardEffect as jsGetCardEffect
 } from "./game-logic.js";
@@ -356,7 +354,6 @@ const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
 const getAdjacentCells = jsGetAdjacentCells as unknown as (q: number, r: number) => { q: number; r: number }[];
 const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellState, type: "forest" | "city" | "ocean", board: Record<string, CellState>) => boolean;
-const countAdjacentOceans = jsCountAdjacentOceans as unknown as (q: number, r: number, board: Record<string, CellState>) => number;
 const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const isGameOverCheck = jsIsGameOverCheck as unknown as (temp: number, oxy: number, oce: number) => boolean;
@@ -364,8 +361,6 @@ const addLog = jsAddLog as unknown as (logsList: LogEntry[], sender: "player" | 
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
 const getPreludeCost = jsGetPreludeCost as unknown as (prelude: Prelude) => number;
-const applyCardEffect = jsApplyCardEffect as unknown as (state: GameState, card: Card, logs: LogEntry[], options?: { skipTile?: boolean }) => { state: GameState; logs: LogEntry[] };
-const applyCorporationTriggers = jsApplyCorporationTriggers as unknown as (state: GameState, card: Card, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const getCardActionStatus = jsGetCardActionStatus as unknown as (state: GameState, card: Card) => { playable: boolean; reason: string };
 const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
@@ -448,13 +443,11 @@ export default function Home() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
+  // Only the final greenery conversion still places this way; everything else
+  // goes through pendingChoice.
   const [placementMode, setPlacementMode] = useState<{
     active: boolean;
-    type: "forest" | "city" | "ocean";
-    sourceCardId?: string;
-    sourceProject?: "greenery" | "plants" | "ocean" | "city";
-    remainingPlacements?: number;
-    cardPaymentDone?: boolean;
+    type: "forest";
   } | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -930,26 +923,7 @@ export default function Home() {
     }
   };
 
-  const payCardCost = (state: GameState, card: Card) => {
-    const cost = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
-    const heatAsMoney = CORPORATIONS.find(item => item.id === state.corporationId)?.effects?.heatAsMoney ? state.heat : 0;
-    const heatUsed = Math.min(heatAsMoney, Math.max(0, cost - state.mc));
-    state.mc -= cost - heatUsed;
-    state.heat -= heatUsed;
-    state.steel -= steelUsed;
-    state.titanium -= titaniumUsed;
-    return { cost, heatUsed };
-  };
-
   const canPayStandardCost = (cost: number) => activeState.mc + (CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.heatAsMoney ? activeState.heat : 0) >= cost;
-
-  const payStandardCost = (state: GameState, cost: number) => {
-    const heatAsMoney = CORPORATIONS.find(item => item.id === state.corporationId)?.effects?.heatAsMoney ? state.heat : 0;
-    const heatUsed = Math.min(heatAsMoney, Math.max(0, cost - state.mc));
-    state.mc -= cost - heatUsed;
-    state.heat -= heatUsed;
-    return heatUsed;
-  };
 
   const handlePlayCardInit = () => {
     if (!isMyTurn || !selectedCardId) return;
@@ -1024,134 +998,29 @@ export default function Home() {
     if (!placementMode) return;
     if (!isCellPlacementValid(cell, placementMode.type, activeState.board)) return;
 
-    let nextState = jsCloneGameState(gameState) as GameState;
+    const nextState = jsCloneGameState(gameState) as GameState;
     let localLogs = nextState.logs;
 
     const oldTemp = nextState.temperature;
     const oldOxy = nextState.oxygen;
-    const oldOceans = nextState.oceans;
 
-    if (placementMode.sourceCardId) {
-      const card = ALL_CARDS.find(c => c.id === placementMode.sourceCardId);
-      if (!card) return;
+    // Standard projects and cards both place through the command layer now, so
+    // the only mode that still reaches this handler is the final greenery
+    // conversion: eight plants, paid here, with no action spent.
+    nextState.plants -= 8;
+    localLogs = addLog(localLogs, "player", "植物の緑化を実行しました (支払: 植物 8)");
 
-      const isFirstPlacement = !placementMode.cardPaymentDone;
-      if (isFirstPlacement) {
-        const { cost: costAfterDiscount, heatUsed } = payCardCost(nextState, card);
-        nextState.hand = nextState.hand.filter(id => id !== card.id);
-        nextState.playedProjects.push(card.id);
+    placeTile(nextState, cell, "forest", currentPlayerId);
 
-        localLogs = addLog(
-          localLogs,
-          "player",
-          `カードをプレイしました: 【${card.name}】 (支払: MC ${costAfterDiscount}${heatUsed ? `、熱 ${heatUsed}` : ""}${steelUsed ? `, 建材 ${steelUsed}` : ""}${titaniumUsed ? `, チタン ${titaniumUsed}` : ""})`
-        );
-      }
-
-      placeTile(
-        nextState,
-        cell,
-        placementMode.type,
-        currentPlayerId,
-        placementMode.sourceCardId && !placementMode.cardPaymentDone
-          ? placementMode.sourceCardId
-          : undefined
-      );
-
-      localLogs = addLog(localLogs, "player", `タイルを配置しました: 【${placementMode.type === "ocean" ? "海洋" : placementMode.type === "city" ? "都市" : "緑地"}】 (${cell.q}, ${cell.r})`);
-
-      // placeTile already paid the ocean adjacency bonus; this only reports it.
-      if (placementMode.type !== "ocean") {
-        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
-        if (adjOceans > 0) {
-          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${adjOceans * 2} (隣接海洋数: ${adjOceans})`);
-        }
-      }
-
-      // placeTile already raised the parameter and TR; these only report it.
-      if (placementMode.type === "forest" && oldOxy < 14) {
-        localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
-      } else if (placementMode.type === "ocean" && oldOceans < 9) {
-        localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
-      }
-
-      if (isFirstPlacement) {
-        const effectResult = applyCardEffect(nextState, card, localLogs, { skipTile: true });
-        nextState = effectResult.state;
-        localLogs = effectResult.logs;
-        const triggerResult = applyCorporationTriggers(nextState, card, localLogs);
-        nextState = triggerResult.state;
-        localLogs = triggerResult.logs;
-      }
-    } else if (placementMode.sourceProject) {
-      if (placementMode.sourceProject === "greenery" || placementMode.sourceProject === "plants") {
-        const payInPlants = placementMode.sourceProject === "plants";
-        const isFinalGreenery = gameState.phase === "final_greenery";
-        if (payInPlants) {
-          nextState.plants -= 8;
-          localLogs = addLog(localLogs, "player", "植物の緑化を実行しました (支払: 植物 8)");
-        } else {
-          const heatUsed = payStandardCost(nextState, 23);
-          localLogs = addLog(localLogs, "player", `標準プロジェクト【緑化プロジェクト】を実行しました (支払: MC ${23 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-          if (gameState.corporationId === "corp-credicor") {
-            nextState.mc += 4;
-            localLogs = addLog(localLogs, "system", "CrediCor: 高額標準プロジェクトの支払いでMC +4");
-          }
-        }
-
-        placeTile(nextState, cell, "forest", currentPlayerId);
-
-        if (isFinalGreenery) {
-          // placeTile raised them; the final greenery phase scores neither.
-          nextState.oxygen = oldOxy;
-          if (nextState.oxygen < 14) nextState.tr -= 1;
-          localLogs = addLog(localLogs, "system", "最終緑化: 酸素濃度とTRは変化しません。");
-        } else if (oldOxy < 14) {
-          localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
-        }
-        localLogs = addLog(localLogs, "player", `緑地を (${cell.q}, ${cell.r}) に配置しました。`);
-      } else if (placementMode.sourceProject === "ocean") {
-        const heatUsed = payStandardCost(nextState, 18);
-        localLogs = addLog(localLogs, "player", `標準プロジェクト【海洋の沈降】を実行しました (支払: MC ${18 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-
-        placeTile(nextState, cell, "ocean", currentPlayerId);
-        if (oldOceans < 9) {
-          localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
-        }
-        localLogs = addLog(localLogs, "player", `海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-      } else if (placementMode.sourceProject === "city") {
-        const heatUsed = payStandardCost(nextState, 25);
-        nextState.mcProd += 1;
-        localLogs = addLog(localLogs, "player", `標準プロジェクト【都市の建設】を実行しました (支払: MC ${25 - heatUsed}${heatUsed ? `、熱 ${heatUsed}` : ""})`);
-        if (gameState.corporationId === "corp-credicor") {
-          nextState.mc += 4;
-          localLogs = addLog(localLogs, "system", "CrediCor: 高額標準プロジェクトの支払いでMC +4");
-        }
-
-        placeTile(nextState, cell, "city", currentPlayerId);
-
-        const adjOceans = countAdjacentOceans(cell.q, cell.r, nextState.board);
-        if (adjOceans > 0) {
-          localLogs = addLog(localLogs, "system", `海洋隣接ボーナス: MC +${adjOceans * 2} (隣接海洋数: ${adjOceans})`);
-        }
-
-        localLogs = addLog(localLogs, "system", "MC生産量 +1");
-        localLogs = addLog(localLogs, "player", `都市を (${cell.q}, ${cell.r}) に配置しました。`);
-      }
+    if (gameState.phase === "final_greenery") {
+      // placeTile raised them; the final greenery phase scores neither.
+      nextState.oxygen = oldOxy;
+      if (nextState.oxygen < 14) nextState.tr -= 1;
+      localLogs = addLog(localLogs, "system", "最終緑化: 酸素濃度とTRは変化しません。");
+    } else if (oldOxy < 14) {
+      localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
     }
-
-    const corporation = CORPORATIONS.find(item => item.id === nextState.corporationId);
-    if (corporation?.effects?.miningBonus && (cell.bonusType === "steel" || cell.bonusType === "titanium")) {
-      nextState.steelProd += 1;
-      localLogs = addLog(localLogs, "system", "Mining Guild: 金属ボーナスの配置で建材生産量 +1");
-    }
-    if (corporation?.effects?.cityProduction && placementMode.type === "city") {
-      const cityProduction = typeof corporation.effects.cityProduction === "number" ? corporation.effects.cityProduction : 0;
-      const ownCityBonus = typeof corporation.effects.ownCityBonus === "number" ? corporation.effects.ownCityBonus : 0;
-      nextState.mcProd += cityProduction;
-      nextState.mc += ownCityBonus;
-      localLogs = addLog(localLogs, "system", `Tharsis Republic: MC生産量 +${cityProduction}${ownCityBonus ? `、MC +${ownCityBonus}` : ""}`);
-    }
+    localLogs = addLog(localLogs, "player", `緑地を (${cell.q}, ${cell.r}) に配置しました。`);
 
     // placeTile paid the placement bonus, including multi-resource spaces the
     // hand-rolled version could not represent. This only names what was gained.
@@ -1179,13 +1048,6 @@ export default function Home() {
       nextState,
       localLogs
     );
-
-    const remainingPlacements = Math.max(0, (placementMode.remainingPlacements ?? 1) - 1);
-    if (placementMode.sourceCardId && remainingPlacements > 0) {
-      setPlacementMode({ active: placementMode.active, type: placementMode.type, sourceCardId: placementMode.sourceCardId, remainingPlacements, cardPaymentDone: true });
-      saveState(updatedState);
-      return;
-    }
 
     setSelectedCardId(null);
     setSteelUsed(0);
@@ -1369,11 +1231,7 @@ export default function Home() {
   // Final greenery converters
   const handleFinalGreeneryConvert = () => {
     if (gameState.plants < 8) return;
-    setPlacementMode({
-      active: true,
-      type: "forest",
-      sourceProject: "plants"
-    });
+    setPlacementMode({ active: true, type: "forest" });
   };
 
   const handleFinalScoring = () => {
@@ -1775,13 +1633,11 @@ export default function Home() {
               }}
             >
               <span style={{ fontSize: "0.85rem", color: "var(--color-cyan)", fontWeight: "bold" }}>
-                【{placementMode.type === "ocean" ? "海洋" : placementMode.type === "city" ? "都市" : "緑地"}】の配置場所を選択してください
-                {placementMode.remainingPlacements && placementMode.remainingPlacements > 1 ? `（残り${placementMode.remainingPlacements}枚）` : ""}
+                【緑地】の配置場所を選択してください
               </span>
               <button
                 className="btn-secondary"
                 style={{ padding: "2px 8px", fontSize: "0.75rem", color: "var(--color-rust)", borderColor: "var(--color-rust)" }}
-                disabled={placementMode.cardPaymentDone}
                 onClick={() => {
                   setPlacementMode(null);
                   setSelectedCardId(null);
