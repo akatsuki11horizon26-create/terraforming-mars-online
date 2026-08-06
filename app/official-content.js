@@ -221,10 +221,28 @@ const SPECIAL_VICTORY_KIND = Object.freeze({
   "card-promo-st-joseph-of-cupertino-mission": "st-joseph"
 });
 
+// None of the three carries a victoryPointSpec, so the card face had nothing
+// to draw and showed no badge at all.
+const SPECIAL_VICTORY_DISPLAY = Object.freeze({
+  "card-promo-law-suit": {
+    label: "-1",
+    description: "訴えられたプレイヤーが1勝利点を失う"
+  },
+  "card-promo-vermin": {
+    label: "特殊",
+    description: "動物10個以上なら、各プレイヤーは自分の都市1枚につき1勝利点を失う"
+  },
+  "card-promo-st-joseph-of-cupertino-mission": {
+    label: "1",
+    description: "大聖堂のある都市1枚につき1勝利点"
+  }
+});
+
 const withSpecialVictory = cards =>
   cards.map(card => ({
     ...card,
-    specialVictoryKind: SPECIAL_VICTORY_KIND[card.id] ?? null
+    specialVictoryKind: SPECIAL_VICTORY_KIND[card.id] ?? null,
+    specialVictoryDisplay: SPECIAL_VICTORY_DISPLAY[card.id] ?? null
   }));
 
 // Only the curated corporations declare `effects`; the generated ones do not, and

@@ -20,6 +20,7 @@ export interface ProjectCardData {
   effectSpec?: Record<string, unknown>;
   victoryPoints?: number;
   victoryPointSpec?: Record<string, unknown>;
+  specialVictoryDisplay?: { label: string; description: string } | null;
 }
 
 // Card height as a multiple of its width. The hand-fitting maths needs the same
@@ -73,6 +74,9 @@ interface VictoryPointSpec {
 }
 
 function victoryPointLabel(card: ProjectCardData) {
+  // The three special promos score in ways no spec can describe, so they carry
+  // their own printed label.
+  if (card.specialVictoryDisplay) return card.specialVictoryDisplay.label;
   if (card.victoryPoints) return String(card.victoryPoints);
   const spec = card.victoryPointSpec as VictoryPointSpec | undefined;
   if (!spec) return null;
@@ -85,6 +89,7 @@ function victoryPointLabel(card: ProjectCardData) {
 // The badge only has room for a number, so what is being counted goes in the
 // tooltip -- otherwise "1/2" never says two of what.
 function victoryPointTitle(card: ProjectCardData) {
+  if (card.specialVictoryDisplay) return card.specialVictoryDisplay.description;
   const spec = card.victoryPointSpec as VictoryPointSpec | undefined;
   if (!spec) return card.victoryPoints ? `${card.victoryPoints} 勝利点` : undefined;
   const unit = victoryPointUnit(spec);

@@ -1301,3 +1301,32 @@ test("the bot rates a card scoring per resource above one scoring nothing", asyn
     "a printed victory point icon is worth more than none"
   );
 });
+
+test("the three special cards print a victory point badge of their own", async () => {
+  const tsx = await import("node:fs/promises").then(fs =>
+    fs.readFile(new URL("../app/project-card.tsx", import.meta.url), "utf8")
+  );
+  assert.match(
+    tsx,
+    /specialVictoryDisplay/,
+    "the card face reads the special label"
+  );
+
+  const expected = {
+    "card-promo-law-suit": "-1",
+    "card-promo-vermin": "特殊",
+    "card-promo-st-joseph-of-cupertino-mission": "1"
+  };
+
+  for (const [id, label] of Object.entries(expected)) {
+    const card = ALL_CARDS.find(entry => entry.id === id);
+    assert.equal(card.specialVictoryDisplay?.label, label, `${id} prints ${label}`);
+    assert.ok(
+      card.specialVictoryDisplay?.description?.length > 0,
+      `${id} explains itself in the tooltip`
+    );
+  }
+
+  // Nothing else grew a special badge.
+  assert.equal(ALL_CARDS.filter(card => card.specialVictoryDisplay).length, 3);
+});
