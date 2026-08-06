@@ -1065,6 +1065,45 @@ test("Virus removes two animals from the chosen card and records the attack", as
   );
 });
 
+test("Virus destroys the animals rather than taking them", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  // The choice runs through `resource-steal`, which is also the path the
+  // stealing cards use. Virus's spec says steal:false, so the two animals must
+  // leave the table entirely: not onto the attacker's own animal card, not
+  // into any stock of theirs.
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(
+    withAnimals(bare, them, "card-base-birds", 3),
+    me,
+    "card-base-pets",
+    1
+  );
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.cardResourceType === "animal" && entry.targetPlayerId === them
+  );
+
+  const before = getPlayer(played.state, me);
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  const after = getPlayer(settled.state, me);
+
+  assert.equal(getPlayer(settled.state, them).cardResources["card-base-birds"], 1, "two are gone");
+  assert.equal(
+    after.cardResources["card-base-pets"],
+    before.cardResources["card-base-pets"],
+    "the attacker's own animal card gains nothing"
+  );
+  for (const field of ["mc", "steel", "titanium", "plants", "energy", "heat"]) {
+    assert.equal(after[field], before[field], `the attacker's ${field} is untouched`);
+  }
+  // Nothing arrived anywhere else on the attacker's card resources either.
+  assert.deepEqual(after.cardResources, before.cardResources, "no card of theirs gained anything");
+});
+
 test("Virus takes only the one animal a card actually holds", async () => {
   const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
   const { getPlayer } = await import("../app/game-logic.js");
@@ -1265,6 +1304,56 @@ test("Special Permit records nothing when the victim holds no plants", async () 
   assert.equal(played.ok, true, "the card is still played");
   assert.equal(played.state.pendingChoice, null, "but there is nobody worth asking about");
   assert.deepEqual(played.state.generationAttackLedger, [], "and no grievance");
+});
+
+test("Special Permit runs end to end for the attacking seat", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, lawSuitTargets } = await import("../app/game-logic.js");
+
+  // One pass over the whole path a real seat takes: play, get asked, answer,
+  // and land. Each step is checked rather than only the end state, because a
+  // choice that resolves correctly while spending two actions, or leaving the
+  // question up, is still broken.
+  const [state, me, them] = await permitTable("greens");
+  const actionsBefore = state.actionsRemaining;
+  const attackerBefore = getPlayer(state, me).plants;
+  const victimBefore = getPlayer(state, them).plants;
+
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT });
+  assert.equal(played.ok, true, "the card is played");
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal", "and raises the question");
+  assert.equal(
+    getPlayer(played.state, them).plants,
+    victimBefore,
+    "nothing moves before the question is answered"
+  );
+
+  const option = played.state.pendingChoice.options.find(entry => entry.targetPlayerId === them);
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  assert.equal(settled.ok, true);
+
+  assert.equal(getPlayer(settled.state, them).plants, victimBefore - 4, "four leave the victim");
+  assert.equal(getPlayer(settled.state, me).plants, attackerBefore + 4, "and reach the attacker");
+  assert.equal(settled.state.pendingChoice, null, "the question is gone");
+  assert.equal(
+    settled.state.actionsRemaining,
+    actionsBefore - 1,
+    "playing a card through a choice costs exactly one action"
+  );
+
+  assert.equal(settled.state.generationAttackLedger.length, 1, "one attack, one entry");
+  assert.deepEqual(settled.state.generationAttackLedger[0], {
+    attackerPlayerId: me,
+    victimPlayerId: them,
+    sourceCardId: PERMIT,
+    kind: "resource-removal",
+    resource: "plants",
+    amount: 4,
+    generation: settled.state.generation
+  });
+  assert.deepEqual(lawSuitTargets(settled.state, them).map(player => player.id), [me]);
 });
 
 test("Special Permit settles identically through the online command path", async () => {

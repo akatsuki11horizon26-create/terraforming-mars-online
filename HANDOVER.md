@@ -1,6 +1,6 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-06 / コミット `dc03a5b` の次 / テスト323件
+最終更新: 2026-08-06 / コミット `dc03a5b` の次 / テスト325件
 
 このファイルは**着任した人が最初に読むもの**。
 章の順序は「知らないと事故る順」で、作業の時系列ではない。
@@ -35,7 +35,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、323件
+- テスト: `node --test`、325件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -338,7 +338,7 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 
 ### 6.1 ブラウザで一度も動作確認していない（最優先）
 
-**テスト323件・CI・プレイテストはすべて通っているが、実機は未確認。**
+**テスト325件・CI・プレイテストはすべて通っているが、実機は未確認。**
 型・lint・ビルドはどれも見た目を検証しない。
 
 **ロジックは完了扱いになっているが、ブラウザ確認だけは持ち越されている。**
@@ -425,7 +425,7 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 ### コマンド
 
 ```bash
-npm test                 # ビルド + 323テスト
+npm test                 # ビルド + 325テスト
 npm run lint             # ESLint
 npx tsc --noEmit -p tsconfig.json | grep '^app/'   # 型（worker/ の既存エラーは無視）
 node scripts/playtest.mjs --games=20 --players=2 --colonies --turmoil
