@@ -52,14 +52,46 @@ function readableRequirement(reqText?: string) {
   return trimmed;
 }
 
+// What a dynamic card counts, in the order computeScore reads the spec.
+function victoryPointUnit(spec: VictoryPointSpec) {
+  if (spec.resourcesHere !== undefined) return "資源";
+  if (spec.tag) return "タグ";
+  if (spec.colonies !== undefined) return "コロニー";
+  if (spec.cities !== undefined) return "都市";
+  if (spec.oceans !== undefined) return "海洋";
+  return "";
+}
+
+interface VictoryPointSpec {
+  per?: number;
+  each?: number;
+  resourcesHere?: unknown;
+  tag?: unknown;
+  colonies?: unknown;
+  cities?: unknown;
+  oceans?: unknown;
+}
+
 function victoryPointLabel(card: ProjectCardData) {
   if (card.victoryPoints) return String(card.victoryPoints);
-  const spec = card.victoryPointSpec as { per?: number; each?: number } | undefined;
+  const spec = card.victoryPointSpec as VictoryPointSpec | undefined;
   if (!spec) return null;
-  // "1 VP per 2 resources here" and similar dynamic values.
+  // A card scoring one point per unit sets neither `per` nor `each`. That was
+  // the common case and it rendered as a bare "?", which reads as a bug.
   if (spec.per) return `1/${spec.per}`;
-  if (spec.each) return `${spec.each}`;
-  return "?";
+  return String(spec.each ?? 1);
+}
+
+// The badge only has room for a number, so what is being counted goes in the
+// tooltip -- otherwise "1/2" never says two of what.
+function victoryPointTitle(card: ProjectCardData) {
+  const spec = card.victoryPointSpec as VictoryPointSpec | undefined;
+  if (!spec) return card.victoryPoints ? `${card.victoryPoints} 勝利点` : undefined;
+  const unit = victoryPointUnit(spec);
+  if (!unit) return undefined;
+  if (spec.per) return `${unit}${spec.per}個ごとに1勝利点`;
+  const each = spec.each ?? 1;
+  return `${unit}1個につき${each}勝利点`;
 }
 
 export function ProjectCard({
@@ -84,6 +116,7 @@ export function ProjectCard({
   // the whole spec, so the card must show the whole spec too.
   const effectText = completeEffectText(card as never);
   const vp = victoryPointLabel(card);
+  const vpTitle = victoryPointTitle(card);
   const payable = cost ?? card.cost;
 
   return (
@@ -119,7 +152,11 @@ export function ProjectCard({
 
       <span className="tm-card-bottom">
         <span className="tm-card-type">{TYPE_LABEL[card.type] ?? card.type}</span>
-        {vp && <span className="tm-card-vp">{vp}</span>}
+        {vp && (
+          <span className="tm-card-vp" title={vpTitle} aria-label={vpTitle ?? `${vp} 勝利点`}>
+            {vp}
+          </span>
+        )}
       </span>
 
       {footer}

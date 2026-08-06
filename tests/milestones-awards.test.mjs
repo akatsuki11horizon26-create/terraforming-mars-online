@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import {
   getInitialState,
   claimMilestone,
@@ -317,4 +318,41 @@ test("Scoring counts only the requested player's tiles", () => {
 
   assert.equal(first, state.players[0].tr + 1);
   assert.equal(second, state.players[1].tr + 1);
+});
+
+// A card that scores one point per unit sets neither `per` nor `each`. The card
+// face used to fall through to a bare "?" for those, which is most of them.
+test("every dynamic victory point card shows a number, not a question mark", async () => {
+  const { FULL_PROJECTS, FULL_CORPORATIONS, FULL_PRELUDES } = await import(
+    "../app/full-card-catalog.js"
+  );
+  const tsx = await readFile(new URL("../app/project-card.tsx", import.meta.url), "utf8");
+  assert.ok(
+    !/return "\?"/.test(tsx),
+    "project-card.tsx must not fall through to a question mark"
+  );
+
+  const dynamic = [...FULL_PROJECTS, ...FULL_CORPORATIONS, ...FULL_PRELUDES].filter(
+    card => card.victoryPointSpec
+  );
+  assert.ok(dynamic.length >= 38, "the catalog carries the dynamic VP cards");
+
+  for (const card of dynamic) {
+    const spec = card.victoryPointSpec;
+    const label = card.victoryPoints
+      ? String(card.victoryPoints)
+      : spec.per
+        ? `1/${spec.per}`
+        : String(spec.each ?? 1);
+    assert.match(label, /^\d+(\/\d+)?$/, `${card.name} renders as "${label}"`);
+
+    // Whatever it counts has to be something computeScore knows how to read.
+    const counted =
+      spec.resourcesHere !== undefined ||
+      spec.tag !== undefined ||
+      spec.colonies !== undefined ||
+      spec.cities !== undefined ||
+      spec.oceans !== undefined;
+    assert.ok(counted, `${card.name} counts something the scorer recognises`);
+  }
 });
