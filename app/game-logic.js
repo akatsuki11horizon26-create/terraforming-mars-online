@@ -2392,11 +2392,25 @@ export function computeScore(state, playerId) {
       const resources = player.cardResources?.[cardId] ?? 0;
       if (spec.resourcesHere !== undefined) score += spec.per ? Math.floor(resources / spec.per) : resources * (spec.each ?? 1);
       if (spec.tag) score += countPlayedTag(state, spec.tag, player);
-      const placementKey = player.cardPlacements?.[cardId];
-      const placement = placementKey ? state.board[placementKey] : undefined;
-      if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
-      if (placement && spec.cities !== undefined) {
-        score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
+
+      // `all` counts the whole board or the whole colony track rather than
+      // what sits next to the card, so it must not wait for a placement --
+      // Immigration Shuttles and Space Port Colony are never placed at all.
+      if (spec.all) {
+        const counted =
+          spec.cities !== undefined
+            ? Object.values(state.board).filter(cell => cell.tileType === "city").length
+            : spec.colonies !== undefined
+              ? countColonies(state.colonies, targetId)
+              : 0;
+        score += spec.per ? Math.floor(counted / spec.per) : counted * (spec.each ?? 1);
+      } else {
+        const placementKey = player.cardPlacements?.[cardId];
+        const placement = placementKey ? state.board[placementKey] : undefined;
+        if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
+        if (placement && spec.cities !== undefined) {
+          score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
+        }
       }
     }
     if (cardId === "p-search-for-life" && (player.cardResources?.[cardId] ?? 0) > 0) score += 3;

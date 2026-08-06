@@ -249,6 +249,61 @@ test("a prelude scoring per resource counts what is on it", () => {
   assert.equal(computeScore(stocked, seat), baseline + 3);
 });
 
+// These two count the whole board or the whole colony track. They are never
+// placed, so a scorer that only reads adjacency past a cardPlacements lookup
+// silently gives them nothing.
+test("Immigration Shuttles scores one point per three cities anywhere", () => {
+  function scoreWith(cityCount, projects) {
+    const state = cloneGameState(getInitialState({ playerCount: 2 }));
+    const seat = state.players[0].id;
+    const land = Object.values(state.board)
+      .filter(cell => cell.tileType === "empty" && !cell.isOceanOnly)
+      .slice(0, cityCount);
+    for (const cell of land) {
+      state.board[`${cell.q},${cell.r}`] = {
+        ...state.board[`${cell.q},${cell.r}`],
+        tileType: "city",
+        placedBy: seat
+      };
+    }
+    state.players = state.players.map(player =>
+      player.id === seat ? { ...player, corporationId: null, playedProjects: projects } : player
+    );
+    return computeScore(state, seat);
+  }
+
+  // Cities also pay for adjacent greeneries, so the card's own contribution is
+  // the gap between the same board with and without it.
+  const card = ["card-base-immigration-shuttles"];
+  assert.equal(scoreWith(3, card) - scoreWith(3, []), 1);
+  assert.equal(scoreWith(6, card) - scoreWith(6, []), 2);
+  assert.equal(scoreWith(7, card) - scoreWith(7, []), 2, "the remainder is dropped");
+});
+
+test("Space Port Colony scores one point per two colonies built", () => {
+  function scoreWith(colonyCount, projects) {
+    const state = cloneGameState(getInitialState({ playerCount: 2, colonies: true }));
+    const seat = state.players[0].id;
+    const tiles = Object.keys(state.colonies.tiles);
+    for (let i = 0; i < colonyCount; i++) {
+      const tile = tiles[i % tiles.length];
+      state.colonies.tiles[tile] = {
+        ...state.colonies.tiles[tile],
+        colonies: [...(state.colonies.tiles[tile].colonies ?? []), seat]
+      };
+    }
+    state.players = state.players.map(player =>
+      player.id === seat ? { ...player, corporationId: null, playedProjects: projects } : player
+    );
+    return computeScore(state, seat);
+  }
+
+  const card = ["card-colonies-space-port-colony"];
+  assert.equal(scoreWith(2, card) - scoreWith(2, []), 1);
+  assert.equal(scoreWith(4, card) - scoreWith(4, []), 2);
+  assert.equal(scoreWith(5, card) - scoreWith(5, []), 2, "the remainder is dropped");
+});
+
 test("Scoring counts only the requested player's tiles", () => {
   const state = getInitialState({ playerCount: 2 });
   const [a, b] = freeLand(state, 2);
