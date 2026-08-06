@@ -28,6 +28,7 @@ export const PLAYER_REF_FIELDS = [
   "selectedPreludeIds",
   "hand",
   "playedProjects",
+  "playedEvents",
   "cardResources",
   "cardPlacements",
   "cardDiscounts",
@@ -77,6 +78,9 @@ export function createPlayer(id, name, overrides = {}) {
     heatProd: 0,
     hand: [],
     playedProjects: [],
+    // Red events leave play once resolved. Keeping them out of playedProjects
+    // is what stops their tags being counted for ever after.
+    playedEvents: [],
     cardResources: {},
     cardPlacements: {},
     cardDiscounts: { all: 0, tags: {} },

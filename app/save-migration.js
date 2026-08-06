@@ -1,7 +1,7 @@
 import { createPlayer, withLegacyPlayerAccessors } from "./player-state.js";
 
 export const SAVE_KEY = "mars_frontier_game";
-export const CURRENT_RULES_VERSION = 4;
+export const CURRENT_RULES_VERSION = 5;
 
 const PHASES = ["setup", "research", "action", "production", "final_greenery", "game_over"];
 
@@ -67,7 +67,9 @@ function migrateV3(parsed) {
       : null;
 
   return {
-    rulesVersion: CURRENT_RULES_VERSION,
+    // migrateV4ToV5 fills the v5 additions; this stays the v4 shape so there
+    // is one place that knows what v5 added.
+    rulesVersion: 4,
     mode: "solo",
     generation: Number(parsed.generation ?? 1),
     phase: parsed.phase,
@@ -106,8 +108,10 @@ function isValidV3(parsed) {
   );
 }
 
+// v4 and v5 share a shape; v5 only adds fields that default to empty, so one
+// validator covers both and migrateV4ToV5 fills the gaps.
 function isValidV4(parsed) {
-  if (parsed.rulesVersion !== CURRENT_RULES_VERSION) return false;
+  if (parsed.rulesVersion !== 4 && parsed.rulesVersion !== 5) return false;
   if (!PHASES.includes(parsed.phase)) return false;
   if (!Array.isArray(parsed.players) || parsed.players.length === 0 || parsed.players.length > 5) return false;
   if (!Array.isArray(parsed.turnOrder) || parsed.turnOrder.length !== parsed.players.length) return false;
@@ -141,6 +145,25 @@ function isValidV4(parsed) {
   return true;
 }
 
+// v5 adds the three scoring ledgers and splits events out of playedProjects.
+// A v4 save keeps its events where they are: board-milestones reads both piles,
+// so Legend still counts them, and moving them here would need the card
+// catalogue this module deliberately does not import.
+function migrateV4ToV5(parsed) {
+  if (parsed.rulesVersion === CURRENT_RULES_VERSION) return parsed;
+  return {
+    ...parsed,
+    rulesVersion: CURRENT_RULES_VERSION,
+    scoreModifiers: parsed.scoreModifiers ?? [],
+    boardMarkers: parsed.boardMarkers ?? [],
+    generationAttackLedger: parsed.generationAttackLedger ?? [],
+    players: parsed.players.map(player => ({
+      ...player,
+      playedEvents: player.playedEvents ?? []
+    }))
+  };
+}
+
 // Returns canonical state, or null when the save is unusable and should be dropped.
 export function loadSavedState(raw) {
   if (!raw) return null;
@@ -154,10 +177,10 @@ export function loadSavedState(raw) {
 
   if (isValidV4(parsed)) {
     if (parsed.pendingChoice === undefined) parsed.pendingChoice = null;
-    return withLegacyPlayerAccessors(parsed);
+    return withLegacyPlayerAccessors(migrateV4ToV5(parsed));
   }
   if (isValidV3(parsed)) {
-    return withLegacyPlayerAccessors(migrateV3(parsed));
+    return withLegacyPlayerAccessors(migrateV4ToV5(migrateV3(parsed)));
   }
   return null;
 }

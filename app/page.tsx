@@ -146,6 +146,7 @@ interface PlayerRecord {
   usedCardActions?: string[];
   researchCards?: string[];
   playedProjects?: string[];
+  playedEvents?: string[];
   corporationId?: string;
   steel?: number;
   titanium?: number;
@@ -267,6 +268,7 @@ interface GameState {
   hand: string[];
   deck: string[];
   playedProjects: string[];
+  playedEvents: string[];
   cardResources: Record<string, number>;
   cardPlacements: Record<string, string>;
   board: Record<string, CellState>;

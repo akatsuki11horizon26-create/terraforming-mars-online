@@ -476,7 +476,11 @@ const HANDLERS = {
             steel: (player.steel ?? 0) - steelUsed,
             titanium: (player.titanium ?? 0) - titaniumUsed,
             hand: player.hand.filter(id => id !== card.id),
-            playedProjects: [...player.playedProjects, card.id]
+            // A red event is resolved and set aside; keeping it in
+            // playedProjects made its tags count for the rest of the game.
+            ...(card.type === "event"
+              ? { playedEvents: [...(player.playedEvents ?? []), card.id] }
+              : { playedProjects: [...player.playedProjects, card.id] })
           }
         : player
     );

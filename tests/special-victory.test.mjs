@@ -522,3 +522,127 @@ test("a card that attacks still pays its threshold bonus once resolved", async (
     "the -24C bonus arrives with the answer"
   );
 });
+
+// Events were kept in playedProjects, so their tags counted for the rest of
+// the game. Preludes were missed for the opposite reason: their tags live in
+// a field nothing looked at.
+test("a resolved event stops counting toward tags", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { countActiveTags, getPlayer } = await import("../app/game-logic.js");
+
+  const event = ALL_CARDS.find(
+    card =>
+      card.type === "event" &&
+      card.tags.some(tag => String(tag).toLowerCase() === "earth") &&
+      card.cost <= 15
+  );
+
+  const state = table();
+  state.phase = "action";
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    mc: 100,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? [event.id] : []
+  }));
+  state.currentPlayerId = me;
+
+  const before = countActiveTags(state, me, "earth");
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: event.id
+  });
+  assert.equal(played.ok, true);
+
+  const seat = getPlayer(played.state, me);
+  assert.deepEqual(seat.playedEvents, [event.id], "the event goes to its own pile");
+  assert.equal(seat.playedProjects.includes(event.id), false);
+  assert.equal(
+    countActiveTags(played.state, me, "earth"),
+    before,
+    "a resolved event leaves no tag behind"
+  );
+});
+
+test("prelude tags count toward the cards that read them", async () => {
+  const { PRELUDES } = await import("../app/game-logic.js");
+
+  const jovian = PRELUDES.filter(prelude =>
+    (prelude.tags ?? []).some(tag => String(tag).toLowerCase() === "jovian")
+  );
+  assert.ok(jovian.length >= 3, "the deck carries Jovian preludes");
+
+  function score(preludeIds) {
+    const state = table();
+    state.players = state.players.map(player =>
+      player.id === "player"
+        ? {
+            ...player,
+            playedProjects: ["card-base-ganymede-colony"],
+            selectedPreludeIds: preludeIds
+          }
+        : player
+    );
+    return computeScore(state, "player");
+  }
+
+  // Ganymede Colony scores one point per Jovian tag, its own included.
+  const alone = score([]);
+  assert.equal(
+    score(jovian.slice(0, 3).map(prelude => prelude.id)) - alone,
+    3,
+    "three Jovian preludes are three more points"
+  );
+});
+
+test("counting events still works whichever pile they are in", async () => {
+  const { BOARD_MILESTONES } = await import("../app/board-milestones.js");
+
+  const legend = Object.values(BOARD_MILESTONES)
+    .flat()
+    .find(milestone => milestone.id === "legend");
+  const events = ALL_CARDS.filter(card => card.type === "event").slice(0, 5).map(c => c.id);
+  const context = player => ({ player, cards: ALL_CARDS, board: {} });
+
+  assert.equal(legend.getScore(context({ playedEvents: events, playedProjects: [] })), 5);
+  assert.equal(
+    legend.getScore(context({ playedEvents: [], playedProjects: events })),
+    5,
+    "a save written before the split still counts its events"
+  );
+});
+
+test("a version 4 save gains the new fields and keeps its score", async () => {
+  const { loadSavedState, serializeSavedState, CURRENT_RULES_VERSION } = await import(
+    "../app/save-migration.js"
+  );
+
+  const fresh = getInitialState({ playerCount: 2 });
+  assert.equal(fresh.rulesVersion, CURRENT_RULES_VERSION);
+
+  const old = JSON.parse(JSON.stringify({ ...fresh, rulesVersion: 4 }));
+  delete old.scoreModifiers;
+  delete old.boardMarkers;
+  delete old.generationAttackLedger;
+  old.players = old.players.map(player => {
+    const copy = { ...player };
+    delete copy.playedEvents;
+    return copy;
+  });
+
+  const loaded = loadSavedState(JSON.stringify(old));
+  assert.ok(loaded, "the save still loads");
+  assert.equal(loaded.rulesVersion, CURRENT_RULES_VERSION);
+  assert.deepEqual(loaded.scoreModifiers, []);
+  assert.deepEqual(loaded.boardMarkers, []);
+  assert.deepEqual(loaded.generationAttackLedger, []);
+  for (const player of loaded.players) {
+    assert.deepEqual(player.playedEvents, []);
+  }
+  assert.equal(computeScore(loaded, "player"), computeScore(fresh, "player"));
+
+  // And a current save round-trips unchanged.
+  const round = loadSavedState(serializeSavedState(fresh));
+  assert.equal(round.rulesVersion, CURRENT_RULES_VERSION);
+});

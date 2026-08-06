@@ -438,6 +438,7 @@ export function cloneGameState(state) {
       selectedPreludeIds: [...(player.selectedPreludeIds ?? [])],
       hand: [...(player.hand ?? [])],
       playedProjects: [...(player.playedProjects ?? [])],
+      playedEvents: [...(player.playedEvents ?? [])],
       cardResources: { ...(player.cardResources ?? {}) },
       cardPlacements: { ...(player.cardPlacements ?? {}) },
       cardDiscounts: {
@@ -1575,7 +1576,11 @@ function applyPreludeFreePlay(state, effect, logs) {
   const payment = Math.max(0, card.cost - (effect.freePlayDiscount ?? 0));
   nextState.mc -= payment;
   nextState.hand = nextState.hand.filter(id => id !== card.id);
-  nextState.playedProjects.push(card.id);
+  if (card.type === "event") {
+    nextState.playedEvents = [...(nextState.playedEvents ?? []), card.id];
+  } else {
+    nextState.playedProjects.push(card.id);
+  }
   let nextLogs = addLog(logs, "system", `Prelude効果で【${card.name}】をプレイしました（支払MC ${payment}）。`);
   const effectResult = applyCardEffect(nextState, card, nextLogs);
   const triggerResult = applyCorporationTriggers(effectResult.state, card, effectResult.logs);
@@ -1828,7 +1833,7 @@ export function getPlaceholderState() {
   });
 
   return withLegacyPlayerAccessors({
-    rulesVersion: 4,
+    rulesVersion: 5,
     mode: "solo",
     generation: 1,
     phase: "setup",
@@ -1956,7 +1961,7 @@ export function getInitialState(options = {}) {
       : `${playerCount}人対戦を開始しました。全グローバルパラメータの達成でゲーム終了です。`;
 
   const state = withLegacyPlayerAccessors({
-    rulesVersion: 4,
+    rulesVersion: 5,
     mode,
     botDifficulty,
     boardId,
@@ -2474,14 +2479,37 @@ export function recordAttack(state, entry) {
   return state;
 }
 
+// Tags that are still on the table: the corporation, the green and blue cards
+// in front of the player, and the preludes they opened with. Red events are
+// resolved and gone, so their tags are not counted -- they used to be, because
+// events were kept in playedProjects. Preludes were missed for the opposite
+// reason: they live in their own field and were never looked at.
+export function countActiveTags(state, playerId, tag) {
+  const owner = getPlayer(state, playerId) ?? state.players?.[0];
+  return countTagsFor(state, tag, owner);
+}
+
+function countTagsFor(state, tag, owner) {
+  const normalized = String(tag).toLowerCase();
+  const has = card =>
+    (card?.tags ?? []).some(cardTag => String(cardTag).toLowerCase() === normalized);
+
+  const corporation = CORPORATIONS.find(item => item.id === owner?.corporationId);
+  let count = has(corporation) ? 1 : 0;
+
+  for (const id of owner?.playedProjects ?? []) {
+    if (has(ALL_CARDS.find(item => item.id === id))) count += 1;
+  }
+  for (const id of owner?.selectedPreludeIds ?? []) {
+    if (has(PRELUDES.find(item => item.id === id))) count += 1;
+  }
+
+  return count;
+}
+
 function countPlayedTag(state, tag, player) {
   const owner = player ?? getCurrentPlayer(state) ?? state.players?.[0];
-  const normalized = String(tag).toLowerCase();
-  const corporation = CORPORATIONS.find(c => c.id === owner?.corporationId);
-  return (owner?.playedProjects ?? []).reduce((sum, id) => {
-    const projectCard = ALL_CARDS.find(item => item.id === id);
-    return sum + (projectCard?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
-  }, 0) + (corporation?.tags.some(cardTag => String(cardTag).toLowerCase() === normalized) ? 1 : 0);
+  return countTagsFor(state, tag, owner);
 }
 
 function getGeneratedRequirementStatus(card, state, buffer) {

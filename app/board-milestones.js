@@ -13,7 +13,13 @@ function bioTags(context) {
 }
 
 function cardTypeCount(context, type) {
-  return context.player.playedProjects.reduce((sum, id) => {
+  // Events live in their own pile once resolved, so counting them means
+  // reading both. Everything else only ever appears in playedProjects.
+  const ids =
+    type === "event"
+      ? [...(context.player.playedEvents ?? []), ...context.player.playedProjects]
+      : context.player.playedProjects;
+  return ids.reduce((sum, id) => {
     const card = context.cards.find(item => item.id === id);
     return sum + (card?.type === type ? 1 : 0);
   }, 0);
