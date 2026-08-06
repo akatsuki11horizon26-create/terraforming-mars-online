@@ -395,6 +395,8 @@ test("an attack that lands is recorded against its generation", async () => {
       victimPlayerId: them,
       sourceCardId: "p-asteroid",
       kind: "resource-removal",
+      resource: "plants",
+      amount: 3,
       generation: settled.state.generation
     }
   ]);
@@ -798,4 +800,504 @@ test("every category of the breakdown adds up to the total shown", () => {
   // Four points of birds, one Jovian tag, a prelude's two, less the law suit.
   assert.equal(breakdown.cards, 7);
   assert.equal(breakdown.modifier, -1);
+});
+
+// ---------------------------------------------------------------------------
+// Card effects: the three promos, and the seven attacks that feed Law Suit.
+// ---------------------------------------------------------------------------
+
+const STEAL_CARDS = [
+  ["card-base-hired-raiders", "steel", 2, true],
+  ["card-base-sabotage", "titanium", 3, true],
+  ["card-base-virus", "plants", 5, false],
+  ["card-colonies-air-raid", "mc", 5, true]
+  // Special Permit needs the Greens ruling, which is a Turmoil precondition
+  // rather than anything about the attack; it is covered by the spec test below.
+];
+
+function attackTable(cardId, overrides = {}) {
+  const state = table();
+  state.phase = "action";
+  state.oxygen = 14;
+  state.temperature = 8;
+  state.oceans = 5;
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    mc: 100, steel: 9, titanium: 9, plants: 9, heat: 9, energy: 9,
+    actionsRemaining: 2, turnStep: "start",
+    ...overrides,
+    hand: player.id === me ? [cardId] : []
+  }));
+  state.currentPlayerId = me;
+  return [state, me, state.players[1].id];
+}
+
+for (const [cardId, resource, amount, steals] of STEAL_CARDS) {
+  test(`${cardId} takes ${amount} ${resource} from a chosen player`, async () => {
+    const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+    const { getPlayer } = await import("../app/game-logic.js");
+
+    const [state, me, them] = attackTable(cardId);
+    const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId });
+    assert.equal(played.ok, true, `${cardId} is playable`);
+    assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+
+    const option = played.state.pendingChoice.options.find(
+      entry => entry.targetPlayerId === them && entry.resource === resource
+    );
+    assert.ok(option, `${cardId} offers ${resource}`);
+
+    const attackerBefore = getPlayer(played.state, me)[resource];
+    const victimBefore = getPlayer(played.state, them)[resource];
+    const settled = executeGameCommand(played.state, {
+      type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+    });
+
+    assert.equal(
+      getPlayer(settled.state, them)[resource],
+      victimBefore - amount,
+      "the victim pays"
+    );
+    if (steals) {
+      assert.equal(
+        getPlayer(settled.state, me)[resource],
+        attackerBefore + amount,
+        "and the attacker receives it"
+      );
+    }
+
+    const ledger = settled.state.generationAttackLedger;
+    assert.equal(ledger.length, 1);
+    assert.deepEqual(
+      { ...ledger[0], generation: undefined },
+      {
+        attackerPlayerId: me,
+        victimPlayerId: them,
+        sourceCardId: cardId,
+        kind: "resource-removal",
+        resource,
+        amount,
+        generation: undefined
+      }
+    );
+  });
+}
+
+test("Comet for Venus only reaches players holding a Venus tag", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const venusCard = ALL_CARDS.find(
+    card => card.tags.some(tag => String(tag).toLowerCase() === "venus") && card.type !== "event"
+  );
+
+  // Nobody holds a Venus tag: no target, so no question and no ledger entry.
+  const [bare, meBare] = attackTable("card-venus-comet-for-venus");
+  const none = executeGameCommand(bare, {
+    type: COMMAND.PLAY_CARD, playerId: meBare, cardId: "card-venus-comet-for-venus"
+  });
+  assert.equal(none.state.pendingChoice, null);
+  assert.deepEqual(none.state.generationAttackLedger, []);
+
+  const [state, me, them] = attackTable("card-venus-comet-for-venus");
+  state.players = state.players.map(player =>
+    player.id === them ? { ...player, playedProjects: [venusCard.id] } : player
+  );
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-venus-comet-for-venus"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+  assert.equal(played.state.pendingChoice.options.length, 1, "only the tagged player");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(getPlayer(settled.state, them).mc, 96);
+});
+
+test("Flooding may be declined, and declining leaves no grievance", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, getAdjacentCells, DECLINE_CHOICE } = await import("../app/game-logic.js");
+
+  function floodTable() {
+    const [state, me, them] = attackTable("card-base-flooding");
+    const ocean = Object.values(state.board).find(
+      cell => cell.isOceanOnly && cell.tileType === "empty"
+    );
+    const beside = getAdjacentCells(ocean.q, ocean.r)
+      .map(pos => state.board[`${pos.q},${pos.r}`])
+      .find(cell => cell && cell.tileType === "empty" && !cell.isOceanOnly);
+    state.board[`${beside.q},${beside.r}`] = {
+      ...beside, tileType: "city", placedBy: them
+    };
+    return [state, me, them, ocean];
+  }
+
+  const [state, me, them, ocean] = floodTable();
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-base-flooding"
+  });
+  // The ocean is placed first, then the optional attack is offered.
+  const placement = played.state.pendingChoice.options.find(
+    entry => entry.targetCellKey === `${ocean.q},${ocean.r}`
+  );
+  const placed = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: placement.id
+  });
+  assert.equal(placed.state.pendingChoice?.kind, "resource-steal");
+  assert.equal(placed.state.pendingChoice.optional, true, "the card says 取り除いてもよい");
+
+  const declined = executeGameCommand(placed.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: DECLINE_CHOICE
+  });
+  assert.equal(getPlayer(declined.state, them).mc, 100, "nothing was taken");
+  assert.deepEqual(declined.state.generationAttackLedger, [], "so nobody was attacked");
+
+  // Taking it does record.
+  const taken = executeGameCommand(placed.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: placed.state.pendingChoice.options[0].id
+  });
+  assert.equal(getPlayer(taken.state, them).mc, 96);
+  assert.equal(taken.state.generationAttackLedger.length, 1);
+});
+
+test("a victim holding none of the resource is never offered or recorded", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [state, me] = attackTable("card-base-hired-raiders", { steel: 0, mc: 0 });
+  state.players = state.players.map(player =>
+    player.id === me ? { ...player, mc: 100 } : player
+  );
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-base-hired-raiders"
+  });
+  assert.equal(played.state.pendingChoice, null, "there is nobody worth asking about");
+  assert.deepEqual(played.state.generationAttackLedger, []);
+});
+
+test("all seven attack cards carry a steal spec", () => {
+  const expected = [
+    "card-base-flooding",
+    "card-base-hired-raiders",
+    "card-base-sabotage",
+    "card-base-virus",
+    "card-colonies-air-raid",
+    "card-prelude2-special-permit",
+    "card-venus-comet-for-venus"
+  ];
+  const specced = ALL_CARDS.filter(card => card.effectSpec?.behavior?.stealFromPlayer);
+  assert.deepEqual(specced.map(card => card.id).sort(), expected);
+
+  // Special Permit gates on Turmoil politics rather than on the attack, so its
+  // spec is checked here instead of by playing it.
+  const permit = ALL_CARDS.find(card => card.id === "card-prelude2-special-permit");
+  assert.deepEqual(permit.effectSpec.behavior.stealFromPlayer.resources, [
+    { resource: "plants", count: 4 }
+  ]);
+  assert.equal(permit.effectSpec.behavior.stealFromPlayer.steal, true);
+});
+
+test("Vermin gains an animal from every city built", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player, mc: 200, actionsRemaining: 2, turnStep: "start",
+    playedProjects: player.id === me ? ["card-promo-vermin"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const built = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: me, projectId: "city"
+  });
+  const settled = built.state.pendingChoice
+    ? executeGameCommand(built.state, {
+        type: COMMAND.RESOLVE_PENDING, playerId: me,
+        optionId: built.state.pendingChoice.options[0].id
+      }).state
+    : built.state;
+
+  assert.equal(getPlayer(settled, me).cardResources["card-promo-vermin"], 1);
+});
+
+test("the Vermin action adds an animal and costs the turn", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player, mc: 100, actionsRemaining: 2, turnStep: "start",
+    playedProjects: player.id === me ? ["card-promo-vermin"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: me, cardId: "card-promo-vermin"
+  });
+  const settled = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me,
+    optionId: used.state.pendingChoice.options[0].id
+  });
+
+  assert.equal(getPlayer(settled.state, me).cardResources["card-promo-vermin"], 1);
+  assert.equal(
+    getPlayer(settled.state, me).actionsRemaining,
+    1,
+    "choosing which half of an action to take is still taking it"
+  );
+});
+
+function josephTable(cityCount, cityOwner) {
+  const state = table();
+  state.phase = "action";
+  const [me] = state.players.map(player => player.id);
+  const land = Object.values(state.board)
+    .filter(cell => cell.tileType === "empty" && !cell.isOceanOnly)
+    .slice(0, cityCount);
+  for (const cell of land) {
+    const key = `${cell.q},${cell.r}`;
+    state.board[key] = { ...state.board[key], tileType: "city", placedBy: cityOwner };
+  }
+  state.players = state.players.map(player => ({
+    ...player, mc: 100, steel: 0, actionsRemaining: 2, turnStep: "start",
+    playedProjects: player.id === me ? ["card-promo-st-joseph-of-cupertino-mission"] : []
+  }));
+  state.currentPlayerId = me;
+  return [state, me];
+}
+
+test("St. Joseph cannot act with no city to build on", async () => {
+  const { getCardActionStatus } = await import("../app/game-logic.js");
+  const [state] = josephTable(0, "player");
+  const status = getCardActionStatus(
+    state,
+    ALL_CARDS.find(card => card.id === "card-promo-st-joseph-of-cupertino-mission")
+  );
+  assert.equal(status.playable, false);
+});
+
+test("St. Joseph builds a cathedral for five megacredits and an action", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [state, me] = josephTable(1, "player");
+  const before = getPlayer(state, me).mc;
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: me,
+    cardId: "card-promo-st-joseph-of-cupertino-mission"
+  });
+
+  assert.equal(used.state.boardMarkers.length, 1, "one city means no question");
+  assert.equal(before - getPlayer(used.state, me).mc, 5);
+  assert.equal(getPlayer(used.state, me).actionsRemaining, 1);
+  assert.equal(calculateScoreBreakdowns(used.state).player.cards, 1);
+});
+
+test("a city may carry only one cathedral", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [state, me] = josephTable(3, "player");
+  const first = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: me,
+    cardId: "card-promo-st-joseph-of-cupertino-mission"
+  });
+  assert.equal(first.state.pendingChoice?.kind, "cathedral-placement");
+  assert.equal(first.state.pendingChoice.options.length, 3);
+
+  const chosen = first.state.pendingChoice.options[0];
+  const placed = executeGameCommand(first.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: chosen.id
+  });
+
+  // Next generation, that city is no longer on offer.
+  const next = cloneGameState(placed.state);
+  next.players = next.players.map(player => ({
+    ...player, usedCardActions: [], actionsRemaining: 2
+  }));
+  const again = executeGameCommand(next, {
+    type: COMMAND.USE_CARD_ACTION, playerId: me,
+    cardId: "card-promo-st-joseph-of-cupertino-mission"
+  });
+  assert.equal(again.state.pendingChoice.options.length, 2);
+  assert.equal(
+    again.state.pendingChoice.options.some(option => option.id === chosen.id),
+    false
+  );
+});
+
+test("a cathedral on another player's city pays its builder only", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [state, me] = josephTable(1, "player2");
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: me,
+    cardId: "card-promo-st-joseph-of-cupertino-mission"
+  });
+
+  const key = used.state.boardMarkers[0].cellKey;
+  assert.equal(used.state.boardMarkers[0].sourcePlayerId, me);
+  assert.equal(used.state.board[key].placedBy, "player2", "the city keeps its owner");
+  assert.equal(used.state.board[key].tileType, "city", "and is still a city");
+  assert.equal(calculateScoreBreakdowns(used.state).player.cards, 1, "the builder scores");
+  assert.equal(calculateScoreBreakdowns(used.state).player2.cards, 0);
+});
+
+function lawSuitTable(playerCount, attackerIds) {
+  const state = cloneGameState(getInitialState({ playerCount }));
+  state.phase = "action";
+  const me = state.players[0].id;
+  state.players = state.players.map(player => ({
+    ...player, corporationId: null, mc: 40, actionsRemaining: 2, turnStep: "start",
+    hand: player.id === me ? ["card-promo-law-suit"] : []
+  }));
+  state.currentPlayerId = me;
+  state.generationAttackLedger = attackerIds.map(id => ({
+    attackerPlayerId: id, victimPlayerId: me, sourceCardId: "p-asteroid",
+    kind: "resource-removal", resource: "plants", amount: 3, generation: state.generation
+  }));
+  return [state, me];
+}
+
+test("Law Suit cannot be played when nobody attacked you", async () => {
+  const { getCardPlayableStatus } = await import("../app/game-logic.js");
+  const [state] = lawSuitTable(3, []);
+  const status = getCardPlayableStatus(
+    ALL_CARDS.find(card => card.id === "card-promo-law-suit"), state, 0, 0
+  );
+  assert.equal(status.playable, false);
+});
+
+test("Law Suit resolves against a single attacker without asking", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [state, me] = lawSuitTable(3, ["player2"]);
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-promo-law-suit"
+  });
+
+  assert.equal(played.state.pendingChoice, null);
+  assert.equal(getPlayer(played.state, "player2").mc, 37, "three megacredits move");
+  assert.equal(calculateScoreBreakdowns(played.state).player2.modifier, -1);
+  assert.deepEqual(
+    getPlayer(played.state, "player2").playedEvents,
+    ["card-promo-law-suit"],
+    "the card sits with the player who was sued"
+  );
+  assert.deepEqual(getPlayer(played.state, me).playedEvents, [], "not with the plaintiff");
+  assert.deepEqual(getPlayer(played.state, me).playedProjects, []);
+});
+
+test("Law Suit asks which of several attackers to sue", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [state, me] = lawSuitTable(3, ["player2", "player3"]);
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-promo-law-suit"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "law-suit");
+  assert.equal(played.state.pendingChoice.options.length, 2);
+
+  const pick = played.state.pendingChoice.options.find(
+    option => option.targetPlayerId === "player3"
+  );
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: pick.id
+  });
+
+  assert.equal(getPlayer(settled.state, "player3").mc, 37);
+  assert.equal(getPlayer(settled.state, "player2").mc, 40, "the other is untouched");
+  assert.equal(calculateScoreBreakdowns(settled.state).player3.modifier, -1);
+  assert.equal(calculateScoreBreakdowns(settled.state).player2.modifier, 0);
+
+  // Resending the same answer must not charge twice.
+  const resent = executeGameCommand(settled.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: pick.id
+  });
+  assert.equal(getPlayer(resent.state, "player3").mc, 37);
+  assert.equal(resent.state.scoreModifiers.length, 1);
+});
+
+test("Law Suit takes what the target has when that is under three", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [state, me] = lawSuitTable(3, ["player2"]);
+  state.players = state.players.map(player =>
+    player.id === "player2" ? { ...player, mc: 2 } : player
+  );
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-promo-law-suit"
+  });
+
+  assert.equal(getPlayer(played.state, "player2").mc, 0, "never negative");
+  assert.equal(
+    calculateScoreBreakdowns(played.state).player2.modifier,
+    -1,
+    "the point is lost whatever the balance"
+  );
+});
+
+test("a settled suit and its cathedral survive a save and reload", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { loadSavedState, serializeSavedState } = await import("../app/save-migration.js");
+
+  const [state, me] = lawSuitTable(2, ["player2"]);
+  const sued = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-promo-law-suit"
+  }).state;
+  sued.boardMarkers = [
+    {
+      id: "cathedral:1,1", kind: "cathedral", cellKey: "1,1",
+      sourceCardId: "card-promo-st-joseph-of-cupertino-mission", sourcePlayerId: me
+    }
+  ];
+
+  const reloaded = loadSavedState(serializeSavedState(sued));
+  assert.ok(reloaded, "the save loads");
+  assert.equal(calculateScoreBreakdowns(reloaded).player2.modifier, -1);
+  assert.equal(reloaded.boardMarkers[0].cellKey, "1,1");
+  assert.deepEqual(
+    reloaded.players.find(player => player.id === "player2").playedEvents,
+    ["card-promo-law-suit"]
+  );
+  assert.equal(computeScore(reloaded, "player2"), computeScore(sued, "player2"));
+});
+
+test("the bot rates a card scoring per resource above one scoring nothing", async () => {
+  const { enumerateBotMoves } = await import("../app/bot-player.js");
+  const { hasPositiveVpIcon } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  state.oxygen = 14;
+  const [me] = state.players.map(player => player.id);
+  const plain = ALL_CARDS.find(
+    card =>
+      !card.victoryPoints && !card.victoryPointSpec && !card.specialVictoryKind &&
+      card.type === "automated" && card.cost <= 12
+  );
+  state.players = state.players.map(player => ({
+    ...player, mc: 100, actionsRemaining: 2, turnStep: "start",
+    hand: player.id === me ? ["card-base-birds", plain.id] : []
+  }));
+  state.currentPlayerId = me;
+
+  const moves = enumerateBotMoves(state, me).filter(move => move.kind === "play");
+  const birds = moves.find(move => move.card.id === "card-base-birds");
+  const other = moves.find(move => move.card.id === plain.id);
+
+  assert.ok(birds, "Birds is on the list");
+  assert.equal(hasPositiveVpIcon(birds.card), true);
+  assert.ok(
+    birds.bonus > (other?.bonus ?? 0),
+    "a printed victory point icon is worth more than none"
+  );
 });

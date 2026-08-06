@@ -116,6 +116,105 @@ const localize = cards => cards.map(card => localizeCard(card));
 // player other than its owner, one charges everyone, one counts markers on the
 // board. They are tagged here rather than in the generated catalogue, which is
 // rewritten by a script.
+// Seven cards take resources from another player and carried no behaviour at
+// all, so the attack half of each simply never happened. The generated
+// catalogue is rewritten by a script, so the specs are attached here.
+//
+// `steal` moves the resource to the attacker; without it the resource is just
+// removed. `resources` lists the alternatives the attacker chooses between,
+// each capped at what the victim actually holds.
+const STEAL_SPECS = Object.freeze({
+  "card-base-hired-raiders": {
+    steal: true,
+    resources: [
+      { resource: "steel", count: 2 },
+      { resource: "mc", count: 3 }
+    ],
+    prompt: "建材2またはMC3を奪う対象を選んでください。"
+  },
+  "card-base-sabotage": {
+    steal: true,
+    resources: [
+      { resource: "titanium", count: 3 },
+      { resource: "steel", count: 4 },
+      { resource: "mc", count: 7 }
+    ],
+    prompt: "チタン3、建材4、またはMC7を奪う対象を選んでください。"
+  },
+  "card-base-virus": {
+    // Virus removes rather than steals. Only the plant half is modelled: cards
+    // carry no resource-type metadata in this catalogue, so "two animals from
+    // any card" cannot be targeted mechanically. Removing five plants is the
+    // branch a player takes when there are no animals to hit anyway.
+    steal: false,
+    resources: [{ resource: "plants", count: 5 }],
+    prompt: "植物5を取り除く対象を選んでください。"
+  },
+  "card-colonies-air-raid": {
+    steal: true,
+    resources: [{ resource: "mc", count: 5 }],
+    prompt: "MC5を奪う対象を選んでください。"
+  },
+  "card-prelude2-special-permit": {
+    steal: true,
+    resources: [{ resource: "plants", count: 4 }],
+    prompt: "植物4を奪う対象を選んでください。"
+  },
+  "card-venus-comet-for-venus": {
+    steal: true,
+    resources: [{ resource: "mc", count: 4 }],
+    prompt: "MC4を奪う対象を選んでください（金星タグを持つプレイヤーのみ）。",
+    eligibleTag: "venus"
+  },
+  "card-base-flooding": {
+    // "取り除いてもよい" -- the attacker may decline, and declining leaves no
+    // grievance for Law Suit to answer.
+    steal: false,
+    optional: true,
+    resources: [{ resource: "mc", count: 4 }],
+    prompt: "隣接タイルの所有者からMC4を取り除きますか？",
+    eligibleAdjacentToLastTile: true,
+    // Flooding's ocean was described as {tr:{oceans:1}}, which is not a shape
+    // the effect reader understands, so the card placed nothing at all.
+    alsoPlacesTile: "ocean"
+  }
+});
+
+const withStealSpecs = cards =>
+  cards.map(card =>
+    STEAL_SPECS[card.id]
+      ? {
+          ...card,
+          ...(STEAL_SPECS[card.id].alsoPlacesTile
+            ? { placementType: STEAL_SPECS[card.id].alsoPlacesTile }
+            : {}),
+          effectSpec: {
+            ...(card.effectSpec ?? {}),
+            behavior: {
+              ...(card.effectSpec?.behavior ?? {}),
+              ...(STEAL_SPECS[card.id].alsoPlacesTile === "ocean" ? { ocean: {} } : {}),
+              stealFromPlayer: STEAL_SPECS[card.id]
+            }
+          }
+        }
+      : card
+  );
+
+// St. Joseph builds cathedrals. The catalogue gives it no action at all, so
+// the card sat in play doing nothing and could never score.
+// `effect` short-circuits spec normalisation, which is a key whitelist and
+// would drop buildCathedral as an unknown field.
+const ST_JOSEPH_ACTION = Object.freeze({
+  "card-promo-st-joseph-of-cupertino-mission": {
+    action: { mcCost: 5, steelCost: true, buildCathedral: true }
+  }
+});
+
+const withCardActions = cards =>
+  cards.map(card =>
+    ST_JOSEPH_ACTION[card.id] ? { ...card, effect: ST_JOSEPH_ACTION[card.id] } : card
+  );
+
 const SPECIAL_VICTORY_KIND = Object.freeze({
   "card-promo-law-suit": "law-suit",
   "card-promo-vermin": "vermin",
@@ -133,8 +232,10 @@ const withSpecialVictory = cards =>
 // choosing an unmodelled corporation cannot crash setup.
 const withEffects = cards => cards.map(card => ({ ...card, effects: card.effects ?? {} }));
 
-export const OFFICIAL_PROJECTS = withSpecialVictory(
-  localize(mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES))
+export const OFFICIAL_PROJECTS = withCardActions(
+  withStealSpecs(
+    withSpecialVictory(localize(mergeCatalog(FULL_PROJECTS, CURATED_PROJECT_OVERRIDES)))
+  )
 );
 export const CORPORATIONS = withEffects(localize(mergeCatalog(FULL_CORPORATIONS, CURATED_CORPORATION_OVERRIDES)));
 export const PRELUDES = localize(mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVERRIDES));

@@ -5,7 +5,9 @@ import {
   getCardActionStatus,
   getMilestoneStatus,
   getAwardStatus,
-  getPlayer
+  getPlayer,
+  calculateScoreBreakdowns,
+  hasPositiveVpIcon
 } from "./game-logic.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
 import { executeGameCommand, COMMAND } from "./game-command.js";
@@ -121,6 +123,43 @@ function globalDelta(before, after, greed) {
   return score * greed;
 }
 
+// Victory points the move actually moves, for the bot and against everyone
+// else. Counting played cards instead valued every card the same, so a card
+// scoring per animal, a cathedral and a law suit were all worth nothing.
+//
+// The scorer reads the board as it stands, so a Vermin holding nine animals
+// contributes zero here rather than the penalty it might inflict later. That
+// is deliberate: the bot values what a move is worth now, not what it could
+// become, which keeps it from hoarding a card that may never trigger.
+const VP_WEIGHT = 3;
+const INTERACTION_WEIGHT = 1.5;
+
+function victoryDelta(before, after, botId, greed) {
+  let beforeScores;
+  let afterScores;
+  try {
+    beforeScores = calculateScoreBreakdowns(before);
+    afterScores = calculateScoreBreakdowns(after);
+  } catch {
+    return 0;
+  }
+
+  const own =
+    (afterScores[botId]?.total ?? 0) - (beforeScores[botId]?.total ?? 0);
+
+  const opponents = (before.players ?? []).filter(player => player.id !== botId);
+  const opponentDelta = opponents.length
+    ? opponents.reduce(
+        (sum, player) =>
+          sum +
+          ((afterScores[player.id]?.total ?? 0) - (beforeScores[player.id]?.total ?? 0)),
+        0
+      ) / opponents.length
+    : 0;
+
+  return (own * VP_WEIGHT - opponentDelta * INTERACTION_WEIGHT) * greed;
+}
+
 // Scores a candidate move by simulating it and diffing the result. Simulation
 // beats hand-written per-card rules: it stays correct as cards change.
 function scoreMove(state, botId, move, apply, difficulty, rng) {
@@ -140,6 +179,7 @@ function scoreMove(state, botId, move, apply, difficulty, rng) {
 
   let score = scorePlayerDelta(before, afterPlayer, state, difficulty.greed);
   score += globalDelta(state, after, difficulty.greed);
+  score += victoryDelta(state, after, botId, difficulty.greed);
   score += move.bonus ?? 0;
 
   if (difficulty.noise > 0) score += (rng() - 0.5) * difficulty.noise;
@@ -158,7 +198,16 @@ export function enumerateBotMoves(state, botId) {
     if (!status.playable) continue;
     const cost = getCardPaymentCost(card, state, 0, 0);
     if ((bot.mc ?? 0) < cost) continue;
-    moves.push({ kind: "play", card, cost, bonus: (card.victoryPoints ?? 0) * 3 });
+    // victoryDelta measures what the card is actually worth once played, so
+    // this is only a nudge toward cards that score at all. Reading
+    // victoryPoints alone rated every dynamic VP card at zero.
+    const printsPoints = hasPositiveVpIcon(card);
+    moves.push({
+      kind: "play",
+      card,
+      cost,
+      bonus: (card.victoryPoints ?? 0) * 3 + (printsPoints && !card.victoryPoints ? 2 : 0)
+    });
   }
 
   for (const cardId of bot.playedProjects ?? []) {

@@ -38,7 +38,8 @@ import {
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
-  CORPORATIONS
+  CORPORATIONS,
+  LAW_SUIT_ID
 } from "./game-logic.js";
 import { buildTileChoice } from "./pending-choice.js";
 
@@ -478,9 +479,13 @@ const HANDLERS = {
             hand: player.hand.filter(id => id !== card.id),
             // A red event is resolved and set aside; keeping it in
             // playedProjects made its tags count for the rest of the game.
-            ...(card.type === "event"
-              ? { playedEvents: [...(player.playedEvents ?? []), card.id] }
-              : { playedProjects: [...player.playedProjects, card.id] })
+            // Law Suit is the exception: it goes to the player who was sued,
+            // which the effect handles once the target is known.
+            ...(card.id === LAW_SUIT_ID
+              ? {}
+              : card.type === "event"
+                ? { playedEvents: [...(player.playedEvents ?? []), card.id] }
+                : { playedProjects: [...player.playedProjects, card.id] })
           }
         : player
     );

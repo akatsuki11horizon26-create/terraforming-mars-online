@@ -41,6 +41,9 @@ import {
   buildBranchChoice,
   buildProductionAttackChoice,
   buildResourceAttackChoice,
+  buildResourceStealChoice,
+  buildLawSuitChoice,
+  buildCathedralChoice,
   buildColonyChoice,
   buildResourceChoice,
   buildDiscardChoice,
@@ -1131,6 +1134,25 @@ export function applyCardEffect(state, card, logs, options = {}) {
     return { status: "pending", state: result.state, logs: nextLogs, pendingChoice: pending };
   }
 
+  // A single guilty party raises no question, so the suit settles here.
+  if (card.id === LAW_SUIT_ID) {
+    const targets = lawSuitTargets(result.state, result.state.currentPlayerId);
+    if (targets.length === 1) {
+      const actorId = result.state.currentPlayerId;
+      const settled = applyLawSuitResolution(
+        result.state,
+        actorId,
+        targets[0].id,
+        `${LAW_SUIT_ID}:${actorId}:${result.state.generation}`
+      );
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${targets[0].name} を訴えました（MC ${settled.stolen ?? 0}、勝利点 -1）。`
+      );
+    }
+  }
+
   result.state.logs = nextLogs;
   return { status: "resolved", state: result.state, logs: nextLogs };
 }
@@ -1139,9 +1161,21 @@ export function applyCardEffect(state, card, logs, options = {}) {
 // turns the first of them into a pending choice. Remaining choices are queued
 // again after each resolution, so a card with several can walk through them.
 function queuePendingChoices(state, card, context) {
+  const done = state.resolvedChoices?.[card.id] ?? [];
+
+  // Law Suit's question comes from the attack ledger rather than from a spec,
+  // so it is asked before the spec-driven ones -- the card has no behaviour
+  // block at all.
+  if (card.id === LAW_SUIT_ID && !done.includes("law-suit")) {
+    const targets = lawSuitTargets(state, state.currentPlayerId);
+    if (targets.length > 1) {
+      const built = buildLawSuitChoice(state, targets, context);
+      if (built) return built;
+    }
+  }
+
   const raw = card.effectSpec?.behavior;
   if (!raw) return null;
-  const done = state.resolvedChoices?.[card.id] ?? [];
 
   if (raw.or && !raw.or.autoSelect && Array.isArray(raw.or.behaviors) && !done.includes("effect-branch")) {
     return buildBranchChoice(state, raw.or.behaviors, context);
@@ -1178,6 +1212,30 @@ function queuePendingChoices(state, card, context) {
 
   // Solo play already applied the removal directly, so asking would be a
   // one-option prompt that takes the plants a second time.
+  if (raw.stealFromPlayer && !done.includes("resource-steal")) {
+    const spec = raw.stealFromPlayer;
+    const built = buildResourceStealChoice(
+      state,
+      {
+        ...spec,
+        eligible: (player, current) => {
+          if (spec.eligibleTag) return countPlayedTag(current, spec.eligibleTag, player) > 0;
+          if (spec.eligibleAdjacentToLastTile) {
+            const key = current.lastPlacedCellKey;
+            const cell = key ? current.board[key] : null;
+            if (!cell) return false;
+            return getAdjacentCells(cell.q, cell.r).some(
+              pos => current.board[`${pos.q},${pos.r}`]?.placedBy === player.id
+            );
+          }
+          return true;
+        }
+      },
+      context
+    );
+    if (built) return built;
+  }
+
   if (
     typeof raw.removeAnyPlants === "number" &&
     !done.includes("resource-attack") &&
@@ -1347,10 +1405,75 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           attackerPlayerId: choice.ownerPlayerId,
           victimPlayerId: option.targetPlayerId,
           sourceCardId: choice.continuation.sourceId,
-          kind: "production-decrease"
+          kind: "production-decrease",
+          resource,
+          amount: beforeProd - afterProd
         });
       }
       nextLogs = addLog(nextLogs, "system", `${victim?.name ?? option.targetPlayerId} の生産量を ${count} 下げました。`);
+      break;
+    }
+    case "cathedral-placement": {
+      const built = placeCathedral(next, choice.ownerPlayerId, option.targetCellKey);
+      if (built.ok) {
+        const cell = next.board[option.targetCellKey];
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `(${cell?.q}, ${cell?.r}) の都市に大聖堂を建設しました。`
+        );
+      }
+      break;
+    }
+    case "law-suit": {
+      const settled = applyLawSuitResolution(
+        next,
+        choice.ownerPlayerId,
+        option.targetPlayerId,
+        choice.id
+      );
+      const victim = getPlayer(next, option.targetPlayerId);
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${victim?.name ?? option.targetPlayerId} を訴えました（MC ${settled.stolen ?? 0}、勝利点 -1）。`
+      );
+      break;
+    }
+    case "resource-steal": {
+      const attackerId = choice.ownerPlayerId;
+      const victim = getPlayer(next, option.targetPlayerId);
+      const resource = option.resource;
+      const before = victim?.[resource] ?? 0;
+      const taken = Math.min(before, option.count ?? 0);
+      const steal = Boolean(choice.continuation.payload?.steal);
+
+      next.players = next.players.map(player => {
+        if (player.id === option.targetPlayerId) {
+          return { ...player, [resource]: before - taken };
+        }
+        if (steal && player.id === attackerId) {
+          return { ...player, [resource]: (player[resource] ?? 0) + taken };
+        }
+        return player;
+      });
+
+      if (taken > 0) {
+        recordAttack(next, {
+          attackerPlayerId: attackerId,
+          victimPlayerId: option.targetPlayerId,
+          sourceCardId: choice.continuation.sourceId,
+          kind: "resource-removal",
+          resource,
+          amount: taken
+        });
+      }
+      const label = RESOURCE_LABELS[resource] ?? resource;
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${victim?.name ?? option.targetPlayerId} から ${label} ${taken} を${steal ? "奪いました" : "取り除きました"}。`
+      );
       break;
     }
     case "resource-attack": {
@@ -1366,7 +1489,9 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           attackerPlayerId: choice.ownerPlayerId,
           victimPlayerId: option.targetPlayerId,
           sourceCardId: choice.continuation.sourceId,
-          kind: "resource-removal"
+          kind: "resource-removal",
+          resource,
+          amount: before - after
         });
       }
       nextLogs = addLog(
@@ -1446,6 +1571,9 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
     tileType,
     placedBy: tileType === "ocean" ? null : ownerId
   };
+  // Flooding hits the owner of a tile beside the ocean it just laid, so the
+  // attack needs to know which square that was.
+  state.lastPlacedCellKey = `${cell.q},${cell.r}`;
 
   const player = getPlayer(state, ownerId);
   if (player) {
@@ -1470,6 +1598,7 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
     }
 
     grantPlacementCorporationEffects(state, cell, tileType, ownerId);
+    grantCityPlacementCardEffects(state, tileType);
   }
 
   // TR follows the parameter actually moving. At the cap the track is clamped,
@@ -1623,6 +1752,9 @@ export function getCardActionStatus(state, card) {
   if (action.revealTag && state.deck.length === 0 && state.discardPile.length === 0) {
     return { playable: false, reason: "公開できるカードがありません。" };
   }
+  if (action.buildCathedral && getEligibleCathedralCells(state).length === 0) {
+    return { playable: false, reason: "大聖堂を建設できる都市がありません。" };
+  }
   if (action.unsupported?.length) return { playable: false, reason: "このカードの選択式アクションは準備中です。" };
   for (const [resource, amount] of Object.entries(action.payment ?? {})) {
     if (resource === "cardResources") continue;
@@ -1660,10 +1792,13 @@ export function applyCardAction(state, card, logs, branchIndex) {
           ? affordable[0]
           : null;
     if (!chosen) {
+      // Choosing which half of the action to take is part of taking it, so
+      // answering spends the turn. Marked false, the action was free: Vermin
+      // could add an animal every turn without ever using an action.
       const choice = buildBranchChoice(nextState, branches, {
         sourceKind: "card-action",
         sourceId: card.id,
-        consumedAction: false,
+        consumedAction: true,
         paid: false
       });
       nextState.pendingChoice = choice;
@@ -1714,6 +1849,33 @@ export function applyCardAction(state, card, logs, branchIndex) {
   delete effect.steelCost;
   delete effect.revealTag;
   delete effect.resource;
+  delete effect.buildCathedral;
+
+  // Where the cathedral goes is the player's choice; the cost has already been
+  // paid above, so answering only places the marker.
+  if (action.buildCathedral) {
+    const cells = getEligibleCathedralCells(nextState);
+    if (cells.length === 1) {
+      placeCathedral(nextState, nextState.currentPlayerId, cells[0]);
+      const cell = nextState.board[cells[0]];
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `(${cell?.q}, ${cell?.r}) の都市に大聖堂を建設しました。`
+      );
+      return { state: nextState, logs: nextLogs, playable: true };
+    }
+    const choice = buildCathedralChoice(nextState, cells, {
+      sourceKind: "card-action",
+      sourceId: card.id,
+      consumedAction: true,
+      paid: true
+    });
+    nextState.pendingChoice = choice;
+    nextState.logs = nextLogs;
+    return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
+  }
+
   const result = applyEffect(nextState, effect, nextLogs);
   nextLogs = addLog(result.logs, "system", `アクション効果: ${card.effectText}`);
   return { state: result.state, logs: nextLogs, playable: true };
@@ -2482,12 +2644,140 @@ export function hasPositiveVpIcon(card) {
 export function recordAttack(state, entry) {
   if (!entry.attackerPlayerId || !entry.victimPlayerId) return state;
   if (entry.attackerPlayerId === entry.victimPlayerId) return state;
+  // Nothing was actually taken, so nobody was attacked: a declined optional
+  // effect or a victim holding none of the resource leaves no grievance.
+  if (entry.amount !== undefined && entry.amount <= 0) return state;
   state.generationAttackLedger = [
     ...(state.generationAttackLedger ?? []),
     { ...entry, generation: state.generation }
   ];
   return state;
 }
+
+export const VERMIN_ID = "card-promo-vermin";
+
+// "都市が置かれるたび" -- every city, from any source and any player, feeds
+// every Vermin in play. Living in placeTileAt means a city built by a card, a
+// standard project, a corporation or the bot all count the same.
+function grantCityPlacementCardEffects(state, tileType) {
+  if (tileType !== "city") return;
+  state.players = state.players.map(player =>
+    player.playedProjects?.includes(VERMIN_ID)
+      ? {
+          ...player,
+          cardResources: {
+            ...player.cardResources,
+            [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
+          }
+        }
+      : player
+  );
+}
+
+export const ST_JOSEPH_ID = "card-promo-st-joseph-of-cupertino-mission";
+export const CATHEDRAL_COST = 5;
+
+// Any city may take a cathedral, whoever built it, but only one each.
+export function getEligibleCathedralCells(state) {
+  const taken = new Set(
+    (state.boardMarkers ?? [])
+      .filter(marker => marker.kind === "cathedral")
+      .map(marker => marker.cellKey)
+  );
+  return Object.entries(state.board ?? {})
+    .filter(([cellKey, cell]) => cell.tileType === "city" && !taken.has(cellKey))
+    .map(([cellKey]) => cellKey);
+}
+
+// The marker is added rather than the tile replaced, so the city keeps its
+// type and its owner.
+export function placeCathedral(state, actorId, cellKey) {
+  if (!getEligibleCathedralCells(state).includes(cellKey)) {
+    return { ok: false, reason: "この都市には大聖堂を建設できません。" };
+  }
+  state.boardMarkers = [
+    ...(state.boardMarkers ?? []),
+    {
+      id: `cathedral:${cellKey}`,
+      kind: "cathedral",
+      cellKey,
+      sourceCardId: ST_JOSEPH_ID,
+      sourcePlayerId: actorId
+    }
+  ];
+  return { ok: true, state };
+}
+
+export const LAW_SUIT_ID = "card-promo-law-suit";
+export const LAW_SUIT_STEAL = 3;
+
+// Only someone who actually took something from you this generation may be
+// sued. The ledger holds landed attacks, so a declined optional effect or a
+// victim who held nothing leaves nobody to name.
+export function lawSuitTargets(state, actorId) {
+  const guilty = new Set(
+    (state.generationAttackLedger ?? [])
+      .filter(
+        entry =>
+          entry.victimPlayerId === actorId &&
+          entry.attackerPlayerId !== actorId &&
+          entry.generation === state.generation
+      )
+      .map(entry => entry.attackerPlayerId)
+  );
+  return (state.players ?? []).filter(player => guilty.has(player.id));
+}
+
+// Settles the suit: up to three megacredits move, the target loses a victory
+// point, and the card is placed in front of them. Keyed by the choice id so a
+// resent resolution cannot charge twice.
+export function applyLawSuitResolution(state, actorId, targetId, choiceId) {
+  const modifierId = `law-suit:${choiceId}`;
+  // Resending the same resolution must not charge again.
+  if ((state.scoreModifiers ?? []).some(item => item.id === modifierId)) {
+    return { state, stolen: 0 };
+  }
+
+  const target = getPlayer(state, targetId);
+  const stolen = Math.min(LAW_SUIT_STEAL, Math.max(0, target?.mc ?? 0));
+
+  state.players = state.players.map(player => {
+    if (player.id === targetId) {
+      return {
+        ...player,
+        mc: player.mc - stolen,
+        // The card sits with the player who was sued, not the one who sued.
+        playedEvents: [...(player.playedEvents ?? []), LAW_SUIT_ID]
+      };
+    }
+    if (player.id === actorId) return { ...player, mc: player.mc + stolen };
+    return player;
+  });
+
+  state.scoreModifiers = [
+    ...(state.scoreModifiers ?? []),
+    {
+      id: modifierId,
+      kind: "card-vp",
+      sourceCardId: LAW_SUIT_ID,
+      sourcePlayerId: actorId,
+      targetPlayerId: targetId,
+      points: -1,
+      label: "Law Suit"
+    }
+  ];
+
+  return { state, stolen };
+}
+
+const RESOURCE_LABELS = {
+  mc: "MC",
+  steel: "建材",
+  titanium: "チタン",
+  plants: "植物",
+  energy: "電力",
+  heat: "熱"
+};
 
 // Tags that are still on the table: the corporation, the green and blue cards
 // in front of the player, and the preludes they opened with. Red events are
@@ -2589,6 +2879,15 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   if (steelUsed > maxSteel || titaniumUsed > maxTitanium) {
     return { playable: false, reason: "資源割引の上限を超えています。" };
   }
+  // Law Suit answers an attack, so it cannot be played when nobody has made
+  // one this generation.
+  if (card.id === LAW_SUIT_ID && lawSuitTargets(state, state.currentPlayerId).length === 0) {
+    return {
+      playable: false,
+      reason: "この世代に自分を攻撃したプレイヤーがいません。"
+    };
+  }
+
   const corporation = getCorporation(state);
   const costAfterDiscount = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
 

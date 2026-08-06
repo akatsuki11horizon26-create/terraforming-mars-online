@@ -254,6 +254,124 @@ export function buildProductionAttackChoice(state, resource, count, context) {
   };
 }
 
+// A cathedral sits on top of a city rather than replacing it, so it is stored
+// as a marker and a city may only carry one.
+export function buildCathedralChoice(state, cells, context) {
+  if (cells.length === 0) return null;
+
+  const options = cells.map(cellKey => {
+    const cell = state.board[cellKey];
+    const owner = (state.players ?? []).find(player => player.id === cell?.placedBy);
+    return {
+      id: cellKey,
+      targetCellKey: cellKey,
+      label: `(${cell?.q}, ${cell?.r})${owner ? ` ${owner.name}の都市` : " 中立都市"}`
+    };
+  });
+
+  return {
+    id: makeChoiceId("cathedral", context.sourceId, state.currentPlayerId),
+    kind: "cathedral-placement",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: "大聖堂を建設する都市を選んでください。",
+    optional: false,
+    options,
+    payload: {},
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "cathedral",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {})
+    }
+  };
+}
+
+// Law Suit may only be aimed at someone who actually attacked you this
+// generation, so the options come from the ledger rather than the player list.
+export function buildLawSuitChoice(state, targets, context) {
+  if (targets.length === 0) return null;
+
+  const options = targets.map(player => ({
+    id: player.id,
+    targetPlayerId: player.id,
+    label: `${player.name}（MC ${player.mc}）`
+  }));
+
+  return {
+    id: makeChoiceId("law-suit", context.sourceId, state.currentPlayerId),
+    kind: "law-suit",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: "訴える相手を選んでください。",
+    optional: false,
+    options,
+    payload: {},
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "law-suit",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {})
+    }
+  };
+}
+
+// "Take up to N of X, or M of Y, from any player" is one question with an
+// option per (victim, resource) pair. Sabotage offers three resources, Hired
+// Raiders and Virus two, and most cards one.
+//
+// `eligible` narrows who may be hit -- Comet for Venus only reaches players
+// holding a Venus tag, Flooding only the owners of tiles beside the new ocean.
+export function buildResourceStealChoice(state, spec, context) {
+  const attackerId = state.currentPlayerId;
+  const eligible = spec.eligible ?? (() => true);
+  const options = [];
+
+  for (const player of state.players ?? []) {
+    // Stealing from yourself is legal in the printed rules but pointless, and
+    // it is never what the player means. The attacker is offered only if no
+    // one else can be hit, which keeps a required attack resolvable.
+    if (player.id === attackerId) continue;
+    if (!eligible(player, state)) continue;
+    for (const choice of spec.resources) {
+      const held = player[choice.resource] ?? 0;
+      if (held <= 0) continue;
+      const taken = Math.min(held, choice.count);
+      const label = PRODUCTION_LABELS[choice.resource] ?? choice.resource;
+      options.push({
+        id: `${player.id}:${choice.resource}`,
+        targetPlayerId: player.id,
+        resource: choice.resource,
+        count: choice.count,
+        label: `${player.name} から ${label} ${taken}`
+      });
+    }
+  }
+
+  if (options.length === 0) return null;
+
+  return {
+    id: makeChoiceId("resource-steal", context.sourceId, attackerId),
+    kind: "resource-steal",
+    ownerPlayerId: attackerId,
+    prompt: spec.prompt ?? "対象を選んでください。",
+    optional: Boolean(spec.optional),
+    options,
+    payload: { steal: Boolean(spec.steal) },
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "resource-steal",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      payload: { steal: Boolean(spec.steal) },
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {})
+    }
+  };
+}
+
 // "Remove up to N plants from any player" picks a victim the same way a
 // production attack does. Without this the removal fell through to the acting
 // player's own stock, so playing Asteroid destroyed your own plants.
