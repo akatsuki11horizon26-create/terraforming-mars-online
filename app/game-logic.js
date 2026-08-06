@@ -8,6 +8,14 @@ import {
   updatePlayer,
   withLegacyPlayerAccessors
 } from "./player-state.js";
+import {
+  buildScoreContributions,
+  calculateScoreBreakdowns as buildScoreBreakdowns,
+  countOwnedCities,
+  countCathedrals,
+  formatSignedVp,
+  SCORE_CATEGORIES
+} from "./scoring.js";
 import { THARSIS_CELLS } from "./tharsis-board.js";
 import { ALTERNATE_BOARDS } from "./alternate-boards.js";
 import { createDraft, pickDraftCard, isDraftComplete, draftedHandFor, DRAFT_HAND_SIZE } from "./draft.js";
@@ -20,8 +28,6 @@ import {
   MAX_MILESTONES,
   MILESTONES,
   MILESTONE_COST,
-  computeAwardVp,
-  computeMilestoneVp,
   getAward,
   getMilestone,
   getMilestoneDescription,
@@ -87,6 +93,7 @@ import {
 } from "./colonies.js";
 
 export { COLONY_TILES, availableFleets, canBuildColony, canTrade, countColonies, getColonyTile };
+export { buildScoreContributions, countOwnedCities, countCathedrals, formatSignedVp, SCORE_CATEGORIES };
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
 
@@ -445,6 +452,10 @@ export function cloneGameState(state) {
     logs: [...state.logs],
     claimedMilestones: [...(state.claimedMilestones ?? [])],
     fundedAwards: [...(state.fundedAwards ?? [])],
+    // Absent from saves written before these cards existed, hence the ?? [].
+    scoreModifiers: (state.scoreModifiers ?? []).map(item => ({ ...item })),
+    boardMarkers: (state.boardMarkers ?? []).map(item => ({ ...item })),
+    generationAttackLedger: (state.generationAttackLedger ?? []).map(item => ({ ...item })),
     resolvedChoices: Object.fromEntries(
       Object.entries(state.resolvedChoices ?? {}).map(([id, stages]) => [id, [...stages]])
     ),
@@ -1769,6 +1780,9 @@ export function getPlaceholderState() {
     discardPile: [],
     claimedMilestones: [],
     fundedAwards: [],
+    scoreModifiers: [],
+    boardMarkers: [],
+    generationAttackLedger: [],
     pendingChoice: null,
     resolvedChoices: {},
     turmoil: null,
@@ -1905,6 +1919,9 @@ export function getInitialState(options = {}) {
     discardPile: [],
     claimedMilestones: [],
     fundedAwards: [],
+    scoreModifiers: [],
+    boardMarkers: [],
+    generationAttackLedger: [],
     pendingChoice: null,
     resolvedChoices: {},
     turmoil,
@@ -2342,92 +2359,24 @@ export function isGameOverCheck(temp, oxy, oce) {
   return temp >= 8 && oxy >= 14 && oce >= 9;
 }
 
+// Scoring lives in scoring.js so that a card paying someone other than its
+// owner can be expressed. This keeps the single-player entry point every
+// caller already uses.
+function scoringOptions() {
+  return {
+    cards: ALL_CARDS,
+    preludes: PRELUDES,
+    helpers: { countAdjacentOceans, getAdjacentCells, countPlayedTag, countColonies }
+  };
+}
+
+export function calculateScoreBreakdowns(state) {
+  return buildScoreBreakdowns(state, scoringOptions());
+}
+
 export function computeScore(state, playerId) {
   const targetId = playerId ?? state.currentPlayerId;
-  const player = getPlayer(state, targetId) ?? state.players[0];
-  let score = player.tr;
-  
-  // Count player greeneries (1 VP each)
-  let playerGreeneriesCount = 0;
-  Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === targetId && cell.tileType === "forest") {
-      playerGreeneriesCount += 1;
-    }
-  });
-  score += playerGreeneriesCount;
-
-  // Count adjacent greeneries for each player city (1 VP each greenery, regardless of ownership)
-  let cityVp = 0;
-  Object.values(state.board).forEach(cell => {
-    if (cell.placedBy === targetId && cell.tileType === "city") {
-      const adj = getAdjacentCells(cell.q, cell.r);
-      adj.forEach(pos => {
-        const key = `${pos.q},${pos.r}`;
-        const adjCell = state.board[key];
-        if (adjCell && adjCell.tileType === "forest") {
-          cityVp += 1;
-        }
-      });
-    }
-  });
-  score += cityVp;
-
-  // Add card VPs. Preludes are scored the same way: two of them carry points
-  // (Nobel Prize a flat 2, Main Belt Asteroids one per two asteroids) and they
-  // live in selectedPreludeIds, not playedProjects.
-  const scoringCards = [
-    ...player.playedProjects.map(cardId => [cardId, ALL_CARDS.find(c => c.id === cardId)]),
-    ...(player.selectedPreludeIds ?? []).map(cardId => [
-      cardId,
-      PRELUDES.find(c => c.id === cardId)
-    ])
-  ];
-
-  scoringCards.forEach(([cardId, card]) => {
-    if (card && card.victoryPoints) {
-      score += card.victoryPoints;
-    }
-    if (card?.victoryPointSpec && !card.dynamicVictory) {
-      const spec = card.victoryPointSpec;
-      const resources = player.cardResources?.[cardId] ?? 0;
-      if (spec.resourcesHere !== undefined) score += spec.per ? Math.floor(resources / spec.per) : resources * (spec.each ?? 1);
-      if (spec.tag) score += countPlayedTag(state, spec.tag, player);
-
-      // `all` counts the whole board or the whole colony track rather than
-      // what sits next to the card, so it must not wait for a placement --
-      // Immigration Shuttles and Space Port Colony are never placed at all.
-      if (spec.all) {
-        const counted =
-          spec.cities !== undefined
-            ? Object.values(state.board).filter(cell => cell.tileType === "city").length
-            : spec.colonies !== undefined
-              ? countColonies(state.colonies, targetId)
-              : 0;
-        score += spec.per ? Math.floor(counted / spec.per) : counted * (spec.each ?? 1);
-      } else {
-        const placementKey = player.cardPlacements?.[cardId];
-        const placement = placementKey ? state.board[placementKey] : undefined;
-        if (placement && spec.oceans !== undefined) score += countAdjacentOceans(placement.q, placement.r, state.board);
-        if (placement && spec.cities !== undefined) {
-          score += getAdjacentCells(placement.q, placement.r).filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "city").length;
-        }
-      }
-    }
-    if (cardId === "p-search-for-life" && (player.cardResources?.[cardId] ?? 0) > 0) score += 3;
-    if (cardId === "p-capital") {
-      const key = player.cardPlacements?.[cardId];
-      const capital = key ? state.board[key] : undefined;
-      if (capital) score += countAdjacentOceans(capital.q, capital.r, state.board);
-    }
-  });
-
-  // Milestones and awards are scored from shared state, so each player's own
-  // corporation is resolved inside the scorer rather than passed in here.
-  const milestoneVp = computeMilestoneVp(state)[targetId] ?? 0;
-  const awardVp = computeAwardVp(state, { cards: ALL_CARDS, corporations: CORPORATIONS })[targetId] ?? 0;
-  score += milestoneVp + awardVp;
-
-  return score;
+  return calculateScoreBreakdowns(state)[targetId]?.total ?? 0;
 }
 
 export function getCardDiscount(card, state) {
