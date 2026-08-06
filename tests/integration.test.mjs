@@ -96,6 +96,14 @@ test("buying research costs three megacredits a card and takes them into hand", 
   }
 
   const buyer = state.players[0].id;
+  // Beginner Corporation gets its opening hand free, so dealing it here would
+  // make "three cards cost nine" fail roughly one game in thirteen. This is
+  // about the standard price, not about which corporation was shuffled up.
+  state = cloneGameState(state);
+  state.players = state.players.map(player =>
+    player.id === buyer ? { ...player, corporationId: "corp-teractor" } : player
+  );
+
   const before = getPlayer(state, buyer);
   const wanted = before.researchCards.slice(0, 3);
 
