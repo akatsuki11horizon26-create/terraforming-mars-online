@@ -180,8 +180,15 @@ test("playing a card fires threshold bonuses and corporation triggers", async ()
   const { ALL_CARDS, getCardEffect } = await import("../app/game-logic.js");
   const { state, seat } = table();
 
+  // A card that also attacks parks a choice, and the threshold bonus is then
+  // paid when that choice resolves. This test is about the bonus, so it takes a
+  // card that finishes in one step.
   const warming = ALL_CARDS.find(
-    card => getCardEffect(card).temperatureSteps === 1 && !getCardEffect(card).tile
+    card =>
+      getCardEffect(card).temperatureSteps === 1 &&
+      !getCardEffect(card).tile &&
+      !getCardEffect(card).removePlants &&
+      !card.effectSpec?.behavior?.decreaseAnyProduction
   );
   const ready = cloneGameState(state);
   // -26 to -24 crosses the printed heat production bonus.

@@ -316,3 +316,209 @@ test("the three special cards add up together", () => {
   const summed = breakdown.details.reduce((sum, entry) => sum + entry.points, 0);
   assert.equal(summed, breakdown.total);
 });
+
+// "Remove up to N plants from any player" read state.plants, which is the
+// acting player's own stock. Playing Asteroid destroyed your own plants and
+// left the opponent untouched.
+test("removing plants asks who loses them, and never charges the attacker", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  const [me, them] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    plants: 5,
+    mc: 100,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? ["p-asteroid"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: me,
+    cardId: "p-asteroid"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "resource-attack");
+  assert.equal(
+    getPlayer(played.state, me).plants,
+    5,
+    "nothing is taken until the victim is named"
+  );
+
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.targetPlayerId === them
+  );
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: option.id
+  });
+
+  assert.equal(getPlayer(settled.state, me).plants, 5, "the attacker keeps theirs");
+  assert.equal(getPlayer(settled.state, them).plants, 2, "the victim loses three");
+});
+
+test("an attack that lands is recorded against its generation", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const state = table();
+  state.phase = "action";
+  const [me, them] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    plants: 5,
+    mc: 100,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? ["p-asteroid"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "p-asteroid"
+  });
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.targetPlayerId === them
+  );
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+
+  assert.deepEqual(settled.state.generationAttackLedger, [
+    {
+      attackerPlayerId: me,
+      victimPlayerId: them,
+      sourceCardId: "p-asteroid",
+      kind: "resource-removal",
+      generation: settled.state.generation
+    }
+  ]);
+});
+
+test("hitting yourself is not an attack anyone can answer", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const state = table();
+  state.phase = "action";
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    plants: player.id === me ? 5 : 0,
+    mc: 100,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? ["p-asteroid"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "p-asteroid"
+  });
+  // Only the acting player holds plants, so they are the sole legal target.
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: played.state.pendingChoice.options[0].id
+  });
+
+  assert.deepEqual(settled.state.generationAttackLedger, []);
+});
+
+test("a production attack with one legal target still happens", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  state.oxygen = 10;
+  const [me, them] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    mc: 100,
+    actionsRemaining: 2,
+    turnStep: "start",
+    plantsProd: player.id === them ? 3 : 0,
+    hand: player.id === me ? ["card-base-biomass-combustors"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "card-base-biomass-combustors"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "production-attack");
+  assert.equal(played.state.pendingChoice.options.length, 1);
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(
+    getPlayer(settled.state, them).plantsProd,
+    2,
+    "the only target still loses production"
+  );
+});
+
+test("the attack ledger empties when the generation turns over", async () => {
+  const { triggerProduction } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.generationAttackLedger = [
+    {
+      attackerPlayerId: "player2",
+      victimPlayerId: "player",
+      sourceCardId: "p-asteroid",
+      kind: "resource-removal",
+      generation: state.generation
+    }
+  ];
+
+  const next = triggerProduction(state, state.logs);
+  assert.deepEqual(next.generationAttackLedger, [], "last generation's attacks expire");
+});
+
+// Asteroid raises the temperature and attacks in the same play. The threshold
+// bonus the temperature crosses is paid when the attack is answered, not
+// dropped because the card parked a question.
+test("a card that attacks still pays its threshold bonus once resolved", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const state = table();
+  state.phase = "action";
+  state.temperature = -26;
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    mc: 80,
+    plants: 5,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? ["p-asteroid"] : []
+  }));
+  state.currentPlayerId = me;
+
+  const before = getPlayer(state, me).heatProd;
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: "p-asteroid"
+  });
+  assert.equal(played.state.temperature, -24);
+  assert.equal(played.state.pendingChoice?.kind, "resource-attack");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(
+    getPlayer(settled.state, me).heatProd,
+    before + 1,
+    "the -24C bonus arrives with the answer"
+  );
+});

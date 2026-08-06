@@ -254,6 +254,40 @@ export function buildProductionAttackChoice(state, resource, count, context) {
   };
 }
 
+// "Remove up to N plants from any player" picks a victim the same way a
+// production attack does. Without this the removal fell through to the acting
+// player's own stock, so playing Asteroid destroyed your own plants.
+export function buildResourceAttackChoice(state, resource, count, context) {
+  const targets = (state.players ?? []).filter(player => (player[resource] ?? 0) > 0);
+  if (targets.length === 0) return null;
+
+  const label = PRODUCTION_LABELS[resource] ?? resource;
+  const options = targets.map(player => ({
+    id: player.id,
+    targetPlayerId: player.id,
+    label: `${player.name}（${label} ${player[resource]}）`
+  }));
+
+  return {
+    id: makeChoiceId("resource-attack", context.sourceId, state.currentPlayerId),
+    kind: "resource-attack",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: `${label}を最大${count}個取り除く対象を選んでください。`,
+    optional: false,
+    options,
+    payload: { resource, count },
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "resource-attack",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      payload: { resource, count },
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {})
+    }
+  };
+}
+
 const PRODUCTION_LABELS = {
   mc: "MC",
   steel: "建材",

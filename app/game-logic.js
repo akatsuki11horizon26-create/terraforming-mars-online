@@ -40,6 +40,7 @@ export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMiles
 import {
   buildBranchChoice,
   buildProductionAttackChoice,
+  buildResourceAttackChoice,
   buildColonyChoice,
   buildResourceChoice,
   buildDiscardChoice,
@@ -793,7 +794,11 @@ function applyEffect(state, effect, logs, options = {}) {
   if (effect.energy) addResource(nextState, "energy", effect.energy);
   if (effect.heat) addResource(nextState, "heat", effect.heat);
   if (effect.tr) nextState.tr += effect.tr;
-  if (effect.removePlants) nextState.plants = Math.max(0, nextState.plants - effect.removePlants);
+  // Solo play has nobody else to hit, so the removal still lands on the only
+  // player present; with opponents the victim is chosen instead.
+  if (effect.removePlants && !options.skipResourceAttack) {
+    nextState.plants = Math.max(0, nextState.plants - effect.removePlants);
+  }
   if (effect.cardResource && effect.cardId) nextState.cardResources[effect.cardId] = (nextState.cardResources[effect.cardId] ?? 0) + effect.cardResource;
   if (effect.venusSteps) {
     // Raising the Venus scale one step (2%) raises TR by 1, the same way the
@@ -1095,10 +1100,18 @@ export function applyCardEffect(state, card, logs, options = {}) {
     Boolean(card.effectSpec?.behavior?.decreaseAnyProduction?.type) &&
     (nextState.players ?? []).length > 1;
 
+  // "Remove N plants from any player" reads state.plants without it, which is
+  // the acting player's own stock: the card attacked whoever played it.
+  const willChooseResourceVictim =
+    !options.skipResourceAttack &&
+    Boolean(effect.removePlants) &&
+    (nextState.players ?? []).length > 1;
+
   const result = applyEffect(nextState, effect, nextLogs, {
     ...options,
     skipTile: options.skipTile || willChooseTile,
-    skipProductionAttack: options.skipProductionAttack || willChooseVictim
+    skipProductionAttack: options.skipProductionAttack || willChooseVictim,
+    skipResourceAttack: options.skipResourceAttack || willChooseResourceVictim
   });
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
 
@@ -1147,11 +1160,30 @@ function queuePendingChoices(state, card, context) {
   }
   // Attacks name a victim. Solo play has nobody else, and a single legal target
   // needs no prompt, so the choice only appears when it is a real decision.
-  if (raw.decreaseAnyProduction?.type && !done.includes("production-attack")) {
+  // Solo already applied the decrement directly; asking as well would take the
+  // production twice. With opponents the direct path is suppressed, so a single
+  // legal target must still produce a choice or the attack silently does
+  // nothing -- which is what `options.length > 1` used to cause.
+  if (
+    raw.decreaseAnyProduction?.type &&
+    !done.includes("production-attack") &&
+    (state.players ?? []).length > 1
+  ) {
     const spec = raw.decreaseAnyProduction;
     const resource = SOURCE_RESOURCE_MAP[spec.type] ?? spec.type;
     const built = buildProductionAttackChoice(state, resource, spec.count, context);
-    if (built && built.options.length > 1) return built;
+    if (built) return built;
+  }
+
+  // Solo play already applied the removal directly, so asking would be a
+  // one-option prompt that takes the plants a second time.
+  if (
+    typeof raw.removeAnyPlants === "number" &&
+    !done.includes("resource-attack") &&
+    (state.players ?? []).length > 1
+  ) {
+    const built = buildResourceAttackChoice(state, "plants", raw.removeAnyPlants, context);
+    if (built) return built;
   }
 
   // A card that places a colony lets the player pick the moon; the card has
@@ -1307,7 +1339,40 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           ? { ...player, [key]: Math.max(floor, (player[key] ?? 0) - count) }
           : player
       );
+      const beforeProd = victim?.[key] ?? 0;
+      const afterProd = Math.max(floor, beforeProd - count);
+      if (beforeProd > afterProd) {
+        recordAttack(next, {
+          attackerPlayerId: choice.ownerPlayerId,
+          victimPlayerId: option.targetPlayerId,
+          sourceCardId: choice.continuation.sourceId,
+          kind: "production-decrease"
+        });
+      }
       nextLogs = addLog(nextLogs, "system", `${victim?.name ?? option.targetPlayerId} の生産量を ${count} 下げました。`);
+      break;
+    }
+    case "resource-attack": {
+      const { resource, count } = choice.continuation.payload ?? {};
+      const victim = getPlayer(next, option.targetPlayerId);
+      const before = victim?.[resource] ?? 0;
+      const after = Math.max(0, before - count);
+      next.players = next.players.map(player =>
+        player.id === option.targetPlayerId ? { ...player, [resource]: after } : player
+      );
+      if (before > after) {
+        recordAttack(next, {
+          attackerPlayerId: choice.ownerPlayerId,
+          victimPlayerId: option.targetPlayerId,
+          sourceCardId: choice.continuation.sourceId,
+          kind: "resource-removal"
+        });
+      }
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${victim?.name ?? option.targetPlayerId} から ${before - after} 個取り除きました。`
+      );
       break;
     }
     case "effect-branch": {
@@ -2396,6 +2461,19 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
 }
 
+// Law Suit may only be aimed at someone who attacked you this generation, so
+// the ledger records attacks that actually landed. Hitting yourself is not an
+// attack, and neither is an attack that removed nothing.
+export function recordAttack(state, entry) {
+  if (!entry.attackerPlayerId || !entry.victimPlayerId) return state;
+  if (entry.attackerPlayerId === entry.victimPlayerId) return state;
+  state.generationAttackLedger = [
+    ...(state.generationAttackLedger ?? []),
+    { ...entry, generation: state.generation }
+  ];
+  return state;
+}
+
 function countPlayedTag(state, tag, player) {
   const owner = player ?? getCurrentPlayer(state) ?? state.players?.[0];
   const normalized = String(tag).toLowerCase();
@@ -2809,6 +2887,8 @@ export function triggerProduction(state, logAcc) {
   } else {
     nextState.generation += 1;
     nextState.phase = "research";
+    // Law Suit may only answer an attack from the generation it is played in.
+    nextState.generationAttackLedger = [];
 
     let deck = [...nextState.deck];
     let discard = [...nextState.discardPile];
