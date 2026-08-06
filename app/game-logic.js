@@ -1752,7 +1752,7 @@ export function applyCorporationTriggers(state, card, logs) {
     nextState.mc += corporation.effects.expensivePaymentBonus;
     nextLogs = addLog(nextLogs, "system", `CrediCor: MC +${corporation.effects.expensivePaymentBonus}`);
   }
-  if (corporation.effects.vpBonus && (card.victoryPoints ?? 0) > 0) {
+  if (corporation.effects.vpBonus && hasPositiveVpIcon(card)) {
     nextState.mc += corporation.effects.vpBonus;
     nextLogs = addLog(nextLogs, "system", `Vitor: MC +${corporation.effects.vpBonus}`);
   }
@@ -2469,6 +2469,16 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
 // Law Suit may only be aimed at someone who attacked you this generation, so
 // the ledger records attacks that actually landed. Hitting yourself is not an
 // attack, and neither is an attack that removed nothing.
+// Vitor pays for the victory point icon printed on the card, not for what the
+// card turns out to be worth at the end. A card scoring one point per animal
+// prints an icon and has victoryPoints 0, so reading that number alone missed
+// 34 cards. Law Suit and Vermin print negative icons and do not qualify.
+export function hasPositiveVpIcon(card) {
+  if (typeof card?.victoryPoints === "number" && card.victoryPoints > 0) return true;
+  if (card?.victoryPointSpec) return true;
+  return card?.specialVictoryKind === "st-joseph";
+}
+
 export function recordAttack(state, entry) {
   if (!entry.attackerPlayerId || !entry.victimPlayerId) return state;
   if (entry.attackerPlayerId === entry.victimPlayerId) return state;

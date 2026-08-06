@@ -9,10 +9,11 @@ import {
   getInitialState as jsGetInitialState,
   getPlaceholderState as jsGetPlaceholderState,
   computeScore as jsComputeScore,
+  calculateScoreBreakdowns as jsCalculateScoreBreakdowns,
+  formatSignedVp as jsFormatSignedVp,
   getCardDiscount as jsGetCardDiscount,
   getCardPaymentCost as jsGetCardPaymentCost,
   getCardPlayableStatus as jsGetCardPlayableStatus,
-  getAdjacentCells as jsGetAdjacentCells,
   isCellPlacementValid as jsIsCellPlacementValid,
   checkParameterThresholds as jsCheckParameterThresholds,
   handleActionSpend as jsHandleActionSpend,
@@ -351,10 +352,35 @@ const HEX_HEIGHT = 41.6;
 const HEX_STEP_X = 46;
 const HEX_STEP_Y = 40;
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
+
+interface ScoreContribution {
+  targetPlayerId: string;
+  points: number;
+  category: string;
+  sourceId: string;
+  label: string;
+  detail?: string;
+}
+
+interface ScoreBreakdown {
+  playerId: string;
+  tr: number;
+  board: number;
+  cards: number;
+  milestones: number;
+  awards: number;
+  modifier: number;
+  total: number;
+  details: ScoreContribution[];
+}
+
+const calculateScoreBreakdowns = jsCalculateScoreBreakdowns as unknown as (
+  state: GameState
+) => Record<string, ScoreBreakdown>;
+const formatSignedVp = jsFormatSignedVp as unknown as (points: number) => string;
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
-const getAdjacentCells = jsGetAdjacentCells as unknown as (q: number, r: number) => { q: number; r: number }[];
 const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellState, type: "forest" | "city" | "ocean", board: Record<string, CellState>) => boolean;
 const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
@@ -1321,6 +1347,10 @@ export default function Home() {
   const isHeatConvertAffordable = activeState.heat >= 8;
 
   const scoreValue = computeScore(activeState);
+  // The final screen used to re-derive its own breakdown from playedProjects
+  // and fixed victoryPoints, so dynamic VP, preludes, milestones and awards all
+  // read as zero while the total beside them included every one of them.
+  const scoreBreakdown = calculateScoreBreakdowns(activeState)[currentPlayerId];
   const selectedCardPurchaseCost = activeState.phase === "setup" && CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards
     ? 0
     : selectedResearchCardIds.length * 3;
@@ -2735,43 +2765,35 @@ export default function Home() {
                 {activeState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
               </p>
               <div style={{ padding: "16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "inline-block", minWidth: "250px", textAlign: "left", margin: "0 auto" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span>TR (開拓評価点):</span>
-                  <span style={{ fontWeight: "bold", color: "var(--color-cyan)" }}>{activeState.tr} 点</span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span>配置した緑地数:</span>
-                  <span style={{ fontWeight: "bold", color: "var(--color-ember)" }}>
-                    {Object.values(activeState.board).filter(c => c.placedBy === currentPlayerId && c.tileType === "forest").length} 点
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span>都市隣接緑地ボーナス:</span>
-                  <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>
-                    {(() => {
-                      let cityVp = 0;
-                      Object.values(activeState.board).forEach(cell => {
-                        if (cell.placedBy === currentPlayerId && cell.tileType === "city") {
-                          const adj = getAdjacentCells(cell.q, cell.r);
-                          adj.forEach(pos => {
-                            const key = `${pos.q},${pos.r}`;
-                            const adjCell = activeState.board[key];
-                            if (adjCell && adjCell.tileType === "forest") {
-                              cityVp += 1;
-                            }
-                          });
-                        }
-                      });
-                      return cityVp;
-                    })()} 点
-                  </span>
-                </div>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <span>プロジェクトカード勝利点:</span>
-                  <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>
-                    {activeState.playedProjects.reduce((sum, id) => sum + (ALL_CARDS.find(c => c.id === id)?.victoryPoints || 0), 0)} 点
-                  </span>
-                </div>
+                {([
+                  ["tr", "TR (開拓評価点)", "var(--color-cyan)"],
+                  ["board", "タイル (緑地・都市隣接)", "var(--color-ember)"],
+                  ["cards", "カード勝利点", "var(--color-gold)"],
+                  ["milestones", "マイルストーン", "var(--color-gold)"],
+                  ["awards", "褒賞", "var(--color-gold)"],
+                  ["modifier", "その他の増減", "var(--color-rust)"]
+                ] as const).map(([key, label, color]) =>
+                  scoreBreakdown[key] === 0 && key !== "tr" ? null : (
+                    <div key={key} style={{ display: "flex", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span>{label}:</span>
+                      <span style={{ fontWeight: "bold", color }}>
+                        {formatSignedVp(scoreBreakdown[key])} 点
+                      </span>
+                    </div>
+                  )
+                )}
+                {scoreBreakdown.details.filter(entry => entry.category === "cards" || entry.category === "modifier").length > 0 && (
+                  <div style={{ marginBottom: "6px", paddingLeft: "10px", borderLeft: "2px solid rgba(242, 232, 220, 0.15)" }}>
+                    {scoreBreakdown.details
+                      .filter(entry => entry.category === "cards" || entry.category === "modifier")
+                      .map((entry, index) => (
+                        <div key={`${entry.sourceId}-${index}`} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", opacity: 0.75 }}>
+                          <span>{entry.label}{entry.detail ? `（${entry.detail}）` : ""}</span>
+                          <span>{formatSignedVp(entry.points)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
                 <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid rgba(242, 232, 220, 0.2)", paddingTop: "8px", marginTop: "8px", fontSize: "1.1rem" }}>
                   <span>合計スコア:</span>
                   <span style={{ fontWeight: "bold", color: "var(--color-ink)" }}>{scoreValue} 点</span>

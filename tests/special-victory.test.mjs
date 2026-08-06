@@ -646,3 +646,156 @@ test("a version 4 save gains the new fields and keeps its score", async () => {
   const round = loadSavedState(serializeSavedState(fresh));
   assert.equal(round.rulesVersion, CURRENT_RULES_VERSION);
 });
+
+// Vitor pays for the victory point icon printed on a card. Most dynamic VP
+// cards carry victoryPoints 0 and describe themselves in victoryPointSpec, so
+// reading the number alone silently skipped 34 of them.
+test("Vitor pays for a printed victory point icon, however it is scored", async () => {
+  const { hasPositiveVpIcon } = await import("../app/game-logic.js");
+
+  const card = id => ALL_CARDS.find(entry => entry.id === id);
+  assert.equal(hasPositiveVpIcon(card("card-base-birds")), true, "one point per animal");
+  assert.equal(hasPositiveVpIcon(card("card-base-ants")), true, "one point per two microbes");
+  assert.equal(hasPositiveVpIcon(card("p-capital")), true, "one point per adjacent ocean");
+  assert.equal(
+    hasPositiveVpIcon(card("card-promo-st-joseph-of-cupertino-mission")),
+    true,
+    "cathedrals print a positive icon"
+  );
+
+  // These two print negative icons, so they earn Vitor nothing.
+  assert.equal(hasPositiveVpIcon(card("card-promo-law-suit")), false);
+  assert.equal(hasPositiveVpIcon(card("card-promo-vermin")), false);
+
+  const plain = ALL_CARDS.find(
+    entry => !entry.victoryPoints && !entry.victoryPointSpec && !entry.specialVictoryKind
+  );
+  assert.equal(hasPositiveVpIcon(plain), false);
+});
+
+test("Vitor's discount reaches a dynamic victory point card", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const birds = ALL_CARDS.find(entry => entry.id === "card-base-birds");
+  const state = table();
+  state.phase = "action";
+  state.oxygen = 14;
+  const [me] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    corporationId: player.id === me ? "corp-vitor" : null,
+    mc: 200,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === me ? [birds.id] : []
+  }));
+  state.currentPlayerId = me;
+
+  const before = getPlayer(state, me).mc;
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: birds.id
+  });
+  assert.equal(played.ok, true);
+  assert.equal(
+    before - getPlayer(played.state, me).mc,
+    birds.cost - 3,
+    "the card costs three less than printed"
+  );
+});
+
+// The bot answered choices by calling resolvePendingChoice directly, which
+// skips everything COMMAND.RESOLVE_PENDING does: the deferred action spend,
+// the corporation triggers and the threshold bonuses.
+test("a bot answering a choice spends the action and collects the bonus", async () => {
+  const engine = await import("../app/game-logic.js");
+  const { applyBotMove, resolveBotChoices } = await import("../app/bot-player.js");
+  const { getPlayer } = engine;
+
+  const state = table();
+  state.phase = "action";
+  state.temperature = -26;
+  const [bot] = state.players.map(player => player.id);
+  state.players = state.players.map(player => ({
+    ...player,
+    mc: 100,
+    plants: 5,
+    actionsRemaining: 2,
+    turnStep: "start",
+    hand: player.id === bot ? ["p-asteroid"] : []
+  }));
+  state.currentPlayerId = bot;
+
+  const applied = applyBotMove(engine, state, bot, { kind: "play", card: { id: "p-asteroid" } }, state.logs);
+  assert.equal(
+    applied.actionSpent,
+    false,
+    "a parked choice means the action is not spent yet"
+  );
+  assert.equal(getPlayer(applied.state, bot).actionsRemaining, 2);
+
+  const settled = resolveBotChoices(engine, applied.state, bot, () => 0);
+  assert.equal(
+    getPlayer(settled, bot).actionsRemaining,
+    1,
+    "answering spends it exactly once"
+  );
+  assert.equal(
+    getPlayer(settled, bot).heatProd,
+    1,
+    "and pays the -24C threshold bonus the play crossed"
+  );
+});
+
+// The final screen summed fixed victoryPoints over playedProjects while the
+// total beside it came from computeScore, so dynamic VP, preludes, milestones
+// and awards were all missing from the breakdown that claimed to explain it.
+test("every category of the breakdown adds up to the total shown", () => {
+  const state = table();
+  const land = Object.values(state.board)
+    .filter(cell => cell.tileType === "empty" && !cell.isOceanOnly)
+    .slice(0, 2);
+  state.board[`${land[0].q},${land[0].r}`] = {
+    ...state.board[`${land[0].q},${land[0].r}`], tileType: "city", placedBy: "player"
+  };
+  state.board[`${land[1].q},${land[1].r}`] = {
+    ...state.board[`${land[1].q},${land[1].r}`], tileType: "forest", placedBy: "player"
+  };
+  state.players = state.players.map(player =>
+    player.id === "player"
+      ? {
+          ...player,
+          playedProjects: ["card-base-birds", "card-base-ganymede-colony"],
+          cardResources: { "card-base-birds": 4 },
+          selectedPreludeIds: ["card-prelude2-nobel-prize"]
+        }
+      : player
+  );
+  state.scoreModifiers = [
+    {
+      id: "law-suit:x",
+      kind: "card-vp",
+      sourceCardId: "card-promo-law-suit",
+      sourcePlayerId: "player2",
+      targetPlayerId: "player",
+      points: -1,
+      label: "Law Suit"
+    }
+  ];
+
+  const breakdown = calculateScoreBreakdowns(state).player;
+  const categories =
+    breakdown.tr +
+    breakdown.board +
+    breakdown.cards +
+    breakdown.milestones +
+    breakdown.awards +
+    breakdown.modifier;
+
+  assert.equal(categories, breakdown.total, "the categories are the total");
+  assert.equal(breakdown.total, computeScore(state, "player"), "and match the headline");
+
+  // Four points of birds, one Jovian tag, a prelude's two, less the law suit.
+  assert.equal(breakdown.cards, 7);
+  assert.equal(breakdown.modifier, -1);
+});

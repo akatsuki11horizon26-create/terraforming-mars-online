@@ -234,13 +234,24 @@ export function applyBotMove(engine, state, botId, move, logs) {
   // draws triggers and spends its action by exactly the same rules the human
   // does. Hand-rolling them here is how the bot came to skip corporation
   // effects and double-count its standard projects.
+  // A card that parks a choice has not spent the action yet -- the command
+  // layer spends it when the last question is answered. Claiming otherwise
+  // gave the bot a free action on every such card.
+  const spentBy = (before, after) =>
+    (getPlayer(after, botId)?.actionsRemaining ?? 0) <
+    (getPlayer(before, botId)?.actionsRemaining ?? 0);
+
   if (move.kind === "play") {
     const result = executeGameCommand(state, {
       type: COMMAND.PLAY_CARD,
       playerId: botId,
       cardId: move.card.id
     });
-    return { state: result.state, logs: result.state.logs ?? logs, actionSpent: true };
+    return {
+      state: result.state,
+      logs: result.state.logs ?? logs,
+      actionSpent: spentBy(state, result.state)
+    };
   }
 
   if (move.kind === "action") {
@@ -249,7 +260,11 @@ export function applyBotMove(engine, state, botId, move, logs) {
       playerId: botId,
       cardId: move.card.id
     });
-    return { state: result.state, logs: result.state.logs ?? logs, actionSpent: true };
+    return {
+      state: result.state,
+      logs: result.state.logs ?? logs,
+      actionSpent: spentBy(state, result.state)
+    };
   }
 
   if (move.kind === "milestone") {
@@ -292,9 +307,21 @@ export function applyBotMove(engine, state, botId, move, logs) {
 // Any effect can stop on a choice the bot must answer before play continues.
 // Left unresolved, the game simply never advances.
 export function resolveBotChoices(engine, state, botId, rng, limit = 24) {
-  const { resolvePendingChoice, DECLINE_CHOICE } = engine;
+  const { DECLINE_CHOICE } = engine;
   let current = state;
   const random = rng ?? Math.random;
+
+  // Answering through the command layer is what pays the corporation triggers
+  // and threshold bonuses, spends the action the play deferred, and writes the
+  // completion log. Calling resolvePendingChoice directly skipped all of it.
+  const answer = optionId => {
+    const result = executeGameCommand(current, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: botId,
+      optionId
+    });
+    return result.state;
+  };
 
   for (let i = 0; i < limit; i++) {
     const choice = current.pendingChoice;
@@ -303,8 +330,9 @@ export function resolveBotChoices(engine, state, botId, rng, limit = 24) {
     const options = choice.options ?? [];
     if (options.length === 0) {
       if (!choice.optional) break;
-      const declined = resolvePendingChoice(current, DECLINE_CHOICE, current.logs, botId);
-      current = declined.state;
+      const declined = answer(DECLINE_CHOICE);
+      if (declined === current) break;
+      current = declined;
       continue;
     }
 
@@ -326,9 +354,9 @@ export function resolveBotChoices(engine, state, botId, rng, limit = 24) {
       picked = options[Math.floor(random() * options.length)];
     }
 
-    const result = resolvePendingChoice(current, picked.id, current.logs, botId);
-    if (result.state === current) break;
-    current = result.state;
+    const settled = answer(picked.id);
+    if (settled === current) break;
+    current = settled;
   }
 
   return current;
