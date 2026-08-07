@@ -592,3 +592,98 @@ test("Influence softens a global event's loss", () => {
     "influence never makes the loss worse"
   );
 });
+
+// Turmoil rules, FINAL SCORING: "all Party Leaders and the Chairman are worth
+// 1 VP for the respective player."
+test("Party leaders and the chairman are each worth 1 VP", async () => {
+  const { calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a, b] = state.turnOrder;
+
+  const before = calculateScoreBreakdowns(state);
+  state.turmoil.parties.reds.leader = a;
+  state.turmoil.parties.unity.leader = b;
+  state.turmoil.chairman = a;
+
+  const after = calculateScoreBreakdowns(state);
+  // A leads one party and holds the chair; B leads one party.
+  assert.equal(after[a].total - before[a].total, 2, "one party leadership plus the chair");
+  assert.equal(after[b].total - before[b].total, 1, "one party leadership");
+  assert.equal(after[a].turmoil, 2, "the breakdown attributes both to turmoil");
+});
+
+test("Leading several parties scores each of them", async () => {
+  const { calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+
+  const before = calculateScoreBreakdowns(state)[a].total;
+  state.turmoil.parties.reds.leader = a;
+  state.turmoil.parties.unity.leader = a;
+  state.turmoil.parties.scientists.leader = a;
+  state.turmoil.chairman = null;
+
+  assert.equal(
+    calculateScoreBreakdowns(state)[a].total - before,
+    3,
+    "three leaderships are worth three points"
+  );
+});
+
+test("Neutral leaders and a neutral chairman score for nobody", async () => {
+  const { calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+
+  // The pinned deal already seats a neutral chairman and neutral party leaders.
+  assert.equal(state.turmoil.chairman, NEUTRAL);
+  assert.equal(state.turmoil.parties.kelvinists.leader, NEUTRAL);
+
+  const breakdowns = calculateScoreBreakdowns(state);
+  for (const id of state.turnOrder) {
+    assert.equal(breakdowns[id].turmoil ?? 0, 0, `${id} gains nothing from neutral markers`);
+  }
+});
+
+test("The turmoil points are included in the total", async () => {
+  const { calculateScoreBreakdowns, computeScore } = await import("../app/game-logic.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+  state.turmoil.parties.reds.leader = a;
+  state.turmoil.chairman = a;
+
+  const breakdown = calculateScoreBreakdowns(state)[a];
+  const summed = ["tr", "board", "cards", "milestones", "awards", "turmoil", "modifier"].reduce(
+    (sum, key) => sum + (breakdown[key] ?? 0),
+    0
+  );
+  assert.equal(breakdown.total, summed, "the breakdown adds up to its own total");
+  assert.equal(computeScore(state, a), breakdown.total, "computeScore agrees with the breakdown");
+});
+
+test("A game without turmoil scores no turmoil points", async () => {
+  const { calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2 });
+  const breakdowns = calculateScoreBreakdowns(state);
+  for (const id of state.turnOrder) {
+    assert.equal(breakdowns[id].turmoil ?? 0, 0, "turmoil contributes nothing when it is off");
+  }
+});
+
+// The breakdown used to seed its category keys from a second hand-written list,
+// so a category present in SCORE_CATEGORIES but missing there landed as NaN
+// while the total stayed correct — a blank row in the UI and no exception.
+test("Every score category appears in the breakdown", async () => {
+  const { calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const { SCORE_CATEGORIES } = await import("../app/scoring.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const breakdown = calculateScoreBreakdowns(state)[state.turnOrder[0]];
+
+  for (const category of SCORE_CATEGORIES) {
+    assert.equal(
+      typeof breakdown[category],
+      "number",
+      `${category} is a number, not undefined or NaN`
+    );
+    assert.ok(Number.isFinite(breakdown[category]), `${category} is finite`);
+  }
+});

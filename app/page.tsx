@@ -369,6 +369,8 @@ interface ScoreBreakdown {
   cards: number;
   milestones: number;
   awards: number;
+  // Party leaders and the chairman, 1 VP each (Turmoil final scoring).
+  turmoil: number;
   modifier: number;
   total: number;
   details: ScoreContribution[];
@@ -2771,6 +2773,7 @@ export default function Home() {
                   ["cards", "カード勝利点", "var(--color-gold)"],
                   ["milestones", "マイルストーン", "var(--color-gold)"],
                   ["awards", "褒賞", "var(--color-gold)"],
+                  ["turmoil", "党首・議長", "var(--color-cyan)"],
                   ["modifier", "その他の増減", "var(--color-rust)"]
                 ] as const).map(([key, label, color]) =>
                   scoreBreakdown[key] === 0 && key !== "tr" ? null : (
