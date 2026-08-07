@@ -1786,6 +1786,14 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       } else {
         nextLogs = applyWorldGovernmentParameter(next, option.parameter, nextLogs);
       }
+      // Raising the track may itself owe an ocean (0°C), which is another
+      // question. The solar phase waits for it rather than finishing over it.
+      if ((next.pendingChoiceQueue ?? []).length > 0) {
+        promoteNextChoice(next);
+        next.phaseContinuation = { kind: "solar-phase" };
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
       const resumed = finishSolarPhase(next, nextLogs);
       return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
     }
@@ -1937,6 +1945,129 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
 // has no way to stop and ask. Venus is preferred because it is the track the WG
 // exists to help with, then the others in board order. The ocean option is not
 // offered here because placing one needs a board target, which needs a prompt.
+// One way in for every global parameter change, whoever is raising it.
+//
+// The thresholds printed on the track — oxygen 8% pushing the temperature,
+// -24°C and -20°C paying heat production, 0°C laying an ocean — belong to the
+// track, not to the player, so they fire no matter what moved it. What differs
+// is whether the mover is *rewarded*: a card pays its player TR, the World
+// Government pays nobody (`grantTr: false`).
+//
+// The heat production from -24°C and -20°C is a reward, so it follows grantTr.
+// The ocean at 0°C is not: it is the board's ocean, and it is laid on the same
+// terms as the World Government's own.
+export function applyGlobalParameterChange(state, options, logs) {
+  const {
+    parameter,
+    steps = 1,
+    actorPlayerId = null,
+    grantTr = true,
+    sourceLabel = null
+  } = options;
+
+  const limits = {
+    temperature: { max: MAX_TEMPERATURE, perStep: 2 },
+    oxygen: { max: MAX_OXYGEN, perStep: 1 },
+    venus: { max: MAX_VENUS, perStep: 2 },
+    oceans: { max: MAX_OCEANS, perStep: 1 }
+  };
+  const limit = limits[parameter];
+  if (!limit) return { state, logs };
+
+  const beforeTemp = state.temperature;
+  const beforeOxy = state.oxygen;
+  const before = state[parameter];
+  const after = Math.min(limit.max, before + limit.perStep * steps);
+  state[parameter] = after;
+
+  let nextLogs = logs;
+  if (after === before) return { state, logs: nextLogs };
+
+  // TR follows the track actually moving, and only for a player who earned it.
+  if (grantTr && actorPlayerId) {
+    const stepsTaken = Math.round((after - before) / limit.perStep);
+    bumpTr(state, actorPlayerId, stepsTaken);
+  }
+  if (sourceLabel) nextLogs = addLog(nextLogs, "system", sourceLabel);
+
+  // The track's own thresholds, which are nobody's reward to withhold.
+  const settled = applyParameterThresholds(state, {
+    beforeTemp,
+    beforeOxy,
+    actorPlayerId,
+    grantTr,
+    logs: nextLogs
+  });
+  return { state: settled.state, logs: settled.logs };
+}
+
+// The threshold rules, split out so they can run for a card, the World
+// Government or a global event alike. `grantTr` decides only whether the mover
+// is paid; the board effects happen either way.
+function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId, grantTr, logs }) {
+  let nextLogs = logs;
+  let effectiveTemp = state.temperature;
+
+  // Oxygen 8% pushes the temperature one step.
+  if (beforeOxy < 8 && state.oxygen >= 8 && state.temperature < MAX_TEMPERATURE) {
+    const tempBefore = state.temperature;
+    state.temperature = Math.min(MAX_TEMPERATURE, state.temperature + 2);
+    effectiveTemp = Math.max(effectiveTemp, state.temperature);
+    if (state.temperature > tempBefore && grantTr && actorPlayerId) {
+      bumpTr(state, actorPlayerId, 1);
+      nextLogs = addLog(nextLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C, TR +1");
+    } else {
+      nextLogs = addLog(nextLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C");
+    }
+  }
+
+  // -24°C and -20°C each pay the mover heat production. A reward, so it follows
+  // grantTr — the World Government keeps its own.
+  for (const mark of [-24, -20]) {
+    if (beforeTemp < mark && effectiveTemp >= mark && grantTr && actorPlayerId) {
+      state.players = state.players.map(player =>
+        player.id === actorPlayerId ? { ...player, heatProd: (player.heatProd ?? 0) + 1 } : player
+      );
+      nextLogs = addLog(nextLogs, "system", `気温 ${mark}°C 達成ボーナス: 熱生産量 +1`);
+    }
+  }
+
+  // 0°C lays an ocean. When a player crossed the mark it is their ocean and
+  // pays them TR, and it goes through the legacy pendingOceans path the UI
+  // drives by board click. When the World Government or a global event crossed
+  // it, nobody is paid and nobody is holding the mouse, so it is queued as a
+  // real placement question owned by the first player.
+  if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < MAX_OCEANS) {
+    if (grantTr && actorPlayerId) {
+      state.pendingOceans = (state.pendingOceans ?? 0) + 1;
+      nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+    } else {
+      const ownerId = state.firstPlayerId ?? state.turnOrder?.[0];
+      const choice = buildTileChoice(
+        state,
+        "ocean",
+        {
+          sourceKind: "threshold",
+          sourceId: "temperature-zero-ocean",
+          consumedAction: false,
+          paid: true,
+          remaining: 1
+        },
+        legalCellsFor(state, "ocean", ownerId)
+      );
+      if (choice) {
+        choice.ownerPlayerId = ownerId;
+        choice.continuation.stage = "global-event-ocean";
+        choice.prompt = "気温 0°C 達成ボーナス: 海洋タイルを配置するマスを選んでください。";
+        enqueuePendingChoices(state, [choice]);
+        nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚を配置します。");
+      }
+    }
+  }
+
+  return { state, logs: nextLogs };
+}
+
 // The four things the World Government may do, minus whatever is already maxed.
 // An ocean is only offered while fewer than nine are on the board.
 export function worldGovernmentOptions(state) {
@@ -1962,16 +2093,18 @@ export function worldGovernmentOptions(state) {
 // measured around it.
 export function applyWorldGovernmentParameter(state, parameter, logs) {
   const labels = { venus: "金星", temperature: "気温", oxygen: "酸素" };
-  const steps = { venus: 2, temperature: 2, oxygen: 1 };
-  const maxima = { venus: MAX_VENUS, temperature: MAX_TEMPERATURE, oxygen: MAX_OXYGEN };
-  if (!(parameter in maxima)) return logs;
+  if (!(parameter in labels)) return logs;
 
-  state[parameter] = Math.min(maxima[parameter], state[parameter] + steps[parameter]);
-  return addLog(
-    logs,
-    "system",
-    `世界政府のテラフォーミング: ${labels[parameter]}を1段階上昇させました（TRは得られません）。`
-  );
+  // grantTr: false — the terraforming is the World Government's. The track's own
+  // thresholds still fire, because those belong to the board.
+  const result = applyGlobalParameterChange(state, {
+    parameter,
+    steps: 1,
+    actorPlayerId: null,
+    grantTr: false,
+    sourceLabel: `世界政府のテラフォーミング: ${labels[parameter]}を1段階上昇させました（TRは得られません）。`
+  }, logs);
+  return result.logs;
 }
 
 function bumpTr(state, playerId, amount) {
@@ -2348,6 +2481,8 @@ export function getPlaceholderState() {
     // when they are all answered.
     pendingChoiceQueue: [],
     phaseContinuation: null,
+    // Free oceans the board owes that pay nobody (World Government, events).
+    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil: null,
     colonies: null,
@@ -2503,6 +2638,8 @@ export function getInitialState(options = {}) {
     // when they are all answered.
     pendingChoiceQueue: [],
     phaseContinuation: null,
+    // Free oceans the board owes that pay nobody (World Government, events).
+    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil,
     colonies,
@@ -3290,10 +3427,24 @@ function applyGlobalEventEffect(state, event, logs) {
     return updated;
   });
 
+  // A global event moves the track like anything else, so it goes through the
+  // shared path: Volcanic Eruptions crossing 0°C lays the ocean the track owes,
+  // and nobody is paid TR for an event.
   if (spec.global) {
     for (const [field, amount] of Object.entries(spec.global)) {
-      if (field === "temperature") {
-        state.temperature = Math.max(-30, Math.min(MAX_TEMPERATURE, state.temperature + amount));
+      if (amount > 0) {
+        const perStep = field === "oxygen" ? 1 : 2;
+        const applied = applyGlobalParameterChange(state, {
+          parameter: field,
+          steps: amount / perStep,
+          actorPlayerId: null,
+          grantTr: false
+        }, nextLogs);
+        nextLogs = applied.logs;
+      } else if (field === "temperature") {
+        // Snow Cover pushes the temperature back down; nothing is triggered by
+        // a falling track.
+        state.temperature = Math.max(-30, state.temperature + amount);
       }
     }
   }

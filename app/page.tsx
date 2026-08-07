@@ -236,6 +236,9 @@ interface GameState {
   setupStep: "corporation" | "prelude" | "projects" | "complete";
   turnStep: "start" | "one_action_taken" | "second_action_allowed";
   pendingOceans: number;
+  // Of those, the ones the World Government or a global event owes the board:
+  // they pay nobody, and are spent before any the player earned.
+  pendingUnownedOceans?: number;
   researchCards: string[];
   corporationOptions: string[];
   corporationId: string | null;
@@ -330,7 +333,8 @@ const placeTile = jsPlaceTileAt as unknown as (
   cell: CellState,
   tileType: string,
   ownerId: string | null,
-  cardId?: string
+  cardId?: string,
+  options?: { worldGovernment?: boolean }
 ) => GameState;
 const BOARDS = jsBOARDS as unknown as Record<string, { id: string; name: string; englishName: string }>;
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
@@ -1013,11 +1017,19 @@ export default function Home() {
       const nextState = jsCloneGameState(gameState) as GameState;
       nextState.board = { ...gameState.board };
       const oldOceans = nextState.oceans;
-      placeTile(nextState, cell, "ocean", currentPlayerId);
-      
+      // An ocean the World Government or a global event owes the board pays
+      // nobody, so those are spent before any the player earned.
+      const unowned = (nextState.pendingUnownedOceans ?? 0) > 0;
+      placeTile(nextState, cell, "ocean", currentPlayerId, undefined, {
+        worldGovernment: unowned
+      });
+
       let localLogs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-      if (oldOceans < 9) {
+      if (oldOceans < 9 && !unowned) {
         localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+      }
+      if (unowned) {
+        nextState.pendingUnownedOceans = (nextState.pendingUnownedOceans ?? 0) - 1;
       }
       nextState.pendingOceans -= 1;
       nextState.logs = localLogs;

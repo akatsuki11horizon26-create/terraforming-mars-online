@@ -1418,3 +1418,117 @@ test("A queued choice survives a save and reload", () => {
   assert.ok(finished.state.turmoil.rulingParty, "and the phase finished");
   assert.equal(finished.state.phaseContinuation, null, "the continuation is cleared");
 });
+
+// The thresholds printed on the track belong to the track, not to whoever moved
+// it. They fired only for cards, so the World Government and every global event
+// crossed 8% oxygen and 0°C without the board noticing.
+test("World Government oxygen at 8% still pushes the temperature", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.oxygen = 7;
+  state.temperature = -30;
+  const trBefore = state.players.map(p => p.tr);
+
+  const paused = triggerProduction(state, state.logs);
+  const resolved = resolvePendingChoice(paused, "oxygen", paused.logs, paused.firstPlayerId);
+
+  assert.equal(resolved.state.oxygen, 8, "oxygen reaches the mark");
+  assert.equal(resolved.state.temperature, -28, "and the temperature follows it up a step");
+  assert.deepEqual(
+    resolved.state.players.map(p => p.tr),
+    trBefore,
+    "but nobody is paid for the World Government's terraforming"
+  );
+});
+
+test("World Government temperature at 0C still owes an ocean", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.temperature = -2;
+  const trBefore = state.players.map(p => p.tr);
+
+  const paused = triggerProduction(state, state.logs);
+  const resolved = resolvePendingChoice(paused, "temperature", paused.logs, paused.firstPlayerId);
+
+  assert.equal(resolved.state.temperature, 0, "the mark is crossed");
+  // Nobody is holding the mouse for the World Government, so the ocean it owes
+  // is a real placement question rather than the legacy click-the-board path.
+  assert.equal(resolved.state.pendingChoice.kind, "tile-placement", "it asks where");
+  assert.ok(resolved.state.pendingChoice.options.length > 0, "with somewhere to put it");
+  assert.equal(resolved.state.phaseContinuation.kind, "solar-phase", "the phase waits");
+  assert.deepEqual(resolved.state.players.map(p => p.tr), trBefore, "no TR either");
+
+  const placed = resolvePendingChoice(
+    resolved.state,
+    resolved.state.pendingChoice.options[0].id,
+    resolved.logs,
+    resolved.state.pendingChoice.ownerPlayerId
+  );
+  assert.equal(placed.state.oceans, 1, "the ocean lands");
+  assert.deepEqual(placed.state.players.map(p => p.tr), trBefore, "and still pays no TR");
+  assert.equal(
+    placed.state.players[0].mc,
+    placed.state.players[1].mc,
+    "nor any placement bonus"
+  );
+  assert.equal(placed.state.generation, state.generation + 1, "the solar phase then finishes");
+});
+
+// Volcanic Eruptions raises the temperature two steps, so it can cross 0°C.
+test("Volcanic Eruptions crossing 0C owes the same ocean a card would", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.temperature = -2;
+  state.turmoil.currentEvent = "global-volcanic-eruptions";
+
+  const started = runTurmoilPhase(state, state.logs);
+  assert.equal(started.state.temperature, 0, "the track crossed the mark");
+  // The ocean the track owes is asked for, not silently added to a counter the
+  // UI has to notice.
+  assert.equal(started.state.pendingChoice.kind, "tile-placement", "it asks where");
+  assert.equal(
+    started.state.turmoil.rulingParty,
+    "greens",
+    "and the government waits for the answer"
+  );
+
+  const trBefore = started.state.players.map(p => p.tr);
+  const placed = resolvePendingChoice(
+    started.state,
+    started.state.pendingChoice.options[0].id,
+    started.logs,
+    started.state.pendingChoice.ownerPlayerId
+  );
+  assert.equal(placed.state.oceans, 1, "the ocean lands");
+  assert.deepEqual(placed.state.players.map(p => p.tr), trBefore, "and pays nobody");
+  assert.ok(placed.state.turmoil.rulingParty, "the phase then finishes");
+});
+
+test("A global event pays nobody the heat production the track marks give", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.temperature = -26;
+  const heatBefore = state.players.map(p => p.heatProd);
+  state.turmoil.currentEvent = "global-volcanic-eruptions";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(after.temperature, -24, "the -24 mark is reached");
+  assert.deepEqual(
+    after.players.map(p => p.heatProd),
+    heatBefore,
+    "the heat production is a reward, and an event rewards nobody"
+  );
+});
+
+test("A maxed track is not raised past its limit by the World Government", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.venus = 30;
+  state.oxygen = 14;
+  state.oceans = 9;
+
+  const paused = triggerProduction(state, state.logs);
+  assert.deepEqual(
+    paused.pendingChoice.options.map(o => o.id),
+    ["temperature"],
+    "only the one track that can still move is offered"
+  );
+
+  const resolved = resolvePendingChoice(paused, "temperature", paused.logs, paused.firstPlayerId);
+  assert.ok(resolved.state.temperature <= 8, "the temperature never passes its own cap");
+});
