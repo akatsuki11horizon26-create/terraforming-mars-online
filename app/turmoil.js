@@ -3,6 +3,8 @@
 // implementation (src/server/turmoil).
 export const DELEGATES_PER_PLAYER = 7;
 export const DELEGATES_FOR_NEUTRAL = 14;
+// Lobbying costs 5 M€ from the Delegate Reserve; the Lobby delegate is free.
+export const DELEGATE_RESERVE_COST = 5;
 export const NEUTRAL = "NEUTRAL";
 
 export const PARTIES = [
@@ -118,18 +120,37 @@ export function normalizePartyId(name) {
   return aliases[normalized] ?? normalized;
 }
 
-export function createTurmoilState(playerIds, globalEventIds) {
+// Places a neutral delegate for a global event, the way each card instructs.
+// The party comes off the card face, so an unknown name must not silently drop
+// the delegate — dominance is counted from these.
+function addNeutralDelegate(state, partyName) {
+  const partyId = normalizePartyId(partyName);
+  const party = state.parties[partyId];
+  if (!party) return;
+  if ((state.delegateReserve[NEUTRAL] ?? 0) <= 0) return;
+  state.delegateReserve[NEUTRAL] -= 1;
+  party.delegates.push(NEUTRAL);
+  party.leader = computePartyLeader(party);
+}
+
+// Turmoil setup: the Greens start as ruling with a neutral chairman, then the
+// Coming and Distant events are drawn, each adding the neutral delegate printed
+// on it. Those delegates are what set the starting Dominant party. There is
+// deliberately no Current event — "no CURRENT Global Event to execute the first
+// generation" — so drawing a third card here would resolve an event that should
+// never have been in play.
+export function createTurmoilState(playerIds, globalEventIds, getEvent = () => null) {
   const delegateReserve = { [NEUTRAL]: DELEGATES_FOR_NEUTRAL - 1 };
   for (const id of playerIds) delegateReserve[id] = DELEGATES_PER_PLAYER;
 
   const parties = {};
   for (const party of PARTIES) parties[party.id] = { delegates: [], leader: null };
-  // The game opens with a neutral chairman and the Greens dominant.
-  parties.greens.delegates.push(NEUTRAL);
-  parties.greens.leader = NEUTRAL;
 
   const queue = [...globalEventIds];
-  return {
+  const comingEvent = queue.shift() ?? null;
+  const distantEvent = queue.shift() ?? null;
+
+  const state = {
     chairman: NEUTRAL,
     dominantParty: "greens",
     rulingParty: "greens",
@@ -137,13 +158,20 @@ export function createTurmoilState(playerIds, globalEventIds) {
     parties,
     delegateReserve,
     lobby: [...playerIds],
-    // distant -> coming -> current, advanced each generation.
-    distantEvent: queue.shift() ?? null,
-    comingEvent: queue.shift() ?? null,
-    currentEvent: queue.shift() ?? null,
+    // coming -> current, advanced each generation. Generation 1 has no current.
+    distantEvent,
+    comingEvent,
+    currentEvent: null,
     eventDeck: queue,
     playersInfluenceBonus: {}
   };
+
+  // The Coming event places the delegate named at its top left; the Distant
+  // event places the one it shows when first turned face up.
+  addNeutralDelegate(state, getEvent(comingEvent)?.revealedDelegate);
+  addNeutralDelegate(state, getEvent(distantEvent)?.revealedDelegate);
+  state.dominantParty = computeDominantParty(state);
+  return state;
 }
 
 export function countDelegates(turmoil, partyId, delegate) {
@@ -180,14 +208,18 @@ export function sendDelegate(turmoil, delegate, partyId, { fromLobby = false } =
   return { turmoil: next, sent: true };
 }
 
-function computePartyLeader(party) {
+// Turmoil rules: a challenger takes the Party Leader seat only by having *more*
+// delegates than the current leader. The incumbent has to be passed in, or a tie
+// silently hands the seat to whoever sits earliest in the delegates array.
+function computePartyLeader(party, incumbent = party.leader ?? null) {
   const counts = new Map();
   for (const delegate of party.delegates) {
     counts.set(delegate, (counts.get(delegate) ?? 0) + 1);
   }
-  let leader = null;
-  let best = 0;
-  // Ties keep the incumbent, so only a strictly greater count takes the lead.
+
+  const incumbentCount = incumbent ? (counts.get(incumbent) ?? 0) : 0;
+  let leader = incumbentCount > 0 ? incumbent : null;
+  let best = incumbentCount;
   for (const delegate of party.delegates) {
     const count = counts.get(delegate);
     if (count > best) {
@@ -240,9 +272,18 @@ export function getInfluence(turmoil, playerId) {
   return influence;
 }
 
-// End of generation: the dominant party takes power, its bonus pays out, the
-// chairman gains 1 TR, and the event queue advances.
-export function advanceTurmoil(turmoil) {
+// Turmoil step 3, New Government (Turmoil rules, Solar phase step 4):
+//   3a) the Dominant party becomes ruling and its Policy tile goes on top
+//   3c) the former Chairman and ALL non-leader delegates of that party go back
+//       to their reserves
+//   3d) the Party Leader becomes the new Chairman
+//   3e) the Dominance marker moves to the new most-populous party
+//
+// Step 3b (the Ruling Bonus) sits between 3a and 3c and pays out for the *new*
+// ruling party, so it belongs to the caller, which owns player state. This
+// returns rulingParty for exactly that reason — paying before calling this
+// function would pay the outgoing party's bonus.
+export function formNewGovernment(turmoil) {
   const next = cloneTurmoil(turmoil);
   const newRuling = next.dominantParty;
   const rulingParty = getParty(newRuling);
@@ -251,27 +292,51 @@ export function advanceTurmoil(turmoil) {
   const dominant = next.parties[newRuling];
   const newChairman = dominant?.leader ?? NEUTRAL;
 
-  // The outgoing chairman returns to their reserve; the new chairman leaves the party.
+  // 3c: the outgoing chairman returns to their reserve.
   if (outgoingChairman) {
     next.delegateReserve[outgoingChairman] = (next.delegateReserve[outgoingChairman] ?? 0) + 1;
   }
-  if (dominant && newChairman) {
-    const index = dominant.delegates.indexOf(newChairman);
-    if (index >= 0) dominant.delegates.splice(index, 1);
-    dominant.leader = computePartyLeader(dominant);
+
+  if (dominant) {
+    // 3d: the leader leaves the party for the Chairman seat.
+    if (newChairman) {
+      const index = dominant.delegates.indexOf(newChairman);
+      if (index >= 0) dominant.delegates.splice(index, 1);
+    }
+    // 3c: every remaining delegate of the new ruling party goes home too. Leaving
+    // them on the board would skew the next generation's dominance and influence.
+    for (const delegate of dominant.delegates) {
+      next.delegateReserve[delegate] = (next.delegateReserve[delegate] ?? 0) + 1;
+    }
+    dominant.delegates = [];
+    dominant.leader = null;
   }
 
   next.chairman = newChairman;
   next.rulingParty = newRuling;
   next.rulingPolicyId = rulingParty?.policies[0]?.id ?? null;
 
-  const resolvedEvent = next.currentEvent;
+  // 3e: the emptied ruling party hands the Dominance marker on.
+  next.dominantParty = computeDominantParty(next);
+  return { turmoil: next, newChairman, rulingParty: newRuling };
+}
+
+// Turmoil step 4, Changing Times: "Place the Coming Global Event on top of the
+// Current Global Event. Add the neutral delegate indicated at the mid-right on
+// that card. Move the Distant Global Event into the Coming spot" and turn a new
+// Distant face up, adding the delegate printed at its top left.
+export function advanceGlobalEvents(turmoil, getEvent = () => null) {
+  const next = cloneTurmoil(turmoil);
   next.currentEvent = next.comingEvent;
   next.comingEvent = next.distantEvent;
   next.distantEvent = next.eventDeck.shift() ?? null;
 
+  // The card becoming Current adds its mid-right delegate; the newly revealed
+  // Distant card adds its top-left one.
+  addNeutralDelegate(next, getEvent(next.currentEvent)?.currentDelegate);
+  addNeutralDelegate(next, getEvent(next.distantEvent)?.revealedDelegate);
   next.dominantParty = computeDominantParty(next);
-  return { turmoil: next, resolvedEvent, newChairman, rulingParty: newRuling };
+  return { turmoil: next };
 }
 
 // Everyone gets one delegate back from the reserve into the lobby each generation.

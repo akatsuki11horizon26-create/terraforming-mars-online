@@ -48,19 +48,34 @@ import {
   buildResourceChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  buildCorrosiveRainChoice,
+  buildEventDiscardChoice,
+  buildFloaterPlacementChoice,
+  buildStandardResourcePickChoice,
+  buildOceanRemovalChoice,
   buildTileChoice,
+  buildWorldGovernmentChoice,
+  collectResourceTargets,
   findOption,
   isChoiceOwnedBy
 } from "./pending-choice.js";
 import { getCardResourceType } from "./card-resource-types.js";
+import {
+  getGlobalEventEffect,
+  missingGlobalEventEffects,
+  playableGlobalEvents
+} from "./global-events.js";
+export { missingGlobalEventEffects, playableGlobalEvents };
 
 export { STANDARD_RESOURCES } from "./pending-choice.js";
 export { getCardResourceType };
 import {
+  DELEGATE_RESERVE_COST,
   NEUTRAL,
   PARTIES,
-  advanceTurmoil,
+  advanceGlobalEvents,
   cloneTurmoil,
+  formNewGovernment,
   createTurmoilState,
   getInfluence,
   getParty,
@@ -89,10 +104,10 @@ import {
   increaseTrack,
   addFleet,
   cloneColonies,
+  advanceColonyProduction,
   countColonies,
   createColoniesState,
   getColonyTile,
-  resetFleets,
   trade as tradeWithColony
 } from "./colonies.js";
 
@@ -810,6 +825,9 @@ function applyEffect(state, effect, logs, options = {}) {
     const beforeVenus = nextState.venus ?? 0;
     nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
     nextState.tr += Math.max(0, (nextState.venus - beforeVenus) / 2);
+    // Aphrodite and anything else watching the scale reacts to a card's step
+    // just as it does to the World Government's.
+    grantParameterRaisedCardEffects(nextState, "venus", (nextState.venus - beforeVenus) / 2);
     const venusBonus = applyVenusThresholds(nextState, beforeVenus, nextLogs);
     nextState = venusBonus.state;
     nextLogs = venusBonus.logs;
@@ -1307,6 +1325,60 @@ function markChoiceResolved(state, sourceId, stage) {
   state.resolvedChoices = resolved;
 }
 
+// A global event asks several players in turn, so the engine keeps a queue
+// beside the single live choice. Everything here is plain data: it serialises
+// with the rest of the state, so a save, a reload or a reconnect picks the
+// queue up exactly where it stopped.
+//
+// The rule is that nothing after the queue runs until the queue is empty. The
+// turmoil phase parks its remaining steps in `phaseContinuation`, and only
+// draining the last question triggers them.
+export function enqueuePendingChoices(state, choices) {
+  const queued = (choices ?? []).filter(Boolean);
+  if (queued.length === 0) return;
+  state.pendingChoiceQueue = [...(state.pendingChoiceQueue ?? []), ...queued];
+}
+
+// Moves the next queued question into the live slot. Returns false when the
+// queue is empty, which is the caller's signal to run the continuation.
+function promoteNextChoice(state) {
+  const queue = state.pendingChoiceQueue ?? [];
+  if (queue.length === 0) {
+    state.pendingChoiceQueue = [];
+    return false;
+  }
+  const [next, ...rest] = queue;
+  state.pendingChoiceQueue = rest;
+  state.pendingChoice = next;
+  return true;
+}
+
+// Runs whatever the phase parked once every question has been answered.
+function runPhaseContinuation(state, logs) {
+  const continuation = state.phaseContinuation;
+  if (!continuation) return { state, logs };
+  state.phaseContinuation = null;
+
+  if (continuation.kind === "turmoil-after-event") {
+    return finishTurmoilPhase(state, logs, continuation);
+  }
+  if (continuation.kind === "solar-phase") {
+    const resumed = finishSolarPhase(state, logs);
+    return { state: resumed, logs: resumed.logs ?? logs };
+  }
+  return { state, logs };
+}
+
+// Called after every resolution: either the next queued question comes up, or
+// the phase that was waiting on them continues.
+function advanceChoiceQueue(state, logs) {
+  if (promoteNextChoice(state)) {
+    return { state, logs: addLog(logs, "system", state.pendingChoice.prompt), pending: true };
+  }
+  const continued = runPhaseContinuation(state, logs);
+  return { state: continued.state, logs: continued.logs, pending: false };
+}
+
 // Applies the player's selection and either finishes the effect or produces the
 // next choice the same card still needs.
 export const DECLINE_CHOICE = "__decline__";
@@ -1562,9 +1634,22 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "tile-placement": {
       const cell = next.board[option.targetCellKey];
       const tileType = choice.continuation.payload?.tileType ?? "ocean";
+      // Both the World Government's ocean and a global event's are laid on
+      // behalf of the board, so neither pays the placer.
+      const byWorldGovernment =
+        choice.continuation.stage === "world-government-ocean" ||
+        choice.continuation.stage === "global-event-ocean";
       if (cell) {
-        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId);
-        nextLogs = addLog(nextLogs, "system", `${option.label} にタイルを配置しました。`);
+        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
+          worldGovernment: byWorldGovernment
+        });
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          byWorldGovernment
+            ? `世界政府が ${option.label} に海洋タイルを配置しました（TRは得られません）。`
+            : `${option.label} にタイルを配置しました。`
+        );
       }
       const remaining = (choice.continuation.remaining ?? 1) - 1;
       if (remaining > 0) {
@@ -1577,8 +1662,152 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "standard-resource-pick": {
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? { ...player, [option.resource]: (player[option.resource] ?? 0) + 1 }
+          : player
+      );
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${getPlayer(next, choice.ownerPlayerId)?.name} が ${option.label} を1獲得しました。`
+      );
+      break;
+    }
+    case "floater-placement": {
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? {
+              ...player,
+              cardResources: {
+                ...player.cardResources,
+                [option.cardId]: (player.cardResources?.[option.cardId] ?? 0) + 1
+              }
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${option.label} にフローターを1個置きました。`);
+      break;
+    }
+    case "corrosive-rain": {
+      const { floaters, mc } = choice.continuation.payload ?? { floaters: 2, mc: 10 };
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      if (option.payMc) {
+        const paid = Math.min(mc, owner?.mc ?? 0);
+        next.players = next.players.map(player =>
+          player.id === choice.ownerPlayerId ? { ...player, mc: player.mc - paid } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `${owner?.name} が ${paid} MC を失いました。`);
+        break;
+      }
+      // Re-check the card still holds enough: state may have moved on.
+      const held = owner?.cardResources?.[option.cardId] ?? 0;
+      if (held < floaters) {
+        const paid = Math.min(mc, owner?.mc ?? 0);
+        next.players = next.players.map(player =>
+          player.id === choice.ownerPlayerId ? { ...player, mc: player.mc - paid } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `対象のフローターが足りないため ${paid} MC を失いました。`);
+        break;
+      }
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? {
+              ...player,
+              cardResources: { ...player.cardResources, [option.cardId]: held - floaters }
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${owner?.name} が ${option.label} を失いました。`);
+      break;
+    }
+    case "event-discard": {
+      // Re-check against the hand as it stands: the option list was built when
+      // the question was queued, and an earlier answer may have taken this card.
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      const held = owner?.hand ?? [];
+      if (!held.includes(option.cardId)) {
+        // Put the question back rather than discarding something else.
+        next.pendingChoice = {
+          ...choice,
+          options: held.map(cardId => ({
+            id: cardId,
+            label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId,
+            cardId
+          }))
+        };
+        nextLogs = addLog(nextLogs, "system", "そのカードは手札にありません。");
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? { ...player, hand: player.hand.filter(cardId => cardId !== option.cardId) }
+          : player
+      );
+      next.discardPile = [...(next.discardPile ?? []), option.cardId];
+      nextLogs = addLog(nextLogs, "system", `${owner?.name ?? choice.ownerPlayerId} が ${option.label} を捨てました。`);
+      break;
+    }
+    case "ocean-removal": {
+      const cell = next.board[option.targetCellKey];
+      if (cell) {
+        next.board = { ...next.board };
+        // The square goes back to being empty; the ocean count follows it down.
+        next.board[option.targetCellKey] = { ...cell, tileType: "empty", placedBy: null };
+        next.oceans = Math.max(0, next.oceans - 1);
+        nextLogs = addLog(nextLogs, "system", `${option.label} の海洋タイルを取り除きました。`);
+      }
+      break;
+    }
+    case "world-government": {
+      // An ocean needs a square, so the choice continues into a tile placement
+      // that carries the worldGovernment flag through to placeTileAt.
+      if (option.parameter === "ocean") {
+        const followUp = buildTileChoice(
+          next,
+          "ocean",
+          {
+            sourceKind: "solar-phase",
+            sourceId: "world-government-ocean",
+            consumedAction: false,
+            paid: true,
+            remaining: 1
+          },
+          legalCellsFor(next, "ocean", actorId)
+        );
+        if (followUp) {
+          // The owner is the first player, who may not be the player in turn.
+          followUp.ownerPlayerId = choice.ownerPlayerId;
+          followUp.continuation.stage = "world-government-ocean";
+          next.pendingChoice = followUp;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+        }
+        // Nowhere legal to put it: fall through and let the phase continue.
+      } else {
+        nextLogs = applyWorldGovernmentParameter(next, option.parameter, nextLogs);
+      }
+      // Raising the track may itself owe an ocean (0°C), which is another
+      // question. The solar phase waits for it rather than finishing over it.
+      if ((next.pendingChoiceQueue ?? []).length > 0) {
+        promoteNextChoice(next);
+        next.phaseContinuation = { kind: "solar-phase" };
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
+      const resumed = finishSolarPhase(next, nextLogs);
+      return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
+    }
     default:
       break;
+  }
+
+  // The World Government's ocean has been placed; the Solar phase carries on.
+  if (choice.continuation.stage === "world-government-ocean") {
+    const resumed = finishSolarPhase(next, nextLogs);
+    return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
 
   // The same card may still owe another decision.
@@ -1592,8 +1821,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     }
   }
 
-  next.logs = nextLogs;
-  return { status: "resolved", state: next, logs: nextLogs };
+  // Anything else queued behind this one comes up next; when the queue is empty
+  // the phase that was waiting on it resumes.
+  const advanced = advanceChoiceQueue(next, nextLogs);
+  advanced.state.logs = advanced.logs;
+  return {
+    status: advanced.pending ? "pending" : "resolved",
+    state: advanced.state,
+    logs: advanced.logs,
+    ...(advanced.pending ? { pendingChoice: advanced.state.pendingChoice } : {})
+  };
 }
 
 export function legalCellsFor(state, tileType, playerId) {
@@ -1603,7 +1840,20 @@ export function legalCellsFor(state, tileType, playerId) {
   );
 }
 
-export function placeTileAt(state, cell, tileType, ownerId, cardId) {
+// `worldGovernment` marks a tile the World Government lays during the Solar
+// phase. "All bonuses go to the WG, and therefore no TR or other bonuses are
+// given to the first player" — so the placement bonus, the ocean adjacency
+// money and the TR are all skipped.
+//
+// The rules do let cards trigger off this ("Other cards may be triggered by
+// this though, i.e. Arctic Algae or the new corporation Aphrodite"), and the
+// tile-laid hook is deliberately left outside the flag so it keeps firing.
+// Note that no ocean trigger exists yet to fire: grantCityPlacementCardEffects
+// returns early for anything but a city, and Arctic Algae is modelled as a
+// one-off `stock: {plants: 1}` rather than an ongoing effect. Wiring those up
+// is separate work; this placement will feed them once they exist.
+export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}) {
+  const worldGovernment = options.worldGovernment === true;
   state.board = { ...state.board };
   state.board[`${cell.q},${cell.r}`] = {
     ...cell,
@@ -1623,20 +1873,23 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
           : p
       );
     }
-    grantPlacementBonus(state, cell, ownerId);
+    if (!worldGovernment) {
+      grantPlacementBonus(state, cell, ownerId);
 
-    // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
-    // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
-    // adjacent to the space just covered.
-    const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
-    if (adjacentOceans > 0) {
-      const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
-      state.players = state.players.map(p =>
-        p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
-      );
+      // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
+      // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
+      // adjacent to the space just covered.
+      const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
+      if (adjacentOceans > 0) {
+        const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
+        state.players = state.players.map(p =>
+          p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
+        );
+      }
+
+      grantPlacementCorporationEffects(state, cell, tileType, ownerId);
     }
-
-    grantPlacementCorporationEffects(state, cell, tileType, ownerId);
+    // Cards that watch for a tile being laid fire either way.
     grantCityPlacementCardEffects(state, tileType);
   }
 
@@ -1645,12 +1898,12 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
   if (tileType === "ocean") {
     const before = state.oceans;
     state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
-    if (state.oceans > before) bumpTr(state, ownerId, 1);
+    if (state.oceans > before && !worldGovernment) bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
     const before = state.oxygen;
     state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
-    if (state.oxygen > before) bumpTr(state, ownerId, 1);
+    if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
   }
   return state;
 }
@@ -1683,6 +1936,182 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
         : entry
     );
   }
+}
+
+// Solar phase step 2 (Venus Next rules): "The first player [...] now acts as the
+// WG, and chooses a non-maxed global parameter and increases that track one step,
+// or places an ocean tile. All bonuses go to the WG, and therefore no TR or other
+// bonuses are given to the first player."
+//
+// The parameter is picked for the first player rather than prompted for: the
+// choice belongs to a human, but the phase runs inside triggerProduction, which
+// has no way to stop and ask. Venus is preferred because it is the track the WG
+// exists to help with, then the others in board order. The ocean option is not
+// offered here because placing one needs a board target, which needs a prompt.
+// One way in for every global parameter change, whoever is raising it.
+//
+// The thresholds printed on the track — oxygen 8% pushing the temperature,
+// -24°C and -20°C paying heat production, 0°C laying an ocean — belong to the
+// track, not to the player, so they fire no matter what moved it. What differs
+// is whether the mover is *rewarded*: a card pays its player TR, the World
+// Government pays nobody (`grantTr: false`).
+//
+// The heat production from -24°C and -20°C is a reward, so it follows grantTr.
+// The ocean at 0°C is not: it is the board's ocean, and it is laid on the same
+// terms as the World Government's own.
+export function applyGlobalParameterChange(state, options, logs) {
+  const {
+    parameter,
+    steps = 1,
+    actorPlayerId = null,
+    grantTr = true,
+    sourceLabel = null
+  } = options;
+
+  const limits = {
+    temperature: { max: MAX_TEMPERATURE, perStep: 2 },
+    oxygen: { max: MAX_OXYGEN, perStep: 1 },
+    venus: { max: MAX_VENUS, perStep: 2 },
+    oceans: { max: MAX_OCEANS, perStep: 1 }
+  };
+  const limit = limits[parameter];
+  if (!limit) return { state, logs };
+
+  const beforeTemp = state.temperature;
+  const beforeOxy = state.oxygen;
+  const before = state[parameter];
+  const after = Math.min(limit.max, before + limit.perStep * steps);
+  state[parameter] = after;
+
+  let nextLogs = logs;
+  if (after === before) return { state, logs: nextLogs };
+
+  const stepsTaken = Math.round((after - before) / limit.perStep);
+
+  // TR follows the track actually moving, and only for a player who earned it.
+  if (grantTr && actorPlayerId) bumpTr(state, actorPlayerId, stepsTaken);
+  if (sourceLabel) nextLogs = addLog(nextLogs, "system", sourceLabel);
+
+  // Cards that watch the track fire for any mover, including the World
+  // Government: they are not a reward for terraforming, they are a reaction to
+  // the parameter moving at all.
+  grantParameterRaisedCardEffects(state, parameter, stepsTaken);
+
+  // The track's own thresholds, which are nobody's reward to withhold.
+  const settled = applyParameterThresholds(state, {
+    beforeTemp,
+    beforeOxy,
+    actorPlayerId,
+    grantTr,
+    logs: nextLogs
+  });
+  return { state: settled.state, logs: settled.logs };
+}
+
+// The threshold rules, split out so they can run for a card, the World
+// Government or a global event alike. `grantTr` decides only whether the mover
+// is paid; the board effects happen either way.
+function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId, grantTr, logs }) {
+  let nextLogs = logs;
+  let effectiveTemp = state.temperature;
+
+  // Oxygen 8% pushes the temperature one step.
+  if (beforeOxy < 8 && state.oxygen >= 8 && state.temperature < MAX_TEMPERATURE) {
+    const tempBefore = state.temperature;
+    state.temperature = Math.min(MAX_TEMPERATURE, state.temperature + 2);
+    effectiveTemp = Math.max(effectiveTemp, state.temperature);
+    if (state.temperature > tempBefore && grantTr && actorPlayerId) {
+      bumpTr(state, actorPlayerId, 1);
+      nextLogs = addLog(nextLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C, TR +1");
+    } else {
+      nextLogs = addLog(nextLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C");
+    }
+  }
+
+  // -24°C and -20°C each pay the mover heat production. A reward, so it follows
+  // grantTr — the World Government keeps its own.
+  for (const mark of [-24, -20]) {
+    if (beforeTemp < mark && effectiveTemp >= mark && grantTr && actorPlayerId) {
+      state.players = state.players.map(player =>
+        player.id === actorPlayerId ? { ...player, heatProd: (player.heatProd ?? 0) + 1 } : player
+      );
+      nextLogs = addLog(nextLogs, "system", `気温 ${mark}°C 達成ボーナス: 熱生産量 +1`);
+    }
+  }
+
+  // 0°C lays an ocean. When a player crossed the mark it is their ocean and
+  // pays them TR, and it goes through the legacy pendingOceans path the UI
+  // drives by board click. When the World Government or a global event crossed
+  // it, nobody is paid and nobody is holding the mouse, so it is queued as a
+  // real placement question owned by the first player.
+  if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < MAX_OCEANS) {
+    if (grantTr && actorPlayerId) {
+      state.pendingOceans = (state.pendingOceans ?? 0) + 1;
+      nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+    } else {
+      const ownerId = state.firstPlayerId ?? state.turnOrder?.[0];
+      const choice = buildTileChoice(
+        state,
+        "ocean",
+        {
+          sourceKind: "threshold",
+          sourceId: "temperature-zero-ocean",
+          consumedAction: false,
+          paid: true,
+          remaining: 1
+        },
+        legalCellsFor(state, "ocean", ownerId)
+      );
+      if (choice) {
+        choice.ownerPlayerId = ownerId;
+        choice.continuation.stage = "global-event-ocean";
+        choice.prompt = "気温 0°C 達成ボーナス: 海洋タイルを配置するマスを選んでください。";
+        enqueuePendingChoices(state, [choice]);
+        nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚を配置します。");
+      }
+    }
+  }
+
+  return { state, logs: nextLogs };
+}
+
+// The four things the World Government may do, minus whatever is already maxed.
+// An ocean is only offered while fewer than nine are on the board.
+export function worldGovernmentOptions(state) {
+  const options = [];
+  if (state.venus < MAX_VENUS) {
+    options.push({ id: "venus", label: "金星を1段階上昇", parameter: "venus" });
+  }
+  if (state.temperature < MAX_TEMPERATURE) {
+    options.push({ id: "temperature", label: "気温を1段階上昇", parameter: "temperature" });
+  }
+  if (state.oxygen < MAX_OXYGEN) {
+    options.push({ id: "oxygen", label: "酸素を1段階上昇", parameter: "oxygen" });
+  }
+  if (state.oceans < MAX_OCEANS) {
+    options.push({ id: "ocean", label: "海洋タイルを1枚配置", parameter: "ocean" });
+  }
+  return options;
+}
+
+// Raises the chosen track. "All bonuses go to the WG, and therefore no TR or
+// other bonuses are given to the first player" — so this never calls bumpTr.
+// Cards that watch the parameter still fire, which is why the thresholds are
+// measured around it.
+export function applyWorldGovernmentParameter(state, parameter, logs) {
+  const labels = { venus: "金星", temperature: "気温", oxygen: "酸素" };
+  if (!(parameter in labels)) return logs;
+
+  // grantTr: false — the terraforming is the World Government's. The track's own
+  // thresholds still fire, because those belong to the board.
+  const result = applyGlobalParameterChange(state, {
+    parameter,
+    steps: 1,
+    actorPlayerId: null,
+    grantTr: false,
+    sourceLabel: `世界政府のテラフォーミング: ${labels[parameter]}を1段階上昇させました（TRは得られません）。`
+  }, logs);
+  return result.logs;
 }
 
 function bumpTr(state, playerId, amount) {
@@ -2055,6 +2484,12 @@ export function getPlaceholderState() {
     boardMarkers: [],
     generationAttackLedger: [],
     pendingChoice: null,
+    // Questions waiting behind the live one, and the phase work that resumes
+    // when they are all answered.
+    pendingChoiceQueue: [],
+    phaseContinuation: null,
+    // Free oceans the board owes that pay nobody (World Government, events).
+    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil: null,
     colonies: null,
@@ -2150,8 +2585,20 @@ export function getInitialState(options = {}) {
   }
 
   const turnOrder = players.map(player => player.id);
+  // Setup places neutral delegates from the two events it draws, so the starting
+  // dominant party depends on the shuffle. Tests pass globalEventOrder to pin it.
+  // Five of the 36 events belong to Colonies or Venus; without them the deck is
+  // the 31 the Turmoil box ships with.
+  const eventPool = playableGlobalEvents(GLOBAL_EVENTS, {
+    venus: Boolean(options.venus),
+    colonies: Boolean(options.colonies)
+  });
   const turmoil = options.turmoil
-    ? createTurmoilState(turnOrder, shuffle(GLOBAL_EVENTS.map(event => event.id)))
+    ? createTurmoilState(
+        turnOrder,
+        options.globalEventOrder ?? shuffle(eventPool.map(event => event.id)),
+        findGlobalEvent
+      )
     : null;
   const colonies = options.colonies
     ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)))
@@ -2194,6 +2641,12 @@ export function getInitialState(options = {}) {
     boardMarkers: [],
     generationAttackLedger: [],
     pendingChoice: null,
+    // Questions waiting behind the live one, and the phase work that resumes
+    // when they are all answered.
+    pendingChoiceQueue: [],
+    phaseContinuation: null,
+    // Free oceans the board owes that pay nobody (World Government, events).
+    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil,
     colonies,
@@ -2406,14 +2859,48 @@ export function runTurmoilPhase(state, logs) {
   const next = cloneGameState(state);
   let nextLogs = logs;
 
-  // The turmoil phase opens with every player losing 1 TR.
+  // Step 1, TR revision: the turmoil phase opens with every player losing 1 TR.
   next.players = next.players.map(player => ({ ...player, tr: Math.max(0, player.tr - 1) }));
   nextLogs = addLog(nextLogs, "system", "動乱フェーズ: 全プレイヤーが TR -1。");
 
-  const outgoing = getParty(next.turmoil.rulingParty);
-  if (outgoing) {
+  // Step 2: resolve the Current Global Event, before the government changes.
+  // Influence is read off the board as it stands now, which is why this runs
+  // ahead of the delegate cleanup in step 3.
+  const resolvedEvent = next.turmoil.currentEvent;
+  if (resolvedEvent) {
+    const event = GLOBAL_EVENTS.find(item => item.id === resolvedEvent);
+    if (event) nextLogs = applyGlobalEventEffect(next, event, nextLogs);
+  }
+
+  // If the event asked anyone anything, the phase stops here. New Government
+  // and Changing Times must not run over an open question, so the rest of the
+  // phase is parked and resumes when the last answer comes in.
+  if (next.pendingChoice || (next.pendingChoiceQueue ?? []).length > 0) {
+    if (!next.pendingChoice) promoteNextChoice(next);
+    next.phaseContinuation = { kind: "turmoil-after-event" };
+    next.logs = nextLogs;
+    return { state: next, logs: nextLogs };
+  }
+
+  return finishTurmoilPhase(next, nextLogs);
+}
+
+// Turmoil steps 3 and 4, split out so a global event that has to ask something
+// can suspend the phase between step 2 and step 3 without losing its place.
+export function finishTurmoilPhase(state, logs) {
+  const next = state;
+  let nextLogs = logs;
+  {
+    // Step 3a: the dominant party takes power. The bonus that pays out is the new
+    // ruling party's, so the government has to form before it is evaluated.
+  const government = formNewGovernment(next.turmoil);
+  next.turmoil = government.turmoil;
+
+  // Step 3b: resolve the Ruling Bonus of the party that just took power.
+  const incoming = getParty(government.rulingParty);
+  if (incoming) {
     // The first bonus of the ruling party is the one that pays out.
-    const bonus = outgoing.bonuses[0];
+    const bonus = incoming.bonuses[0];
     next.players = next.players.map(player => {
       const amount = evaluatePartyBonus(next, bonus, player);
       if (amount <= 0) return player;
@@ -2421,7 +2908,7 @@ export function runTurmoilPhase(state, logs) {
       nextLogs = addLog(
         nextLogs,
         "system",
-        `${outgoing.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
+        `${incoming.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
       );
       return { ...player, [field]: player[field] + amount };
     });
@@ -2431,8 +2918,9 @@ export function runTurmoilPhase(state, logs) {
     }
   }
 
-  const result = advanceTurmoil(next.turmoil);
-  next.turmoil = refillLobby(result.turmoil, next.turnOrder);
+  const result = government;
+  // Step 3f: refill the lobby, then step 4, Changing Times.
+  next.turmoil = refillLobby(next.turmoil, next.turnOrder);
 
   // The chairman gains 1 TR on taking office.
   if (result.newChairman && result.newChairman !== NEUTRAL) {
@@ -2448,9 +2936,9 @@ export function runTurmoilPhase(state, logs) {
   const ruling = getParty(result.rulingParty);
   nextLogs = addLog(nextLogs, "system", `与党は ${ruling?.name ?? result.rulingParty} になりました。`);
 
-  if (result.resolvedEvent) {
-    const event = GLOBAL_EVENTS.find(item => item.id === result.resolvedEvent);
-    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? result.resolvedEvent}`);
+    // Step 4, Changing Times: the event queue moves up now that the event that
+    // was Current has been resolved.
+    next.turmoil = advanceGlobalEvents(next.turmoil, findGlobalEvent).turmoil;
   }
 
   next.logs = nextLogs;
@@ -2501,6 +2989,20 @@ export function sendDelegateToParty(state, partyId, logs, playerId) {
   }
   const actorId = playerId ?? state.currentPlayerId;
   const fromLobby = state.turmoil.lobby.includes(actorId);
+
+  // Lobbying: free from the Lobby, 5 M€ from the Delegate Reserve (Turmoil rules).
+  // The charge is checked before the delegate moves, so a player who cannot pay
+  // does not lose the delegate.
+  const cost = fromLobby ? 0 : DELEGATE_RESERVE_COST;
+  const actor = getPlayer(state, actorId);
+  if (cost > 0 && (actor?.mc ?? 0) < cost) {
+    return {
+      state,
+      logs: addLog(logs, "system", `予備から代表者を送るには ${cost} MC が必要です。`),
+      sent: false
+    };
+  }
+
   const result = sendDelegate(state.turmoil, actorId, partyId, { fromLobby });
   if (!result.sent) {
     return { state, logs: addLog(logs, "system", result.reason), sent: false };
@@ -2508,12 +3010,18 @@ export function sendDelegateToParty(state, partyId, logs, playerId) {
 
   const next = cloneGameState(state);
   next.turmoil = result.turmoil;
+  if (cost > 0) {
+    next.players = next.players.map(player =>
+      player.id === actorId ? { ...player, mc: player.mc - cost } : player
+    );
+  }
   const party = getParty(partyId);
   const player = getPlayer(next, actorId);
+  const paid = cost > 0 ? `${cost} MC を支払って ` : "";
   const nextLogs = addLog(
     logs,
     "system",
-    `${player?.name ?? actorId} が ${party?.name ?? partyId} に代表者を送りました。`
+    `${player?.name ?? actorId} が ${paid}${party?.name ?? partyId} に代表者を送りました。`
   );
   next.logs = nextLogs;
   return { state: next, logs: nextLogs, sent: true };
@@ -2626,6 +3134,433 @@ export function fundAward(state, awardId, logs, playerId) {
   return { state: next, logs: nextLogs, funded: true };
 }
 
+// Counts whatever a global event spec asks to tally for one player.
+function countForGlobalEvent(state, player, count) {
+  if (!count) return 0;
+  if (count.tag) {
+    const tags = countTagsFor(state, count.tag, player);
+    return tags + (count.plusInfluence ? getInfluence(state.turmoil, player.id) : 0);
+  }
+  if (count.tile) {
+    return Object.values(state.board).filter(
+      cell => cell.tileType === count.tile && cell.placedBy === player.id
+    ).length;
+  }
+  if (count.production) return player[count.production] ?? 0;
+  if (count.handSize) return (player.hand ?? []).length;
+  if (count.playedEvents) return (player.playedEvents ?? []).length;
+  if (count.colonies) return state.colonies ? countColonies(state.colonies, player.id) : 0;
+  if (count.blueCards) {
+    return (player.playedProjects ?? []).filter(id => {
+      const card = ALL_CARDS.find(item => item.id === id);
+      return card?.type === "active" || card?.type === "blue";
+    }).length;
+  }
+  if (count.tilesAdjacentToOcean) {
+    return Object.values(state.board).filter(cell => {
+      if (cell.placedBy !== player.id || cell.tileType === "empty") return false;
+      return getAdjacentCells(cell.q, cell.r).some(
+        neighbour => state.board[`${neighbour.q},${neighbour.r}`]?.tileType === "ocean"
+      );
+    }).length;
+  }
+  return 0;
+}
+
+// Cloud Societies and Sponsored Projects add a resource to every qualifying card
+// at once. "Every card" needs no choice, so these resolve immediately; only the
+// influence share, which names specific cards, would need one.
+//
+// getCardResourceType has to be handed to collectResourceTargets or it matches
+// nothing at all rather than raising (§2.8).
+function addResourceToEveryCard(state, { resourceType, requireExisting }, logs) {
+  const targets = collectResourceTargets(state, resourceType ?? null, ALL_CARDS, {
+    mustHaveResources: Boolean(requireExisting),
+    getResourceType: getCardResourceType
+  });
+  if (targets.length === 0) return logs;
+
+  state.players = state.players.map(player => {
+    const mine = targets.filter(target => target.targetPlayerId === player.id);
+    if (mine.length === 0) return player;
+    const cardResources = { ...(player.cardResources ?? {}) };
+    for (const target of mine) {
+      cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + 1;
+    }
+    return { ...player, cardResources };
+  });
+
+  return addLog(logs, "system", `${targets.length}枚のカードに資源を1個ずつ追加しました。`);
+}
+
+// Distinct tags the way the reference counts them for a global event: it walks
+// the tableau — corporation, played projects and chosen preludes — and skips
+// events, because a resolved event is no longer on the table. Wild tags are
+// deliberately not expanded: "Global events occur outside the action phase.
+// Stop counting here, before wild tags apply."
+function countDistinctTags(state, player) {
+  const distinct = new Set();
+  const collect = card => {
+    for (const tag of card?.tags ?? []) {
+      if (String(tag).toLowerCase() !== "wild") distinct.add(tag);
+    }
+  };
+
+  collect(CORPORATIONS.find(item => item.id === player.corporationId));
+  for (const id of player.playedProjects ?? []) {
+    const card = ALL_CARDS.find(item => item.id === id);
+    if (card?.type === "event") continue;
+    collect(card);
+  }
+  for (const id of player.selectedPreludeIds ?? []) {
+    collect(PRELUDES.find(item => item.id === id));
+  }
+  return distinct.size;
+}
+
+// Paradigm Breakdown: every player discards two cards, and each picks their own.
+// One question per card per player goes on the queue, in turn order, so nobody
+// is discarded for. A player holding fewer cards discards what they have.
+function queueForcedDiscards(state, count, sourceId) {
+  const choices = [];
+  for (const playerId of state.turnOrder) {
+    const player = getPlayer(state, playerId);
+    const holding = (player?.hand ?? []).length;
+    for (let index = 0; index < Math.min(count, holding); index += 1) {
+      choices.push(
+        buildEventDiscardChoice(
+          state,
+          playerId,
+          sourceId,
+          index,
+          Math.min(count, holding),
+          ALL_CARDS
+        )
+      );
+    }
+  }
+  enqueuePendingChoices(state, choices);
+}
+
+// Cards of a player that hold at least `count` of a card resource.
+function cardsHolding(player, resourceType, count) {
+  return Object.entries(player.cardResources ?? {}).filter(([cardId, held]) => {
+    if (held < count) return false;
+    const declared =
+      ALL_CARDS.find(item => item.id === cardId)?.resourceType ?? getCardResourceType(cardId);
+    return String(declared ?? "").toLowerCase() === resourceType;
+  });
+}
+
+// Corrosive Rain: 2 floaters off a card, or up to 10 M€. A player with no card
+// holding two floaters has nothing to decide and simply pays, which is how the
+// reference resolves it. Everyone else is asked, in turn order.
+function queueCorrosiveRain(state, { floaters, mc }, sourceId, logs) {
+  let nextLogs = logs;
+  const choices = [];
+
+  for (const playerId of state.turnOrder) {
+    const player = getPlayer(state, playerId);
+    if (!player) continue;
+    const cards = cardsHolding(player, "floater", floaters);
+
+    if (cards.length === 0) {
+      const paid = Math.min(mc, player.mc);
+      state.players = state.players.map(entry =>
+        entry.id === playerId ? { ...entry, mc: entry.mc - paid } : entry
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name} が ${paid} MC を失いました。`);
+      continue;
+    }
+
+    choices.push(
+      buildCorrosiveRainChoice(state, playerId, sourceId, {
+        floaters,
+        mc,
+        cards: cards.map(([cardId]) => ({
+          cardId,
+          label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+        }))
+      })
+    );
+  }
+
+  enqueuePendingChoices(state, choices);
+  return nextLogs;
+}
+
+// Election and Revolution rank the players and pay the top two places. Ties are
+// friendly: everyone level with first place takes the first prize, and if first
+// is shared nobody takes second (reference Election/Revolution.resolve).
+// Deterministic, so no choice is involved.
+function applyGlobalEventContest(state, spec, logs) {
+  let nextLogs = logs;
+  const scoreOf = player => {
+    let score = getInfluence(state.turmoil, player.id);
+    for (const source of spec.contest.influencePlus) {
+      if (source === "cityTiles") {
+        score += Object.values(state.board).filter(
+          cell => cell.tileType === "city" && cell.placedBy === player.id
+        ).length;
+      } else {
+        score += countTagsFor(state, source, player);
+      }
+    }
+    return score;
+  };
+
+  const award = (playerId, amount) => {
+    if (!amount) return;
+    state.players = state.players.map(player =>
+      player.id === playerId
+        ? { ...player, tr: Math.max(0, player.tr + amount) }
+        : player
+    );
+    const player = getPlayer(state, playerId);
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${player?.name ?? playerId} が TR ${amount > 0 ? "+" : ""}${amount}。`
+    );
+  };
+
+  // Solo uses fixed thresholds rather than a ranking.
+  if (state.players.length === 1) {
+    const [only] = state.players;
+    const score = scoreOf(only);
+    if (spec.contest.soloThreshold !== undefined) {
+      if (score >= spec.contest.soloThreshold) award(only.id, spec.contest.soloReward);
+    } else if (spec.contest.soloThresholds) {
+      const [first, second] = spec.contest.soloThresholds;
+      if (score >= first) award(only.id, spec.contest.rewards[0]);
+      else if (score >= second) award(only.id, spec.contest.rewards[1]);
+    }
+    return nextLogs;
+  }
+
+  const ranked = state.players
+    .map(player => ({ id: player.id, score: scoreOf(player) }))
+    .sort((a, b) => b.score - a.score);
+
+  const [firstPrize, secondPrize] = spec.contest.rewards;
+  const minimum = spec.contest.minimum ?? -Infinity;
+  const best = ranked[0].score;
+  const firstPlace = ranked.filter(entry => entry.score === best);
+
+  for (const entry of firstPlace) {
+    if (entry.score >= minimum) award(entry.id, firstPrize);
+  }
+  // A shared first place consumes second as well.
+  if (firstPlace.length > 1) return nextLogs;
+
+  const rest = ranked.slice(1);
+  if (rest.length === 0) return nextLogs;
+  const runnerUp = rest[0].score;
+  for (const entry of rest.filter(entry => entry.score === runnerUp)) {
+    if (entry.score >= minimum) award(entry.id, secondPrize);
+  }
+  return nextLogs;
+}
+
+// Applies one global event to every player. Turmoil rules put a hard cap of 5 on
+// anything an event counts, and losses are reduced by influence before they land.
+function applyGlobalEventEffect(state, event, logs) {
+  const spec = getGlobalEventEffect(event.id);
+  if (!spec) return logs;
+  let nextLogs = logs;
+
+  state.players = state.players.map(player => {
+    const influence = getInfluence(state.turmoil, player.id);
+    let updated = { ...player };
+    const deltas = {};
+    const add = (field, amount) => {
+      if (!amount) return;
+      deltas[field] = (deltas[field] ?? 0) + amount;
+    };
+
+    if (spec.count && spec.per) {
+      let counted = countForGlobalEvent(state, player, spec.count);
+      if (spec.cap !== undefined) counted = Math.min(counted, spec.cap);
+      if (spec.softenedByInfluence) counted = Math.max(0, counted - influence);
+      if (spec.divideBy) counted = Math.floor(counted / spec.divideBy);
+      for (const [field, amount] of Object.entries(spec.per)) add(field, amount * counted);
+    }
+
+    if (spec.influencePer) {
+      for (const [field, amount] of Object.entries(spec.influencePer)) {
+        add(field, amount * influence);
+      }
+    }
+
+    if (spec.trBrackets) {
+      // Reference: floor((TR - above) / step), with no +1. Generous Funding pays
+      // nothing at TR 15 and one set at TR 20 — "for every 5 TR *above* 15".
+      const { above, step, cap, per } = spec.trBrackets;
+      const brackets = Math.max(0, Math.min(cap, Math.floor((updated.tr - above) / step)));
+      for (const [field, amount] of Object.entries(per)) add(field, amount * brackets);
+    }
+
+    if (spec.productionLoss) {
+      for (const [field, amount] of Object.entries(spec.productionLoss)) {
+        add(field, -Math.min(amount, updated[field] ?? 0));
+      }
+    }
+
+    if (spec.also?.loseAll) add(spec.also.loseAll, -(updated[spec.also.loseAll] ?? 0));
+
+    if (spec.keepUpTo) {
+      const allowed = spec.keepUpTo.base + influence;
+      const held = updated[spec.keepUpTo.resource] ?? 0;
+      if (held > allowed) add(spec.keepUpTo.resource, -(held - allowed));
+    }
+
+    if (spec.flatTrLoss) add("tr", -Math.max(0, spec.flatTrLoss - influence));
+
+    if (spec.distinctTags) {
+      // Reference Diversity: distinctCount('globalEvent') + influence >= 9.
+      // Influence contributes its value, not a single "counts as one tag".
+      const total = countDistinctTags(state, player) + influence;
+      if (total >= spec.distinctTags.threshold) {
+        for (const [field, amount] of Object.entries(spec.distinctTags.reward)) add(field, amount);
+      }
+    }
+
+    if (spec.influenceDraws) updated.pendingDraws = (updated.pendingDraws ?? 0) + influence;
+
+    for (const [field, amount] of Object.entries(deltas)) {
+      const floor = field === "tr" ? 0 : 0;
+      updated[field] = Math.max(floor, (updated[field] ?? 0) + amount);
+    }
+    return updated;
+  });
+
+  // A global event moves the track like anything else, so it goes through the
+  // shared path: Volcanic Eruptions crossing 0°C lays the ocean the track owes,
+  // and nobody is paid TR for an event.
+  if (spec.global) {
+    for (const [field, amount] of Object.entries(spec.global)) {
+      if (amount > 0) {
+        const perStep = field === "oxygen" ? 1 : 2;
+        const applied = applyGlobalParameterChange(state, {
+          parameter: field,
+          steps: amount / perStep,
+          actorPlayerId: null,
+          grantTr: false
+        }, nextLogs);
+        nextLogs = applied.logs;
+      } else if (field === "temperature") {
+        // Snow Cover pushes the temperature back down; nothing is triggered by
+        // a falling track.
+        state.temperature = Math.max(-30, state.temperature + amount);
+      }
+    }
+  }
+
+  if (spec.contest) nextLogs = applyGlobalEventContest(state, spec, nextLogs);
+
+  // Aquifer Released by Public Council: the first player lays an ocean. It is
+  // the board's ocean, not theirs, so it pays no TR or placement bonus — the
+  // same terms as the World Government's.
+  if (spec.firstPlayerPlacesOcean && state.oceans < MAX_OCEANS) {
+    const choice = buildTileChoice(
+      state,
+      "ocean",
+      {
+        sourceKind: "global-event",
+        sourceId: event.id,
+        consumedAction: false,
+        paid: true,
+        remaining: 1
+      },
+      legalCellsFor(state, "ocean", state.firstPlayerId)
+    );
+    if (choice) {
+      choice.ownerPlayerId = state.firstPlayerId;
+      // A distinct stage from the World Government's: this one resolves inside
+      // the turmoil phase and must NOT resume the solar phase, or the whole
+      // generation end would run a second time.
+      choice.continuation.stage = "global-event-ocean";
+      choice.prompt = "世界的イベント: 海洋タイルを配置するマスを選んでください。";
+      state.pendingChoice = choice;
+    }
+  }
+
+  // Paradigm Breakdown: everyone discards two cards. Only the acting player is
+  // asked — a queue of one question per player is more machinery than the one
+  // pendingChoice slot supports, so the rest discard from the front of their
+  // hand. That keeps the card count right for everyone.
+  if (spec.discardFromHand) {
+    queueForcedDiscards(state, spec.discardFromHand, event.id);
+  }
+
+  // Corrosive Rain: lose 2 floaters from a card, or 10 MC. With no card holding
+  // two floaters there is nothing to choose and the MC goes automatically,
+  // which is how the reference resolves it too.
+  if (spec.loseFloatersOrMc) {
+    nextLogs = queueCorrosiveRain(state, spec.loseFloatersOrMc, event.id, nextLogs);
+  }
+
+  // "1 standard resource per influence" — one pick per point, in turn order.
+  if (spec.influenceStandardResource) {
+    const picks = [];
+    for (const playerId of state.turnOrder) {
+      const total = getInfluence(state.turmoil, playerId) * spec.influenceStandardResource;
+      for (let index = 0; index < total; index += 1) {
+        picks.push(buildStandardResourcePickChoice(state, playerId, event.id, index, total));
+      }
+    }
+    enqueuePendingChoices(state, picks);
+  }
+
+  // "1 floater on a card per influence" — the player names the card each time.
+  if (spec.influenceAddsToCards) {
+    const picks = [];
+    for (const playerId of state.turnOrder) {
+      const total = getInfluence(state.turmoil, playerId);
+      if (total === 0) continue;
+      const player = getPlayer(state, playerId);
+      const targets = (player?.playedProjects ?? [])
+        .filter(cardId => {
+          const declared =
+            ALL_CARDS.find(item => item.id === cardId)?.resourceType ??
+            getCardResourceType(cardId);
+          return String(declared ?? "").toLowerCase() === spec.influenceAddsToCards;
+        })
+        .map(cardId => ({
+          cardId,
+          label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+        }));
+      for (let index = 0; index < total; index += 1) {
+        picks.push(
+          buildFloaterPlacementChoice(state, playerId, event.id, index, total, targets)
+        );
+      }
+    }
+    enqueuePendingChoices(state, picks);
+  }
+
+  // Dry Deserts: the first player takes an ocean back off the board.
+  if (spec.firstPlayerRemovesOcean) {
+    const oceanCells = Object.values(state.board).filter(cell => cell.tileType === "ocean");
+    const choice = buildOceanRemovalChoice(state, event.id, state.firstPlayerId, oceanCells);
+    if (choice) state.pendingChoice = choice;
+  }
+
+  if (spec.addResourceToAll) {
+    nextLogs = addResourceToEveryCard(state, { resourceType: spec.addResourceToAll }, nextLogs);
+  }
+  if (spec.addResourceToCardsHoldingResources) {
+    nextLogs = addResourceToEveryCard(state, { requireExisting: true }, nextLogs);
+  }
+
+  nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event.name}`);
+  return nextLogs;
+}
+
+function findGlobalEvent(eventId) {
+  return eventId ? GLOBAL_EVENTS.find(event => event.id === eventId) ?? null : null;
+}
+
 export function isGameOverCheck(temp, oxy, oce) {
   return temp >= 8 && oxy >= 14 && oce >= 9;
 }
@@ -2698,19 +3633,73 @@ export const VERMIN_ID = "card-promo-vermin";
 // "都市が置かれるたび" -- every city, from any source and any player, feeds
 // every Vermin in play. Living in placeTileAt means a city built by a card, a
 // standard project, a corporation or the bot all count the same.
+// Cards that watch the board rather than being played at it. Each entry names
+// the card, what it is waiting for, and what its owner gains — a table rather
+// than a card-id check buried in whichever function happened to notice.
+//
+// These fire for *anyone's* placement, including tiles laid by the World
+// Government or a global event, because the card says "when anyone places" and
+// says nothing about who benefits from the placement itself.
+export const ARCTIC_ALGAE_ID = "card-base-arctic-algae";
+
+const TILE_PLACED_EFFECTS = [
+  {
+    cardId: VERMIN_ID,
+    tileType: "city",
+    // Vermin collects an animal for every city, wherever it came from.
+    apply: player => ({
+      ...player,
+      cardResources: {
+        ...player.cardResources,
+        [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
+      }
+    })
+  },
+  {
+    cardId: ARCTIC_ALGAE_ID,
+    tileType: "ocean",
+    // "When anyone places an ocean tile, gain 2 plants."
+    apply: player => ({ ...player, plants: (player.plants ?? 0) + 2 })
+  }
+];
+
 function grantCityPlacementCardEffects(state, tileType) {
-  if (tileType !== "city") return;
-  state.players = state.players.map(player =>
-    player.playedProjects?.includes(VERMIN_ID)
-      ? {
-          ...player,
-          cardResources: {
-            ...player.cardResources,
-            [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
-          }
-        }
-      : player
-  );
+  for (const effect of TILE_PLACED_EFFECTS) {
+    if (effect.tileType !== tileType) continue;
+    state.players = state.players.map(player =>
+      player.playedProjects?.includes(effect.cardId) ? effect.apply(player) : player
+    );
+  }
+}
+
+// Cards that watch a global parameter move, whoever moved it. Aphrodite is the
+// only one so far, but the shape is the same as the tile hook: a table, and one
+// place that runs it.
+const PARAMETER_RAISED_EFFECTS = [
+  {
+    cardId: "card-venus-aphrodite",
+    parameter: "venus",
+    // "Whenever Venus is terraformed 1 step, you gain 2 M€." Two MC per step,
+    // and the venus track moves two points per step.
+    perStep: player => ({ ...player, mc: player.mc + 2 })
+  }
+];
+
+// `steps` is how many steps the track actually moved, after clamping.
+function grantParameterRaisedCardEffects(state, parameter, steps) {
+  if (steps <= 0) return;
+  for (const effect of PARAMETER_RAISED_EFFECTS) {
+    if (effect.parameter !== parameter) continue;
+    state.players = state.players.map(player => {
+      const owns =
+        player.corporationId === effect.cardId ||
+        player.playedProjects?.includes(effect.cardId);
+      if (!owns) return player;
+      let updated = player;
+      for (let step = 0; step < steps; step += 1) updated = effect.perStep(updated);
+      return updated;
+    });
+  }
 }
 
 export const ST_JOSEPH_ID = "card-promo-st-joseph-of-cupertino-mission";
@@ -3255,12 +4244,49 @@ export function triggerProduction(state, logAcc) {
 
   nextState.logs = localLog;
 
-  const generationLimitReached = nextState.mode === "solo" && nextState.generation >= 14;
+  // Prelude shortens the solo game (プレリュード ルール説明書 第5刷 p.3).
+  const soloGenerationLimit = nextState.preludeEnabled ? 12 : 14;
+  const generationLimitReached =
+    nextState.mode === "solo" && nextState.generation >= soloGenerationLimit;
   if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
     nextState.phase = "final_greenery";
-    const reason = generationLimitReached ? "第14世代の生産" : "全パラメータ達成";
+    const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
+    // Solar phase step 2: World Government Terraforming. The first player picks
+    // which parameter the WG raises, so the phase stops here and waits. The rest
+    // of the Solar phase resumes in finishSolarPhase once the choice is answered.
+    if (nextState.venusEnabled) {
+      const choice = buildWorldGovernmentChoice(
+        nextState,
+        nextState.firstPlayerId,
+        worldGovernmentOptions(nextState)
+      );
+      if (choice) {
+        nextState.pendingChoice = choice;
+        nextState.logs = addLog(
+          localLog,
+          "system",
+          "世界政府のテラフォーミング: 第1プレイヤーがパラメータを選択します。"
+        );
+        return nextState;
+      }
+    }
+
+    return finishSolarPhase(nextState, localLog);
+  }
+
+  nextState.logs = nextState.logs ?? localLog;
+  return nextState;
+}
+
+// Everything in the Solar phase after World Government Terraforming: colony
+// production, turmoil, the first player marker, and the next research phase.
+// Split out so the phase can stop at the WG choice and pick up here afterwards.
+export function finishSolarPhase(state, logAcc) {
+  const nextState = state;
+  let localLog = logAcc;
+  {
     nextState.generation += 1;
     nextState.phase = "research";
     // Law Suit may only answer an attack from the generation it is played in.
@@ -3311,9 +4337,9 @@ export function triggerProduction(state, logAcc) {
       nextState.players = nextState.players.map(player => ({ ...player, researchCards: [] }));
     }
 
-    // Trade fleets return at the end of each generation.
+    // Solar phase step 3: fleets return and every colony track climbs a step.
     if (nextState.colonies) {
-      nextState.colonies = resetFleets(nextState.colonies);
+      nextState.colonies = advanceColonyProduction(nextState.colonies);
     }
 
     // Turmoil resolves between production and the next research phase.

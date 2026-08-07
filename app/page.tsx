@@ -236,6 +236,9 @@ interface GameState {
   setupStep: "corporation" | "prelude" | "projects" | "complete";
   turnStep: "start" | "one_action_taken" | "second_action_allowed";
   pendingOceans: number;
+  // Of those, the ones the World Government or a global event owes the board:
+  // they pay nobody, and are spent before any the player earned.
+  pendingUnownedOceans?: number;
   researchCards: string[];
   corporationOptions: string[];
   corporationId: string | null;
@@ -330,7 +333,8 @@ const placeTile = jsPlaceTileAt as unknown as (
   cell: CellState,
   tileType: string,
   ownerId: string | null,
-  cardId?: string
+  cardId?: string,
+  options?: { worldGovernment?: boolean }
 ) => GameState;
 const BOARDS = jsBOARDS as unknown as Record<string, { id: string; name: string; englishName: string }>;
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
@@ -369,6 +373,8 @@ interface ScoreBreakdown {
   cards: number;
   milestones: number;
   awards: number;
+  // Party leaders and the chairman, 1 VP each (Turmoil final scoring).
+  turmoil: number;
   modifier: number;
   total: number;
   details: ScoreContribution[];
@@ -548,7 +554,16 @@ export default function Home() {
   // Online, "current player" for UI purposes is the seat this device owns; the
   // engine's currentPlayerId still decides whose turn it is.
   const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
-  const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
+  // A global event asks each player in turn, and on one shared screen the seat
+  // has to follow the question — otherwise player 2's discard is shown to
+  // player 1, whose answers the engine rightly refuses, and the queue never
+  // drains. Online is untouched: there the seat is the device.
+  const hotseatChoiceOwner =
+    !isOnline && activeState.pendingChoice?.ownerPlayerId
+      ? activeState.pendingChoice.ownerPlayerId
+      : undefined;
+  const currentPlayerId =
+    seatId ?? hotseatChoiceOwner ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
   // In an online view currentPlayerId is rewritten to the viewer so the legacy
   // accessors read their own hand; turnHolderId carries who actually acts.
   const turnHolderId =
@@ -1011,11 +1026,19 @@ export default function Home() {
       const nextState = jsCloneGameState(gameState) as GameState;
       nextState.board = { ...gameState.board };
       const oldOceans = nextState.oceans;
-      placeTile(nextState, cell, "ocean", currentPlayerId);
-      
+      // An ocean the World Government or a global event owes the board pays
+      // nobody, so those are spent before any the player earned.
+      const unowned = (nextState.pendingUnownedOceans ?? 0) > 0;
+      placeTile(nextState, cell, "ocean", currentPlayerId, undefined, {
+        worldGovernment: unowned
+      });
+
       let localLogs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-      if (oldOceans < 9) {
+      if (oldOceans < 9 && !unowned) {
         localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
+      }
+      if (unowned) {
+        nextState.pendingUnownedOceans = (nextState.pendingUnownedOceans ?? 0) - 1;
       }
       nextState.pendingOceans -= 1;
       nextState.logs = localLogs;
@@ -2771,6 +2794,7 @@ export default function Home() {
                   ["cards", "カード勝利点", "var(--color-gold)"],
                   ["milestones", "マイルストーン", "var(--color-gold)"],
                   ["awards", "褒賞", "var(--color-gold)"],
+                  ["turmoil", "党首・議長", "var(--color-cyan)"],
                   ["modifier", "その他の増減", "var(--color-rust)"]
                 ] as const).map(([key, label, color]) =>
                   scoreBreakdown[key] === 0 && key !== "tr" ? null : (
