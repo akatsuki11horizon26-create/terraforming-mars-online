@@ -554,7 +554,16 @@ export default function Home() {
   // Online, "current player" for UI purposes is the seat this device owns; the
   // engine's currentPlayerId still decides whose turn it is.
   const seatId = isOnline ? (activeState.viewerId ?? players[0]?.id ?? "player") : undefined;
-  const currentPlayerId = seatId ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
+  // A global event asks each player in turn, and on one shared screen the seat
+  // has to follow the question — otherwise player 2's discard is shown to
+  // player 1, whose answers the engine rightly refuses, and the queue never
+  // drains. Online is untouched: there the seat is the device.
+  const hotseatChoiceOwner =
+    !isOnline && activeState.pendingChoice?.ownerPlayerId
+      ? activeState.pendingChoice.ownerPlayerId
+      : undefined;
+  const currentPlayerId =
+    seatId ?? hotseatChoiceOwner ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
   // In an online view currentPlayerId is rewritten to the viewer so the legacy
   // accessors read their own hand; turnHolderId carries who actually acts.
   const turnHolderId =

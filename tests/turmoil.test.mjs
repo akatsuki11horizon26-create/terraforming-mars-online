@@ -1858,3 +1858,49 @@ function cloneForTest(state, playerId, cardId) {
   );
   return copy;
 }
+
+// On one shared screen the seat has to follow the question. page.tsx derives
+// currentPlayerId from pendingChoice.ownerPlayerId when the game is not online;
+// without that, player 2's discard was rendered to player 1, whose answers the
+// engine refused, and the queue never drained. The engine-side invariant that
+// makes the fix possible is that a queued question always names an owner who
+// can actually answer it.
+test("Every queued question names an owner who can answer it", () => {
+  const state = pinnedTurmoilState({ playerCount: 3 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B", "C"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const questions = [started.state.pendingChoice, ...started.state.pendingChoiceQueue];
+  assert.equal(questions.length, 6, "two discards each for three players");
+
+  for (const question of questions) {
+    assert.ok(
+      started.state.turnOrder.includes(question.ownerPlayerId),
+      "the owner is a seated player"
+    );
+    assert.ok(question.options.length > 0, "and has something to pick");
+  }
+
+  // Answering each in the order they come up drains the queue completely, with
+  // every answer given by whoever the question belongs to.
+  let current = started.state;
+  let logs = started.logs;
+  let guard = 0;
+  const answeredBy = [];
+  while (current.pendingChoice && guard++ < 20) {
+    const choice = current.pendingChoice;
+    answeredBy.push(choice.ownerPlayerId);
+    const hand = current.players.find(p => p.id === choice.ownerPlayerId).hand;
+    const option = choice.options.find(o => hand.includes(o.id));
+    const out = resolvePendingChoice(current, option.id, logs, choice.ownerPlayerId);
+    current = out.state;
+    logs = out.logs;
+  }
+
+  assert.equal(new Set(answeredBy).size, 3, "all three players were asked");
+  assert.equal(current.pendingChoice, null, "the queue drained");
+  for (const player of current.players) {
+    assert.equal(player.hand.length, 1, "each discarded two of their own cards");
+  }
+});
