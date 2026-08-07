@@ -175,6 +175,53 @@ export function playableGlobalEvents(events, enabled = {}) {
   });
 }
 
+// Every key the resolver in game-logic actually reads. Declaring a key that is
+// not in here means the spec describes behaviour nothing performs — which is
+// how influenceStandardResource and influenceAddsToCards sat unimplemented
+// while the card looked "done". The test asserts the two sets match, so a new
+// key has to be handled before it can be declared.
+export const SUPPORTED_SPEC_KEYS = Object.freeze([
+  // counting and payment
+  "count",
+  "cap",
+  "per",
+  "influencePer",
+  "softenedByInfluence",
+  "divideBy",
+  "trBrackets",
+  "productionLoss",
+  "also",
+  "keepUpTo",
+  "flatTrLoss",
+  "distinctTags",
+  "influenceDraws",
+  "global",
+  // ranking
+  "contest",
+  // card resources
+  "addResourceToAll",
+  "addResourceToCardsHoldingResources",
+  "influenceAddsToCards",
+  // player choices
+  "discardFromHand",
+  "loseFloatersOrMc",
+  "influenceStandardResource",
+  // board
+  "firstPlayerPlacesOcean",
+  "firstPlayerRemovesOcean"
+]);
+
+// Keys a spec declares that the resolver never reads.
+export function unhandledSpecKeys() {
+  const supported = new Set(SUPPORTED_SPEC_KEYS);
+  const offenders = [];
+  for (const [id, spec] of Object.entries(GLOBAL_EVENT_EFFECTS)) {
+    const unknown = Object.keys(spec).filter(key => !supported.has(key));
+    if (unknown.length > 0) offenders.push({ id, keys: unknown });
+  }
+  return offenders;
+}
+
 export function getGlobalEventEffect(eventId) {
   return GLOBAL_EVENT_EFFECTS[eventId] ?? null;
 }

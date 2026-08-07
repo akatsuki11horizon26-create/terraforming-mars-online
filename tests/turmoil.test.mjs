@@ -1647,3 +1647,113 @@ test("Aphrodite is not paid when the Venus track is already maxed", async () => 
     "and raising something else pays Aphrodite nothing"
   );
 });
+
+// The specs are data, so nothing stops a key being declared that no code reads.
+// That is exactly how influenceStandardResource and influenceAddsToCards sat
+// unimplemented on cards that read as finished.
+test("No global event declares a key the resolver ignores", async () => {
+  const { unhandledSpecKeys } = await import("../app/global-events.js");
+  assert.deepEqual(
+    unhandledSpecKeys(),
+    [],
+    "every declared key must be one the resolver reads"
+  );
+});
+
+// And the list of supported keys must not drift from the code either: each one
+// has to appear in the resolver source.
+test("Every supported spec key is read somewhere in the resolver", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { SUPPORTED_SPEC_KEYS } = await import("../app/global-events.js");
+  const source = readFileSync(new URL("../app/game-logic.js", import.meta.url), "utf8");
+
+  for (const key of SUPPORTED_SPEC_KEYS) {
+    assert.ok(
+      source.includes(`spec.${key}`) || source.includes(`spec.contest.${key}`),
+      `${key} is listed as supported but never read as spec.${key}`
+    );
+  }
+});
+
+test("Every global event in the catalogue has a spec", async () => {
+  const { missingGlobalEventEffects } = await import("../app/global-events.js");
+  assert.deepEqual(missingGlobalEventEffects(GLOBAL_EVENTS), []);
+});
+
+// Resolving each of the 36 in turn: none may throw, and none may leave a
+// question with nothing to answer — the failure the playtest caught for the
+// threshold ocean, which every unit test had missed.
+test("All 36 global events resolve without stalling", () => {
+  for (const event of GLOBAL_EVENTS) {
+    const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+    // Give the players something for each card to bite on.
+    state.players = state.players.map(p => ({
+      ...p,
+      mc: 60,
+      steel: 5,
+      titanium: 5,
+      plants: 5,
+      energy: 5,
+      heat: 5,
+      hand: ["A", "B", "C"]
+    }));
+    state.temperature = -10;
+    state.oxygen = 5;
+    state.venus = 10;
+    state.turmoil.currentEvent = event.id;
+
+    let current = state;
+    let logs = state.logs;
+    let guard = 0;
+    while (current.pendingChoice && guard++ < 40) {
+      const choice = current.pendingChoice;
+      assert.ok(
+        choice.options.length > 0,
+        `${event.id} asked "${choice.kind}" with no options to pick`
+      );
+      const out = resolvePendingChoice(current, choice.options[0].id, logs, choice.ownerPlayerId);
+      current = out.state;
+      logs = out.logs;
+    }
+    assert.ok(guard < 40, `${event.id} never stopped asking`);
+    assert.equal(current.pendingChoice, null, `${event.id} left a question open`);
+    assert.equal(
+      current.phaseContinuation,
+      null,
+      `${event.id} left the phase suspended`
+    );
+    assert.ok(current.turmoil.rulingParty, `${event.id} never seated a government`);
+
+    // Nothing may go negative or non-numeric along the way.
+    for (const player of current.players) {
+      for (const field of ["mc", "steel", "titanium", "plants", "energy", "heat", "tr"]) {
+        assert.ok(
+          Number.isFinite(player[field]),
+          `${event.id} left ${field} as ${player[field]}`
+        );
+        assert.ok(player[field] >= 0, `${event.id} drove ${field} negative (${player[field]})`);
+      }
+    }
+  }
+});
+
+test("All 36 global events resolve in a solo game too", () => {
+  for (const event of GLOBAL_EVENTS) {
+    const state = getInitialState({ turmoil: true, venus: true, colonies: true });
+    state.players = state.players.map(p => ({ ...p, mc: 60, hand: ["A", "B"] }));
+    state.turmoil.currentEvent = event.id;
+
+    let current = state;
+    let logs = state.logs;
+    let guard = 0;
+    while (current.pendingChoice && guard++ < 40) {
+      const choice = current.pendingChoice;
+      assert.ok(choice.options.length > 0, `${event.id} (solo) asked with no options`);
+      const out = resolvePendingChoice(current, choice.options[0].id, logs, choice.ownerPlayerId);
+      current = out.state;
+      logs = out.logs;
+    }
+    assert.ok(guard < 40, `${event.id} (solo) never stopped asking`);
+    assert.equal(current.pendingChoice, null, `${event.id} (solo) left a question open`);
+  }
+});
