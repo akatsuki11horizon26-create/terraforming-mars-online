@@ -1,6 +1,6 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト367件
+最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト401件
 
 **PR #1（特殊VP・Virus・Special Permit）は open のまま。** 今回の Turmoil /
 Solar Phase の修正は別ブランチに積んである。履歴を混ぜないため分けてある。
@@ -38,7 +38,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、367件
+- テスト: `node --test`、401件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -353,6 +353,13 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
     `finishSolarPhase` が残りを再開する。TR・配置ボーナスは与えない
 - **Turmoil 最終得点**（党首1VP・議長1VP、中立は加点なし）
 - **世界的イベントは31枚デッキ**（拡張が有効ならColonies/Venus分の5枚が加わる）
+- **選択キュー**（`pendingChoiceQueue` + `phaseContinuation`）
+  複数プレイヤーへ順番に質問できる。セーブ・再接続を跨いで再開する
+- **グローバルパラメータの共通経路**（`applyGlobalParameterChange`）
+  誰が上げても盤面側の閾値（酸素8%→気温、0°C→海洋）が発火し、
+  `grantTr` で「上げた人への報酬」だけを切り分ける
+- **盤面を見るカード**（`ARCTIC_ALGAE_ID` ほか、テーブル駆動）
+  Arctic Algae は誰の海洋でも、Aphrodite は誰の金星上昇でも発火する
 - **Turmoil の世界的イベント36枚**（`app/global-events.js` の宣言的スペック）
   - 影響力を数え、「数えるものは最大5」の上限を持つ
   - 損失は影響力で軽減してから適用する
@@ -367,15 +374,17 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 
 **ここが次にやること。**
 
-### 6.1 ブラウザで一度も動作確認していない（最優先）
+### 6.1 ブラウザ確認（選択ダイアログは確認済み、それ以外は未確認）
 
-**テスト343件・CI・プレイテストはすべて通っているが、実機はほぼ未確認。**
-型・lint・ビルドはどれも見た目を検証しない。
+**テスト401件・CI・プレイテストはすべて通っている。** 実機確認は部分的に済んだ。
 
-**2026-08-07 の時点で Chrome 拡張は接続できる。** 過去のセッションでこの項目が
-先送りされ続けた原因（拡張が繋がらない）は解消している。
-`npm run dev` → `localhost:3000` でタイトル画面が正しく描画されることまでは確認済み。
-**その先（ソロ開始以降）は未確認。** 下の表がそのまま残っている。
+**2026-08-07 に選択ダイアログ系はブラウザで確認済み。**
+世界政府（4択・海洋の合法マス強調・配置してTR/ボーナスなし・Solar Phase再開）、
+Paradigm Breakdown（2人ぶん4問を消化）、Corrosive Rain（MC/カード2枚の3択）、
+Dry Deserts（海洋除去→資源2回）を実際にクリックして通した。
+**ここで1件バグを見つけて直した**（ホットシートの席が質問の持ち主に移らない、下記付録）。
+
+**それ以外のUI（下の表）は未確認のまま。** 特にオンライン2端末は未確認。
 
 確認すべきもの:
 
@@ -477,27 +486,11 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
-- **世界的イベントの影響力ライダー2件が未適用。**
-  `app/global-events.js` に宣言はあるがリゾルバが読んでいない。
-
-  | イベント | 未対応のキー | 理由 |
-  |---|---|---|
-  | Dry Deserts | `influenceStandardResource` | 影響力1につき「標準資源1個」＝どれを取るか選ばせる必要がある |
-  | Cloud Societies | `influenceAddsToCards` | 影響力1につき「カード1枚にフローター1個」＝どのカードか選ばせる必要がある |
-
-  どちらも**主効果（海洋除去 / 全カードへの一括追加）は実装済み**で、
-  残っているのは影響力ぶんの上乗せだけ。
-  プレイヤーごとに選択が要るが、エンジンは `pendingChoice` を**1個しか持てない**。
-  複数プレイヤーに順番に問う仕組みが要る（下記）。
-
-  **数え方**: `GLOBAL_EVENT_EFFECTS` の各スペックのキーのうち、
-  `game-logic.js` の `applyGlobalEventEffect` が読むキー集合に無いものを列挙すれば出る。
-  減らしたらこの表も直すこと
-
-- **`pendingChoice` は1枠しかない。** 「全員が2枚捨てる」のように
-  複数プレイヤーへ順番に問う効果は現状書けない。
-  Paradigm Breakdown は行動主以外の手札を**先頭から**捨てて枚数だけ合わせている。
-  キューを入れるならここが起点
+- **旧 `pendingOceans` は残っている。** 気温0°Cボーナスのうち
+  **プレイヤーが跨いだぶん**は今もこの非列挙アクセサ経由で、UIの盤面クリックが消費する。
+  世界政府・世界的イベントが跨いだぶんは `pendingChoice` になる（払い主がいないため）。
+  アクセサ側は options を埋めないので、**choice として扱おうとすると候補0で固まる**。
+  統一するなら engine 側へ寄せること
 
 ---
 
@@ -582,6 +575,13 @@ curl で取得できる。既存のタルシス盤面と1行ずつ一致する�
 | `a6f9bcd` | 選択の要らないイベント4枚（Election / Revolution / Cloud Societies / Sponsored Projects） |
 | `66082c4` | WGT を第1プレイヤーの選択に。Solar Phase を中断可能へ |
 | `2c924f8` | 残り4枚（Aquifer / Dry Deserts / Paradigm Breakdown / Corrosive Rain） |
+| `c469bfe` | Generous Funding / Red Influence のoff-by-one、Diversityの影響力計算とタグ集計 |
+| `e33083d` | **選択キュー**。複数プレイヤーへの順次質問。キューの秘匿漏れも修正 |
+| `e776e25` | パラメータ変更の共通経路。WGT/イベントでも閾値が発火 |
+| `a78cc15` | Arctic Algae / Aphrodite を盤面監視の効果として実装 |
+| `354a47a` | 宣言だけで未処理のspecキーをテストで落とす |
+| `df24cd8` | 選択の検証がクライアント入力ではなくエンジン側であることを固定 |
+| `be07659` | **ホットシートの席が質問の持ち主に移らない**（ブラウザで発見） |
 
 **監査で却下したもの**: `computeDominantParty` の同数処理は
 公式の "or clockwise in case of tie" と一致しており `ALREADY CORRECT`。
