@@ -49,6 +49,7 @@ import {
   buildDiscardChoice,
   buildStandardResourceChoice,
   buildTileChoice,
+  buildWorldGovernmentChoice,
   collectResourceTargets,
   findOption,
   isChoiceOwnedBy
@@ -1571,9 +1572,18 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "tile-placement": {
       const cell = next.board[option.targetCellKey];
       const tileType = choice.continuation.payload?.tileType ?? "ocean";
+      const byWorldGovernment = choice.continuation.stage === "world-government-ocean";
       if (cell) {
-        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId);
-        nextLogs = addLog(nextLogs, "system", `${option.label} にタイルを配置しました。`);
+        placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
+          worldGovernment: byWorldGovernment
+        });
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          byWorldGovernment
+            ? `世界政府が ${option.label} に海洋タイルを配置しました（TRは得られません）。`
+            : `${option.label} にタイルを配置しました。`
+        );
       }
       const remaining = (choice.continuation.remaining ?? 1) - 1;
       if (remaining > 0) {
@@ -1586,8 +1596,45 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "world-government": {
+      // An ocean needs a square, so the choice continues into a tile placement
+      // that carries the worldGovernment flag through to placeTileAt.
+      if (option.parameter === "ocean") {
+        const followUp = buildTileChoice(
+          next,
+          "ocean",
+          {
+            sourceKind: "solar-phase",
+            sourceId: "world-government-ocean",
+            consumedAction: false,
+            paid: true,
+            remaining: 1
+          },
+          legalCellsFor(next, "ocean", actorId)
+        );
+        if (followUp) {
+          // The owner is the first player, who may not be the player in turn.
+          followUp.ownerPlayerId = choice.ownerPlayerId;
+          followUp.continuation.stage = "world-government-ocean";
+          next.pendingChoice = followUp;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+        }
+        // Nowhere legal to put it: fall through and let the phase continue.
+      } else {
+        nextLogs = applyWorldGovernmentParameter(next, option.parameter, nextLogs);
+      }
+      const resumed = finishSolarPhase(next, nextLogs);
+      return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
+    }
     default:
       break;
+  }
+
+  // The World Government's ocean has been placed; the Solar phase carries on.
+  if (choice.continuation.stage === "world-government-ocean") {
+    const resumed = finishSolarPhase(next, nextLogs);
+    return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
 
   // The same card may still owe another decision.
@@ -1612,7 +1659,20 @@ export function legalCellsFor(state, tileType, playerId) {
   );
 }
 
-export function placeTileAt(state, cell, tileType, ownerId, cardId) {
+// `worldGovernment` marks a tile the World Government lays during the Solar
+// phase. "All bonuses go to the WG, and therefore no TR or other bonuses are
+// given to the first player" — so the placement bonus, the ocean adjacency
+// money and the TR are all skipped.
+//
+// The rules do let cards trigger off this ("Other cards may be triggered by
+// this though, i.e. Arctic Algae or the new corporation Aphrodite"), and the
+// tile-laid hook is deliberately left outside the flag so it keeps firing.
+// Note that no ocean trigger exists yet to fire: grantCityPlacementCardEffects
+// returns early for anything but a city, and Arctic Algae is modelled as a
+// one-off `stock: {plants: 1}` rather than an ongoing effect. Wiring those up
+// is separate work; this placement will feed them once they exist.
+export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}) {
+  const worldGovernment = options.worldGovernment === true;
   state.board = { ...state.board };
   state.board[`${cell.q},${cell.r}`] = {
     ...cell,
@@ -1632,20 +1692,23 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
           : p
       );
     }
-    grantPlacementBonus(state, cell, ownerId);
+    if (!worldGovernment) {
+      grantPlacementBonus(state, cell, ownerId);
 
-    // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
-    // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
-    // adjacent to the space just covered.
-    const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
-    if (adjacentOceans > 0) {
-      const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
-      state.players = state.players.map(p =>
-        p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
-      );
+      // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
+      // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already
+      // adjacent to the space just covered.
+      const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
+      if (adjacentOceans > 0) {
+        const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
+        state.players = state.players.map(p =>
+          p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
+        );
+      }
+
+      grantPlacementCorporationEffects(state, cell, tileType, ownerId);
     }
-
-    grantPlacementCorporationEffects(state, cell, tileType, ownerId);
+    // Cards that watch for a tile being laid fire either way.
     grantCityPlacementCardEffects(state, tileType);
   }
 
@@ -1654,12 +1717,12 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId) {
   if (tileType === "ocean") {
     const before = state.oceans;
     state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
-    if (state.oceans > before) bumpTr(state, ownerId, 1);
+    if (state.oceans > before && !worldGovernment) bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
     const before = state.oxygen;
     state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
-    if (state.oxygen > before) bumpTr(state, ownerId, 1);
+    if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
   }
   return state;
 }
@@ -1704,21 +1767,40 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
 // has no way to stop and ask. Venus is preferred because it is the track the WG
 // exists to help with, then the others in board order. The ocean option is not
 // offered here because placing one needs a board target, which needs a prompt.
-export function applyWorldGovernmentTerraforming(state, logs) {
-  const options = [
-    { key: "venus", label: "金星", value: state.venus, max: MAX_VENUS, step: 2 },
-    { key: "temperature", label: "気温", value: state.temperature, max: MAX_TEMPERATURE, step: 2 },
-    { key: "oxygen", label: "酸素", value: state.oxygen, max: MAX_OXYGEN, step: 1 }
-  ];
-  const target = options.find(option => option.value < option.max);
-  if (!target) return logs;
+// The four things the World Government may do, minus whatever is already maxed.
+// An ocean is only offered while fewer than nine are on the board.
+export function worldGovernmentOptions(state) {
+  const options = [];
+  if (state.venus < MAX_VENUS) {
+    options.push({ id: "venus", label: "金星を1段階上昇", parameter: "venus" });
+  }
+  if (state.temperature < MAX_TEMPERATURE) {
+    options.push({ id: "temperature", label: "気温を1段階上昇", parameter: "temperature" });
+  }
+  if (state.oxygen < MAX_OXYGEN) {
+    options.push({ id: "oxygen", label: "酸素を1段階上昇", parameter: "oxygen" });
+  }
+  if (state.oceans < MAX_OCEANS) {
+    options.push({ id: "ocean", label: "海洋タイルを1枚配置", parameter: "ocean" });
+  }
+  return options;
+}
 
-  // No bumpTr here: the terraforming is the World Government's, not the player's.
-  state[target.key] = Math.min(target.max, target.value + target.step);
+// Raises the chosen track. "All bonuses go to the WG, and therefore no TR or
+// other bonuses are given to the first player" — so this never calls bumpTr.
+// Cards that watch the parameter still fire, which is why the thresholds are
+// measured around it.
+export function applyWorldGovernmentParameter(state, parameter, logs) {
+  const labels = { venus: "金星", temperature: "気温", oxygen: "酸素" };
+  const steps = { venus: 2, temperature: 2, oxygen: 1 };
+  const maxima = { venus: MAX_VENUS, temperature: MAX_TEMPERATURE, oxygen: MAX_OXYGEN };
+  if (!(parameter in maxima)) return logs;
+
+  state[parameter] = Math.min(maxima[parameter], state[parameter] + steps[parameter]);
   return addLog(
     logs,
     "system",
-    `世界政府のテラフォーミング: ${target.label}を1段階上昇させました（TRは得られません）。`
+    `世界政府のテラフォーミング: ${labels[parameter]}を1段階上昇させました（TRは得られません）。`
   );
 }
 
@@ -3576,14 +3658,40 @@ export function triggerProduction(state, logAcc) {
     const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
-    // Solar phase step 2: World Government Terraforming. The first player raises
-    // a non-maxed global parameter, but the bonuses go to the WG, so no TR is
-    // awarded (Venus Next rules). Runs before the generation turns over, since
-    // the first player marker has not moved yet.
+    // Solar phase step 2: World Government Terraforming. The first player picks
+    // which parameter the WG raises, so the phase stops here and waits. The rest
+    // of the Solar phase resumes in finishSolarPhase once the choice is answered.
     if (nextState.venusEnabled) {
-      localLog = applyWorldGovernmentTerraforming(nextState, localLog);
+      const choice = buildWorldGovernmentChoice(
+        nextState,
+        nextState.firstPlayerId,
+        worldGovernmentOptions(nextState)
+      );
+      if (choice) {
+        nextState.pendingChoice = choice;
+        nextState.logs = addLog(
+          localLog,
+          "system",
+          "世界政府のテラフォーミング: 第1プレイヤーがパラメータを選択します。"
+        );
+        return nextState;
+      }
     }
 
+    return finishSolarPhase(nextState, localLog);
+  }
+
+  nextState.logs = nextState.logs ?? localLog;
+  return nextState;
+}
+
+// Everything in the Solar phase after World Government Terraforming: colony
+// production, turmoil, the first player marker, and the next research phase.
+// Split out so the phase can stop at the WG choice and pick up here afterwards.
+export function finishSolarPhase(state, logAcc) {
+  const nextState = state;
+  let localLog = logAcc;
+  {
     nextState.generation += 1;
     nextState.phase = "research";
     // Law Suit may only answer an attack from the generation it is played in.

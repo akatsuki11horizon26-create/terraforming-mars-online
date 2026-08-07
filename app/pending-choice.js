@@ -211,6 +211,35 @@ export function buildTileChoice(state, tileType, context, legalCells) {
   };
 }
 
+// Solar phase step 2 (Venus Next): "The first player [...] now acts as the WG,
+// and chooses a non-maxed global parameter and increases that track one step, or
+// places an ocean tile."
+//
+// The owner is the first player, not the player whose turn it is — the marker
+// has not moved yet and the acting player may be someone else entirely, so this
+// takes the owner explicitly rather than reading state.currentPlayerId.
+export function buildWorldGovernmentChoice(state, ownerPlayerId, options) {
+  if (!options || options.length === 0) return null;
+  return {
+    id: makeChoiceId("world-government", "solar-phase", ownerPlayerId),
+    kind: "world-government",
+    ownerPlayerId,
+    prompt: "世界政府のテラフォーミング: 上昇させるパラメータを選んでください。",
+    // The step is mandatory while any parameter is unmaxed.
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: "solar-phase",
+      sourceId: "world-government",
+      stage: "world-government",
+      // Nothing about this belongs to a player's turn.
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
 export function isChoiceOwnedBy(choice, playerId) {
   return Boolean(choice) && choice.ownerPlayerId === playerId;
 }

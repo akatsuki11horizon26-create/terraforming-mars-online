@@ -8,6 +8,7 @@ import {
   getTrSurcharge,
   getCardPlayableStatus,
   triggerProduction,
+  resolvePendingChoice,
   GLOBAL_EVENTS,
   PARTIES,
   NEUTRAL
@@ -430,45 +431,106 @@ test("Every non-leader delegate of the new ruling party goes back to the reserve
   );
 });
 
-// Venus Next rules, Solar phase STEP 2: "the first player [...] chooses a
-// non-maxed global parameter and increases that track one step [...] All bonuses
-// go to the WG, and therefore no TR or other bonuses are given to the first player."
-test("World Government Terraforming raises a track without granting TR", () => {
+// Venus Next rules, Solar phase STEP 2: "The first player (player order hasn't
+// yet shifted) now acts as the WG, and chooses a non-maxed global parameter and
+// increases that track one step, or places an ocean tile. All bonuses go to the
+// WG, and therefore no TR or other bonuses are given to the first player."
+test("World Government Terraforming offers all four choices to the first player", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const paused = triggerProduction(state, state.logs);
+
+  assert.equal(paused.pendingChoice?.kind, "world-government");
+  assert.equal(
+    paused.pendingChoice.ownerPlayerId,
+    paused.firstPlayerId,
+    "the first player chooses, not whoever was in turn"
+  );
+  assert.deepEqual(
+    paused.pendingChoice.options.map(option => option.id),
+    ["venus", "temperature", "oxygen", "ocean"],
+    "all four are on the table while nothing is maxed"
+  );
+});
+
+test("The solar phase waits for the World Government choice", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const generationBefore = state.generation;
+
+  const paused = triggerProduction(state, state.logs);
+  assert.equal(paused.generation, generationBefore, "the generation has not turned over");
+  assert.notEqual(paused.phase, "research", "the research phase has not begun");
+
+  const resolved = resolvePendingChoice(paused, "venus", paused.logs, paused.firstPlayerId);
+  assert.equal(resolved.state.generation, generationBefore + 1, "it resumes once answered");
+  assert.equal(resolved.state.phase, "research");
+  assert.equal(resolved.state.pendingChoice, null, "the choice is cleared");
+});
+
+test("A maxed parameter drops out of the World Government's options", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.venus = 30;
+  state.oceans = 9;
+
+  const paused = triggerProduction(state, state.logs);
+  const offered = paused.pendingChoice.options.map(option => option.id);
+  assert.ok(!offered.includes("venus"), "a maxed venus track is not offered");
+  assert.ok(!offered.includes("ocean"), "nine oceans means no ocean option");
+  assert.deepEqual(offered, ["temperature", "oxygen"]);
+});
+
+test("The World Government raises the chosen track and grants no TR", () => {
   const state = getInitialState({ playerCount: 2, venus: true });
   const trBefore = state.players.map(p => p.tr);
   const venusBefore = state.venus;
 
-  const after = triggerProduction(state, state.logs);
+  const paused = triggerProduction(state, state.logs);
+  const resolved = resolvePendingChoice(paused, "venus", paused.logs, paused.firstPlayerId);
 
-  assert.ok(after.venus > venusBefore, "a global parameter moves");
+  assert.equal(resolved.state.venus, venusBefore + 2, "venus moves one step");
   assert.deepEqual(
-    after.players.map(p => p.tr),
+    resolved.state.players.map(p => p.tr),
     trBefore,
     "no player gains TR from the World Government"
   );
+});
+
+test("The World Government's ocean pays the first player nothing", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const trBefore = state.players.map(p => p.tr);
+
+  const paused = triggerProduction(state, state.logs);
+  const chooseOcean = resolvePendingChoice(paused, "ocean", paused.logs, paused.firstPlayerId);
+  assert.equal(chooseOcean.state.pendingChoice.kind, "tile-placement", "it asks where");
+  assert.equal(
+    chooseOcean.state.pendingChoice.ownerPlayerId,
+    paused.firstPlayerId,
+    "the first player places it"
+  );
+
+  const square = chooseOcean.state.pendingChoice.options[0].id;
+  const placed = resolvePendingChoice(chooseOcean.state, square, chooseOcean.logs, paused.firstPlayerId);
+
+  assert.equal(placed.state.oceans, 1, "the ocean is on the board");
+  assert.deepEqual(
+    placed.state.players.map(p => p.tr),
+    trBefore,
+    "laying it grants no TR"
+  );
+  // Both players took the same production, so any placement or ocean-adjacency
+  // bonus paid to the first player would show up as a difference here.
+  const [first, second] = placed.state.players;
+  assert.equal(first.mc, second.mc, "no placement bonus reaches the first player");
+  assert.equal(placed.state.generation, state.generation + 1, "the phase carries on");
 });
 
 test("World Government Terraforming is skipped without Venus", () => {
   const state = getInitialState({ playerCount: 2 });
   const venusBefore = state.venus;
   const after = triggerProduction(state, state.logs);
+  assert.equal(after.pendingChoice, null, "nothing is asked");
   assert.equal(after.venus, venusBefore, "the venus track stays put");
+  assert.equal(after.generation, state.generation + 1, "the generation turns over as usual");
 });
-
-test("World Government Terraforming moves on from a maxed track", () => {
-  const state = getInitialState({ playerCount: 2, venus: true });
-  state.venus = 30;
-  const before = { temperature: state.temperature, oxygen: state.oxygen };
-
-  const after = triggerProduction(state, state.logs);
-
-  assert.equal(after.venus, 30, "a maxed track does not overshoot");
-  assert.ok(
-    after.temperature > before.temperature || after.oxygen > before.oxygen,
-    "another non-maxed parameter is raised instead"
-  );
-});
-
 // Turmoil rules, STEP 4: "4a) Place the Coming Global Event on top of the Current
 // Global Event. Add the neutral delegate indicated at the mid-right on that card."
 test("Changing Times adds the neutral delegates the new events name", () => {
@@ -840,4 +902,38 @@ test("Sponsored Projects only feeds cards that already hold a resource", async (
   const resources = after.players.find(p => p.id === a).cardResources;
   assert.equal(resources[animalCard.id], 4, "a card holding animals gains one");
   assert.equal(resources[floaterCard.id] ?? 0, 0, "an empty card is skipped");
+});
+
+// "Other cards may be triggered by this though, i.e. Arctic Algae or the new
+// corporation Aphrodite." The tile-laid hook is outside the no-bonus flag so it
+// still runs. There is no ocean trigger to observe yet — Arctic Algae is
+// modelled as a one-off gain — so this pins the placement itself: the ocean
+// reaches the board through the normal path, where a trigger would see it.
+test("The World Government's ocean goes through the normal placement path", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+
+  const paused = triggerProduction(state, state.logs);
+  const chooseOcean = resolvePendingChoice(paused, "ocean", paused.logs, paused.firstPlayerId);
+  const square = chooseOcean.state.pendingChoice.options[0];
+  const placed = resolvePendingChoice(chooseOcean.state, square.id, chooseOcean.logs, paused.firstPlayerId);
+
+  const cell = placed.state.board[square.targetCellKey];
+  assert.equal(cell.tileType, "ocean", "the tile is really on the board");
+  assert.equal(cell.placedBy, null, "an ocean belongs to nobody");
+  assert.equal(placed.state.oceans, 1, "the ocean count moved, so parameter watchers see it");
+  assert.equal(
+    placed.state.lastPlacedCellKey,
+    square.targetCellKey,
+    "the placement hook recorded the square"
+  );
+});
+
+test("The World Government cannot be answered by another player", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const paused = triggerProduction(state, state.logs);
+  const notTheOwner = paused.turnOrder.find(id => id !== paused.firstPlayerId);
+
+  const attempt = resolvePendingChoice(paused, "venus", paused.logs, notTheOwner);
+  assert.notEqual(attempt.status, "resolved", "someone else cannot terraform for the WG");
+  assert.equal(paused.venus, 0, "the track does not move");
 });
