@@ -1,6 +1,9 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-06 / コミット `dc03a5b` の次 / テスト325件
+最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト343件
+
+**PR #1（特殊VP・Virus・Special Permit）は open のまま。** 今回の Turmoil /
+Solar Phase の修正は別ブランチに積んである。履歴を混ぜないため分けてある。
 
 このファイルは**着任した人が最初に読むもの**。
 章の順序は「知らないと事故る順」で、作業の時系列ではない。
@@ -35,7 +38,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、325件
+- テスト: `node --test`、343件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -75,6 +78,18 @@ const next = { ...state };   // ← アクセサが消える。事故の最大�
 | 企業がランダム（13社） | 初期資源・生産量が毎回違う | 差分で測る |
 | **企業効果が値そのものを変える** | 差分でも落ちる | `corporationId` を固定 |
 | 植民地タイルがランダム | 交易の**収入**が毎回違う | 初期値だけ違う2本の差を取る |
+| **世界的イベントがランダム** | 開始時の dominant party が毎回違う | `globalEventOrder` で配りを固定 |
+
+最後の1つは 2026-08-07 に足された経路。セットアップが引いた2枚のイベントが
+中立代表者を配置し、それが開始時の dominant party を決めるため、
+**盤面がシャッフル依存になった**。これで既存テスト5本が乱数を読む状態になり、
+実行ごとに落ちる組み合わせが変わった。
+
+`getInitialState({ globalEventOrder: [...] })` で配りを固定できる。
+`tests/turmoil.test.mjs` の `pinnedTurmoilState()` がその形。
+**Turmoil のテストで dominance を読むなら必ず固定すること。**
+固定すると kelvinists に中立2個が乗った状態から始まるので、
+「ある政党を優勢にする」には**3個**必要になる（空の政党を使うなら別）。
 
 ```js
 // 悪い例 — 企業を引くたびに変わる
@@ -295,6 +310,7 @@ engine 側に寄せるのが本筋だが未実施。
 | `app/save-migration.js` | セーブ移行。`CURRENT_RULES_VERSION = 5` |
 | `app/net-protocol.js` | 通信形式と `viewForPlayer`（プライバシーフィルタ） |
 | `app/board-milestones.js` | マップ別の称号・褒賞 |
+| `app/global-events.js` | 世界的イベント36枚の効果スペック（宣言的。§6.3に未対応8枚） |
 | `app/full-card-catalog.js` | **生成物。直接編集しない**（`official-content.js` 経由） |
 | `app/card-resource-types.js` | **生成物**。カード上の資源種別72枚（§2.8） |
 | `app/card-art.data.js` | 428枚のカードアート（生成物、689KB） |
@@ -329,6 +345,16 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
   - Virus は「任意のカードから動物2」「任意のプレイヤーから植物5」の
     **両分岐とも実装済み**。1つのダイアログに両方が並ぶ（§2.8）
   - Special Permit はグリーン与党を立てた実プレイ経路でテスト済み
+- **Solar Phase**（公式の順序で1本化）
+  1. Game End Check → 2. World Government Terraforming（Venus有効時）
+  → 3. Colony production（交易船返却＋全トラック+1）→ 4. Turmoil
+- **Turmoil の世界的イベント36枚**（`app/global-events.js` の宣言的スペック）
+  - 影響力を数え、「数えるものは最大5」の上限を持つ
+  - 損失は影響力で軽減してから適用する
+  - **`effectText` を文字列解析しない。** 表示用の日本語であり、
+    そこから挙動を復元するのは推測になる
+  - `missingGlobalEventEffects` が空であることをテストで担保。
+    スペックの無いカードを足すと落ちる
 
 ---
 
@@ -338,12 +364,13 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 
 ### 6.1 ブラウザで一度も動作確認していない（最優先）
 
-**テスト325件・CI・プレイテストはすべて通っているが、実機は未確認。**
+**テスト343件・CI・プレイテストはすべて通っているが、実機はほぼ未確認。**
 型・lint・ビルドはどれも見た目を検証しない。
 
-**ロジックは完了扱いになっているが、ブラウザ確認だけは持ち越されている。**
-Chrome 拡張が接続できないセッションが続いたため、UI は一度も人間の目で見られていない。
-`npm run dev` で `localhost:3000` が上がることは確認済み。
+**2026-08-07 の時点で Chrome 拡張は接続できる。** 過去のセッションでこの項目が
+先送りされ続けた原因（拡張が繋がらない）は解消している。
+`npm run dev` → `localhost:3000` でタイトル画面が正しく描画されることまでは確認済み。
+**その先（ソロ開始以降）は未確認。** 下の表がそのまま残っている。
 
 確認すべきもの:
 
@@ -388,21 +415,49 @@ Chrome 拡張が接続できないセッションが続いたため、UI は一�
 
 ### 6.2 未実装・未検証のルール
 
-| 項目 | 状態 |
-|---|---|
-| World Government Terraforming（Venus） | 未実装 |
-| 植民地トラックが世代終了時に上昇しない | 未検証 |
-| Turmoil の世界的イベントが効果を発動しない | 未検証（ログ表示のみ） |
-| 有料代表者（予備から5MC）が無料で送れる | 未検証 |
-| Prelude ソロの世代数 | **出典待ち**（下記） |
+2026-08-07 の再監査で、この表にあった項目はすべて公式ルールブックと突き合わせて
+**修正済み**。以下は当時の指摘と結果の対応。
 
-**Prelude ソロ14世代**: 監査は「公式は12世代」と指摘。実装は
-`generation >= 14` のハードコード1箇所で、Prelude の有無を見ていないのは実測で確認済み
-（`preludeEnabled` は追加済みなので判定は可能）。
-**ただし出典が取れないため未修正。** `Downloads/MARS拡張ルール/` にあるのは
-Prelude 2 のルールブックだけで、solo の記載が無い（テキストは改行なしの1行なので
-`grep -oiE ".{90}solo.{140}"` のような文字列検索で確認すること）。
-**根拠なしに世代数を変えない。**
+| 項目 | 結果 |
+|---|---|
+| World Government Terraforming（Venus） | 実装済み（Solar phase step 2） |
+| 植民地トラックが世代終了時に上昇しない | 確定バグ→修正（`advanceColonyProduction`） |
+| Turmoil の世界的イベントが効果を発動しない | 確定バグ→36枚すべて実装 |
+| 有料代表者（予備から5MC）が無料で送れる | 確定バグ→修正 |
+| Prelude ソロの世代数 | **12世代に修正**（出典が見つかった、下記） |
+
+再監査で新たに見つかり、あわせて直したもの:
+
+- **旧与党のボーナスが支払われていた**。`runTurmoilPhase` は `advanceTurmoil` の
+  *前* にボーナスを払っていた（変数名も `outgoing`）。公式は 3a で与党交代 →
+  3b で**新**与党のボーナス
+- **与党になった政党の代表者が盤上に残っていた**。leader 1個しか除去せず、
+  次世代の dominance と influence が狂う
+- **Party Leader の同数処理**。`computePartyLeader` が現職を受け取らず、配列順で
+  先にいる方へ交代していた。配列順と現職が一致する並びでは素通りするので、
+  テストは `["A","B","B","A"]` の並びでないと検出できない
+- **世界的イベントの初期配置**。3枚目を current に配っていたが、公式は
+  Coming と Distant のみ（"no CURRENT Global Event to execute the first generation"）
+
+**Prelude ソロ12世代**: 前任者は「出典が取れない」として保留していたが、
+出典は手元にあった。`Downloads/MARS拡張ルール/TM_RULEBOOK_JPN_図形原状保持版.pdf`
+は**ファイル名に反して『プレリュード』のルール説明書 第5刷**である
+（内部名 `_PRELUDE_RULES JPN reprint 202412.indd`）。p.3 に
+
+> 『プレリュード』を使った１人プレイ
+> １人ゲームに『プレリュード』を導入する場合、**12 世代**が終了するまでに、
+> テラフォーミングを完了させてください。
+
+とある。同ページの「地球化指数ソロ」にも
+「期限は14世代（ただしプレリュード・カードを導入していれば12世代）」と重ねて書かれている。
+数字はページ画像を3倍に拡大して目視確認済み（§8 の数字化けの件があるため）。
+
+> **ファイル名から中身を推定して除外しない。** この1件は
+> 「TM_RULEBOOK_JPN」という名前を基本セットのものと読んで開かなかったために、
+> 監査2回ぶん保留され続けた。
+
+なお同ページには未実装の**「地球化指数ソロ」バリエーション**
+（全パラメータではなく TR63 以上、標準プロジェクト「緩衝ガスの導入」16MC）もある。
 
 **Special Permit は実プレイ経路でテスト済み。** `createTurmoilState` で Turmoil を
 立てて `rulingParty` を差し替えれば、通常のコマンド経路で最後まで通せる。
@@ -417,6 +472,28 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
+- **WGT の対象をプレイヤーに選ばせていない。** 公式は第1プレイヤーが
+  「未達成のグローバルパラメータを1段階上げる**か海洋を1枚置く**」を選ぶ。
+  現状は金星→気温→酸素の順で自動選択し、海洋は選択肢に入れていない。
+  `triggerProduction` の中で走るため選択を待てず、海洋は配置先の指定が要るため。
+  **UI側で選択を挟む形にするのが本筋**（エンジンの修正ではない）
+- **世界的イベント36枚のうち8枚は、まだ影響力ぶんの支払いしか効かない。**
+  スペックは `app/global-events.js` に宣言してあるが、リゾルバがキーを読んでいない。
+  選択・配置・他プレイヤーとの比較を伴うため、`pendingChoice` 経由にする必要がある。
+
+  | イベント | 未対応のキー |
+  |---|---|
+  | Paradigm Breakdown | `discardFromHand`（手札2枚を捨てる） |
+  | Corrosive Rain | `loseFloatersOrMc`（フローター2かMC10の二択） |
+  | Election / Revolution | `contest`（全員の数を比べて順位で TR 増減） |
+  | Aquifer Released by Public Council | `firstPlayerPlacesOcean` |
+  | Dry Deserts | `firstPlayerRemovesOcean`, `influenceStandardResource` |
+  | Cloud Societies | `addResourceToAll`, `influenceAddsToCards` |
+  | Sponsored Projects | `addResourceToCardsHoldingResources` |
+
+  **数え方**: `GLOBAL_EVENT_EFFECTS` の各スペックのキーのうち、
+  `game-logic.js` の `applyGlobalEventEffect` が読むキー集合に無いものを列挙すれば出る。
+  減らしたらこの表も直すこと
 
 ---
 
@@ -485,7 +562,27 @@ curl で取得できる。既存のタルシス盤面と1行ずつ一致する�
 
 ---
 
-## 付録: このセッションで直したもの
+## 付録: 2026-08-07 の再監査で直したもの
+
+公式ルールブックと突き合わせて `CONFIRMED BUG` と判定したものだけを直した。
+
+| コミット | 内容 |
+|---|---|
+| `1567100` | Preludeソロ12世代 / 植民地トラック上昇 / Party Leader同数 / 有料代表者5MC |
+| `3adfef4` | **旧与党のボーナスが支払われていた** / 与党の代表者が盤上に残っていた |
+| `4f353aa` | World Government Terraforming（Venus、Solar phase step 2）を実装 |
+| `e8e519c` | 世界的イベントの初期配置（current に3枚目を配っていた）と中立代表者の配置 |
+| `2161484` | 世界的イベント36枚の効果を実装（それまではログ1行だけ） |
+
+**監査で却下したもの**: `computeDominantParty` の同数処理は
+公式の "or clockwise in case of tie" と一致しており `ALREADY CORRECT`。
+Party Leader の同数処理は指摘自体は正しかったが、
+**「配列の先頭が選ばれる」という説明は不正確**で、
+配列順と現職が一致する並びでは再現しない（§2.2）。
+
+---
+
+## 付録2: それ以前のセッションで直したもの
 
 参照用。**詳細は各コミットメッセージにある。**
 
