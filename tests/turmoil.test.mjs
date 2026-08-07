@@ -22,10 +22,12 @@ import {
 // so the starting board — and with it the dominant party — depends on the
 // shuffle. Tests that read dominance pin the draw instead of rolling for it.
 // Both of these name Kelvinists, so both delegates land there.
+// All four are base Turmoil events, so the fixture stays valid in a game with
+// no other expansion enabled.
 const PINNED_EVENTS = [
-  "global-corrosive-rain",
   "global-global-dust-storm",
   "global-generous-funding",
+  "global-mud-slides",
   "global-sponsored-projects"
 ];
 
@@ -685,5 +687,63 @@ test("Every score category appears in the breakdown", async () => {
       `${category} is a number, not undefined or NaN`
     );
     assert.ok(Number.isFinite(breakdown[category]), `${category} is finite`);
+  }
+});
+
+// The Turmoil box ships 31 Global Event cards; the catalogue holds 36 because
+// the reference keeps the cross-expansion events in the same manifest, each
+// gated by a compatibility field. Dealing them regardless meant a Turmoil-only
+// game could draw a colony or Venus event it could never satisfy.
+test("The event deck is the 31 base cards unless Colonies or Venus are on", async () => {
+  const { playableGlobalEvents } = await import("../app/global-events.js");
+
+  assert.equal(GLOBAL_EVENTS.length, 36, "the catalogue carries all 36");
+  assert.equal(
+    playableGlobalEvents(GLOBAL_EVENTS, {}).length,
+    31,
+    "base turmoil deals the 31 in the box"
+  );
+  assert.equal(
+    playableGlobalEvents(GLOBAL_EVENTS, { venus: true, colonies: true }).length,
+    36,
+    "both expansions unlock all five extras"
+  );
+});
+
+test("Cross-expansion events need every expansion they name", async () => {
+  const { playableGlobalEvents } = await import("../app/global-events.js");
+  const idsFor = enabled => playableGlobalEvents(GLOBAL_EVENTS, enabled).map(e => e.id);
+
+  const coloniesOnly = idsFor({ colonies: true });
+  assert.ok(coloniesOnly.includes("global-jovian-tax-rights"), "a colonies event needs colonies");
+  assert.ok(
+    !coloniesOnly.includes("global-venus-infrastructure"),
+    "a venus event stays out without venus"
+  );
+  // Cloud Societies names both, so one expansion is not enough.
+  assert.ok(
+    !coloniesOnly.includes("global-cloud-societies"),
+    "an event naming two expansions needs both"
+  );
+  assert.ok(
+    idsFor({ colonies: true, venus: true }).includes("global-cloud-societies"),
+    "with both on it is dealt"
+  );
+});
+
+test("A turmoil-only game never deals a colony or Venus event", () => {
+  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const dealt = [state.turmoil.comingEvent, state.turmoil.distantEvent, ...state.turmoil.eventDeck];
+  const crossExpansion = [
+    "global-jovian-tax-rights",
+    "global-microgravity-health-problems",
+    "global-cloud-societies",
+    "global-corrosive-rain",
+    "global-venus-infrastructure"
+  ];
+
+  assert.equal(dealt.length, 31, "the deck is the 31 base events");
+  for (const id of crossExpansion) {
+    assert.ok(!dealt.includes(id), `${id} is not in a turmoil-only deck`);
   }
 });

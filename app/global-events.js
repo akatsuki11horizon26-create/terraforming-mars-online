@@ -143,6 +143,30 @@ export const GLOBAL_EVENT_EFFECTS = {
   }
 };
 
+// The official Turmoil box holds 31 Global Event cards. The catalogue carries
+// 36 because the reference implementation keeps the cross-expansion events in
+// the same Turmoil manifest, each gated by a `compatibility` field. Without that
+// gate a Turmoil-only game deals colony and Venus events it can never satisfy.
+//
+// 36 - 5 = 31, which is the component list in the rulebook.
+export const GLOBAL_EVENT_COMPATIBILITY = {
+  "global-jovian-tax-rights": ["colonies"],
+  "global-microgravity-health-problems": ["colonies"],
+  "global-cloud-societies": ["venus", "colonies"],
+  "global-corrosive-rain": ["venus", "colonies"],
+  "global-venus-infrastructure": ["venus"]
+};
+
+// Keeps the events a given game can actually use. `enabled` names the active
+// expansions, e.g. { venus: true, colonies: false }.
+export function playableGlobalEvents(events, enabled = {}) {
+  return events.filter(event => {
+    const needs = GLOBAL_EVENT_COMPATIBILITY[event.id];
+    if (!needs) return true;
+    return needs.every(expansion => enabled[expansion] === true);
+  });
+}
+
 export function getGlobalEventEffect(eventId) {
   return GLOBAL_EVENT_EFFECTS[eventId] ?? null;
 }

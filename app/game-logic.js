@@ -53,8 +53,12 @@ import {
   isChoiceOwnedBy
 } from "./pending-choice.js";
 import { getCardResourceType } from "./card-resource-types.js";
-import { getGlobalEventEffect, missingGlobalEventEffects } from "./global-events.js";
-export { missingGlobalEventEffects };
+import {
+  getGlobalEventEffect,
+  missingGlobalEventEffects,
+  playableGlobalEvents
+} from "./global-events.js";
+export { missingGlobalEventEffects, playableGlobalEvents };
 
 export { STANDARD_RESOURCES } from "./pending-choice.js";
 export { getCardResourceType };
@@ -2184,10 +2188,16 @@ export function getInitialState(options = {}) {
   const turnOrder = players.map(player => player.id);
   // Setup places neutral delegates from the two events it draws, so the starting
   // dominant party depends on the shuffle. Tests pass globalEventOrder to pin it.
+  // Five of the 36 events belong to Colonies or Venus; without them the deck is
+  // the 31 the Turmoil box ships with.
+  const eventPool = playableGlobalEvents(GLOBAL_EVENTS, {
+    venus: Boolean(options.venus),
+    colonies: Boolean(options.colonies)
+  });
   const turmoil = options.turmoil
     ? createTurmoilState(
         turnOrder,
-        options.globalEventOrder ?? shuffle(GLOBAL_EVENTS.map(event => event.id)),
+        options.globalEventOrder ?? shuffle(eventPool.map(event => event.id)),
         findGlobalEvent
       )
     : null;
