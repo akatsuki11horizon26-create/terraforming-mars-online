@@ -132,11 +132,17 @@ export const GLOBAL_EVENT_EFFECTS = {
   "global-aquifer-released-by-public-council": {
     firstPlayerPlacesOcean: true, influencePer: { plants: 1, steel: 1 }
   },
+  // NOTE: influenceStandardResource is declared but not yet applied — "1 standard
+  // resource per influence" lets the player pick which resource, so it needs a
+  // choice per player and the engine holds one pendingChoice at a time. The
+  // ocean removal is implemented.
   "global-dry-deserts": {
     firstPlayerRemovesOcean: true, influenceStandardResource: 1
   },
-  // "every card" needs no choice, so these resolve immediately. Only the
-  // influence share, which names particular cards, would need one.
+  // "every card" needs no choice, so these resolve immediately.
+  // NOTE: influenceAddsToCards is declared but not yet applied — "1 floater on
+  // a card per influence" lets the player pick which cards, so it needs a
+  // choice per player. The blanket "every card" part is implemented.
   "global-cloud-societies": {
     addResourceToAll: "floater", influenceAddsToCards: "floater"
   },

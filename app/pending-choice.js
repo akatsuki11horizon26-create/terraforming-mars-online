@@ -240,6 +240,32 @@ export function buildWorldGovernmentChoice(state, ownerPlayerId, options) {
   };
 }
 
+// Dry Deserts takes an ocean back off the board. The first player picks which,
+// and the squares under it revert to empty.
+export function buildOceanRemovalChoice(state, sourceId, ownerPlayerId, oceanCells) {
+  if (!oceanCells || oceanCells.length === 0) return null;
+  return {
+    id: makeChoiceId("ocean-removal", sourceId, ownerPlayerId),
+    kind: "ocean-removal",
+    ownerPlayerId,
+    prompt: "世界的イベント: 取り除く海洋タイルを選んでください。",
+    optional: false,
+    options: oceanCells.map(cell => ({
+      id: `${cell.q},${cell.r}`,
+      label: `(${cell.q}, ${cell.r})`,
+      targetCellKey: `${cell.q},${cell.r}`
+    })),
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: "ocean-removal",
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
 export function isChoiceOwnedBy(choice, playerId) {
   return Boolean(choice) && choice.ownerPlayerId === playerId;
 }

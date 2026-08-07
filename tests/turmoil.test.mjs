@@ -937,3 +937,111 @@ test("The World Government cannot be answered by another player", () => {
   assert.notEqual(attempt.status, "resolved", "someone else cannot terraform for the WG");
   assert.equal(paused.venus, 0, "the track does not move");
 });
+
+// Aquifer Released by Public Council: the first player lays an ocean, and
+// everyone gains plants and steel per influence.
+test("Aquifer asks the first player for a square and pays nobody for it", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.turmoil.currentEvent = "global-aquifer-released-by-public-council";
+
+  const resolved = runTurmoilPhase(state, state.logs);
+  const choice = resolved.state.pendingChoice;
+  assert.equal(choice?.kind, "tile-placement", "it asks where the ocean goes");
+  assert.equal(choice.ownerPlayerId, resolved.state.firstPlayerId, "the first player picks");
+
+  const trBefore = resolved.state.players.map(p => p.tr);
+  const generationBefore = resolved.state.generation;
+  const placed = resolvePendingChoice(
+    resolved.state,
+    choice.options[0].id,
+    resolved.logs,
+    choice.ownerPlayerId
+  );
+
+  assert.equal(placed.state.oceans, 1, "the ocean lands on the board");
+  assert.deepEqual(placed.state.players.map(p => p.tr), trBefore, "laying it grants no TR");
+  // The turmoil phase already ran; answering must not run a generation end again.
+  assert.equal(placed.state.generation, generationBefore, "the generation does not advance twice");
+  assert.equal(placed.state.pendingChoice, null);
+});
+
+// Dry Deserts: the first player takes an ocean off the board.
+test("Dry Deserts removes an ocean after the phase has run in order", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  let placed = 0;
+  for (const [key, cell] of Object.entries(state.board)) {
+    if (placed >= 2) break;
+    if (cell.tileType === "empty" && !cell.reservedFor) {
+      state.board[key] = { ...cell, tileType: "ocean", placedBy: null };
+      placed += 1;
+    }
+  }
+  state.oceans = 2;
+  state.turmoil.currentEvent = "global-dry-deserts";
+
+  const resolved = runTurmoilPhase(state, state.logs);
+  // The government must already have changed hands: the question waits for the
+  // phase, the phase does not wait for the question.
+  assert.ok(resolved.state.turmoil.rulingParty, "the new government is seated");
+  assert.notEqual(resolved.state.turmoil.currentEvent, "global-dry-deserts", "changing times ran");
+
+  const choice = resolved.state.pendingChoice;
+  assert.equal(choice?.kind, "ocean-removal");
+  assert.equal(choice.options.length, 2, "both oceans are offered");
+
+  const after = resolvePendingChoice(resolved.state, choice.options[0].id, resolved.logs, choice.ownerPlayerId);
+  assert.equal(after.state.oceans, 1, "the ocean count drops");
+  assert.equal(
+    after.state.board[choice.options[0].targetCellKey].tileType,
+    "empty",
+    "the square is empty again"
+  );
+});
+
+// Paradigm Breakdown: discard 2 cards, gain 2 MC per influence.
+test("Paradigm Breakdown takes two cards from every hand", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["a", "b", "c"] }));
+  const discardBefore = (state.discardPile ?? []).length;
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  for (const player of after.players) {
+    assert.equal(player.hand.length, 1, "three cards become one");
+  }
+  assert.equal(after.discardPile.length, discardBefore + 4, "all four reach the discard pile");
+});
+
+test("Paradigm Breakdown takes what it can from a short hand", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map((p, i) => ({ ...p, hand: i === 0 ? ["only"] : [] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(after.players[0].hand.length, 0, "a single card still goes");
+  assert.equal(after.players[1].hand.length, 0, "an empty hand is left alone");
+});
+
+// Corrosive Rain: lose 2 floaters from a card, or 10 MC.
+test("Corrosive Rain takes floaters when there are floaters to take", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const floaterCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "floater");
+
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a
+      ? { ...p, playedProjects: [floaterCard.id], cardResources: { [floaterCard.id]: 3 }, mc: 50 }
+      : { ...p, mc: 50 }
+  );
+  state.turmoil.currentEvent = "global-corrosive-rain";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  const holder = after.players.find(p => p.id === a);
+  const other = after.players.find(p => p.id !== a);
+
+  assert.equal(holder.cardResources[floaterCard.id], 1, "two floaters are spent");
+  assert.equal(holder.mc, 50, "the MC is kept");
+  assert.equal(other.mc, 40, "a player with no floaters pays 10 MC instead");
+});

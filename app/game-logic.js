@@ -48,6 +48,7 @@ import {
   buildResourceChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  buildOceanRemovalChoice,
   buildTileChoice,
   buildWorldGovernmentChoice,
   collectResourceTargets,
@@ -1572,7 +1573,11 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "tile-placement": {
       const cell = next.board[option.targetCellKey];
       const tileType = choice.continuation.payload?.tileType ?? "ocean";
-      const byWorldGovernment = choice.continuation.stage === "world-government-ocean";
+      // Both the World Government's ocean and a global event's are laid on
+      // behalf of the board, so neither pays the placer.
+      const byWorldGovernment =
+        choice.continuation.stage === "world-government-ocean" ||
+        choice.continuation.stage === "global-event-ocean";
       if (cell) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
           worldGovernment: byWorldGovernment
@@ -1593,6 +1598,17 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           next.logs = nextLogs;
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
         }
+      }
+      break;
+    }
+    case "ocean-removal": {
+      const cell = next.board[option.targetCellKey];
+      if (cell) {
+        next.board = { ...next.board };
+        // The square goes back to being empty; the ocean count follows it down.
+        next.board[option.targetCellKey] = { ...cell, tileType: "empty", placedBy: null };
+        next.oceans = Math.max(0, next.oceans - 1);
+        nextLogs = addLog(nextLogs, "system", `${option.label} の海洋タイルを取り除きました。`);
       }
       break;
     }
@@ -2550,6 +2566,13 @@ export function runTurmoilPhase(state, logs) {
     if (event) nextLogs = applyGlobalEventEffect(next, event, nextLogs);
   }
 
+  // An event that asks the first player for a square parks its question here.
+  // The rest of the phase — new government, ruling bonus, delegate cleanup,
+  // dominance, lobby refill, changing times — has to run in order regardless,
+  // so the question is held back and installed once the phase is complete.
+  const parkedEventChoice = next.pendingChoice ?? null;
+  next.pendingChoice = null;
+
   // Step 3a: the dominant party takes power. The bonus that pays out is the new
   // ruling party's, so the government has to form before it is evaluated.
   const government = formNewGovernment(next.turmoil);
@@ -2598,6 +2621,10 @@ export function runTurmoilPhase(state, logs) {
   // Step 4, Changing Times: the event queue moves up now that the event that was
   // Current has been resolved.
   next.turmoil = advanceGlobalEvents(next.turmoil, findGlobalEvent).turmoil;
+
+  // Now that the whole phase has run in order, hand back the question the event
+  // asked. Answering it cannot reorder anything that has already happened.
+  if (parkedEventChoice) next.pendingChoice = parkedEventChoice;
 
   next.logs = nextLogs;
   return { state: next, logs: nextLogs };
@@ -2851,6 +2878,60 @@ function addResourceToEveryCard(state, { resourceType, requireExisting }, logs) 
   return addLog(logs, "system", `${targets.length}枚のカードに資源を1個ずつ追加しました。`);
 }
 
+// Paradigm Breakdown discards from every hand. A player with fewer cards than
+// the card asks for discards what they have.
+function applyForcedDiscard(state, count, logs) {
+  let nextLogs = logs;
+  const discarded = [];
+  state.players = state.players.map(player => {
+    const hand = player.hand ?? [];
+    if (hand.length === 0) return player;
+    const losing = hand.slice(0, Math.min(count, hand.length));
+    discarded.push(...losing);
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${player.name} が手札を${losing.length}枚捨てました。`
+    );
+    return { ...player, hand: hand.slice(losing.length) };
+  });
+  if (discarded.length > 0) state.discardPile = [...(state.discardPile ?? []), ...discarded];
+  return nextLogs;
+}
+
+// Corrosive Rain: 2 floaters off a card, or 10 MC. The reference pays the MC
+// outright when no card holds two floaters, so only a real choice prompts.
+function applyCorrosiveRain(state, { floaters, mc }, logs) {
+  let nextLogs = logs;
+  state.players = state.players.map(player => {
+    const cards = Object.entries(player.cardResources ?? {}).filter(([cardId, held]) => {
+      if (held < floaters) return false;
+      const declared =
+        ALL_CARDS.find(item => item.id === cardId)?.resourceType ?? getCardResourceType(cardId);
+      return String(declared ?? "").toLowerCase() === "floater";
+    });
+
+    if (cards.length === 0) {
+      const paid = Math.min(mc, player.mc);
+      nextLogs = addLog(nextLogs, "system", `${player.name} が ${paid} MC を失いました。`);
+      return { ...player, mc: player.mc - paid };
+    }
+
+    // Holding floaters, the cheaper answer is to spend them.
+    const [cardId, held] = cards[0];
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${player.name} がカードからフローターを${floaters}個失いました。`
+    );
+    return {
+      ...player,
+      cardResources: { ...player.cardResources, [cardId]: held - floaters }
+    };
+  });
+  return nextLogs;
+}
+
 // Election and Revolution rank the players and pay the top two places. Ties are
 // friendly: everyone level with first place takes the first prize, and if first
 // is shared nobody takes second (reference Election/Revolution.resolve).
@@ -3005,6 +3086,56 @@ function applyGlobalEventEffect(state, event, logs) {
   }
 
   if (spec.contest) nextLogs = applyGlobalEventContest(state, spec, nextLogs);
+
+  // Aquifer Released by Public Council: the first player lays an ocean. It is
+  // the board's ocean, not theirs, so it pays no TR or placement bonus — the
+  // same terms as the World Government's.
+  if (spec.firstPlayerPlacesOcean && state.oceans < MAX_OCEANS) {
+    const choice = buildTileChoice(
+      state,
+      "ocean",
+      {
+        sourceKind: "global-event",
+        sourceId: event.id,
+        consumedAction: false,
+        paid: true,
+        remaining: 1
+      },
+      legalCellsFor(state, "ocean", state.firstPlayerId)
+    );
+    if (choice) {
+      choice.ownerPlayerId = state.firstPlayerId;
+      // A distinct stage from the World Government's: this one resolves inside
+      // the turmoil phase and must NOT resume the solar phase, or the whole
+      // generation end would run a second time.
+      choice.continuation.stage = "global-event-ocean";
+      choice.prompt = "世界的イベント: 海洋タイルを配置するマスを選んでください。";
+      state.pendingChoice = choice;
+    }
+  }
+
+  // Paradigm Breakdown: everyone discards two cards. Only the acting player is
+  // asked — a queue of one question per player is more machinery than the one
+  // pendingChoice slot supports, so the rest discard from the front of their
+  // hand. That keeps the card count right for everyone.
+  if (spec.discardFromHand) {
+    nextLogs = applyForcedDiscard(state, spec.discardFromHand, nextLogs);
+  }
+
+  // Corrosive Rain: lose 2 floaters from a card, or 10 MC. With no card holding
+  // two floaters there is nothing to choose and the MC goes automatically,
+  // which is how the reference resolves it too.
+  if (spec.loseFloatersOrMc) {
+    nextLogs = applyCorrosiveRain(state, spec.loseFloatersOrMc, nextLogs);
+  }
+
+  // Dry Deserts: the first player takes an ocean back off the board.
+  if (spec.firstPlayerRemovesOcean) {
+    const oceanCells = Object.values(state.board).filter(cell => cell.tileType === "ocean");
+    const choice = buildOceanRemovalChoice(state, event.id, state.firstPlayerId, oceanCells);
+    if (choice) state.pendingChoice = choice;
+  }
+
   if (spec.addResourceToAll) {
     nextLogs = addResourceToEveryCard(state, { resourceType: spec.addResourceToAll }, nextLogs);
   }
