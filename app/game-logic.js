@@ -2180,8 +2180,14 @@ export function getInitialState(options = {}) {
   }
 
   const turnOrder = players.map(player => player.id);
+  // Setup places neutral delegates from the two events it draws, so the starting
+  // dominant party depends on the shuffle. Tests pass globalEventOrder to pin it.
   const turmoil = options.turmoil
-    ? createTurmoilState(turnOrder, shuffle(GLOBAL_EVENTS.map(event => event.id)))
+    ? createTurmoilState(
+        turnOrder,
+        options.globalEventOrder ?? shuffle(GLOBAL_EVENTS.map(event => event.id)),
+        findGlobalEvent
+      )
     : null;
   const colonies = options.colonies
     ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)))
@@ -2494,7 +2500,7 @@ export function runTurmoilPhase(state, logs) {
 
   // Step 4, Changing Times: the event queue moves up now that the event that was
   // Current has been resolved.
-  next.turmoil = advanceGlobalEvents(next.turmoil).turmoil;
+  next.turmoil = advanceGlobalEvents(next.turmoil, findGlobalEvent).turmoil;
 
   next.logs = nextLogs;
   return { state: next, logs: nextLogs };
@@ -2687,6 +2693,10 @@ export function fundAward(state, awardId, logs, playerId) {
   );
   next.logs = nextLogs;
   return { state: next, logs: nextLogs, funded: true };
+}
+
+function findGlobalEvent(eventId) {
+  return eventId ? GLOBAL_EVENTS.find(event => event.id === eventId) ?? null : null;
 }
 
 export function isGameOverCheck(temp, oxy, oce) {

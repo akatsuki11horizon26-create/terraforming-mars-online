@@ -120,18 +120,37 @@ export function normalizePartyId(name) {
   return aliases[normalized] ?? normalized;
 }
 
-export function createTurmoilState(playerIds, globalEventIds) {
+// Places a neutral delegate for a global event, the way each card instructs.
+// The party comes off the card face, so an unknown name must not silently drop
+// the delegate — dominance is counted from these.
+function addNeutralDelegate(state, partyName) {
+  const partyId = normalizePartyId(partyName);
+  const party = state.parties[partyId];
+  if (!party) return;
+  if ((state.delegateReserve[NEUTRAL] ?? 0) <= 0) return;
+  state.delegateReserve[NEUTRAL] -= 1;
+  party.delegates.push(NEUTRAL);
+  party.leader = computePartyLeader(party);
+}
+
+// Turmoil setup: the Greens start as ruling with a neutral chairman, then the
+// Coming and Distant events are drawn, each adding the neutral delegate printed
+// on it. Those delegates are what set the starting Dominant party. There is
+// deliberately no Current event — "no CURRENT Global Event to execute the first
+// generation" — so drawing a third card here would resolve an event that should
+// never have been in play.
+export function createTurmoilState(playerIds, globalEventIds, getEvent = () => null) {
   const delegateReserve = { [NEUTRAL]: DELEGATES_FOR_NEUTRAL - 1 };
   for (const id of playerIds) delegateReserve[id] = DELEGATES_PER_PLAYER;
 
   const parties = {};
   for (const party of PARTIES) parties[party.id] = { delegates: [], leader: null };
-  // The game opens with a neutral chairman and the Greens dominant.
-  parties.greens.delegates.push(NEUTRAL);
-  parties.greens.leader = NEUTRAL;
 
   const queue = [...globalEventIds];
-  return {
+  const comingEvent = queue.shift() ?? null;
+  const distantEvent = queue.shift() ?? null;
+
+  const state = {
     chairman: NEUTRAL,
     dominantParty: "greens",
     rulingParty: "greens",
@@ -139,13 +158,20 @@ export function createTurmoilState(playerIds, globalEventIds) {
     parties,
     delegateReserve,
     lobby: [...playerIds],
-    // distant -> coming -> current, advanced each generation.
-    distantEvent: queue.shift() ?? null,
-    comingEvent: queue.shift() ?? null,
-    currentEvent: queue.shift() ?? null,
+    // coming -> current, advanced each generation. Generation 1 has no current.
+    distantEvent,
+    comingEvent,
+    currentEvent: null,
     eventDeck: queue,
     playersInfluenceBonus: {}
   };
+
+  // The Coming event places the delegate named at its top left; the Distant
+  // event places the one it shows when first turned face up.
+  addNeutralDelegate(state, getEvent(comingEvent)?.revealedDelegate);
+  addNeutralDelegate(state, getEvent(distantEvent)?.revealedDelegate);
+  state.dominantParty = computeDominantParty(state);
+  return state;
 }
 
 export function countDelegates(turmoil, partyId, delegate) {
@@ -295,13 +321,21 @@ export function formNewGovernment(turmoil) {
   return { turmoil: next, newChairman, rulingParty: newRuling };
 }
 
-// Turmoil step 4, Changing Times: the Coming event becomes Current and the
-// Distant event moves up, each newly shown card adding its neutral delegate.
-export function advanceGlobalEvents(turmoil) {
+// Turmoil step 4, Changing Times: "Place the Coming Global Event on top of the
+// Current Global Event. Add the neutral delegate indicated at the mid-right on
+// that card. Move the Distant Global Event into the Coming spot" and turn a new
+// Distant face up, adding the delegate printed at its top left.
+export function advanceGlobalEvents(turmoil, getEvent = () => null) {
   const next = cloneTurmoil(turmoil);
   next.currentEvent = next.comingEvent;
   next.comingEvent = next.distantEvent;
   next.distantEvent = next.eventDeck.shift() ?? null;
+
+  // The card becoming Current adds its mid-right delegate; the newly revealed
+  // Distant card adds its top-left one.
+  addNeutralDelegate(next, getEvent(next.currentEvent)?.currentDelegate);
+  addNeutralDelegate(next, getEvent(next.distantEvent)?.revealedDelegate);
+  next.dominantParty = computeDominantParty(next);
   return { turmoil: next };
 }
 

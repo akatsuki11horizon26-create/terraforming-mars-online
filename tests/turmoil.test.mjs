@@ -8,6 +8,7 @@ import {
   getTrSurcharge,
   getCardPlayableStatus,
   triggerProduction,
+  GLOBAL_EVENTS,
   PARTIES,
   NEUTRAL
 } from "../app/game-logic.js";
@@ -16,6 +17,21 @@ import {
   DELEGATES_FOR_NEUTRAL,
   normalizePartyId
 } from "../app/turmoil.js";
+
+// Setup draws two global events and places the neutral delegate each one names,
+// so the starting board — and with it the dominant party — depends on the
+// shuffle. Tests that read dominance pin the draw instead of rolling for it.
+// Both of these name Kelvinists, so both delegates land there.
+const PINNED_EVENTS = [
+  "global-corrosive-rain",
+  "global-global-dust-storm",
+  "global-generous-funding",
+  "global-sponsored-projects"
+];
+
+function pinnedTurmoilState(options = {}) {
+  return getInitialState({ turmoil: true, globalEventOrder: PINNED_EVENTS, ...options });
+}
 
 test("Turmoil offers the six official parties", () => {
   assert.deepEqual(
@@ -29,17 +45,32 @@ test("Turmoil offers the six official parties", () => {
 });
 
 test("A new game seats a neutral chairman with the Greens ruling", () => {
-  const state = getInitialState({ playerCount: 3, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 3 });
 
   assert.equal(state.turmoil.chairman, NEUTRAL);
   assert.equal(state.turmoil.rulingParty, "greens");
-  assert.equal(state.turmoil.delegateReserve[NEUTRAL], DELEGATES_FOR_NEUTRAL - 1);
   for (const id of state.turnOrder) {
     assert.equal(state.turmoil.delegateReserve[id], DELEGATES_PER_PLAYER);
   }
-  assert.ok(state.turmoil.currentEvent, "an event is in play from the start");
+
+  // Setup draws the Coming and Distant events only: "no CURRENT Global Event to
+  // execute the first generation".
+  assert.equal(state.turmoil.currentEvent, null, "the first generation has no current event");
   assert.ok(state.turmoil.comingEvent);
   assert.ok(state.turmoil.distantEvent);
+
+  // Each of those two cards puts a neutral delegate into the party it names, on
+  // top of the neutral chairman.
+  const neutralsOnBoard = Object.values(state.turmoil.parties).reduce(
+    (sum, party) => sum + party.delegates.filter(id => id === NEUTRAL).length,
+    0
+  );
+  assert.equal(neutralsOnBoard, 2, "both drawn events place their neutral delegate");
+  assert.equal(
+    state.turmoil.delegateReserve[NEUTRAL],
+    DELEGATES_FOR_NEUTRAL - 1 - neutralsOnBoard,
+    "those delegates come out of the neutral reserve"
+  );
 });
 
 test("Turmoil is off unless requested", () => {
@@ -48,7 +79,7 @@ test("Turmoil is off unless requested", () => {
 });
 
 test("Delegates come from the lobby before the reserve", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 2 });
   assert.ok(state.turmoil.lobby.includes("player"));
 
   const first = sendDelegateToParty(state, "reds", state.logs, "player");
@@ -65,7 +96,8 @@ test("Delegates come from the lobby before the reserve", () => {
 });
 
 test("The party leader is whoever holds the most delegates there", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  // Pinned so a neutral delegate from a drawn event cannot land in reds.
+  let state = pinnedTurmoilState({ playerCount: 2 });
 
   state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   assert.equal(state.turmoil.parties.reds.leader, "player");
@@ -78,11 +110,13 @@ test("The party leader is whoever holds the most delegates there", () => {
 });
 
 test("Influence follows the chairman, leadership and delegate count", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  // Pinned: both setup delegates go to kelvinists, so reds starts empty and
+  // three delegates are needed to pass it.
+  let state = pinnedTurmoilState({ playerCount: 2 });
 
   assert.equal(getInfluence(state.turmoil, "player"), 0);
 
-  // Two delegates clear the Greens' single neutral delegate outright.
+  state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   assert.equal(state.turmoil.dominantParty, "reds");
@@ -95,24 +129,31 @@ test("Influence follows the chairman, leadership and delegate count", () => {
   assert.equal(getInfluence(withChair, "player2"), 2, "the chairman gains one");
 });
 
-test("A tie for most delegates is broken by clockwise order", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
-  // Greens open with one neutral delegate and are dominant.
-  assert.equal(state.turmoil.dominantParty, "greens");
+test("A tie for most delegates is broken by clockwise order", async () => {
+  const { createTurmoilState, sendDelegate } = await import("../app/turmoil.js");
 
-  const tied = sendDelegateToParty(state, "reds", state.logs, "player").state;
+  // Setup places neutral delegates from the drawn events, so build the board
+  // directly rather than depending on which events were shuffled up.
+  let turmoil = createTurmoilState(["player", "player2"], ["e1", "e2", "e3"]);
+  turmoil = sendDelegate(turmoil, NEUTRAL, "greens").turmoil;
+  assert.equal(turmoil.dominantParty, "greens", "greens hold the marker alone");
+
+  turmoil = sendDelegate(turmoil, "player", "reds").turmoil;
   // Reds now match the Greens at one delegate each. The reference walks
   // clockwise from the incumbent rather than letting it keep the seat.
-  assert.equal(tied.turmoil.parties.reds.delegates.length, 1);
-  assert.equal(tied.turmoil.parties.greens.delegates.length, 1);
+  assert.equal(turmoil.parties.reds.delegates.length, 1);
+  assert.equal(turmoil.parties.greens.delegates.length, 1);
   assert.ok(
-    ["greens", "reds"].includes(tied.turmoil.dominantParty),
+    ["greens", "reds"].includes(turmoil.dominantParty),
     "the tie resolves to one of the tied parties"
   );
 });
 
 test("The dominant party takes power and its leader becomes chairman", () => {
-  let state = getInitialState({ playerCount: 3, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 3 });
+  // Kelvinists hold two neutral delegates from setup, so reds needs three.
+  state.players = state.players.map(p => ({ ...p, mc: 60 }));
+  state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   state = sendDelegateToParty(state, "reds", state.logs, "player").state;
   state = sendDelegateToParty(state, "reds", state.logs, "player").state;
 
@@ -130,7 +171,7 @@ test("The dominant party takes power and its leader becomes chairman", () => {
 });
 
 test("Every player loses 1 TR when the turmoil phase runs", () => {
-  const state = getInitialState({ playerCount: 3, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 3 });
   const before = state.players.map(player => player.tr);
 
   const result = runTurmoilPhase(state, state.logs);
@@ -143,7 +184,7 @@ test("Every player loses 1 TR when the turmoil phase runs", () => {
 });
 
 test("The global event queue advances one slot per generation", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 2 });
   const { distantEvent, comingEvent, currentEvent } = state.turmoil;
 
   const result = runTurmoilPhase(state, state.logs);
@@ -155,7 +196,7 @@ test("The global event queue advances one slot per generation", () => {
 });
 
 test("Every player is refilled to one lobby delegate each generation", () => {
-  let state = getInitialState({ playerCount: 3, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 3 });
   state = sendDelegateToParty(state, "unity", state.logs, "player").state;
   assert.equal(state.turmoil.lobby.includes("player"), false);
 
@@ -164,7 +205,7 @@ test("Every player is refilled to one lobby delegate each generation", () => {
 });
 
 test("The ruling party's bonus pays every player", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 2 });
   // Greens rule at the start: 1 MC per Plant, Microbe or Animal tag.
   state.turmoil.rulingParty = "greens";
   state.players[0].playedProjects = [];
@@ -180,7 +221,7 @@ test("The ruling party's bonus pays every player", () => {
 });
 
 test("The Reds surcharge only applies while they rule", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 2 });
   assert.equal(getTrSurcharge(state, 2), 0, "the Greens levy nothing");
 
   const reds = { ...state, turmoil: { ...state.turmoil, rulingParty: "reds", rulingPolicyId: "rp01" } };
@@ -189,7 +230,7 @@ test("The Reds surcharge only applies while they rule", () => {
 });
 
 test("Party requirements read live Turmoil state", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 2 });
   const card = {
     id: "test-party-card",
     name: "Test",
@@ -206,7 +247,7 @@ test("Party requirements read live Turmoil state", () => {
 });
 
 test("Chairman requirements check the acting player", () => {
-  const state = getInitialState({ playerCount: 2, turmoil: true });
+  const state = pinnedTurmoilState({ playerCount: 2 });
   const card = { id: "c", name: "T", cost: 1, tags: [], requirements: [{ chairman: true }] };
 
   assert.equal(getCardPlayableStatus(card, state).playable, false);
@@ -222,7 +263,7 @@ test("Party names from card requirements resolve to party ids", () => {
 });
 
 test("Turmoil state survives a generation of play", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 2 });
   state = sendDelegateToParty(state, "kelvinists", state.logs, "player").state;
   state = sendDelegateToParty(state, "kelvinists", state.logs, "player").state;
   assert.equal(state.turmoil.dominantParty, "kelvinists");
@@ -316,53 +357,61 @@ test("A player who cannot pay 5 MC keeps their delegate", () => {
 // Turmoil rules, STEP 4: "3a) The Dominant party now becomes ruling. 3b) Resolve
 // the Ruling Bonus" — the bonus belongs to the incoming party, not the outgoing.
 test("The incoming ruling party pays the ruling bonus, not the outgoing one", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 2 });
 
-  // Greens rule at setup. Make Unity dominant so power actually changes hands.
+  // Greens rule at setup. Make Reds dominant so power actually changes hands.
+  // Kelvinists hold two delegates from setup, so Reds needs three.
   assert.equal(state.turmoil.rulingParty, "greens", "greens open as the ruling party");
-  state = sendDelegateToParty(state, "unity", state.logs, "player").state;
-  state = sendDelegateToParty(state, "unity", state.logs, "player").state;
-  assert.equal(state.turmoil.dominantParty, "unity", "unity is dominant");
+  state.players = state.players.map(p => ({ ...p, mc: 60 }));
+  for (let i = 0; i < 3; i++) {
+    state = sendDelegateToParty(state, "reds", state.logs, "player").state;
+  }
+  assert.equal(state.turmoil.dominantParty, "reds", "reds are dominant");
 
-  const mcBefore = state.players.map(p => p.mc);
+  const trBefore = state.players.map(p => p.tr);
   const result = runTurmoilPhase(state, state.logs);
 
-  assert.equal(result.state.turmoil.rulingParty, "unity", "unity takes power");
-  // Unity's bonus pays 1 MC per Jovian/Space tag... but the key point is that the
-  // outgoing Greens plant/microbe/animal tag bonus must NOT be what paid out.
-  const greensBonusPaid = result.state.players.some(
-    (p, i) => p.mc > mcBefore[i] && state.players[i].mc === mcBefore[i] && false
-  );
-  assert.equal(greensBonusPaid, false, "the outgoing greens bonus does not pay");
+  assert.equal(result.state.turmoil.rulingParty, "reds", "reds take power");
+  // Reds' bonus raises the lowest TR by 1; the outgoing Greens bonus pays MC per
+  // plant/microbe/animal tag. Nobody holds those tags here, so the two are
+  // distinguishable: paying the wrong party's bonus leaves every TR at -1.
+  const roseAboveTheRevision = result.state.players.some((p, i) => p.tr > trBefore[i] - 1);
+  assert.equal(roseAboveTheRevision, true, "the incoming reds bonus pays out");
   assert.ok(
     result.logs.every(entry => !String(entry.message ?? entry).includes("緑の党の支持ボーナス")),
-    "no greens ruling bonus is logged once unity has taken power"
+    "no greens ruling bonus is logged once reds have taken power"
   );
 });
 
 // Turmoil rules, STEP 4: "3c) Return the former Chairman and all non-leader
 // delegates from Dominant party to reserve."
 test("Every non-leader delegate of the new ruling party goes back to the reserve", () => {
-  let state = getInitialState({ playerCount: 2, turmoil: true });
+  let state = pinnedTurmoilState({ playerCount: 2 });
   const [a, b] = state.turnOrder;
 
-  // Stack kelvinists so it becomes dominant with delegates from both players.
+  // Stack reds — empty under the pinned setup — so it becomes dominant with
+  // delegates from both players and the arithmetic stays clean.
   state.players = state.players.map(p => ({ ...p, mc: 60 }));
   for (let i = 0; i < 3; i++) {
-    state = sendDelegateToParty(state, "kelvinists", state.logs, a).state;
+    state = sendDelegateToParty(state, "reds", state.logs, a).state;
   }
-  state = sendDelegateToParty(state, "kelvinists", state.logs, b).state;
-  assert.equal(state.turmoil.dominantParty, "kelvinists");
-  assert.equal(state.turmoil.parties.kelvinists.delegates.length, 4);
+  state = sendDelegateToParty(state, "reds", state.logs, b).state;
+  assert.equal(state.turmoil.dominantParty, "reds");
+  assert.equal(state.turmoil.parties.reds.delegates.length, 4);
 
   const reserveBefore = { ...state.turmoil.delegateReserve };
   const result = runTurmoilPhase(state, state.logs);
   const after = result.state.turmoil;
 
-  assert.equal(after.rulingParty, "kelvinists", "kelvinists take power");
-  assert.deepEqual(after.parties.kelvinists.delegates, [], "the party is emptied");
-  assert.equal(after.parties.kelvinists.leader, null, "no leader is left behind");
+  assert.equal(after.rulingParty, "reds", "reds take power");
   assert.equal(after.chairman, a, "the party leader takes the chairman seat");
+  // Every player delegate leaves. Changing Times may drop a fresh neutral
+  // delegate in afterwards, so assert on the players' markers specifically.
+  assert.deepEqual(
+    after.parties.reds.delegates.filter(id => id !== "NEUTRAL"),
+    [],
+    "no player delegate is left behind"
+  );
 
   // The leader went to the Chairman seat; the other three delegates went home.
   // refillLobby then draws 1 delegate per player back out of the reserve.
@@ -416,4 +465,59 @@ test("World Government Terraforming moves on from a maxed track", () => {
     after.temperature > before.temperature || after.oxygen > before.oxygen,
     "another non-maxed parameter is raised instead"
   );
+});
+
+// Turmoil rules, STEP 4: "4a) Place the Coming Global Event on top of the Current
+// Global Event. Add the neutral delegate indicated at the mid-right on that card."
+test("Changing Times adds the neutral delegates the new events name", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const countNeutrals = turmoil =>
+    Object.values(turmoil.parties).reduce(
+      (sum, party) => sum + party.delegates.filter(id => id === NEUTRAL).length,
+      0
+    );
+
+  // The generation also empties the ruling party and moves the chairman, so the
+  // reserve total nets out. What the placement is responsible for is that the
+  // parties named by the two newly shown cards each gain a neutral delegate.
+  const before = state.turmoil;
+  const comingCard = GLOBAL_EVENTS.find(event => event.id === before.comingEvent);
+  const expectedParty = normalizePartyId(comingCard.currentDelegate);
+
+  const neutralsIn = (turmoil, partyId) =>
+    turmoil.parties[partyId].delegates.filter(id => id === NEUTRAL).length;
+  const heldBefore = neutralsIn(before, expectedParty);
+
+  const after = runTurmoilPhase(state, state.logs).state.turmoil;
+
+  // The party that took power was emptied, so only assert the gain where the
+  // card pointed and where that emptying cannot mask it.
+  if (expectedParty !== before.dominantParty) {
+    assert.equal(
+      neutralsIn(after, expectedParty),
+      heldBefore + 1,
+      "the event becoming Current adds its neutral delegate"
+    );
+  }
+
+  // The neutral markers are a finite pool: placing two draws them from the
+  // reserve rather than inventing them, so the total has to hold at 14.
+  const total = turmoil =>
+    countNeutrals(turmoil) +
+    turmoil.delegateReserve[NEUTRAL] +
+    (turmoil.chairman === NEUTRAL ? 1 : 0);
+  assert.equal(total(before), DELEGATES_FOR_NEUTRAL, "the pool starts whole");
+  assert.equal(total(after), DELEGATES_FOR_NEUTRAL, "no neutral delegate is created or lost");
+});
+
+test("The first generation resolves no global event", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  assert.equal(state.turmoil.currentEvent, null);
+
+  const result = runTurmoilPhase(state, state.logs);
+  assert.ok(
+    result.logs.every(entry => !String(entry.message ?? entry).includes("世界的イベント解決")),
+    "nothing is resolved before an event has reached the current slot"
+  );
+  assert.ok(result.state.turmoil.currentEvent, "an event moves in for the next generation");
 });
