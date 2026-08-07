@@ -825,6 +825,9 @@ function applyEffect(state, effect, logs, options = {}) {
     const beforeVenus = nextState.venus ?? 0;
     nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
     nextState.tr += Math.max(0, (nextState.venus - beforeVenus) / 2);
+    // Aphrodite and anything else watching the scale reacts to a card's step
+    // just as it does to the World Government's.
+    grantParameterRaisedCardEffects(nextState, "venus", (nextState.venus - beforeVenus) / 2);
     const venusBonus = applyVenusThresholds(nextState, beforeVenus, nextLogs);
     nextState = venusBonus.state;
     nextLogs = venusBonus.logs;
@@ -1983,12 +1986,16 @@ export function applyGlobalParameterChange(state, options, logs) {
   let nextLogs = logs;
   if (after === before) return { state, logs: nextLogs };
 
+  const stepsTaken = Math.round((after - before) / limit.perStep);
+
   // TR follows the track actually moving, and only for a player who earned it.
-  if (grantTr && actorPlayerId) {
-    const stepsTaken = Math.round((after - before) / limit.perStep);
-    bumpTr(state, actorPlayerId, stepsTaken);
-  }
+  if (grantTr && actorPlayerId) bumpTr(state, actorPlayerId, stepsTaken);
   if (sourceLabel) nextLogs = addLog(nextLogs, "system", sourceLabel);
+
+  // Cards that watch the track fire for any mover, including the World
+  // Government: they are not a reward for terraforming, they are a reaction to
+  // the parameter moving at all.
+  grantParameterRaisedCardEffects(state, parameter, stepsTaken);
 
   // The track's own thresholds, which are nobody's reward to withhold.
   const settled = applyParameterThresholds(state, {
@@ -3626,19 +3633,73 @@ export const VERMIN_ID = "card-promo-vermin";
 // "都市が置かれるたび" -- every city, from any source and any player, feeds
 // every Vermin in play. Living in placeTileAt means a city built by a card, a
 // standard project, a corporation or the bot all count the same.
+// Cards that watch the board rather than being played at it. Each entry names
+// the card, what it is waiting for, and what its owner gains — a table rather
+// than a card-id check buried in whichever function happened to notice.
+//
+// These fire for *anyone's* placement, including tiles laid by the World
+// Government or a global event, because the card says "when anyone places" and
+// says nothing about who benefits from the placement itself.
+export const ARCTIC_ALGAE_ID = "card-base-arctic-algae";
+
+const TILE_PLACED_EFFECTS = [
+  {
+    cardId: VERMIN_ID,
+    tileType: "city",
+    // Vermin collects an animal for every city, wherever it came from.
+    apply: player => ({
+      ...player,
+      cardResources: {
+        ...player.cardResources,
+        [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
+      }
+    })
+  },
+  {
+    cardId: ARCTIC_ALGAE_ID,
+    tileType: "ocean",
+    // "When anyone places an ocean tile, gain 2 plants."
+    apply: player => ({ ...player, plants: (player.plants ?? 0) + 2 })
+  }
+];
+
 function grantCityPlacementCardEffects(state, tileType) {
-  if (tileType !== "city") return;
-  state.players = state.players.map(player =>
-    player.playedProjects?.includes(VERMIN_ID)
-      ? {
-          ...player,
-          cardResources: {
-            ...player.cardResources,
-            [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
-          }
-        }
-      : player
-  );
+  for (const effect of TILE_PLACED_EFFECTS) {
+    if (effect.tileType !== tileType) continue;
+    state.players = state.players.map(player =>
+      player.playedProjects?.includes(effect.cardId) ? effect.apply(player) : player
+    );
+  }
+}
+
+// Cards that watch a global parameter move, whoever moved it. Aphrodite is the
+// only one so far, but the shape is the same as the tile hook: a table, and one
+// place that runs it.
+const PARAMETER_RAISED_EFFECTS = [
+  {
+    cardId: "card-venus-aphrodite",
+    parameter: "venus",
+    // "Whenever Venus is terraformed 1 step, you gain 2 M€." Two MC per step,
+    // and the venus track moves two points per step.
+    perStep: player => ({ ...player, mc: player.mc + 2 })
+  }
+];
+
+// `steps` is how many steps the track actually moved, after clamping.
+function grantParameterRaisedCardEffects(state, parameter, steps) {
+  if (steps <= 0) return;
+  for (const effect of PARAMETER_RAISED_EFFECTS) {
+    if (effect.parameter !== parameter) continue;
+    state.players = state.players.map(player => {
+      const owns =
+        player.corporationId === effect.cardId ||
+        player.playedProjects?.includes(effect.cardId);
+      if (!owns) return player;
+      let updated = player;
+      for (let step = 0; step < steps; step += 1) updated = effect.perStep(updated);
+      return updated;
+    });
+  }
 }
 
 export const ST_JOSEPH_ID = "card-promo-st-joseph-of-cupertino-mission";

@@ -1532,3 +1532,118 @@ test("A maxed track is not raised past its limit by the World Government", () =>
   const resolved = resolvePendingChoice(paused, "temperature", paused.logs, paused.firstPlayerId);
   assert.ok(resolved.state.temperature <= 8, "the temperature never passes its own cap");
 });
+
+// "When anyone places an ocean tile, gain 2 plants." Arctic Algae carried only
+// its one-off "gain 1 plant" and watched nothing, so the effect that makes the
+// card worth playing did not exist.
+test("Arctic Algae reacts to an ocean anyone places", async () => {
+  const { placeTileAt, ARCTIC_ALGAE_ID } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2 });
+  const [a, b] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, playedProjects: [ARCTIC_ALGAE_ID], plants: 0 } : { ...p, plants: 0 }
+  );
+
+  // The *other* player lays it.
+  const cell = Object.values(state.board).find(c => c.tileType === "empty" && c.isOceanOnly);
+  placeTileAt(state, cell, "ocean", b);
+
+  assert.equal(state.players.find(p => p.id === a).plants, 2, "the owner gains 2 plants");
+  assert.equal(state.players.find(p => p.id === b).plants, 0, "the placer gains nothing from it");
+});
+
+test("Arctic Algae reacts to the World Government's ocean too", async () => {
+  const { ARCTIC_ALGAE_ID } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, playedProjects: [ARCTIC_ALGAE_ID], plants: 0 } : p
+  );
+
+  const paused = triggerProduction(state, state.logs);
+  const chooseOcean = resolvePendingChoice(paused, "ocean", paused.logs, paused.firstPlayerId);
+  const placed = resolvePendingChoice(
+    chooseOcean.state,
+    chooseOcean.state.pendingChoice.options[0].id,
+    chooseOcean.logs,
+    paused.firstPlayerId
+  );
+
+  assert.equal(
+    placed.state.players.find(p => p.id === a).plants,
+    2,
+    "the WG grants no bonus to the first player, but the card still sees the ocean"
+  );
+});
+
+test("Arctic Algae reacts to an ocean a global event lays", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, playedProjects: ["card-base-arctic-algae"], plants: 0 } : p
+  );
+  state.turmoil.currentEvent = "global-aquifer-released-by-public-council";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const placed = resolvePendingChoice(
+    started.state,
+    started.state.pendingChoice.options[0].id,
+    started.logs,
+    started.state.pendingChoice.ownerPlayerId
+  );
+
+  assert.equal(
+    placed.state.players.find(p => p.id === a).plants,
+    2,
+    "an event's ocean is still an ocean"
+  );
+});
+
+// "Whenever Venus is terraformed 1 step, you gain 2 M€."
+test("Aphrodite is paid for a Venus step whoever takes it", async () => {
+  const { CORPORATIONS } = await import("../app/game-logic.js");
+  const aphrodite = CORPORATIONS.find(c => c.id === "card-venus-aphrodite");
+  assert.ok(aphrodite, "the corporation exists");
+
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, corporationId: aphrodite.id } : p
+  );
+
+  const paused = triggerProduction(state, state.logs);
+  const before = paused.players.find(p => p.id === a).mc;
+  const resolved = resolvePendingChoice(paused, "venus", paused.logs, paused.firstPlayerId);
+
+  assert.equal(
+    resolved.state.players.find(p => p.id === a).mc,
+    before + 2,
+    "two MC for the World Government's step"
+  );
+});
+
+test("Aphrodite is not paid when the Venus track is already maxed", async () => {
+  const { CORPORATIONS } = await import("../app/game-logic.js");
+  const aphrodite = CORPORATIONS.find(c => c.id === "card-venus-aphrodite");
+
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const [a] = state.turnOrder;
+  state.venus = 30;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, corporationId: aphrodite.id } : p
+  );
+
+  const paused = triggerProduction(state, state.logs);
+  assert.ok(
+    !paused.pendingChoice.options.some(option => option.id === "venus"),
+    "a maxed track is not offered"
+  );
+
+  const before = paused.players.find(p => p.id === a).mc;
+  const resolved = resolvePendingChoice(paused, "temperature", paused.logs, paused.firstPlayerId);
+  assert.equal(
+    resolved.state.players.find(p => p.id === a).mc,
+    before,
+    "and raising something else pays Aphrodite nothing"
+  );
+});
