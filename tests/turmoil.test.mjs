@@ -965,9 +965,28 @@ test("Aquifer asks the first player for a square and pays nobody for it", () => 
   assert.equal(placed.state.pendingChoice, null);
 });
 
-// Dry Deserts: the first player takes an ocean off the board.
-test("Dry Deserts removes an ocean after the phase has run in order", () => {
+// Every one of these now goes through the choice queue: the players answer for
+// themselves, and the rest of the turmoil phase waits until the queue drains.
+function drain(state, logs, pick) {
+  let current = state;
+  let currentLogs = logs;
+  let guard = 0;
+  while (current.pendingChoice && guard++ < 40) {
+    const choice = current.pendingChoice;
+    const optionId = pick(choice, current);
+    const out = resolvePendingChoice(current, optionId, currentLogs, choice.ownerPlayerId);
+    current = out.state;
+    currentLogs = out.logs;
+  }
+  assert.ok(guard < 40, "the queue drains rather than looping");
+  return { state: current, logs: currentLogs };
+}
+
+// Dry Deserts: the first player removes an ocean, then everyone takes one
+// standard resource per influence, choosing which resource each time.
+test("Dry Deserts removes an ocean and pays influence in chosen resources", () => {
   const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
   let placed = 0;
   for (const [key, cell] of Object.entries(state.board)) {
     if (placed >= 2) break;
@@ -977,53 +996,174 @@ test("Dry Deserts removes an ocean after the phase has run in order", () => {
     }
   }
   state.oceans = 2;
+  state.turmoil.playersInfluenceBonus = { [a]: 3 };
   state.turmoil.currentEvent = "global-dry-deserts";
 
-  const resolved = runTurmoilPhase(state, state.logs);
-  // The government must already have changed hands: the question waits for the
-  // phase, the phase does not wait for the question.
-  assert.ok(resolved.state.turmoil.rulingParty, "the new government is seated");
-  assert.notEqual(resolved.state.turmoil.currentEvent, "global-dry-deserts", "changing times ran");
-
-  const choice = resolved.state.pendingChoice;
-  assert.equal(choice?.kind, "ocean-removal");
-  assert.equal(choice.options.length, 2, "both oceans are offered");
-
-  const after = resolvePendingChoice(resolved.state, choice.options[0].id, resolved.logs, choice.ownerPlayerId);
-  assert.equal(after.state.oceans, 1, "the ocean count drops");
+  const started = runTurmoilPhase(state, state.logs);
+  assert.equal(started.state.pendingChoice.kind, "ocean-removal", "the ocean comes first");
   assert.equal(
-    after.state.board[choice.options[0].targetCellKey].tileType,
-    "empty",
-    "the square is empty again"
+    started.state.turmoil.rulingParty,
+    "greens",
+    "the government has NOT formed while a question is open"
+  );
+
+  const kinds = [];
+  const heatBefore = started.state.players.find(p => p.id === a).heat;
+  const finished = drain(started.state, started.logs, choice => {
+    kinds.push(choice.kind);
+    if (choice.kind === "standard-resource-pick") {
+      return choice.options.find(option => option.resource === "heat").id;
+    }
+    return choice.options[0].id;
+  });
+
+  assert.deepEqual(
+    kinds,
+    ["ocean-removal", "standard-resource-pick", "standard-resource-pick", "standard-resource-pick"],
+    "one resource pick per point of influence"
+  );
+  assert.equal(finished.state.oceans, 1, "the ocean is gone");
+  assert.equal(
+    finished.state.players.find(p => p.id === a).heat,
+    heatBefore + 3,
+    "all three points were taken as heat, because that is what was chosen"
+  );
+  assert.ok(finished.state.turmoil.rulingParty, "the phase completed once the queue drained");
+});
+
+test("Dry Deserts asks nobody when there is no ocean and no influence", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.oceans = 0;
+  state.turmoil.currentEvent = "global-dry-deserts";
+
+  const after = runTurmoilPhase(state, state.logs);
+  assert.equal(after.state.pendingChoice, null, "nothing is asked");
+  assert.equal(after.state.pendingChoiceQueue.length, 0, "nothing is queued");
+});
+
+// Paradigm Breakdown: each player chooses their own two discards.
+test("Paradigm Breakdown lets each player pick their own two discards", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B", "C"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  assert.equal(started.state.pendingChoiceQueue.length + 1, 4, "four questions in all");
+  assert.equal(
+    started.state.turmoil.rulingParty,
+    "greens",
+    "no new government while the queue is open"
+  );
+
+  const finished = drain(started.state, started.logs, (choice, current) => {
+    const hand = current.players.find(p => p.id === choice.ownerPlayerId).hand;
+    return choice.options.find(option => hand.includes(option.id)).id;
+  });
+
+  for (const player of finished.state.players) {
+    assert.equal(player.hand.length, 1, "two cards left each hand");
+  }
+  assert.equal(finished.state.discardPile.length, 4, "all four reached the discard pile");
+  assert.ok(finished.state.turmoil.rulingParty, "the phase finished");
+});
+
+test("Paradigm Breakdown asks only for the cards a player holds", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a, b] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, hand: ["only"] } : { ...p, hand: [] }
+  );
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const questions = [started.state.pendingChoice, ...started.state.pendingChoiceQueue];
+  assert.equal(questions.length, 1, "one card, one question");
+  assert.equal(questions[0].ownerPlayerId, a, "the empty hand is not asked");
+
+  const finished = drain(started.state, started.logs, choice => choice.options[0].id);
+  assert.equal(finished.state.players.find(p => p.id === a).hand.length, 0);
+  assert.equal(finished.state.players.find(p => p.id === b).hand.length, 0);
+});
+
+test("A player cannot answer another player's discard", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const owner = started.state.pendingChoice.ownerPlayerId;
+  const other = started.state.turnOrder.find(id => id !== owner);
+
+  const attempt = resolvePendingChoice(started.state, "A", started.logs, other);
+  assert.equal(attempt.status, "pending", "the answer is refused");
+  assert.equal(
+    attempt.state.players.find(p => p.id === other).hand.length,
+    2,
+    "nobody's hand changed"
   );
 });
 
-// Paradigm Breakdown: discard 2 cards, gain 2 MC per influence.
-test("Paradigm Breakdown takes two cards from every hand", () => {
+test("Re-sending the same discard does not discard twice", () => {
   const state = pinnedTurmoilState({ playerCount: 2 });
-  state.players = state.players.map(p => ({ ...p, hand: ["a", "b", "c"] }));
-  const discardBefore = (state.discardPile ?? []).length;
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B", "C"] }));
   state.turmoil.currentEvent = "global-paradigm-breakdown";
 
-  const after = runTurmoilPhase(state, state.logs).state;
-  for (const player of after.players) {
-    assert.equal(player.hand.length, 1, "three cards become one");
-  }
-  assert.equal(after.discardPile.length, discardBefore + 4, "all four reach the discard pile");
+  const started = runTurmoilPhase(state, state.logs);
+  const owner = started.state.pendingChoice.ownerPlayerId;
+  const first = resolvePendingChoice(started.state, "A", started.logs, owner);
+  const repeat = resolvePendingChoice(first.state, "A", first.logs, owner);
+
+  assert.equal(
+    repeat.state.discardPile.filter(id => id === "A").length,
+    1,
+    "the card is discarded once, not twice"
+  );
 });
 
-test("Paradigm Breakdown takes what it can from a short hand", () => {
-  const state = pinnedTurmoilState({ playerCount: 2 });
-  state.players = state.players.map((p, i) => ({ ...p, hand: i === 0 ? ["only"] : [] }));
-  state.turmoil.currentEvent = "global-paradigm-breakdown";
+// Corrosive Rain: 2 floaters off a chosen card, or up to 10 MC.
+test("Corrosive Rain offers both branches and every eligible card", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const floaters = ALL_CARDS.filter(card => getCardResourceType(card.id) === "floater").slice(0, 2);
 
-  const after = runTurmoilPhase(state, state.logs).state;
-  assert.equal(after.players[0].hand.length, 0, "a single card still goes");
-  assert.equal(after.players[1].hand.length, 0, "an empty hand is left alone");
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a
+      ? {
+          ...p,
+          playedProjects: floaters.map(card => card.id),
+          cardResources: { [floaters[0].id]: 3, [floaters[1].id]: 4 },
+          mc: 50
+        }
+      : { ...p, mc: 50 }
+  );
+  state.turmoil.currentEvent = "global-corrosive-rain";
+
+  const started = runTurmoilPhase(state, state.logs);
+  assert.equal(
+    started.state.players.find(p => p.id !== a).mc,
+    40,
+    "a player with no floater card pays without being asked"
+  );
+
+  const choice = started.state.pendingChoice;
+  assert.equal(choice.kind, "corrosive-rain");
+  assert.equal(choice.ownerPlayerId, a);
+  assert.deepEqual(
+    choice.options.map(option => option.id),
+    ["__mc__", floaters[0].id, floaters[1].id],
+    "the MC branch and both floater cards are offered"
+  );
+
+  const spent = resolvePendingChoice(started.state, floaters[1].id, started.logs, a);
+  const holder = spent.state.players.find(p => p.id === a);
+  assert.equal(holder.cardResources[floaters[1].id], 2, "two floaters come off the chosen card");
+  assert.equal(holder.cardResources[floaters[0].id], 3, "the other card is untouched");
+  assert.equal(holder.mc, 50, "no MC is taken");
 });
 
-// Corrosive Rain: lose 2 floaters from a card, or 10 MC.
-test("Corrosive Rain takes floaters when there are floaters to take", async () => {
+test("Corrosive Rain can be paid in MC even while holding floaters", async () => {
   const { ALL_CARDS } = await import("../app/game-logic.js");
   const { getCardResourceType } = await import("../app/card-resource-types.js");
   const floaterCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "floater");
@@ -1032,18 +1172,53 @@ test("Corrosive Rain takes floaters when there are floaters to take", async () =
   const [a] = state.turnOrder;
   state.players = state.players.map(p =>
     p.id === a
-      ? { ...p, playedProjects: [floaterCard.id], cardResources: { [floaterCard.id]: 3 }, mc: 50 }
+      ? { ...p, playedProjects: [floaterCard.id], cardResources: { [floaterCard.id]: 5 }, mc: 50 }
       : { ...p, mc: 50 }
   );
   state.turmoil.currentEvent = "global-corrosive-rain";
 
-  const after = runTurmoilPhase(state, state.logs).state;
-  const holder = after.players.find(p => p.id === a);
-  const other = after.players.find(p => p.id !== a);
+  const started = runTurmoilPhase(state, state.logs);
+  const paid = resolvePendingChoice(started.state, "__mc__", started.logs, a);
+  const holder = paid.state.players.find(p => p.id === a);
+  assert.equal(holder.mc, 40, "the MC branch is available");
+  assert.equal(holder.cardResources[floaterCard.id], 5, "the floaters are kept");
+});
 
-  assert.equal(holder.cardResources[floaterCard.id], 1, "two floaters are spent");
-  assert.equal(holder.mc, 50, "the MC is kept");
-  assert.equal(other.mc, 40, "a player with no floaters pays 10 MC instead");
+test("Corrosive Rain takes what MC a poor player has", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, mc: 4 }));
+  state.turmoil.currentEvent = "global-corrosive-rain";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  for (const player of after.players) {
+    assert.equal(player.mc, 0, "a player short of 10 MC pays what they hold");
+  }
+});
+
+// Cloud Societies: a floater on every collecting card, then one more per
+// influence on a card of the player's choosing.
+test("Cloud Societies pays influence in floaters the player places", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const floaters = ALL_CARDS.filter(card => getCardResourceType(card.id) === "floater").slice(0, 2);
+
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, playedProjects: floaters.map(card => card.id), cardResources: {} } : p
+  );
+  state.turmoil.playersInfluenceBonus = { [a]: 2 };
+  state.turmoil.currentEvent = "global-cloud-societies";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const held = started.state.players.find(p => p.id === a).cardResources;
+  assert.equal(held[floaters[0].id], 1, "every collecting card took one");
+  assert.equal(held[floaters[1].id], 1);
+
+  const finished = drain(started.state, started.logs, choice => choice.options[0].id);
+  const after = finished.state.players.find(p => p.id === a).cardResources;
+  assert.equal(after[floaters[0].id], 3, "both extras went where the player put them");
+  assert.equal(after[floaters[1].id], 1, "the other card kept just its blanket floater");
 });
 
 // Turmoil rules, FINAL SCORING: "When the game ends, the Turmoil step is not
@@ -1176,4 +1351,70 @@ test("Diversity counts corporation and prelude tags, but not events", async () =
   // The corporation's own tags do count.
   const withCorporation = distinctFor({ corporationId: corporation.id, playedProjects: [] });
   assert.ok(withCorporation, "a corporation tableau builds");
+});
+
+// The queue carries one question per player, so an unfiltered queue would hand
+// every viewer the hand of everyone still waiting. viewForPlayer redacts the
+// queue the same way it redacts the live choice.
+test("The choice queue never shows one player another player's cards", async () => {
+  const { viewForPlayer } = await import("../app/net-protocol.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a, b] = state.turnOrder;
+  // Distinct card ids so a leak is unambiguous.
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, hand: ["A1", "A2", "A3"] } : { ...p, hand: ["B1", "B2", "B3"] }
+  );
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  assert.ok(started.state.pendingChoiceQueue.length > 0, "several questions are queued");
+
+  for (const [viewer, foreign] of [
+    [a, ["B1", "B2", "B3"]],
+    [b, ["A1", "A2", "A3"]]
+  ]) {
+    const view = viewForPlayer(started.state, viewer);
+    const serialised = JSON.stringify({
+      live: view.pendingChoice,
+      queued: view.pendingChoiceQueue
+    });
+    for (const cardId of foreign) {
+      assert.ok(
+        !serialised.includes(cardId),
+        `${viewer} must not see ${cardId} in the live choice or the queue`
+      );
+    }
+  }
+
+  // The owner of the live question still gets a usable list.
+  const ownerView = viewForPlayer(started.state, started.state.pendingChoice.ownerPlayerId);
+  assert.equal(ownerView.pendingChoice.options.length, 3, "the owner sees their own hand");
+});
+
+test("A queued choice survives a save and reload", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B", "C"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const reloaded = JSON.parse(JSON.stringify(started.state));
+
+  assert.equal(reloaded.pendingChoice.kind, "event-discard", "the live question survives");
+  assert.equal(reloaded.pendingChoiceQueue.length, 3, "so does the queue behind it");
+  assert.equal(
+    reloaded.phaseContinuation.kind,
+    "turmoil-after-event",
+    "and the phase work waiting on them"
+  );
+
+  const finished = drain(reloaded, started.logs, (choice, current) => {
+    const hand = current.players.find(p => p.id === choice.ownerPlayerId).hand;
+    return choice.options.find(option => hand.includes(option.id)).id;
+  });
+
+  for (const player of finished.state.players) {
+    assert.equal(player.hand.length, 1, "the discards completed after the reload");
+  }
+  assert.ok(finished.state.turmoil.rulingParty, "and the phase finished");
+  assert.equal(finished.state.phaseContinuation, null, "the continuation is cleared");
 });

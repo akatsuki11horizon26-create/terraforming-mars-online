@@ -48,6 +48,10 @@ import {
   buildResourceChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  buildCorrosiveRainChoice,
+  buildEventDiscardChoice,
+  buildFloaterPlacementChoice,
+  buildStandardResourcePickChoice,
   buildOceanRemovalChoice,
   buildTileChoice,
   buildWorldGovernmentChoice,
@@ -1318,6 +1322,60 @@ function markChoiceResolved(state, sourceId, stage) {
   state.resolvedChoices = resolved;
 }
 
+// A global event asks several players in turn, so the engine keeps a queue
+// beside the single live choice. Everything here is plain data: it serialises
+// with the rest of the state, so a save, a reload or a reconnect picks the
+// queue up exactly where it stopped.
+//
+// The rule is that nothing after the queue runs until the queue is empty. The
+// turmoil phase parks its remaining steps in `phaseContinuation`, and only
+// draining the last question triggers them.
+export function enqueuePendingChoices(state, choices) {
+  const queued = (choices ?? []).filter(Boolean);
+  if (queued.length === 0) return;
+  state.pendingChoiceQueue = [...(state.pendingChoiceQueue ?? []), ...queued];
+}
+
+// Moves the next queued question into the live slot. Returns false when the
+// queue is empty, which is the caller's signal to run the continuation.
+function promoteNextChoice(state) {
+  const queue = state.pendingChoiceQueue ?? [];
+  if (queue.length === 0) {
+    state.pendingChoiceQueue = [];
+    return false;
+  }
+  const [next, ...rest] = queue;
+  state.pendingChoiceQueue = rest;
+  state.pendingChoice = next;
+  return true;
+}
+
+// Runs whatever the phase parked once every question has been answered.
+function runPhaseContinuation(state, logs) {
+  const continuation = state.phaseContinuation;
+  if (!continuation) return { state, logs };
+  state.phaseContinuation = null;
+
+  if (continuation.kind === "turmoil-after-event") {
+    return finishTurmoilPhase(state, logs, continuation);
+  }
+  if (continuation.kind === "solar-phase") {
+    const resumed = finishSolarPhase(state, logs);
+    return { state: resumed, logs: resumed.logs ?? logs };
+  }
+  return { state, logs };
+}
+
+// Called after every resolution: either the next queued question comes up, or
+// the phase that was waiting on them continues.
+function advanceChoiceQueue(state, logs) {
+  if (promoteNextChoice(state)) {
+    return { state, logs: addLog(logs, "system", state.pendingChoice.prompt), pending: true };
+  }
+  const continued = runPhaseContinuation(state, logs);
+  return { state: continued.state, logs: continued.logs, pending: false };
+}
+
 // Applies the player's selection and either finishes the effect or produces the
 // next choice the same card still needs.
 export const DECLINE_CHOICE = "__decline__";
@@ -1601,6 +1659,94 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "standard-resource-pick": {
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? { ...player, [option.resource]: (player[option.resource] ?? 0) + 1 }
+          : player
+      );
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `${getPlayer(next, choice.ownerPlayerId)?.name} が ${option.label} を1獲得しました。`
+      );
+      break;
+    }
+    case "floater-placement": {
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? {
+              ...player,
+              cardResources: {
+                ...player.cardResources,
+                [option.cardId]: (player.cardResources?.[option.cardId] ?? 0) + 1
+              }
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${option.label} にフローターを1個置きました。`);
+      break;
+    }
+    case "corrosive-rain": {
+      const { floaters, mc } = choice.continuation.payload ?? { floaters: 2, mc: 10 };
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      if (option.payMc) {
+        const paid = Math.min(mc, owner?.mc ?? 0);
+        next.players = next.players.map(player =>
+          player.id === choice.ownerPlayerId ? { ...player, mc: player.mc - paid } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `${owner?.name} が ${paid} MC を失いました。`);
+        break;
+      }
+      // Re-check the card still holds enough: state may have moved on.
+      const held = owner?.cardResources?.[option.cardId] ?? 0;
+      if (held < floaters) {
+        const paid = Math.min(mc, owner?.mc ?? 0);
+        next.players = next.players.map(player =>
+          player.id === choice.ownerPlayerId ? { ...player, mc: player.mc - paid } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `対象のフローターが足りないため ${paid} MC を失いました。`);
+        break;
+      }
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? {
+              ...player,
+              cardResources: { ...player.cardResources, [option.cardId]: held - floaters }
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `${owner?.name} が ${option.label} を失いました。`);
+      break;
+    }
+    case "event-discard": {
+      // Re-check against the hand as it stands: the option list was built when
+      // the question was queued, and an earlier answer may have taken this card.
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      const held = owner?.hand ?? [];
+      if (!held.includes(option.cardId)) {
+        // Put the question back rather than discarding something else.
+        next.pendingChoice = {
+          ...choice,
+          options: held.map(cardId => ({
+            id: cardId,
+            label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId,
+            cardId
+          }))
+        };
+        nextLogs = addLog(nextLogs, "system", "そのカードは手札にありません。");
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? { ...player, hand: player.hand.filter(cardId => cardId !== option.cardId) }
+          : player
+      );
+      next.discardPile = [...(next.discardPile ?? []), option.cardId];
+      nextLogs = addLog(nextLogs, "system", `${owner?.name ?? choice.ownerPlayerId} が ${option.label} を捨てました。`);
+      break;
+    }
     case "ocean-removal": {
       const cell = next.board[option.targetCellKey];
       if (cell) {
@@ -1664,8 +1810,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     }
   }
 
-  next.logs = nextLogs;
-  return { status: "resolved", state: next, logs: nextLogs };
+  // Anything else queued behind this one comes up next; when the queue is empty
+  // the phase that was waiting on it resumes.
+  const advanced = advanceChoiceQueue(next, nextLogs);
+  advanced.state.logs = advanced.logs;
+  return {
+    status: advanced.pending ? "pending" : "resolved",
+    state: advanced.state,
+    logs: advanced.logs,
+    ...(advanced.pending ? { pendingChoice: advanced.state.pendingChoice } : {})
+  };
 }
 
 export function legalCellsFor(state, tileType, playerId) {
@@ -2190,6 +2344,10 @@ export function getPlaceholderState() {
     boardMarkers: [],
     generationAttackLedger: [],
     pendingChoice: null,
+    // Questions waiting behind the live one, and the phase work that resumes
+    // when they are all answered.
+    pendingChoiceQueue: [],
+    phaseContinuation: null,
     resolvedChoices: {},
     turmoil: null,
     colonies: null,
@@ -2341,6 +2499,10 @@ export function getInitialState(options = {}) {
     boardMarkers: [],
     generationAttackLedger: [],
     pendingChoice: null,
+    // Questions waiting behind the live one, and the phase work that resumes
+    // when they are all answered.
+    pendingChoiceQueue: [],
+    phaseContinuation: null,
     resolvedChoices: {},
     turmoil,
     colonies,
@@ -2566,15 +2728,27 @@ export function runTurmoilPhase(state, logs) {
     if (event) nextLogs = applyGlobalEventEffect(next, event, nextLogs);
   }
 
-  // An event that asks the first player for a square parks its question here.
-  // The rest of the phase — new government, ruling bonus, delegate cleanup,
-  // dominance, lobby refill, changing times — has to run in order regardless,
-  // so the question is held back and installed once the phase is complete.
-  const parkedEventChoice = next.pendingChoice ?? null;
-  next.pendingChoice = null;
+  // If the event asked anyone anything, the phase stops here. New Government
+  // and Changing Times must not run over an open question, so the rest of the
+  // phase is parked and resumes when the last answer comes in.
+  if (next.pendingChoice || (next.pendingChoiceQueue ?? []).length > 0) {
+    if (!next.pendingChoice) promoteNextChoice(next);
+    next.phaseContinuation = { kind: "turmoil-after-event" };
+    next.logs = nextLogs;
+    return { state: next, logs: nextLogs };
+  }
 
-  // Step 3a: the dominant party takes power. The bonus that pays out is the new
-  // ruling party's, so the government has to form before it is evaluated.
+  return finishTurmoilPhase(next, nextLogs);
+}
+
+// Turmoil steps 3 and 4, split out so a global event that has to ask something
+// can suspend the phase between step 2 and step 3 without losing its place.
+export function finishTurmoilPhase(state, logs) {
+  const next = state;
+  let nextLogs = logs;
+  {
+    // Step 3a: the dominant party takes power. The bonus that pays out is the new
+    // ruling party's, so the government has to form before it is evaluated.
   const government = formNewGovernment(next.turmoil);
   next.turmoil = government.turmoil;
 
@@ -2618,13 +2792,10 @@ export function runTurmoilPhase(state, logs) {
   const ruling = getParty(result.rulingParty);
   nextLogs = addLog(nextLogs, "system", `与党は ${ruling?.name ?? result.rulingParty} になりました。`);
 
-  // Step 4, Changing Times: the event queue moves up now that the event that was
-  // Current has been resolved.
-  next.turmoil = advanceGlobalEvents(next.turmoil, findGlobalEvent).turmoil;
-
-  // Now that the whole phase has run in order, hand back the question the event
-  // asked. Answering it cannot reorder anything that has already happened.
-  if (parkedEventChoice) next.pendingChoice = parkedEventChoice;
+    // Step 4, Changing Times: the event queue moves up now that the event that
+    // was Current has been resolved.
+    next.turmoil = advanceGlobalEvents(next.turmoil, findGlobalEvent).turmoil;
+  }
 
   next.logs = nextLogs;
   return { state: next, logs: nextLogs };
@@ -2903,57 +3074,74 @@ function countDistinctTags(state, player) {
   return distinct.size;
 }
 
-// Paradigm Breakdown discards from every hand. A player with fewer cards than
-// the card asks for discards what they have.
-function applyForcedDiscard(state, count, logs) {
-  let nextLogs = logs;
-  const discarded = [];
-  state.players = state.players.map(player => {
-    const hand = player.hand ?? [];
-    if (hand.length === 0) return player;
-    const losing = hand.slice(0, Math.min(count, hand.length));
-    discarded.push(...losing);
-    nextLogs = addLog(
-      nextLogs,
-      "system",
-      `${player.name} が手札を${losing.length}枚捨てました。`
-    );
-    return { ...player, hand: hand.slice(losing.length) };
-  });
-  if (discarded.length > 0) state.discardPile = [...(state.discardPile ?? []), ...discarded];
-  return nextLogs;
+// Paradigm Breakdown: every player discards two cards, and each picks their own.
+// One question per card per player goes on the queue, in turn order, so nobody
+// is discarded for. A player holding fewer cards discards what they have.
+function queueForcedDiscards(state, count, sourceId) {
+  const choices = [];
+  for (const playerId of state.turnOrder) {
+    const player = getPlayer(state, playerId);
+    const holding = (player?.hand ?? []).length;
+    for (let index = 0; index < Math.min(count, holding); index += 1) {
+      choices.push(
+        buildEventDiscardChoice(
+          state,
+          playerId,
+          sourceId,
+          index,
+          Math.min(count, holding),
+          ALL_CARDS
+        )
+      );
+    }
+  }
+  enqueuePendingChoices(state, choices);
 }
 
-// Corrosive Rain: 2 floaters off a card, or 10 MC. The reference pays the MC
-// outright when no card holds two floaters, so only a real choice prompts.
-function applyCorrosiveRain(state, { floaters, mc }, logs) {
+// Cards of a player that hold at least `count` of a card resource.
+function cardsHolding(player, resourceType, count) {
+  return Object.entries(player.cardResources ?? {}).filter(([cardId, held]) => {
+    if (held < count) return false;
+    const declared =
+      ALL_CARDS.find(item => item.id === cardId)?.resourceType ?? getCardResourceType(cardId);
+    return String(declared ?? "").toLowerCase() === resourceType;
+  });
+}
+
+// Corrosive Rain: 2 floaters off a card, or up to 10 M€. A player with no card
+// holding two floaters has nothing to decide and simply pays, which is how the
+// reference resolves it. Everyone else is asked, in turn order.
+function queueCorrosiveRain(state, { floaters, mc }, sourceId, logs) {
   let nextLogs = logs;
-  state.players = state.players.map(player => {
-    const cards = Object.entries(player.cardResources ?? {}).filter(([cardId, held]) => {
-      if (held < floaters) return false;
-      const declared =
-        ALL_CARDS.find(item => item.id === cardId)?.resourceType ?? getCardResourceType(cardId);
-      return String(declared ?? "").toLowerCase() === "floater";
-    });
+  const choices = [];
+
+  for (const playerId of state.turnOrder) {
+    const player = getPlayer(state, playerId);
+    if (!player) continue;
+    const cards = cardsHolding(player, "floater", floaters);
 
     if (cards.length === 0) {
       const paid = Math.min(mc, player.mc);
+      state.players = state.players.map(entry =>
+        entry.id === playerId ? { ...entry, mc: entry.mc - paid } : entry
+      );
       nextLogs = addLog(nextLogs, "system", `${player.name} が ${paid} MC を失いました。`);
-      return { ...player, mc: player.mc - paid };
+      continue;
     }
 
-    // Holding floaters, the cheaper answer is to spend them.
-    const [cardId, held] = cards[0];
-    nextLogs = addLog(
-      nextLogs,
-      "system",
-      `${player.name} がカードからフローターを${floaters}個失いました。`
+    choices.push(
+      buildCorrosiveRainChoice(state, playerId, sourceId, {
+        floaters,
+        mc,
+        cards: cards.map(([cardId]) => ({
+          cardId,
+          label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+        }))
+      })
     );
-    return {
-      ...player,
-      cardResources: { ...player.cardResources, [cardId]: held - floaters }
-    };
-  });
+  }
+
+  enqueuePendingChoices(state, choices);
   return nextLogs;
 }
 
@@ -3144,14 +3332,53 @@ function applyGlobalEventEffect(state, event, logs) {
   // pendingChoice slot supports, so the rest discard from the front of their
   // hand. That keeps the card count right for everyone.
   if (spec.discardFromHand) {
-    nextLogs = applyForcedDiscard(state, spec.discardFromHand, nextLogs);
+    queueForcedDiscards(state, spec.discardFromHand, event.id);
   }
 
   // Corrosive Rain: lose 2 floaters from a card, or 10 MC. With no card holding
   // two floaters there is nothing to choose and the MC goes automatically,
   // which is how the reference resolves it too.
   if (spec.loseFloatersOrMc) {
-    nextLogs = applyCorrosiveRain(state, spec.loseFloatersOrMc, nextLogs);
+    nextLogs = queueCorrosiveRain(state, spec.loseFloatersOrMc, event.id, nextLogs);
+  }
+
+  // "1 standard resource per influence" — one pick per point, in turn order.
+  if (spec.influenceStandardResource) {
+    const picks = [];
+    for (const playerId of state.turnOrder) {
+      const total = getInfluence(state.turmoil, playerId) * spec.influenceStandardResource;
+      for (let index = 0; index < total; index += 1) {
+        picks.push(buildStandardResourcePickChoice(state, playerId, event.id, index, total));
+      }
+    }
+    enqueuePendingChoices(state, picks);
+  }
+
+  // "1 floater on a card per influence" — the player names the card each time.
+  if (spec.influenceAddsToCards) {
+    const picks = [];
+    for (const playerId of state.turnOrder) {
+      const total = getInfluence(state.turmoil, playerId);
+      if (total === 0) continue;
+      const player = getPlayer(state, playerId);
+      const targets = (player?.playedProjects ?? [])
+        .filter(cardId => {
+          const declared =
+            ALL_CARDS.find(item => item.id === cardId)?.resourceType ??
+            getCardResourceType(cardId);
+          return String(declared ?? "").toLowerCase() === spec.influenceAddsToCards;
+        })
+        .map(cardId => ({
+          cardId,
+          label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+        }));
+      for (let index = 0; index < total; index += 1) {
+        picks.push(
+          buildFloaterPlacementChoice(state, playerId, event.id, index, total, targets)
+        );
+      }
+    }
+    enqueuePendingChoices(state, picks);
   }
 
   // Dry Deserts: the first player takes an ocean back off the board.
