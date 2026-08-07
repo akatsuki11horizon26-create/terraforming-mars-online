@@ -3,6 +3,8 @@
 // implementation (src/server/turmoil).
 export const DELEGATES_PER_PLAYER = 7;
 export const DELEGATES_FOR_NEUTRAL = 14;
+// Lobbying costs 5 M€ from the Delegate Reserve; the Lobby delegate is free.
+export const DELEGATE_RESERVE_COST = 5;
 export const NEUTRAL = "NEUTRAL";
 
 export const PARTIES = [
@@ -180,14 +182,18 @@ export function sendDelegate(turmoil, delegate, partyId, { fromLobby = false } =
   return { turmoil: next, sent: true };
 }
 
-function computePartyLeader(party) {
+// Turmoil rules: a challenger takes the Party Leader seat only by having *more*
+// delegates than the current leader. The incumbent has to be passed in, or a tie
+// silently hands the seat to whoever sits earliest in the delegates array.
+function computePartyLeader(party, incumbent = party.leader ?? null) {
   const counts = new Map();
   for (const delegate of party.delegates) {
     counts.set(delegate, (counts.get(delegate) ?? 0) + 1);
   }
-  let leader = null;
-  let best = 0;
-  // Ties keep the incumbent, so only a strictly greater count takes the lead.
+
+  const incumbentCount = incumbent ? (counts.get(incumbent) ?? 0) : 0;
+  let leader = incumbentCount > 0 ? incumbent : null;
+  let best = incumbentCount;
   for (const delegate of party.delegates) {
     const count = counts.get(delegate);
     if (count > best) {

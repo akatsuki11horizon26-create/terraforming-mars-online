@@ -140,6 +140,36 @@ test("The 14-generation limit applies to solo only", () => {
   );
 });
 
+// 『プレリュード』ルール説明書 第5刷 p.3:
+// 「１人ゲームに『プレリュード』を導入する場合、12 世代が終了するまでに、
+//  テラフォーミングを完了させてください。」
+test("A solo game with Prelude ends after 12 generations, not 14", () => {
+  const prelude = getInitialState({ prelude: true });
+  prelude.generation = 12;
+  assert.equal(
+    triggerProduction(prelude, prelude.logs).phase,
+    "final_greenery",
+    "Prelude shortens the solo game to 12 generations"
+  );
+
+  const eleventh = getInitialState({ prelude: true });
+  eleventh.generation = 11;
+  assert.equal(
+    triggerProduction(eleventh, eleventh.logs).phase,
+    "research",
+    "the twelfth generation still has to be played"
+  );
+
+  // Without Prelude the limit stays at 14.
+  const plain = getInitialState();
+  plain.generation = 12;
+  assert.equal(
+    triggerProduction(plain, plain.logs).phase,
+    "research",
+    "a solo game without Prelude runs to 14 generations"
+  );
+});
+
 test("A version 3 save is converted to a solo game rather than discarded", () => {
   const legacy = {
     rulesVersion: 3,

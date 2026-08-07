@@ -230,3 +230,82 @@ test("Turmoil state survives a generation of play", () => {
   assert.equal(produced.turmoil.rulingParty, "kelvinists", "the dominant party took power");
   assert.equal(produced.phase, "research");
 });
+
+// Turmoil rules, PARTY LEADER: "If a player (including the neutral 'player')
+// ever has MORE delegates in a party than the current Party Leader" — a tie
+// leaves the seat where it is.
+test("A tie leaves the Party Leader seat with the incumbent", async () => {
+  const { createTurmoilState, sendDelegate } = await import("../app/turmoil.js");
+
+  // B takes the lead, then A draws level. A sits earlier in the delegates array,
+  // so an order-based winner would wrongly hand the seat to A.
+  let turmoil = createTurmoilState(["A", "B"], ["e1", "e2", "e3", "e4"]);
+  turmoil = sendDelegate(turmoil, "A", "unity").turmoil;
+  turmoil = sendDelegate(turmoil, "B", "unity").turmoil;
+  turmoil = sendDelegate(turmoil, "B", "unity").turmoil;
+  assert.equal(turmoil.parties.unity.leader, "B", "B leads with two delegates");
+
+  turmoil = sendDelegate(turmoil, "A", "unity").turmoil;
+  assert.deepEqual(
+    turmoil.parties.unity.delegates,
+    ["A", "B", "B", "A"],
+    "A is earliest in the array but only tied"
+  );
+  assert.equal(turmoil.parties.unity.leader, "B", "a tie keeps the incumbent leader");
+
+  // Going one ahead does take the seat.
+  turmoil = sendDelegate(turmoil, "A", "unity").turmoil;
+  assert.equal(turmoil.parties.unity.leader, "A", "a strictly greater count takes the lead");
+});
+
+test("The first delegate in a party becomes its leader", async () => {
+  const { createTurmoilState, sendDelegate } = await import("../app/turmoil.js");
+  let turmoil = createTurmoilState(["A", "B"], ["e1", "e2", "e3", "e4"]);
+  turmoil = sendDelegate(turmoil, "B", "unity").turmoil;
+  assert.equal(turmoil.parties.unity.leader, "B", "an empty party hands the seat to the first arrival");
+});
+
+// Turmoil rules, LOBBYING: "Move one of your delegates from the Delegate Reserve
+// (costs 5 M€), or from the Lobby (for free!), into the Delegate Area."
+test("Lobbying is free from the lobby and costs 5 MC from the reserve", () => {
+  let state = getInitialState({ turmoil: true });
+  const me = state.currentPlayerId;
+  state.players = state.players.map(p => (p.id === me ? { ...p, mc: 20 } : p));
+
+  // The lobby delegate goes for free.
+  const first = sendDelegateToParty(state, "unity", state.logs, me);
+  assert.equal(first.sent, true, "the lobby delegate is sent");
+  assert.equal(
+    first.state.players.find(p => p.id === me).mc,
+    20,
+    "sending from the lobby costs nothing"
+  );
+
+  // The lobby is now empty, so the next one comes from the reserve.
+  const second = sendDelegateToParty(first.state, "unity", first.logs, me);
+  assert.equal(second.sent, true, "a reserve delegate is sent");
+  assert.equal(
+    second.state.players.find(p => p.id === me).mc,
+    15,
+    "sending from the reserve costs 5 MC"
+  );
+});
+
+test("A player who cannot pay 5 MC keeps their delegate", () => {
+  let state = getInitialState({ turmoil: true });
+  const me = state.currentPlayerId;
+  state.players = state.players.map(p => (p.id === me ? { ...p, mc: 4 } : p));
+
+  // Spend the free lobby delegate first.
+  const afterLobby = sendDelegateToParty(state, "unity", state.logs, me);
+  const reserveBefore = afterLobby.state.turmoil.delegateReserve[me];
+
+  const broke = sendDelegateToParty(afterLobby.state, "unity", afterLobby.logs, me);
+  assert.equal(broke.sent, false, "the send is rejected");
+  assert.equal(
+    broke.state.turmoil.delegateReserve[me],
+    reserveBefore,
+    "the delegate stays in the reserve"
+  );
+  assert.equal(broke.state.players.find(p => p.id === me).mc, 4, "no MC is taken");
+});

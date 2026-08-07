@@ -57,6 +57,7 @@ import { getCardResourceType } from "./card-resource-types.js";
 export { STANDARD_RESOURCES } from "./pending-choice.js";
 export { getCardResourceType };
 import {
+  DELEGATE_RESERVE_COST,
   NEUTRAL,
   PARTIES,
   advanceTurmoil,
@@ -89,10 +90,10 @@ import {
   increaseTrack,
   addFleet,
   cloneColonies,
+  advanceColonyProduction,
   countColonies,
   createColoniesState,
   getColonyTile,
-  resetFleets,
   trade as tradeWithColony
 } from "./colonies.js";
 
@@ -2501,6 +2502,20 @@ export function sendDelegateToParty(state, partyId, logs, playerId) {
   }
   const actorId = playerId ?? state.currentPlayerId;
   const fromLobby = state.turmoil.lobby.includes(actorId);
+
+  // Lobbying: free from the Lobby, 5 M€ from the Delegate Reserve (Turmoil rules).
+  // The charge is checked before the delegate moves, so a player who cannot pay
+  // does not lose the delegate.
+  const cost = fromLobby ? 0 : DELEGATE_RESERVE_COST;
+  const actor = getPlayer(state, actorId);
+  if (cost > 0 && (actor?.mc ?? 0) < cost) {
+    return {
+      state,
+      logs: addLog(logs, "system", `予備から代表者を送るには ${cost} MC が必要です。`),
+      sent: false
+    };
+  }
+
   const result = sendDelegate(state.turmoil, actorId, partyId, { fromLobby });
   if (!result.sent) {
     return { state, logs: addLog(logs, "system", result.reason), sent: false };
@@ -2508,12 +2523,18 @@ export function sendDelegateToParty(state, partyId, logs, playerId) {
 
   const next = cloneGameState(state);
   next.turmoil = result.turmoil;
+  if (cost > 0) {
+    next.players = next.players.map(player =>
+      player.id === actorId ? { ...player, mc: player.mc - cost } : player
+    );
+  }
   const party = getParty(partyId);
   const player = getPlayer(next, actorId);
+  const paid = cost > 0 ? `${cost} MC を支払って ` : "";
   const nextLogs = addLog(
     logs,
     "system",
-    `${player?.name ?? actorId} が ${party?.name ?? partyId} に代表者を送りました。`
+    `${player?.name ?? actorId} が ${paid}${party?.name ?? partyId} に代表者を送りました。`
   );
   next.logs = nextLogs;
   return { state: next, logs: nextLogs, sent: true };
@@ -3255,10 +3276,13 @@ export function triggerProduction(state, logAcc) {
 
   nextState.logs = localLog;
 
-  const generationLimitReached = nextState.mode === "solo" && nextState.generation >= 14;
+  // Prelude shortens the solo game (プレリュード ルール説明書 第5刷 p.3).
+  const soloGenerationLimit = nextState.preludeEnabled ? 12 : 14;
+  const generationLimitReached =
+    nextState.mode === "solo" && nextState.generation >= soloGenerationLimit;
   if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
     nextState.phase = "final_greenery";
-    const reason = generationLimitReached ? "第14世代の生産" : "全パラメータ達成";
+    const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
     nextState.generation += 1;
@@ -3311,9 +3335,9 @@ export function triggerProduction(state, logAcc) {
       nextState.players = nextState.players.map(player => ({ ...player, researchCards: [] }));
     }
 
-    // Trade fleets return at the end of each generation.
+    // Solar phase step 3: fleets return and every colony track climbs a step.
     if (nextState.colonies) {
-      nextState.colonies = resetFleets(nextState.colonies);
+      nextState.colonies = advanceColonyProduction(nextState.colonies);
     }
 
     // Turmoil resolves between production and the next research phase.
