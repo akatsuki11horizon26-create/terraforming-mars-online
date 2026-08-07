@@ -49,6 +49,7 @@ import {
   buildDiscardChoice,
   buildStandardResourceChoice,
   buildTileChoice,
+  collectResourceTargets,
   findOption,
   isChoiceOwnedBy
 } from "./pending-choice.js";
@@ -2742,6 +2743,105 @@ function countForGlobalEvent(state, player, count) {
   return 0;
 }
 
+// Cloud Societies and Sponsored Projects add a resource to every qualifying card
+// at once. "Every card" needs no choice, so these resolve immediately; only the
+// influence share, which names specific cards, would need one.
+//
+// getCardResourceType has to be handed to collectResourceTargets or it matches
+// nothing at all rather than raising (§2.8).
+function addResourceToEveryCard(state, { resourceType, requireExisting }, logs) {
+  const targets = collectResourceTargets(state, resourceType ?? null, ALL_CARDS, {
+    mustHaveResources: Boolean(requireExisting),
+    getResourceType: getCardResourceType
+  });
+  if (targets.length === 0) return logs;
+
+  state.players = state.players.map(player => {
+    const mine = targets.filter(target => target.targetPlayerId === player.id);
+    if (mine.length === 0) return player;
+    const cardResources = { ...(player.cardResources ?? {}) };
+    for (const target of mine) {
+      cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + 1;
+    }
+    return { ...player, cardResources };
+  });
+
+  return addLog(logs, "system", `${targets.length}枚のカードに資源を1個ずつ追加しました。`);
+}
+
+// Election and Revolution rank the players and pay the top two places. Ties are
+// friendly: everyone level with first place takes the first prize, and if first
+// is shared nobody takes second (reference Election/Revolution.resolve).
+// Deterministic, so no choice is involved.
+function applyGlobalEventContest(state, spec, logs) {
+  let nextLogs = logs;
+  const scoreOf = player => {
+    let score = getInfluence(state.turmoil, player.id);
+    for (const source of spec.contest.influencePlus) {
+      if (source === "cityTiles") {
+        score += Object.values(state.board).filter(
+          cell => cell.tileType === "city" && cell.placedBy === player.id
+        ).length;
+      } else {
+        score += countTagsFor(state, source, player);
+      }
+    }
+    return score;
+  };
+
+  const award = (playerId, amount) => {
+    if (!amount) return;
+    state.players = state.players.map(player =>
+      player.id === playerId
+        ? { ...player, tr: Math.max(0, player.tr + amount) }
+        : player
+    );
+    const player = getPlayer(state, playerId);
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${player?.name ?? playerId} が TR ${amount > 0 ? "+" : ""}${amount}。`
+    );
+  };
+
+  // Solo uses fixed thresholds rather than a ranking.
+  if (state.players.length === 1) {
+    const [only] = state.players;
+    const score = scoreOf(only);
+    if (spec.contest.soloThreshold !== undefined) {
+      if (score >= spec.contest.soloThreshold) award(only.id, spec.contest.soloReward);
+    } else if (spec.contest.soloThresholds) {
+      const [first, second] = spec.contest.soloThresholds;
+      if (score >= first) award(only.id, spec.contest.rewards[0]);
+      else if (score >= second) award(only.id, spec.contest.rewards[1]);
+    }
+    return nextLogs;
+  }
+
+  const ranked = state.players
+    .map(player => ({ id: player.id, score: scoreOf(player) }))
+    .sort((a, b) => b.score - a.score);
+
+  const [firstPrize, secondPrize] = spec.contest.rewards;
+  const minimum = spec.contest.minimum ?? -Infinity;
+  const best = ranked[0].score;
+  const firstPlace = ranked.filter(entry => entry.score === best);
+
+  for (const entry of firstPlace) {
+    if (entry.score >= minimum) award(entry.id, firstPrize);
+  }
+  // A shared first place consumes second as well.
+  if (firstPlace.length > 1) return nextLogs;
+
+  const rest = ranked.slice(1);
+  if (rest.length === 0) return nextLogs;
+  const runnerUp = rest[0].score;
+  for (const entry of rest.filter(entry => entry.score === runnerUp)) {
+    if (entry.score >= minimum) award(entry.id, secondPrize);
+  }
+  return nextLogs;
+}
+
 // Applies one global event to every player. Turmoil rules put a hard cap of 5 on
 // anything an event counts, and losses are reduced by influence before they land.
 function applyGlobalEventEffect(state, event, logs) {
@@ -2820,6 +2920,14 @@ function applyGlobalEventEffect(state, event, logs) {
         state.temperature = Math.max(-30, Math.min(MAX_TEMPERATURE, state.temperature + amount));
       }
     }
+  }
+
+  if (spec.contest) nextLogs = applyGlobalEventContest(state, spec, nextLogs);
+  if (spec.addResourceToAll) {
+    nextLogs = addResourceToEveryCard(state, { resourceType: spec.addResourceToAll }, nextLogs);
+  }
+  if (spec.addResourceToCardsHoldingResources) {
+    nextLogs = addResourceToEveryCard(state, { requireExisting: true }, nextLogs);
   }
 
   nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event.name}`);

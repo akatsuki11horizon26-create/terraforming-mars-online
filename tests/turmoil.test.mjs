@@ -747,3 +747,97 @@ test("A turmoil-only game never deals a colony or Venus event", () => {
     assert.ok(!dealt.includes(id), `${id} is not in a turmoil-only deck`);
   }
 });
+
+// Election: "Count your influence plus building tags and city tiles (no limits).
+// The player with most gains 2 TR, the 2nd gains 1 TR (ties are friendly)."
+test("Election pays the top two places", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+  let placed = 0;
+  for (const [key, cell] of Object.entries(state.board)) {
+    if (placed >= 2) break;
+    if (cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor) {
+      state.board[key] = { ...cell, tileType: "city", placedBy: a };
+      placed += 1;
+    }
+  }
+  const before = state.players.map(p => p.tr);
+  state.turmoil.currentEvent = "global-election";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  // Everyone drops 1 in the TR revision first: the winner nets +1, second nets 0.
+  assert.equal(after.players[0].tr, before[0] + 1, "first place gains 2 TR");
+  assert.equal(after.players[1].tr, before[1], "second place gains 1 TR");
+});
+
+test("A shared first place in Election consumes second", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  // Neither player has any building tags, cities or influence, so they tie at 0.
+  const before = state.players.map(p => p.tr);
+  state.turmoil.currentEvent = "global-election";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(after.players[0].tr, before[0] + 1, "both tie for first and gain 2");
+  assert.equal(after.players[1].tr, before[1] + 1, "ties are friendly");
+});
+
+// Revolution: earth tags plus influence; 1st -2 TR, 2nd -1, and a score of 0
+// takes nothing.
+test("Revolution spares players with nothing to count", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const before = state.players.map(p => p.tr);
+  state.turmoil.currentEvent = "global-revolution";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  // Only the TR revision applies; nobody holds an earth tag or influence.
+  assert.deepEqual(
+    after.players.map(p => p.tr),
+    before.map(tr => tr - 1),
+    "a score below the minimum is not punished"
+  );
+});
+
+test("Cloud Societies adds a floater to every card that collects them", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const floaterCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "floater");
+
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a ? { ...p, playedProjects: [floaterCard.id], cardResources: {} } : p
+  );
+  state.turmoil.currentEvent = "global-cloud-societies";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(
+    after.players.find(p => p.id === a).cardResources[floaterCard.id],
+    1,
+    "the floater card gains one"
+  );
+});
+
+test("Sponsored Projects only feeds cards that already hold a resource", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const animalCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "animal");
+  const floaterCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "floater");
+
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a
+      ? {
+          ...p,
+          playedProjects: [animalCard.id, floaterCard.id],
+          cardResources: { [animalCard.id]: 3 }
+        }
+      : p
+  );
+  state.turmoil.currentEvent = "global-sponsored-projects";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  const resources = after.players.find(p => p.id === a).cardResources;
+  assert.equal(resources[animalCard.id], 4, "a card holding animals gains one");
+  assert.equal(resources[floaterCard.id] ?? 0, 0, "an empty card is skipped");
+});

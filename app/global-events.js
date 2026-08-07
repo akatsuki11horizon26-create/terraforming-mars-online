@@ -135,6 +135,8 @@ export const GLOBAL_EVENT_EFFECTS = {
   "global-dry-deserts": {
     firstPlayerRemovesOcean: true, influenceStandardResource: 1
   },
+  // "every card" needs no choice, so these resolve immediately. Only the
+  // influence share, which names particular cards, would need one.
   "global-cloud-societies": {
     addResourceToAll: "floater", influenceAddsToCards: "floater"
   },
