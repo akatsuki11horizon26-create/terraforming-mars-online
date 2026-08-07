@@ -1757,3 +1757,104 @@ test("All 36 global events resolve in a solo game too", () => {
     assert.equal(current.pendingChoice, null, `${event.id} (solo) left a question open`);
   }
 });
+
+// The client sends an option id and nothing else; the engine answers from the
+// option list it built itself. A forged id, a stale one, or one belonging to
+// another player's question is refused rather than trusted.
+test("A forged option id is refused", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B", "C"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const owner = started.state.pendingChoice.ownerPlayerId;
+  const attempt = resolvePendingChoice(started.state, "NOT-IN-HAND", started.logs, owner);
+
+  assert.equal(attempt.status, "pending", "the answer is refused");
+  assert.equal(
+    attempt.state.players.find(p => p.id === owner).hand.length,
+    3,
+    "and nothing is discarded"
+  );
+});
+
+test("The World Government cannot be sent a maxed parameter", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.venus = 30;
+
+  const paused = triggerProduction(state, state.logs);
+  const attempt = resolvePendingChoice(paused, "venus", paused.logs, paused.firstPlayerId);
+
+  assert.notEqual(attempt.status, "resolved", "a track that is not on offer is refused");
+  assert.equal(attempt.state.venus, 30, "and the track does not move");
+});
+
+test("The World Government cannot be sent an illegal square", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const paused = triggerProduction(state, state.logs);
+  const chooseOcean = resolvePendingChoice(paused, "ocean", paused.logs, paused.firstPlayerId);
+
+  // A land square is a real cell, and not one an ocean may go on.
+  const land = Object.values(chooseOcean.state.board).find(
+    cell => cell.tileType === "empty" && !cell.isOceanOnly
+  );
+  const attempt = resolvePendingChoice(
+    chooseOcean.state,
+    `${land.q},${land.r}`,
+    chooseOcean.logs,
+    paused.firstPlayerId
+  );
+
+  assert.equal(attempt.status, "pending", "the square is refused");
+  assert.equal(attempt.state.oceans, 0, "and no ocean is laid");
+});
+
+test("An answer to someone else's question is refused", () => {
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.players = state.players.map(p => ({ ...p, hand: ["A", "B"] }));
+  state.turmoil.currentEvent = "global-paradigm-breakdown";
+
+  const started = runTurmoilPhase(state, state.logs);
+  const owner = started.state.pendingChoice.ownerPlayerId;
+  const other = started.state.turnOrder.find(id => id !== owner);
+
+  const attempt = resolvePendingChoice(started.state, "A", started.logs, other);
+  assert.equal(attempt.status, "pending", "refused");
+  assert.deepEqual(
+    attempt.state.players.map(p => p.hand.length),
+    [2, 2],
+    "neither hand changed"
+  );
+});
+
+test("A card that no longer holds enough floaters falls back to the MC branch", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+  const floaterCard = ALL_CARDS.find(card => getCardResourceType(card.id) === "floater");
+
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true, colonies: true });
+  const [a] = state.turnOrder;
+  state.players = state.players.map(p =>
+    p.id === a
+      ? { ...p, playedProjects: [floaterCard.id], cardResources: { [floaterCard.id]: 2 }, mc: 50 }
+      : { ...p, mc: 50 }
+  );
+  state.turmoil.currentEvent = "global-corrosive-rain";
+
+  const started = runTurmoilPhase(state, state.logs);
+  // Something else spends the floaters before the answer arrives.
+  const drained = cloneForTest(started.state, a, floaterCard.id);
+  const attempt = resolvePendingChoice(drained, floaterCard.id, started.logs, a);
+
+  const holder = attempt.state.players.find(p => p.id === a);
+  assert.equal(holder.mc, 40, "the MC is taken instead of an impossible floater payment");
+  assert.equal(holder.cardResources[floaterCard.id], 0, "and no negative resource is left");
+});
+
+function cloneForTest(state, playerId, cardId) {
+  const copy = JSON.parse(JSON.stringify(state));
+  copy.players = copy.players.map(p =>
+    p.id === playerId ? { ...p, cardResources: { ...p.cardResources, [cardId]: 0 } } : p
+  );
+  return copy;
+}
