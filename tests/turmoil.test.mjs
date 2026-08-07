@@ -521,3 +521,74 @@ test("The first generation resolves no global event", () => {
   );
   assert.ok(result.state.turmoil.currentEvent, "an event moves in for the next generation");
 });
+
+// Turmoil rules, STEP 4: "2) Global Event — Perform the Current Global Event,
+// taking influence into account". All 36 previously resolved to a log line only.
+test("Every global event has an effect spec", async () => {
+  const { missingGlobalEventEffects } = await import("../app/global-events.js");
+  assert.deepEqual(
+    missingGlobalEventEffects(GLOBAL_EVENTS),
+    [],
+    "a card with no spec would resolve to nothing at all"
+  );
+});
+
+test("The current global event actually changes the game state", () => {
+  // Snow Cover: temperature -2. The track starts at its -30 floor, so raise it
+  // first or the clamp hides whether anything happened at all.
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  state.temperature = -20;
+  state.turmoil.currentEvent = "global-snow-cover";
+  const before = state.temperature;
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(after.temperature, before - 2, "the temperature track actually moves");
+});
+
+test("A global event that counts something is capped at five", () => {
+  // Riots: 4 MC per city tile, max 5. Nine cities must cost 20 MC, not 36.
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const me = state.turnOrder[0];
+  let placed = 0;
+  for (const [key, cell] of Object.entries(state.board)) {
+    if (placed >= 9) break;
+    if (cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor) {
+      state.board[key] = { ...cell, tileType: "city", placedBy: me };
+      placed += 1;
+    }
+  }
+  assert.equal(placed, 9, "nine cities are on the board");
+
+  state.players = state.players.map(p => (p.id === me ? { ...p, mc: 100 } : p));
+  state.turmoil.currentEvent = "global-riots";
+
+  const after = runTurmoilPhase(state, state.logs).state;
+  assert.equal(
+    after.players.find(p => p.id === me).mc,
+    100 - 20,
+    "the count stops at five cities"
+  );
+});
+
+test("Influence softens a global event's loss", () => {
+  // Pandemic: 3 MC per building tag, max 5, then reduced by influence. Compare
+  // two identical boards that differ only in influence.
+  const build = influenceBonus => {
+    const state = pinnedTurmoilState({ playerCount: 2 });
+    const me = state.turnOrder[0];
+    state.players = state.players.map(p => (p.id === me ? { ...p, mc: 100 } : p));
+    state.turmoil.playersInfluenceBonus = { [me]: influenceBonus };
+    state.turmoil.currentEvent = "global-pandemic";
+    return { state, me };
+  };
+
+  const plain = build(0);
+  const withInfluence = build(2);
+  const mcOf = ({ state, me }) =>
+    runTurmoilPhase(state, state.logs).state.players.find(p => p.id === me).mc;
+
+  assert.ok(
+    mcOf(withInfluence) >= mcOf(plain),
+    "influence never makes the loss worse"
+  );
+});

@@ -53,6 +53,8 @@ import {
   isChoiceOwnedBy
 } from "./pending-choice.js";
 import { getCardResourceType } from "./card-resource-types.js";
+import { getGlobalEventEffect, missingGlobalEventEffects } from "./global-events.js";
+export { missingGlobalEventEffects };
 
 export { STANDARD_RESOURCES } from "./pending-choice.js";
 export { getCardResourceType };
@@ -2447,10 +2449,12 @@ export function runTurmoilPhase(state, logs) {
   nextLogs = addLog(nextLogs, "system", "動乱フェーズ: 全プレイヤーが TR -1。");
 
   // Step 2: resolve the Current Global Event, before the government changes.
+  // Influence is read off the board as it stands now, which is why this runs
+  // ahead of the delegate cleanup in step 3.
   const resolvedEvent = next.turmoil.currentEvent;
   if (resolvedEvent) {
     const event = GLOBAL_EVENTS.find(item => item.id === resolvedEvent);
-    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? resolvedEvent}`);
+    if (event) nextLogs = applyGlobalEventEffect(next, event, nextLogs);
   }
 
   // Step 3a: the dominant party takes power. The bonus that pays out is the new
@@ -2693,6 +2697,123 @@ export function fundAward(state, awardId, logs, playerId) {
   );
   next.logs = nextLogs;
   return { state: next, logs: nextLogs, funded: true };
+}
+
+// Counts whatever a global event spec asks to tally for one player.
+function countForGlobalEvent(state, player, count) {
+  if (!count) return 0;
+  if (count.tag) {
+    const tags = countTagsFor(state, count.tag, player);
+    return tags + (count.plusInfluence ? getInfluence(state.turmoil, player.id) : 0);
+  }
+  if (count.tile) {
+    return Object.values(state.board).filter(
+      cell => cell.tileType === count.tile && cell.placedBy === player.id
+    ).length;
+  }
+  if (count.production) return player[count.production] ?? 0;
+  if (count.handSize) return (player.hand ?? []).length;
+  if (count.playedEvents) return (player.playedEvents ?? []).length;
+  if (count.colonies) return state.colonies ? countColonies(state.colonies, player.id) : 0;
+  if (count.blueCards) {
+    return (player.playedProjects ?? []).filter(id => {
+      const card = ALL_CARDS.find(item => item.id === id);
+      return card?.type === "active" || card?.type === "blue";
+    }).length;
+  }
+  if (count.tilesAdjacentToOcean) {
+    return Object.values(state.board).filter(cell => {
+      if (cell.placedBy !== player.id || cell.tileType === "empty") return false;
+      return getAdjacentCells(cell.q, cell.r).some(
+        neighbour => state.board[`${neighbour.q},${neighbour.r}`]?.tileType === "ocean"
+      );
+    }).length;
+  }
+  return 0;
+}
+
+// Applies one global event to every player. Turmoil rules put a hard cap of 5 on
+// anything an event counts, and losses are reduced by influence before they land.
+function applyGlobalEventEffect(state, event, logs) {
+  const spec = getGlobalEventEffect(event.id);
+  if (!spec) return logs;
+  let nextLogs = logs;
+
+  state.players = state.players.map(player => {
+    const influence = getInfluence(state.turmoil, player.id);
+    let updated = { ...player };
+    const deltas = {};
+    const add = (field, amount) => {
+      if (!amount) return;
+      deltas[field] = (deltas[field] ?? 0) + amount;
+    };
+
+    if (spec.count && spec.per) {
+      let counted = countForGlobalEvent(state, player, spec.count);
+      if (spec.cap !== undefined) counted = Math.min(counted, spec.cap);
+      if (spec.softenedByInfluence) counted = Math.max(0, counted - influence);
+      if (spec.divideBy) counted = Math.floor(counted / spec.divideBy);
+      for (const [field, amount] of Object.entries(spec.per)) add(field, amount * counted);
+    }
+
+    if (spec.influencePer) {
+      for (const [field, amount] of Object.entries(spec.influencePer)) {
+        add(field, amount * influence);
+      }
+    }
+
+    if (spec.trBrackets) {
+      const { above, step, cap, per } = spec.trBrackets;
+      const brackets = Math.max(0, Math.min(cap, Math.floor((updated.tr - above) / step) + 1));
+      for (const [field, amount] of Object.entries(per)) add(field, amount * brackets);
+    }
+
+    if (spec.productionLoss) {
+      for (const [field, amount] of Object.entries(spec.productionLoss)) {
+        add(field, -Math.min(amount, updated[field] ?? 0));
+      }
+    }
+
+    if (spec.also?.loseAll) add(spec.also.loseAll, -(updated[spec.also.loseAll] ?? 0));
+
+    if (spec.keepUpTo) {
+      const allowed = spec.keepUpTo.base + influence;
+      const held = updated[spec.keepUpTo.resource] ?? 0;
+      if (held > allowed) add(spec.keepUpTo.resource, -(held - allowed));
+    }
+
+    if (spec.flatTrLoss) add("tr", -Math.max(0, spec.flatTrLoss - influence));
+
+    if (spec.distinctTags) {
+      const distinct = new Set();
+      for (const id of player.playedProjects ?? []) {
+        for (const tag of ALL_CARDS.find(item => item.id === id)?.tags ?? []) distinct.add(tag);
+      }
+      const total = distinct.size + (spec.distinctTags.influenceCountsAsTag && influence > 0 ? 1 : 0);
+      if (total >= spec.distinctTags.threshold) {
+        for (const [field, amount] of Object.entries(spec.distinctTags.reward)) add(field, amount);
+      }
+    }
+
+    if (spec.influenceDraws) updated.pendingDraws = (updated.pendingDraws ?? 0) + influence;
+
+    for (const [field, amount] of Object.entries(deltas)) {
+      const floor = field === "tr" ? 0 : 0;
+      updated[field] = Math.max(floor, (updated[field] ?? 0) + amount);
+    }
+    return updated;
+  });
+
+  if (spec.global) {
+    for (const [field, amount] of Object.entries(spec.global)) {
+      if (field === "temperature") {
+        state.temperature = Math.max(-30, Math.min(MAX_TEMPERATURE, state.temperature + amount));
+      }
+    }
+  }
+
+  nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event.name}`);
+  return nextLogs;
 }
 
 function findGlobalEvent(eventId) {
