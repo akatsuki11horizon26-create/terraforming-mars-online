@@ -1,6 +1,6 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト343件
+最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト367件
 
 **PR #1（特殊VP・Virus・Special Permit）は open のまま。** 今回の Turmoil /
 Solar Phase の修正は別ブランチに積んである。履歴を混ぜないため分けてある。
@@ -38,7 +38,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、343件
+- テスト: `node --test`、367件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -345,9 +345,14 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
   - Virus は「任意のカードから動物2」「任意のプレイヤーから植物5」の
     **両分岐とも実装済み**。1つのダイアログに両方が並ぶ（§2.8）
   - Special Permit はグリーン与党を立てた実プレイ経路でテスト済み
-- **Solar Phase**（公式の順序で1本化）
+- **Solar Phase**（公式の順序で1本化、中断可能）
   1. Game End Check → 2. World Government Terraforming（Venus有効時）
   → 3. Colony production（交易船返却＋全トラック+1）→ 4. Turmoil
+  - WGT は**第1プレイヤーが選ぶ**（金星／気温／酸素／海洋）。
+    `triggerProduction` が step 2 で停止して `pendingChoice` を置き、
+    `finishSolarPhase` が残りを再開する。TR・配置ボーナスは与えない
+- **Turmoil 最終得点**（党首1VP・議長1VP、中立は加点なし）
+- **世界的イベントは31枚デッキ**（拡張が有効ならColonies/Venus分の5枚が加わる）
 - **Turmoil の世界的イベント36枚**（`app/global-events.js` の宣言的スペック）
   - 影響力を数え、「数えるものは最大5」の上限を持つ
   - 損失は影響力で軽減してから適用する
@@ -472,28 +477,27 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
-- **WGT の対象をプレイヤーに選ばせていない。** 公式は第1プレイヤーが
-  「未達成のグローバルパラメータを1段階上げる**か海洋を1枚置く**」を選ぶ。
-  現状は金星→気温→酸素の順で自動選択し、海洋は選択肢に入れていない。
-  `triggerProduction` の中で走るため選択を待てず、海洋は配置先の指定が要るため。
-  **UI側で選択を挟む形にするのが本筋**（エンジンの修正ではない）
-- **世界的イベント36枚のうち8枚は、まだ影響力ぶんの支払いしか効かない。**
-  スペックは `app/global-events.js` に宣言してあるが、リゾルバがキーを読んでいない。
-  選択・配置・他プレイヤーとの比較を伴うため、`pendingChoice` 経由にする必要がある。
+- **世界的イベントの影響力ライダー2件が未適用。**
+  `app/global-events.js` に宣言はあるがリゾルバが読んでいない。
 
-  | イベント | 未対応のキー |
-  |---|---|
-  | Paradigm Breakdown | `discardFromHand`（手札2枚を捨てる） |
-  | Corrosive Rain | `loseFloatersOrMc`（フローター2かMC10の二択） |
-  | Election / Revolution | `contest`（全員の数を比べて順位で TR 増減） |
-  | Aquifer Released by Public Council | `firstPlayerPlacesOcean` |
-  | Dry Deserts | `firstPlayerRemovesOcean`, `influenceStandardResource` |
-  | Cloud Societies | `addResourceToAll`, `influenceAddsToCards` |
-  | Sponsored Projects | `addResourceToCardsHoldingResources` |
+  | イベント | 未対応のキー | 理由 |
+  |---|---|---|
+  | Dry Deserts | `influenceStandardResource` | 影響力1につき「標準資源1個」＝どれを取るか選ばせる必要がある |
+  | Cloud Societies | `influenceAddsToCards` | 影響力1につき「カード1枚にフローター1個」＝どのカードか選ばせる必要がある |
+
+  どちらも**主効果（海洋除去 / 全カードへの一括追加）は実装済み**で、
+  残っているのは影響力ぶんの上乗せだけ。
+  プレイヤーごとに選択が要るが、エンジンは `pendingChoice` を**1個しか持てない**。
+  複数プレイヤーに順番に問う仕組みが要る（下記）。
 
   **数え方**: `GLOBAL_EVENT_EFFECTS` の各スペックのキーのうち、
   `game-logic.js` の `applyGlobalEventEffect` が読むキー集合に無いものを列挙すれば出る。
   減らしたらこの表も直すこと
+
+- **`pendingChoice` は1枠しかない。** 「全員が2枚捨てる」のように
+  複数プレイヤーへ順番に問う効果は現状書けない。
+  Paradigm Breakdown は行動主以外の手札を**先頭から**捨てて枚数だけ合わせている。
+  キューを入れるならここが起点
 
 ---
 
@@ -573,6 +577,11 @@ curl で取得できる。既存のタルシス盤面と1行ずつ一致する�
 | `4f353aa` | World Government Terraforming（Venus、Solar phase step 2）を実装 |
 | `e8e519c` | 世界的イベントの初期配置（current に3枚目を配っていた）と中立代表者の配置 |
 | `2161484` | 世界的イベント36枚の効果を実装（それまではログ1行だけ） |
+| `9c459de` | Turmoil最終得点（党首・議長）／得点内訳のカテゴリがNaNになる不具合 |
+| `663a162` | 拡張別のイベント絞り込み（31枚 vs 36枚） |
+| `a6f9bcd` | 選択の要らないイベント4枚（Election / Revolution / Cloud Societies / Sponsored Projects） |
+| `66082c4` | WGT を第1プレイヤーの選択に。Solar Phase を中断可能へ |
+| `2c924f8` | 残り4枚（Aquifer / Dry Deserts / Paradigm Breakdown / Corrosive Rain） |
 
 **監査で却下したもの**: `computeDominantParty` の同数処理は
 公式の "or clockwise in case of tie" と一致しており `ALREADY CORRECT`。
