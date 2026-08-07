@@ -110,8 +110,8 @@ export const GLOBAL_EVENT_EFFECTS = {
     loseFloatersOrMc: { floaters: 2, mc: 10 }, influenceDraws: 1
   },
   "global-diversity": {
-    // Influence counts as one extra distinct tag.
-    distinctTags: { threshold: 9, reward: { mc: 10 }, influenceCountsAsTag: true }
+    // "Influence counts as a distinct tag" — as a value, so influence 3 adds 3.
+    distinctTags: { threshold: 9, reward: { mc: 10 } }
   },
   "global-generous-funding": {
     trBrackets: { above: 15, step: 5, cap: 5, per: { mc: 2 } }, influencePer: { mc: 2 }

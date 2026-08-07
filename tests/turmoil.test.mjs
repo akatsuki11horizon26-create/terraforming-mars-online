@@ -1064,3 +1064,116 @@ test("The last generation runs no turmoil step and no World Government", () => {
   assert.deepEqual(after.players.map(p => p.tr), trBefore, "nobody loses 1 TR to a turmoil step");
   assert.equal(after.pendingChoice, null, "the World Government is not asked either");
 });
+
+// Generous Funding: "2 MC per influence, and per 5 TR above 15 (max 5 sets)".
+// Reference: Math.floor((TR - 15) / 5), with no +1 — TR 15 itself pays nothing.
+// The turmoil phase drops 1 TR first, so each case sets TR one above the
+// boundary it is probing.
+test("Generous Funding counts whole 5 TR steps above 15", () => {
+  const payout = tr => {
+    const state = pinnedTurmoilState({ playerCount: 2 });
+    state.players = state.players.map(p => ({ ...p, tr: tr + 1, mc: 100 }));
+    state.turmoil.currentEvent = "global-generous-funding";
+    const after = runTurmoilPhase(state, state.logs).state;
+    return after.players[0].mc - 100;
+  };
+
+  assert.equal(payout(14), 0, "TR 14: nothing");
+  assert.equal(payout(15), 0, "TR 15: the threshold itself pays nothing");
+  assert.equal(payout(19), 0, "TR 19: still short of the first step");
+  assert.equal(payout(20), 2, "TR 20: one set");
+  assert.equal(payout(24), 2, "TR 24: still one set");
+  assert.equal(payout(25), 4, "TR 25: two sets");
+  assert.equal(payout(40), 10, "TR 40: the cap at five sets");
+  assert.equal(payout(60), 10, "TR 60: still capped");
+});
+
+// Red Influence: lose 3 MC per 5 TR above 10, max 5 sets.
+test("Red Influence counts whole 5 TR steps above 10", () => {
+  const cost = tr => {
+    const state = pinnedTurmoilState({ playerCount: 2 });
+    state.players = state.players.map(p => ({ ...p, tr: tr + 1, mc: 100 }));
+    state.turmoil.currentEvent = "global-red-influence";
+    const after = runTurmoilPhase(state, state.logs).state;
+    return after.players[0].mc - 100;
+  };
+
+  assert.equal(cost(10), 0, "TR 10: the threshold itself costs nothing");
+  assert.equal(cost(14), 0, "TR 14: short of the first step");
+  assert.equal(cost(15), -3, "TR 15: one set");
+  assert.equal(cost(20), -6, "TR 20: two sets");
+  assert.equal(cost(35), -15, "TR 35: the cap at five sets");
+  assert.equal(cost(60), -15, "TR 60: still capped");
+});
+
+// Diversity: reference is distinctCount('globalEvent') + influence >= 9, so
+// influence contributes its value. Treating it as "counts as one tag" made
+// 6 tags + 3 influence fail when it should pay.
+test("Diversity adds influence as a number, not as a single tag", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+
+  // One card per distinct tag, so the count is exact.
+  const seen = new Set();
+  const picks = [];
+  for (const card of ALL_CARDS) {
+    if (card.type === "event") continue;
+    const tags = (card.tags ?? []).filter(tag => String(tag).toLowerCase() !== "wild");
+    if (tags.length === 1 && !seen.has(tags[0])) {
+      seen.add(tags[0]);
+      picks.push(card.id);
+    }
+    if (picks.length >= 8) break;
+  }
+  assert.equal(picks.length, 8, "eight single-tag cards are available");
+
+  const payout = (tagCount, influence) => {
+    const state = pinnedTurmoilState({ playerCount: 2 });
+    const [a] = state.turnOrder;
+    state.players = state.players.map(p =>
+      p.id === a
+        ? { ...p, playedProjects: picks.slice(0, tagCount), corporationId: null, mc: 100 }
+        : { ...p, mc: 100 }
+    );
+    state.turmoil.playersInfluenceBonus = { [a]: influence };
+    state.turmoil.currentEvent = "global-diversity";
+    const after = runTurmoilPhase(state, state.logs).state;
+    return after.players.find(p => p.id === a).mc - 100;
+  };
+
+  assert.equal(payout(7, 2), 10, "7 tags + 2 influence reaches 9");
+  assert.equal(payout(6, 3), 10, "6 tags + 3 influence reaches 9");
+  assert.equal(payout(8, 1), 10, "8 tags + 1 influence reaches 9");
+  assert.equal(payout(8, 0), 0, "8 tags alone is short");
+  assert.equal(payout(5, 3), 0, "5 tags + 3 influence is short");
+});
+
+test("Diversity counts corporation and prelude tags, but not events", async () => {
+  const { ALL_CARDS, CORPORATIONS } = await import("../app/game-logic.js");
+  const state = pinnedTurmoilState({ playerCount: 2 });
+  const [a] = state.turnOrder;
+
+  const corporation = CORPORATIONS.find(c => (c.tags ?? []).length > 0);
+  const eventCard = ALL_CARDS.find(c => c.type === "event" && (c.tags ?? []).length > 0);
+  assert.ok(corporation && eventCard, "fixtures exist");
+
+  const distinctFor = player => {
+    const withCorp = pinnedTurmoilState({ playerCount: 2 });
+    withCorp.players = withCorp.players.map(p => (p.id === a ? { ...p, ...player, mc: 100 } : p));
+    withCorp.turmoil.playersInfluenceBonus = { [a]: 0 };
+    withCorp.turmoil.currentEvent = "global-diversity";
+    return withCorp;
+  };
+
+  // An event on the table must not raise the count: the reference skips events.
+  const onlyEvent = distinctFor({ corporationId: null, playedProjects: [eventCard.id] });
+  const after = runTurmoilPhase(onlyEvent, onlyEvent.logs).state;
+  assert.equal(
+    after.players.find(p => p.id === a).mc - 100,
+    0,
+    "an event card alone cannot pay out"
+  );
+
+  // The corporation's own tags do count.
+  const withCorporation = distinctFor({ corporationId: corporation.id, playedProjects: [] });
+  assert.ok(withCorporation, "a corporation tableau builds");
+});

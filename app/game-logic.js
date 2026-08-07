@@ -2878,6 +2878,31 @@ function addResourceToEveryCard(state, { resourceType, requireExisting }, logs) 
   return addLog(logs, "system", `${targets.length}枚のカードに資源を1個ずつ追加しました。`);
 }
 
+// Distinct tags the way the reference counts them for a global event: it walks
+// the tableau — corporation, played projects and chosen preludes — and skips
+// events, because a resolved event is no longer on the table. Wild tags are
+// deliberately not expanded: "Global events occur outside the action phase.
+// Stop counting here, before wild tags apply."
+function countDistinctTags(state, player) {
+  const distinct = new Set();
+  const collect = card => {
+    for (const tag of card?.tags ?? []) {
+      if (String(tag).toLowerCase() !== "wild") distinct.add(tag);
+    }
+  };
+
+  collect(CORPORATIONS.find(item => item.id === player.corporationId));
+  for (const id of player.playedProjects ?? []) {
+    const card = ALL_CARDS.find(item => item.id === id);
+    if (card?.type === "event") continue;
+    collect(card);
+  }
+  for (const id of player.selectedPreludeIds ?? []) {
+    collect(PRELUDES.find(item => item.id === id));
+  }
+  return distinct.size;
+}
+
 // Paradigm Breakdown discards from every hand. A player with fewer cards than
 // the card asks for discards what they have.
 function applyForcedDiscard(state, count, logs) {
@@ -3036,8 +3061,10 @@ function applyGlobalEventEffect(state, event, logs) {
     }
 
     if (spec.trBrackets) {
+      // Reference: floor((TR - above) / step), with no +1. Generous Funding pays
+      // nothing at TR 15 and one set at TR 20 — "for every 5 TR *above* 15".
       const { above, step, cap, per } = spec.trBrackets;
-      const brackets = Math.max(0, Math.min(cap, Math.floor((updated.tr - above) / step) + 1));
+      const brackets = Math.max(0, Math.min(cap, Math.floor((updated.tr - above) / step)));
       for (const [field, amount] of Object.entries(per)) add(field, amount * brackets);
     }
 
@@ -3058,11 +3085,9 @@ function applyGlobalEventEffect(state, event, logs) {
     if (spec.flatTrLoss) add("tr", -Math.max(0, spec.flatTrLoss - influence));
 
     if (spec.distinctTags) {
-      const distinct = new Set();
-      for (const id of player.playedProjects ?? []) {
-        for (const tag of ALL_CARDS.find(item => item.id === id)?.tags ?? []) distinct.add(tag);
-      }
-      const total = distinct.size + (spec.distinctTags.influenceCountsAsTag && influence > 0 ? 1 : 0);
+      // Reference Diversity: distinctCount('globalEvent') + influence >= 9.
+      // Influence contributes its value, not a single "counts as one tag".
+      const total = countDistinctTags(state, player) + influence;
       if (total >= spec.distinctTags.threshold) {
         for (const [field, amount] of Object.entries(spec.distinctTags.reward)) add(field, amount);
       }
