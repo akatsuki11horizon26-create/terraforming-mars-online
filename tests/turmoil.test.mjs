@@ -378,3 +378,42 @@ test("Every non-leader delegate of the new ruling party goes back to the reserve
     "B's delegate returns too"
   );
 });
+
+// Venus Next rules, Solar phase STEP 2: "the first player [...] chooses a
+// non-maxed global parameter and increases that track one step [...] All bonuses
+// go to the WG, and therefore no TR or other bonuses are given to the first player."
+test("World Government Terraforming raises a track without granting TR", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  const trBefore = state.players.map(p => p.tr);
+  const venusBefore = state.venus;
+
+  const after = triggerProduction(state, state.logs);
+
+  assert.ok(after.venus > venusBefore, "a global parameter moves");
+  assert.deepEqual(
+    after.players.map(p => p.tr),
+    trBefore,
+    "no player gains TR from the World Government"
+  );
+});
+
+test("World Government Terraforming is skipped without Venus", () => {
+  const state = getInitialState({ playerCount: 2 });
+  const venusBefore = state.venus;
+  const after = triggerProduction(state, state.logs);
+  assert.equal(after.venus, venusBefore, "the venus track stays put");
+});
+
+test("World Government Terraforming moves on from a maxed track", () => {
+  const state = getInitialState({ playerCount: 2, venus: true });
+  state.venus = 30;
+  const before = { temperature: state.temperature, oxygen: state.oxygen };
+
+  const after = triggerProduction(state, state.logs);
+
+  assert.equal(after.venus, 30, "a maxed track does not overshoot");
+  assert.ok(
+    after.temperature > before.temperature || after.oxygen > before.oxygen,
+    "another non-maxed parameter is raised instead"
+  );
+});

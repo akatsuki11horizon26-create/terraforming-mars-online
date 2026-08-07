@@ -1687,6 +1687,34 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
   }
 }
 
+// Solar phase step 2 (Venus Next rules): "The first player [...] now acts as the
+// WG, and chooses a non-maxed global parameter and increases that track one step,
+// or places an ocean tile. All bonuses go to the WG, and therefore no TR or other
+// bonuses are given to the first player."
+//
+// The parameter is picked for the first player rather than prompted for: the
+// choice belongs to a human, but the phase runs inside triggerProduction, which
+// has no way to stop and ask. Venus is preferred because it is the track the WG
+// exists to help with, then the others in board order. The ocean option is not
+// offered here because placing one needs a board target, which needs a prompt.
+export function applyWorldGovernmentTerraforming(state, logs) {
+  const options = [
+    { key: "venus", label: "金星", value: state.venus, max: MAX_VENUS, step: 2 },
+    { key: "temperature", label: "気温", value: state.temperature, max: MAX_TEMPERATURE, step: 2 },
+    { key: "oxygen", label: "酸素", value: state.oxygen, max: MAX_OXYGEN, step: 1 }
+  ];
+  const target = options.find(option => option.value < option.max);
+  if (!target) return logs;
+
+  // No bumpTr here: the terraforming is the World Government's, not the player's.
+  state[target.key] = Math.min(target.max, target.value + target.step);
+  return addLog(
+    logs,
+    "system",
+    `世界政府のテラフォーミング: ${target.label}を1段階上昇させました（TRは得られません）。`
+  );
+}
+
 function bumpTr(state, playerId, amount) {
   state.players = state.players.map(player =>
     player.id === playerId ? { ...player, tr: player.tr + amount } : player
@@ -3299,6 +3327,14 @@ export function triggerProduction(state, logAcc) {
     const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {
+    // Solar phase step 2: World Government Terraforming. The first player raises
+    // a non-maxed global parameter, but the bonuses go to the WG, so no TR is
+    // awarded (Venus Next rules). Runs before the generation turns over, since
+    // the first player marker has not moved yet.
+    if (nextState.venusEnabled) {
+      localLog = applyWorldGovernmentTerraforming(nextState, localLog);
+    }
+
     nextState.generation += 1;
     nextState.phase = "research";
     // Law Suit may only answer an attack from the generation it is played in.
