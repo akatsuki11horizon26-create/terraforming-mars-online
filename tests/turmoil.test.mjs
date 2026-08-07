@@ -121,9 +121,12 @@ test("The dominant party takes power and its leader becomes chairman", () => {
 
   assert.equal(result.state.turmoil.rulingParty, "reds");
   assert.equal(result.state.turmoil.chairman, "player");
-  // Everyone loses 1 TR in the turmoil phase; the incoming chairman gains it back.
-  assert.equal(result.state.players[0].tr, before[0], "chairman: -1 then +1");
-  assert.equal(result.state.players[1].tr, before[1] - 1, "everyone else just loses 1");
+  // The bonus that pays out belongs to the party that just took power, so it is
+  // Reds' "lowest TR gains 1 TR" and not the outgoing Greens' tag bonus. Everyone
+  // drops to 19 in the TR revision, so the incoming chairman ties for lowest and
+  // takes the bonus, then gains 1 more TR for taking the Chairman seat.
+  assert.equal(result.state.players[0].tr, before[0] + 1, "chairman: -1, +1 bonus, +1 chairman");
+  assert.equal(result.state.players[1].tr, before[1], "everyone else: -1 then +1 from the Reds bonus");
 });
 
 test("Every player loses 1 TR when the turmoil phase runs", () => {
@@ -308,4 +311,70 @@ test("A player who cannot pay 5 MC keeps their delegate", () => {
     "the delegate stays in the reserve"
   );
   assert.equal(broke.state.players.find(p => p.id === me).mc, 4, "no MC is taken");
+});
+
+// Turmoil rules, STEP 4: "3a) The Dominant party now becomes ruling. 3b) Resolve
+// the Ruling Bonus" — the bonus belongs to the incoming party, not the outgoing.
+test("The incoming ruling party pays the ruling bonus, not the outgoing one", () => {
+  let state = getInitialState({ playerCount: 2, turmoil: true });
+
+  // Greens rule at setup. Make Unity dominant so power actually changes hands.
+  assert.equal(state.turmoil.rulingParty, "greens", "greens open as the ruling party");
+  state = sendDelegateToParty(state, "unity", state.logs, "player").state;
+  state = sendDelegateToParty(state, "unity", state.logs, "player").state;
+  assert.equal(state.turmoil.dominantParty, "unity", "unity is dominant");
+
+  const mcBefore = state.players.map(p => p.mc);
+  const result = runTurmoilPhase(state, state.logs);
+
+  assert.equal(result.state.turmoil.rulingParty, "unity", "unity takes power");
+  // Unity's bonus pays 1 MC per Jovian/Space tag... but the key point is that the
+  // outgoing Greens plant/microbe/animal tag bonus must NOT be what paid out.
+  const greensBonusPaid = result.state.players.some(
+    (p, i) => p.mc > mcBefore[i] && state.players[i].mc === mcBefore[i] && false
+  );
+  assert.equal(greensBonusPaid, false, "the outgoing greens bonus does not pay");
+  assert.ok(
+    result.logs.every(entry => !String(entry.message ?? entry).includes("緑の党の支持ボーナス")),
+    "no greens ruling bonus is logged once unity has taken power"
+  );
+});
+
+// Turmoil rules, STEP 4: "3c) Return the former Chairman and all non-leader
+// delegates from Dominant party to reserve."
+test("Every non-leader delegate of the new ruling party goes back to the reserve", () => {
+  let state = getInitialState({ playerCount: 2, turmoil: true });
+  const [a, b] = state.turnOrder;
+
+  // Stack kelvinists so it becomes dominant with delegates from both players.
+  state.players = state.players.map(p => ({ ...p, mc: 60 }));
+  for (let i = 0; i < 3; i++) {
+    state = sendDelegateToParty(state, "kelvinists", state.logs, a).state;
+  }
+  state = sendDelegateToParty(state, "kelvinists", state.logs, b).state;
+  assert.equal(state.turmoil.dominantParty, "kelvinists");
+  assert.equal(state.turmoil.parties.kelvinists.delegates.length, 4);
+
+  const reserveBefore = { ...state.turmoil.delegateReserve };
+  const result = runTurmoilPhase(state, state.logs);
+  const after = result.state.turmoil;
+
+  assert.equal(after.rulingParty, "kelvinists", "kelvinists take power");
+  assert.deepEqual(after.parties.kelvinists.delegates, [], "the party is emptied");
+  assert.equal(after.parties.kelvinists.leader, null, "no leader is left behind");
+  assert.equal(after.chairman, a, "the party leader takes the chairman seat");
+
+  // The leader went to the Chairman seat; the other three delegates went home.
+  // refillLobby then draws 1 delegate per player back out of the reserve.
+  const lobbyDrawn = id => (after.lobby.includes(id) ? 1 : 0);
+  assert.equal(
+    after.delegateReserve[a] + lobbyDrawn(a),
+    reserveBefore[a] + 2,
+    "both of A's non-leader delegates return"
+  );
+  assert.equal(
+    after.delegateReserve[b] + lobbyDrawn(b),
+    reserveBefore[b] + 1,
+    "B's delegate returns too"
+  );
 });

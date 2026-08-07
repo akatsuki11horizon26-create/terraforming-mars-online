@@ -60,8 +60,9 @@ import {
   DELEGATE_RESERVE_COST,
   NEUTRAL,
   PARTIES,
-  advanceTurmoil,
+  advanceGlobalEvents,
   cloneTurmoil,
+  formNewGovernment,
   createTurmoilState,
   getInfluence,
   getParty,
@@ -2407,14 +2408,27 @@ export function runTurmoilPhase(state, logs) {
   const next = cloneGameState(state);
   let nextLogs = logs;
 
-  // The turmoil phase opens with every player losing 1 TR.
+  // Step 1, TR revision: the turmoil phase opens with every player losing 1 TR.
   next.players = next.players.map(player => ({ ...player, tr: Math.max(0, player.tr - 1) }));
   nextLogs = addLog(nextLogs, "system", "動乱フェーズ: 全プレイヤーが TR -1。");
 
-  const outgoing = getParty(next.turmoil.rulingParty);
-  if (outgoing) {
+  // Step 2: resolve the Current Global Event, before the government changes.
+  const resolvedEvent = next.turmoil.currentEvent;
+  if (resolvedEvent) {
+    const event = GLOBAL_EVENTS.find(item => item.id === resolvedEvent);
+    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? resolvedEvent}`);
+  }
+
+  // Step 3a: the dominant party takes power. The bonus that pays out is the new
+  // ruling party's, so the government has to form before it is evaluated.
+  const government = formNewGovernment(next.turmoil);
+  next.turmoil = government.turmoil;
+
+  // Step 3b: resolve the Ruling Bonus of the party that just took power.
+  const incoming = getParty(government.rulingParty);
+  if (incoming) {
     // The first bonus of the ruling party is the one that pays out.
-    const bonus = outgoing.bonuses[0];
+    const bonus = incoming.bonuses[0];
     next.players = next.players.map(player => {
       const amount = evaluatePartyBonus(next, bonus, player);
       if (amount <= 0) return player;
@@ -2422,7 +2436,7 @@ export function runTurmoilPhase(state, logs) {
       nextLogs = addLog(
         nextLogs,
         "system",
-        `${outgoing.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
+        `${incoming.name}の支持ボーナス: ${player.name} が ${field} を ${amount} 獲得。`
       );
       return { ...player, [field]: player[field] + amount };
     });
@@ -2432,8 +2446,9 @@ export function runTurmoilPhase(state, logs) {
     }
   }
 
-  const result = advanceTurmoil(next.turmoil);
-  next.turmoil = refillLobby(result.turmoil, next.turnOrder);
+  const result = government;
+  // Step 3f: refill the lobby, then step 4, Changing Times.
+  next.turmoil = refillLobby(next.turmoil, next.turnOrder);
 
   // The chairman gains 1 TR on taking office.
   if (result.newChairman && result.newChairman !== NEUTRAL) {
@@ -2449,10 +2464,9 @@ export function runTurmoilPhase(state, logs) {
   const ruling = getParty(result.rulingParty);
   nextLogs = addLog(nextLogs, "system", `与党は ${ruling?.name ?? result.rulingParty} になりました。`);
 
-  if (result.resolvedEvent) {
-    const event = GLOBAL_EVENTS.find(item => item.id === result.resolvedEvent);
-    nextLogs = addLog(nextLogs, "system", `世界的イベント解決: ${event?.name ?? result.resolvedEvent}`);
-  }
+  // Step 4, Changing Times: the event queue moves up now that the event that was
+  // Current has been resolved.
+  next.turmoil = advanceGlobalEvents(next.turmoil).turmoil;
 
   next.logs = nextLogs;
   return { state: next, logs: nextLogs };

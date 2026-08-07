@@ -246,9 +246,18 @@ export function getInfluence(turmoil, playerId) {
   return influence;
 }
 
-// End of generation: the dominant party takes power, its bonus pays out, the
-// chairman gains 1 TR, and the event queue advances.
-export function advanceTurmoil(turmoil) {
+// Turmoil step 3, New Government (Turmoil rules, Solar phase step 4):
+//   3a) the Dominant party becomes ruling and its Policy tile goes on top
+//   3c) the former Chairman and ALL non-leader delegates of that party go back
+//       to their reserves
+//   3d) the Party Leader becomes the new Chairman
+//   3e) the Dominance marker moves to the new most-populous party
+//
+// Step 3b (the Ruling Bonus) sits between 3a and 3c and pays out for the *new*
+// ruling party, so it belongs to the caller, which owns player state. This
+// returns rulingParty for exactly that reason — paying before calling this
+// function would pay the outgoing party's bonus.
+export function formNewGovernment(turmoil) {
   const next = cloneTurmoil(turmoil);
   const newRuling = next.dominantParty;
   const rulingParty = getParty(newRuling);
@@ -257,27 +266,43 @@ export function advanceTurmoil(turmoil) {
   const dominant = next.parties[newRuling];
   const newChairman = dominant?.leader ?? NEUTRAL;
 
-  // The outgoing chairman returns to their reserve; the new chairman leaves the party.
+  // 3c: the outgoing chairman returns to their reserve.
   if (outgoingChairman) {
     next.delegateReserve[outgoingChairman] = (next.delegateReserve[outgoingChairman] ?? 0) + 1;
   }
-  if (dominant && newChairman) {
-    const index = dominant.delegates.indexOf(newChairman);
-    if (index >= 0) dominant.delegates.splice(index, 1);
-    dominant.leader = computePartyLeader(dominant);
+
+  if (dominant) {
+    // 3d: the leader leaves the party for the Chairman seat.
+    if (newChairman) {
+      const index = dominant.delegates.indexOf(newChairman);
+      if (index >= 0) dominant.delegates.splice(index, 1);
+    }
+    // 3c: every remaining delegate of the new ruling party goes home too. Leaving
+    // them on the board would skew the next generation's dominance and influence.
+    for (const delegate of dominant.delegates) {
+      next.delegateReserve[delegate] = (next.delegateReserve[delegate] ?? 0) + 1;
+    }
+    dominant.delegates = [];
+    dominant.leader = null;
   }
 
   next.chairman = newChairman;
   next.rulingParty = newRuling;
   next.rulingPolicyId = rulingParty?.policies[0]?.id ?? null;
 
-  const resolvedEvent = next.currentEvent;
+  // 3e: the emptied ruling party hands the Dominance marker on.
+  next.dominantParty = computeDominantParty(next);
+  return { turmoil: next, newChairman, rulingParty: newRuling };
+}
+
+// Turmoil step 4, Changing Times: the Coming event becomes Current and the
+// Distant event moves up, each newly shown card adding its neutral delegate.
+export function advanceGlobalEvents(turmoil) {
+  const next = cloneTurmoil(turmoil);
   next.currentEvent = next.comingEvent;
   next.comingEvent = next.distantEvent;
   next.distantEvent = next.eventDeck.shift() ?? null;
-
-  next.dominantParty = computeDominantParty(next);
-  return { turmoil: next, resolvedEvent, newChairman, rulingParty: newRuling };
+  return { turmoil: next };
 }
 
 // Everyone gets one delegate back from the reserve into the lobby each generation.
