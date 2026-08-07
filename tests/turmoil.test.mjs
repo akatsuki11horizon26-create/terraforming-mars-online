@@ -1045,3 +1045,22 @@ test("Corrosive Rain takes floaters when there are floaters to take", async () =
   assert.equal(holder.mc, 50, "the MC is kept");
   assert.equal(other.mc, 40, "a player with no floaters pays 10 MC instead");
 });
+
+// Turmoil rules, FINAL SCORING: "When the game ends, the Turmoil step is not
+// performed." The Game End Check is step 1 of the Solar phase, so nothing after
+// it runs — no TR revision, no change of government, and no World Government.
+test("The last generation runs no turmoil step and no World Government", () => {
+  const state = pinnedTurmoilState({ playerCount: 2, venus: true });
+  state.temperature = 8;
+  state.oxygen = 14;
+  state.oceans = 9;
+
+  const rulingBefore = state.turmoil.rulingParty;
+  const trBefore = state.players.map(p => p.tr);
+  const after = triggerProduction(state, state.logs);
+
+  assert.equal(after.phase, "final_greenery", "the game is ending");
+  assert.equal(after.turmoil.rulingParty, rulingBefore, "no new government is seated");
+  assert.deepEqual(after.players.map(p => p.tr), trBefore, "nobody loses 1 TR to a turmoil step");
+  assert.equal(after.pendingChoice, null, "the World Government is not asked either");
+});
