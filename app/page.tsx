@@ -14,10 +14,7 @@ import {
   getCardDiscount as jsGetCardDiscount,
   getCardPaymentCost as jsGetCardPaymentCost,
   getCardPlayableStatus as jsGetCardPlayableStatus,
-  isCellPlacementValid as jsIsCellPlacementValid,
-  checkParameterThresholds as jsCheckParameterThresholds,
   handleActionSpend as jsHandleActionSpend,
-  isGameOverCheck as jsIsGameOverCheck,
   addLog as jsAddLog,
   applyCorporation as jsApplyCorporation,
   applyPreludes as jsApplyPreludes,
@@ -66,7 +63,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand, CORPORATION_ACTION_ID } from "./game-command.js";
+import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
@@ -92,18 +89,6 @@ const GLOBAL_PARAMETERS: Record<string, string> = {
   酸素: "%",
   海洋: "枚",
   金星: "%"
-};
-
-const BONUS_LABELS: Record<string, string> = {
-  plant: "植物",
-  steel: "建材",
-  titanium: "チタン",
-  mc: "MC",
-  heat: "熱",
-  energy: "電力",
-  card: "カード",
-  microbe: "微生物",
-  animal: "動物"
 };
 
 // Log lines carry the acting player's name in their text once more than one
@@ -325,17 +310,6 @@ interface GameState {
 // Cast untyped imports to strongly-typed constants
 const ALL_CARDS = jsALL_CARDS as unknown as Card[];
 const CORPORATIONS = jsCORPORATIONS as unknown as Corporation[];
-// Placing a tile also pays its placement bonus, the ocean adjacency bonus, and
-// raises the matching global parameter and TR. Writing to state.board directly
-// skips all of that, which is how greeneries stopped paying steel and TR.
-const placeTile = jsPlaceTileAt as unknown as (
-  state: GameState,
-  cell: CellState,
-  tileType: string,
-  ownerId: string | null,
-  cardId?: string,
-  options?: { worldGovernment?: boolean }
-) => GameState;
 const BOARDS = jsBOARDS as unknown as Record<string, { id: string; name: string; englishName: string }>;
 const PRELUDES = jsPRELUDES as unknown as Prelude[];
 const getInitialState = jsGetInitialState as unknown as (options?: {
@@ -387,10 +361,7 @@ const formatSignedVp = jsFormatSignedVp as unknown as (points: number) => string
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
-const isCellPlacementValid = jsIsCellPlacementValid as unknown as (cell: CellState, type: "forest" | "city" | "ocean", board: Record<string, CellState>) => boolean;
-const checkParameterThresholds = jsCheckParameterThresholds as unknown as (oldTemp: number, newTemp: number, oldOxy: number, newOxy: number, state: GameState, logs: LogEntry[]) => { state: GameState; logs: LogEntry[] };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
-const isGameOverCheck = jsIsGameOverCheck as unknown as (temp: number, oxy: number, oce: number) => boolean;
 const addLog = jsAddLog as unknown as (logsList: LogEntry[], sender: "player" | "cpu" | "system", text: string) => LogEntry[];
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -477,12 +448,6 @@ export default function Home() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
-  // Only the final greenery conversion still places this way; everything else
-  // goes through pendingChoice.
-  const [placementMode, setPlacementMode] = useState<{
-    active: boolean;
-    type: "forest";
-  } | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [helpPage, setHelpPage] = useState(1);
@@ -650,15 +615,16 @@ export default function Home() {
   const botThinking =
     isRobotGame &&
     !isOnline &&
-    gameState.phase === "action" &&
-    gameState.currentPlayerId !== HUMAN_ID;
+    (gameState.phase === "setup" || gameState.phase === "action" || gameState.phase === "final_greenery") &&
+    (gameState.phase === "setup" || gameState.currentPlayerId !== HUMAN_ID);
   useEffect(() => {
     if (!isRobotGame || isOnline) return;
-    if (gameState.phase !== "action" && gameState.phase !== "research") return;
+    if (!["setup", "action", "research", "final_greenery"].includes(gameState.phase)) return;
     if (gameState.pendingChoice && gameState.pendingChoice.ownerPlayerId === HUMAN_ID) return;
 
     const humanTurn =
-      gameState.phase === "action" && gameState.currentPlayerId === HUMAN_ID;
+      (gameState.phase === "action" || gameState.phase === "final_greenery") &&
+      gameState.currentPlayerId === HUMAN_ID;
     const humanResearch =
       gameState.phase === "research" &&
       (gameState.players?.find(p => p.id === HUMAN_ID)?.researchCards?.length ?? 0) > 0;
@@ -935,7 +901,6 @@ export default function Home() {
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
-    setPlacementMode(null);
     setSelectedCorporationId(null);
     setSelectedPreludeIds([]);
     setSelectedResearchCardIds([]);
@@ -944,7 +909,7 @@ export default function Home() {
   };
 
   const handleCardClick = (cardId: string) => {
-    if (placementMode) return;
+    if (pendingChoice) return;
     if (isSellingPatents) {
       // Toggle selection for selling
       if (selectedSellCardIds.includes(cardId)) {
@@ -1020,100 +985,20 @@ export default function Home() {
 
 
   const handleCellClick = (cell: CellState) => {
-    // If pending ocean placement is active
-    if (activeState.pendingOceans > 0) {
-      if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
-      const nextState = jsCloneGameState(gameState) as GameState;
-      nextState.board = { ...gameState.board };
-      const oldOceans = nextState.oceans;
-      // An ocean the World Government or a global event owes the board pays
-      // nobody, so those are spent before any the player earned.
-      const unowned = (nextState.pendingUnownedOceans ?? 0) > 0;
-      placeTile(nextState, cell, "ocean", currentPlayerId, undefined, {
-        worldGovernment: unowned
-      });
-
-      let localLogs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
-      if (oldOceans < 9 && !unowned) {
-        localLogs = addLog(localLogs, "system", "海洋面積 +1, TR +1");
-      }
-      if (unowned) {
-        nextState.pendingUnownedOceans = (nextState.pendingUnownedOceans ?? 0) - 1;
-      }
-      nextState.pendingOceans -= 1;
-      nextState.logs = localLogs;
-      saveState(nextState);
-      return;
-    }
-
-    if (!placementMode) return;
-    if (!isCellPlacementValid(cell, placementMode.type, activeState.board)) return;
-
+    if (isOnline || activeState.pendingOceans <= 0) return;
+    if (cell.tileType !== "empty" || !cell.isOceanOnly) return;
     const nextState = jsCloneGameState(gameState) as GameState;
-    let localLogs = nextState.logs;
-
-    const oldTemp = nextState.temperature;
-    const oldOxy = nextState.oxygen;
-
-    // Standard projects and cards both place through the command layer now, so
-    // the only mode that still reaches this handler is the final greenery
-    // conversion: eight plants, paid here, with no action spent.
-    nextState.plants -= 8;
-    localLogs = addLog(localLogs, "player", "植物の緑化を実行しました (支払: 植物 8)");
-
-    placeTile(nextState, cell, "forest", currentPlayerId);
-
-    if (gameState.phase === "final_greenery") {
-      // placeTile raised them; the final greenery phase scores neither.
-      nextState.oxygen = oldOxy;
-      if (nextState.oxygen < 14) nextState.tr -= 1;
-      localLogs = addLog(localLogs, "system", "最終緑化: 酸素濃度とTRは変化しません。");
-    } else if (oldOxy < 14) {
-      localLogs = addLog(localLogs, "system", "酸素濃度 +1%, TR +1");
+    nextState.board = { ...gameState.board };
+    const unowned = (nextState.pendingUnownedOceans ?? 0) > 0;
+    jsPlaceTileAt(nextState, cell, "ocean", currentPlayerId, undefined, {
+      worldGovernment: unowned
+    });
+    if (unowned) {
+      nextState.pendingUnownedOceans = (nextState.pendingUnownedOceans ?? 0) - 1;
     }
-    localLogs = addLog(localLogs, "player", `緑地を (${cell.q}, ${cell.r}) に配置しました。`);
-
-    // placeTile paid the placement bonus, including multi-resource spaces the
-    // hand-rolled version could not represent. This only names what was gained.
-    const grants =
-      cell.bonusType === "multi" && Array.isArray(cell.bonus)
-        ? (cell.bonus as { type: string; amount: number }[])
-        : cell.bonusType && cell.bonusType !== "none"
-          ? [{ type: cell.bonusType, amount: cell.bonusAmount }]
-          : [];
-    for (const grant of grants) {
-      const label = BONUS_LABELS[grant.type] ?? grant.type;
-      localLogs = addLog(
-        localLogs,
-        "system",
-        grant.type === "card"
-          ? `配置ボーナス獲得: カードを${grant.amount}枚引きました`
-          : `配置ボーナス獲得: ${label} +${grant.amount}`
-      );
-    }
-
-    // Run parameter threshold check
-    const { state: updatedState, logs: updatedLogs } = checkParameterThresholds(
-      oldTemp, nextState.temperature,
-      oldOxy, nextState.oxygen,
-      nextState,
-      localLogs
-    );
-
-    setSelectedCardId(null);
-    setSteelUsed(0);
-    setTitaniumUsed(0);
-    setPlacementMode(null);
-
-    // If final greenery phase, we do not spend turn actions
-    if (gameState.phase === "final_greenery") {
-      updatedState.logs = updatedLogs;
-      saveState(updatedState);
-      return;
-    }
-
-    const afterAction = handleActionSpend(updatedState, updatedLogs);
-    saveState(afterAction);
+    nextState.pendingOceans -= 1;
+    nextState.logs = addLog(nextState.logs, "player", `ボーナス海洋を (${cell.q}, ${cell.r}) に配置しました。`);
+    saveState(nextState);
   };
 
   // The eight standard projects are named the same way everywhere now; these
@@ -1135,7 +1020,7 @@ export default function Home() {
     // The drawer has served its purpose once a project is chosen, and it covers
     // the board the tile placement needs.
     setOpenDrawer(null);
-    if (placementMode) return;
+    if (pendingChoice) return;
 
     const projectId = PROJECT_IDS[type];
     if (isOnline) {
@@ -1164,7 +1049,7 @@ export default function Home() {
 
   const handleCorporationAction = () => {
     if (!isMyTurn) return;
-    if (placementMode || activeState.pendingOceans > 0) return;
+    if (pendingChoice || activeState.pendingOceans > 0) return;
 
     if (isOnline) {
       online.sendAction("corporationAction");
@@ -1276,23 +1161,26 @@ export default function Home() {
     };
     runEngine(result);
     setSelectedCardId(null);
-    setPlacementMode(null);
   };
 
-  // Final greenery converters
   const handleFinalGreeneryConvert = () => {
-    if (gameState.plants < 8) return;
-    setPlacementMode({ active: true, type: "forest" });
+    if (!isMyTurn || pendingChoice || activeState.plants < 8) return;
+    if (isOnline) return void online.sendAction("convertFinalGreenery");
+    const result = executeGameCommand(activeState as never, {
+      type: COMMAND.CONVERT_FINAL_GREENERY,
+      playerId: currentPlayerId
+    }) as { ok: boolean; state: GameState };
+    if (result.ok) saveState(result.state);
   };
 
   const handleFinalScoring = () => {
-    const nextState = jsCloneGameState(gameState) as GameState;
-    nextState.phase = "game_over";
-    nextState.isGameOver = true;
-    const isWin = isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);
-    nextState.gameResult = isWin ? "win" : "loss";
-    nextState.logs = addLog(nextState.logs, "system", `ゲーム終了: ${isWin ? "テラフォーミングミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`);
-    saveState(nextState);
+    if (!isMyTurn || pendingChoice) return;
+    if (isOnline) return void online.sendAction("finishFinalGreenery");
+    const result = executeGameCommand(activeState as never, {
+      type: COMMAND.FINISH_FINAL_GREENERY,
+      playerId: currentPlayerId
+    }) as { ok: boolean; state: GameState };
+    if (result.ok) saveState(result.state);
   };
 
   const selectedCard = useMemo(() => {
@@ -1443,6 +1331,7 @@ export default function Home() {
   const tileChoice =
     pendingChoice &&
     pendingChoice.ownerPlayerId === currentPlayerId &&
+    (pendingChoice.options?.length ?? 0) > 0 &&
     (pendingChoice.kind === "tile-placement" || pendingChoice.kind === "ocean-placement")
       ? pendingChoice
       : null;
@@ -1649,7 +1538,7 @@ export default function Home() {
           ref={boardRef}
           style={{ ["--board-scale" as string]: String(boardScale) }}
         >
-          {activeState.pendingOceans > 0 && (
+          {!isOnline && activeState.pendingOceans > 0 && (
             <div
               style={{
                 position: "absolute",
@@ -1671,40 +1560,6 @@ export default function Home() {
             </div>
           )}
 
-          {placementMode && (
-            <div
-              style={{
-                position: "absolute",
-                top: "16px",
-                zIndex: 20,
-                backgroundColor: "var(--color-panel)",
-                border: "2px solid var(--color-cyan)",
-                borderRadius: "4px",
-                padding: "8px 16px",
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                boxShadow: "0 0 15px rgba(114, 217, 208, 0.4)"
-              }}
-            >
-              <span style={{ fontSize: "0.85rem", color: "var(--color-cyan)", fontWeight: "bold" }}>
-                【緑地】の配置場所を選択してください
-              </span>
-              <button
-                className="btn-secondary"
-                style={{ padding: "2px 8px", fontSize: "0.75rem", color: "var(--color-rust)", borderColor: "var(--color-rust)" }}
-                onClick={() => {
-                  setPlacementMode(null);
-                  setSelectedCardId(null);
-                  setSteelUsed(0);
-                  setTitaniumUsed(0);
-                }}
-              >
-                キャンセル
-              </button>
-            </div>
-          )}
-
           <div className="mars-sphere">
             <div className="hex-grid">
               {Object.values(activeState.board).map(cell => {
@@ -1714,10 +1569,8 @@ export default function Home() {
                   // player picks them on the board instead of reading
                   // coordinates off a dialog that covered the board.
                   isValid = tileChoiceCells.has(`${cell.q},${cell.r}`);
-                } else if (activeState.pendingOceans > 0) {
+                } else if (!isOnline && activeState.pendingOceans > 0) {
                   isValid = cell.tileType === "empty" && cell.isOceanOnly;
-                } else if (placementMode?.active) {
-                  isValid = isCellPlacementValid(cell, placementMode.type, activeState.board);
                 }
 
                 // The axial origin is a corner of the Tharsis map, not its middle
@@ -1764,11 +1617,9 @@ export default function Home() {
 
                 const isInteractionDisabled = tileChoiceCells
                   ? !isValid
-                  : activeState.pendingOceans > 0
+                  : !isOnline && activeState.pendingOceans > 0
                     ? !isValid
-                    : placementMode?.active
-                      ? !isValid
-                      : true;
+                    : true;
 
                 const help = describeCell(cell);
 
@@ -1973,7 +1824,7 @@ export default function Home() {
                   <button
                     className="btn-primary"
                     style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem" }}
-                    disabled={activeState.plants < 8 || placementMode !== null}
+                    disabled={!isMyTurn || Boolean(pendingChoice) || activeState.plants < 8}
                     onClick={handleFinalGreeneryConvert}
                   >
                     緑地を配置する
@@ -1981,10 +1832,10 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={placementMode !== null}
+                    disabled={!isMyTurn || Boolean(pendingChoice)}
                     onClick={handleFinalScoring}
                   >
-                    最終集計へ進む
+                    このプレイヤーの配置を終える
                   </button>
                 </div>
               </div>
@@ -2093,7 +1944,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
                   onClick={handlePass}
-                  disabled={!isMyTurn || placementMode !== null || activeState.pendingOceans > 0}
+                  disabled={!isMyTurn || Boolean(pendingChoice) || activeState.pendingOceans > 0}
                 >
                   {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
                     ? "ターン終了"
@@ -2135,7 +1986,7 @@ export default function Home() {
                 {activeCards.map(card => {
                   const actionStatus = getCardActionStatus(activeState, card);
                   return (
-                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || placementMode !== null} onClick={() => confirmAction(`【${card.name}】のアクション`, `${card.effectText} この世代はこのカードのアクションを再度使用できません。`, () => handleCardAction(card))} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
+                    <button key={card.id} className="btn-secondary" disabled={!actionStatus.playable || Boolean(pendingChoice)} onClick={() => confirmAction(`【${card.name}】のアクション`, `${card.effectText} この世代はこのカードのアクションを再度使用できません。`, () => handleCardAction(card))} style={{ fontSize: "0.7rem", padding: "4px 8px" }}>
                       {card.name} — アクション
                     </button>
                   );
@@ -2241,7 +2092,7 @@ export default function Home() {
                   return (
                     <button
                       className="btn-secondary"
-                      disabled={!actionStatus.playable || placementMode !== null}
+                      disabled={!actionStatus.playable || Boolean(pendingChoice)}
                       onClick={() =>
                         confirmAction(
                           `【${selectedCard.name}】のアクション`,
@@ -2337,7 +2188,7 @@ export default function Home() {
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={placementMode !== null || activeState.pendingOceans > 0 || corporationActionUsed || (activeState.corporationId === "corp-ecoline" ? activeState.plants < 7 : activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || activeState.pendingOceans > 0 || corporationActionUsed || (activeState.corporationId === "corp-ecoline" ? activeState.plants < 7 : activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
@@ -2349,7 +2200,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(11) || placementMode !== null || activeState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(11) || Boolean(pendingChoice) || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("発電所の建設", "11 MC を支払い、エネルギー生産量を1段階上げます。", () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
@@ -2365,7 +2216,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(14) || placementMode !== null || activeState.pendingOceans > 0 || activeState.temperature >= 8}
+                  disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || activeState.pendingOceans > 0 || activeState.temperature >= 8}
                   onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
@@ -2381,7 +2232,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(18) || placementMode !== null || activeState.pendingOceans > 0 || activeState.oceans >= 9}
+                  disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || activeState.pendingOceans > 0 || activeState.oceans >= 9}
                   onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
@@ -2397,7 +2248,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(23) || placementMode !== null || activeState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(23) || Boolean(pendingChoice) || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("緑化プロジェクト", "23 MC を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
@@ -2413,7 +2264,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(25) || placementMode !== null || activeState.pendingOceans > 0}
+                  disabled={!canPayStandardCost(25) || Boolean(pendingChoice) || activeState.pendingOceans > 0}
                   onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
                 >
                   配置
@@ -2430,7 +2281,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={activeState.heat < 8 || placementMode !== null || activeState.pendingOceans > 0 || activeState.temperature >= 8}
+                    disabled={activeState.heat < 8 || Boolean(pendingChoice) || activeState.pendingOceans > 0 || activeState.temperature >= 8}
                     onClick={() => confirmAction("熱の変換", "熱 8 を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
@@ -2448,7 +2299,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={activeState.plants < 8 || placementMode !== null || activeState.pendingOceans > 0}
+                    disabled={activeState.plants < 8 || Boolean(pendingChoice) || activeState.pendingOceans > 0}
                     onClick={() => confirmAction("植物の変換", "植物 8 を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
@@ -2465,7 +2316,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={activeState.hand.length === 0 || placementMode !== null || activeState.pendingOceans > 0 || isSellingPatents}
+                  disabled={activeState.hand.length === 0 || Boolean(pendingChoice) || activeState.pendingOceans > 0 || isSellingPatents}
                   onClick={() => {
                     // Ask which cards first. Sending the project straight away
                     // sent an empty list, which the engine refused every time.

@@ -6,7 +6,8 @@ import {
   getCurrentPlayer,
   getPlayer,
   updatePlayer,
-  withLegacyPlayerAccessors
+  withLegacyPlayerAccessors,
+  clonePendingChoice
 } from "./player-state.js";
 import {
   buildScoreContributions,
@@ -481,13 +482,8 @@ export function cloneGameState(state) {
     ),
     turmoil: state.turmoil ? cloneTurmoil(state.turmoil) : null,
     colonies: state.colonies ? cloneColonies(state.colonies) : null,
-    pendingChoice: state.pendingChoice
-      ? {
-          ...state.pendingChoice,
-          options: (state.pendingChoice.options ?? []).map(option => ({ ...option })),
-          continuation: { ...state.pendingChoice.continuation }
-        }
-      : null
+    pendingChoice: clonePendingChoice(state.pendingChoice),
+    pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(clonePendingChoice)
   };
   return withLegacyPlayerAccessors(clone);
 }
@@ -1339,6 +1335,15 @@ export function enqueuePendingChoices(state, choices) {
   state.pendingChoiceQueue = [...(state.pendingChoiceQueue ?? []), ...queued];
 }
 
+function openOrEnqueuePendingChoice(state, choice) {
+  if (!choice) return;
+  if (!state.pendingChoice) {
+    state.pendingChoice = choice;
+    return;
+  }
+  enqueuePendingChoices(state, [choice]);
+}
+
 // Moves the next queued question into the live slot. Returns false when the
 // queue is empty, which is the caller's signal to run the continuation.
 function promoteNextChoice(state) {
@@ -1639,9 +1644,11 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       const byWorldGovernment =
         choice.continuation.stage === "world-government-ocean" ||
         choice.continuation.stage === "global-event-ocean";
+      const finalGreenery = choice.continuation.stage === "final-greenery";
       if (cell) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
-          worldGovernment: byWorldGovernment
+          worldGovernment: byWorldGovernment,
+          finalGreenery
         });
         nextLogs = addLog(
           nextLogs,
@@ -1854,6 +1861,7 @@ export function legalCellsFor(state, tileType, playerId) {
 // is separate work; this placement will feed them once they exist.
 export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}) {
   const worldGovernment = options.worldGovernment === true;
+  const finalGreenery = options.finalGreenery === true;
   state.board = { ...state.board };
   state.board[`${cell.q},${cell.r}`] = {
     ...cell,
@@ -1902,8 +1910,10 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
   }
   if (tileType === "forest") {
     const before = state.oxygen;
-    state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
-    if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
+    if (!finalGreenery) {
+      state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
+      if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
+    }
   }
   return state;
 }
@@ -2046,8 +2056,25 @@ function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId,
   // real placement question owned by the first player.
   if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < MAX_OCEANS) {
     if (grantTr && actorPlayerId) {
-      state.pendingOceans = (state.pendingOceans ?? 0) + 1;
-      nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+      const choice = buildTileChoice(
+        state,
+        "ocean",
+        {
+          sourceKind: "threshold",
+          sourceId: "temperature-zero-ocean",
+          consumedAction: true,
+          paid: true,
+          remaining: 1
+        },
+        legalCellsFor(state, "ocean", actorPlayerId)
+      );
+      if (choice) {
+        choice.ownerPlayerId = actorPlayerId;
+        choice.continuation.stage = "temperature-zero-ocean";
+        choice.prompt = "気温 0°C 達成ボーナス: 海洋タイルを配置するマスを選んでください。";
+        openOrEnqueuePendingChoice(state, choice);
+        nextLogs = addLog(nextLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+      }
     } else {
       const ownerId = state.firstPlayerId ?? state.turnOrder?.[0];
       const choice = buildTileChoice(
@@ -4091,8 +4118,26 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
   // 4. Temperature 0°C places one ocean tile (if an ocean remains)
   if (oldTemp < 0 && effectiveTemp >= 0) {
     if (nextState.oceans < 9) {
-      nextState.pendingOceans = (nextState.pendingOceans || 0) + 1;
-      currentLogs = addLog(currentLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+      const ownerId = nextState.currentPlayerId ?? nextState.firstPlayerId ?? nextState.turnOrder?.[0];
+      const choice = buildTileChoice(
+        nextState,
+        "ocean",
+        {
+          sourceKind: "threshold",
+          sourceId: "temperature-zero-ocean",
+          consumedAction: true,
+          paid: true,
+          remaining: 1
+        },
+        legalCellsFor(nextState, "ocean", ownerId)
+      );
+      if (choice) {
+        choice.ownerPlayerId = ownerId;
+        choice.continuation.stage = "temperature-zero-ocean";
+        choice.prompt = "気温 0°C 達成ボーナス: 海洋タイルを配置するマスを選んでください。";
+        openOrEnqueuePendingChoice(nextState, choice);
+        currentLogs = addLog(currentLogs, "system", "気温 0°C 達成ボーナス: 海洋タイル1枚の無料配置を獲得");
+      }
     }
   }
 
@@ -4250,6 +4295,7 @@ export function triggerProduction(state, logAcc) {
     nextState.mode === "solo" && nextState.generation >= soloGenerationLimit;
   if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
     nextState.phase = "final_greenery";
+    nextState.currentPlayerId = nextState.firstPlayerId ?? nextState.turnOrder[0];
     const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";
     nextState.logs = addLog(localLog, "system", `${reason}が終了しました。最後の植物緑化変換フェーズを行います。`);
   } else {

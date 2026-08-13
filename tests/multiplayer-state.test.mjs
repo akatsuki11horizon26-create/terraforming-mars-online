@@ -105,6 +105,60 @@ test("Accessors survive cloning and engine calls", () => {
   assert.equal(spent.actionsRemaining, 1);
 });
 
+test("Player-state clones do not share event or queued-choice data", () => {
+  const state = getInitialState();
+  state.players[0].playedEvents = ["event-a"];
+  state.pendingChoiceQueue = [
+    {
+      id: "queued",
+      kind: "tile-placement",
+      ownerPlayerId: "player",
+      prompt: "queued",
+      optional: false,
+      options: [{ id: "0,0", label: "0,0", targetCellKey: "0,0" }],
+      continuation: {
+        sourceKind: "card",
+        sourceId: "source",
+        stage: "tile-placement",
+        consumedAction: true,
+        paid: true,
+        payload: { tileType: "forest" },
+        afterPlay: { oxygen: 0 }
+      }
+    }
+  ];
+
+  const cloned = cloneGameState(state);
+  cloned.players[0].playedEvents.push("event-b");
+  cloned.pendingChoiceQueue[0].options[0].label = "changed";
+  cloned.pendingChoiceQueue[0].continuation.payload.tileType = "city";
+  cloned.pendingChoiceQueue[0].continuation.afterPlay.oxygen = 8;
+
+  assert.deepEqual(state.players[0].playedEvents, ["event-a"]);
+  assert.equal(state.pendingChoiceQueue[0].options[0].label, "0,0");
+  assert.equal(state.pendingChoiceQueue[0].continuation.payload.tileType, "forest");
+  assert.equal(state.pendingChoiceQueue[0].continuation.afterPlay.oxygen, 0);
+});
+
+test("Player-state clones isolate expansion and resolution state", () => {
+  const state = getInitialState();
+  state.turmoil = { parties: { greens: { delegates: ["player"] } } };
+  state.colonies = { tiles: { luna: { colonies: ["player"] } } };
+  state.generationAttackLedger = [{ attackerPlayerId: "player", detail: { amount: 1 } }];
+  state.resolvedChoices = { card: ["stage-one"] };
+
+  const cloned = cloneGameState(state);
+  cloned.turmoil.parties.greens.delegates.push("neutral");
+  cloned.colonies.tiles.luna.colonies.push("player2");
+  cloned.generationAttackLedger[0].detail.amount = 2;
+  cloned.resolvedChoices.card.push("stage-two");
+
+  assert.deepEqual(state.turmoil.parties.greens.delegates, ["player"]);
+  assert.deepEqual(state.colonies.tiles.luna.colonies, ["player"]);
+  assert.equal(state.generationAttackLedger[0].detail.amount, 1);
+  assert.deepEqual(state.resolvedChoices.card, ["stage-one"]);
+});
+
 test("Production resolves for every player and rotates the first player", () => {
   const state = getInitialState({ playerCount: 3 });
   state.players[0].mcProd = 1;

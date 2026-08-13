@@ -27,6 +27,7 @@ import {
   cloneGameState,
   getPlayer,
   getCardPlayableStatus,
+  getCardDiscount,
   getCardPaymentCost,
   getCardActionStatus,
   draftPick,
@@ -34,6 +35,7 @@ import {
   addLog,
   legalCellsFor,
   placeTileAt,
+  isGameOverCheck,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
   checkParameterThresholds,
@@ -42,6 +44,7 @@ import {
   LAW_SUIT_ID
 } from "./game-logic.js";
 import { buildTileChoice } from "./pending-choice.js";
+import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
 
 export const COMMAND = {
   PLAY_CARD: "PLAY_CARD",
@@ -59,7 +62,9 @@ export const COMMAND = {
   DRAFT_PICK: "DRAFT_PICK",
   BUY_RESEARCH: "BUY_RESEARCH",
   STANDARD_PROJECT: "STANDARD_PROJECT",
-  CORPORATION_ACTION: "CORPORATION_ACTION"
+  CORPORATION_ACTION: "CORPORATION_ACTION",
+  CONVERT_FINAL_GREENERY: "CONVERT_FINAL_GREENERY",
+  FINISH_FINAL_GREENERY: "FINISH_FINAL_GREENERY"
 };
 
 // A corporation's own action is a blue action: once per generation, and it
@@ -134,9 +139,19 @@ const ACTION_PHASE_COMMANDS = new Set([
   COMMAND.END_TURN
 ]);
 
+const FINAL_GREENERY_COMMANDS = new Set([
+  COMMAND.CONVERT_FINAL_GREENERY,
+  COMMAND.FINISH_FINAL_GREENERY
+]);
+
 function checkPhase(state, command) {
-  if (!ACTION_PHASE_COMMANDS.has(command.type)) return null;
-  if (state.phase !== "action") {
+  if (ACTION_PHASE_COMMANDS.has(command.type) && state.phase !== "action") {
+    return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
+  }
+  if (FINAL_GREENERY_COMMANDS.has(command.type) && state.phase !== "final_greenery") {
+    return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
+  }
+  if (command.type === COMMAND.BUY_RESEARCH && !["setup", "research"].includes(state.phase)) {
     return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
   }
   return null;
@@ -740,6 +755,75 @@ const HANDLERS = {
     return action.run(next, command);
   },
 
+  [COMMAND.CONVERT_FINAL_GREENERY](state, command) {
+    const actor = getPlayer(state, command.playerId);
+    if ((actor.plants ?? 0) < 8) {
+      return fail(state, ERROR.CANNOT_AFFORD, "植物が不足しています。");
+    }
+    const legal = legalCellsFor(state, "forest", command.playerId);
+    if (legal.length === 0) {
+      return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
+    }
+
+    const next = cloneGameState(state);
+    next.players = next.players.map(player =>
+      player.id === command.playerId ? { ...player, plants: player.plants - 8 } : player
+    );
+    const choice = buildTileChoice(
+      next,
+      "forest",
+      {
+        sourceKind: "final-greenery",
+        sourceId: "final-greenery",
+        consumedAction: false,
+        paid: true
+      },
+      legal
+    );
+    choice.ownerPlayerId = command.playerId;
+    choice.continuation.stage = "final-greenery";
+    choice.prompt = "最終緑化: 緑地タイルを配置するマスを選んでください。";
+    next.pendingChoice = choice;
+    next.logs = addLog(next.logs, "player", "植物8を支払い、最終緑化を開始しました。", actor.name);
+    return { ok: true, state: next, events: [], pendingAction: choice };
+  },
+
+  [COMMAND.FINISH_FINAL_GREENERY](state, command) {
+    const next = cloneGameState(state);
+    next.players = next.players.map(player =>
+      player.id === command.playerId ? { ...player, passed: true } : player
+    );
+    next.logs = addLog(next.logs, "player", "最終緑化を終了しました。", getPlayer(next, command.playerId)?.name);
+
+    const order = next.turnOrder ?? [];
+    const start = Math.max(0, order.indexOf(command.playerId));
+    let following = null;
+    for (let step = 1; step <= order.length; step++) {
+      const candidate = order[(start + step) % order.length];
+      if (!getPlayer(next, candidate)?.passed) {
+        following = candidate;
+        break;
+      }
+    }
+
+    if (following) {
+      next.currentPlayerId = following;
+      next.logs = addLog(next.logs, "system", `${getPlayer(next, following)?.name ?? following} の最終緑化です。`);
+      return done(next, next.logs);
+    }
+
+    const won = isGameOverCheck(next.temperature, next.oxygen, next.oceans);
+    next.phase = "game_over";
+    next.isGameOver = true;
+    next.gameResult = won ? "win" : "loss";
+    next.logs = addLog(
+      next.logs,
+      "system",
+      `ゲーム終了: ${won ? "テラフォーミングミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`
+    );
+    return done(next, next.logs);
+  },
+
   [COMMAND.BUY_RESEARCH](state, command) {
     const actor = getPlayer(state, command.playerId);
     const ids = command.cardIds ?? [];
@@ -823,6 +907,31 @@ export function executeGameCommand(state, command) {
   return handler(state, command);
 }
 
+function legalCardPayment(state, card) {
+  const { maxSteel, maxTitanium } = getCardDiscount(card, state);
+  let best = null;
+  for (let steel = 0; steel <= maxSteel; steel++) {
+    for (let titanium = 0; titanium <= maxTitanium; titanium++) {
+      if (!getCardPlayableStatus(card, state, steel, titanium).playable) continue;
+      const candidate = {
+        steel,
+        titanium
+      };
+      if (
+        !best ||
+        steel + titanium < best.steel + best.titanium ||
+        (steel + titanium === best.steel + best.titanium && titanium < best.titanium)
+      ) {
+        best = candidate;
+      }
+    }
+  }
+  if (!best) return null;
+  return best.steel > 0 || best.titanium > 0
+    ? { steel: best.steel, titanium: best.titanium }
+    : undefined;
+}
+
 // The commands a seat may legally issue right now. The bot picks from this, and
 // a UI can use it to decide what to enable rather than re-deriving the rules.
 export function getLegalCommands(state, playerId) {
@@ -837,14 +946,22 @@ export function getLegalCommands(state, playerId) {
     return commands;
   }
 
+  if (state.phase === "final_greenery" && state.currentPlayerId === playerId) {
+    if ((actor.plants ?? 0) >= 8 && legalCellsFor(state, "forest", playerId).length > 0) {
+      commands.push({ type: COMMAND.CONVERT_FINAL_GREENERY, playerId });
+    }
+    commands.push({ type: COMMAND.FINISH_FINAL_GREENERY, playerId });
+    return commands;
+  }
+
   if (state.phase !== "action" || state.currentPlayerId !== playerId) return commands;
 
   for (const cardId of actor.hand ?? []) {
     const card = ALL_CARDS.find(item => item.id === cardId);
     if (!card) continue;
-    if (!getCardPlayableStatus(card, state, 0, 0).playable) continue;
-    if ((actor.mc ?? 0) < getCardPaymentCost(card, state, 0, 0)) continue;
-    commands.push({ type: COMMAND.PLAY_CARD, playerId, cardId });
+    const payment = legalCardPayment(state, card);
+    if (payment === null) continue;
+    commands.push({ type: COMMAND.PLAY_CARD, playerId, cardId, ...(payment ? { payment } : {}) });
   }
 
   for (const cardId of actor.playedProjects ?? []) {
@@ -852,6 +969,31 @@ export function getLegalCommands(state, playerId) {
     if (!card || card.type !== "active") continue;
     if (!getCardActionStatus(state, card).playable) continue;
     commands.push({ type: COMMAND.USE_CARD_ACTION, playerId, cardId });
+  }
+
+  const candidates = [];
+  for (const milestone of milestonesForBoard(state.boardId)) {
+    candidates.push({ type: COMMAND.CLAIM_MILESTONE, playerId, milestoneId: milestone.id });
+  }
+  for (const award of awardsForBoard(state.boardId)) {
+    candidates.push({ type: COMMAND.FUND_AWARD, playerId, awardId: award.id });
+  }
+  for (const projectId of Object.keys(STANDARD_PROJECTS)) {
+    const command = { type: COMMAND.STANDARD_PROJECT, playerId, projectId };
+    if (projectId === "sell-patents") command.cardIds = actor.hand.length > 0 ? [actor.hand[0]] : [];
+    candidates.push(command);
+  }
+  candidates.push({ type: COMMAND.CORPORATION_ACTION, playerId });
+  for (const tileId of state.colonies?.tilesInPlay ?? []) {
+    candidates.push({ type: COMMAND.BUILD_COLONY, playerId, tileId });
+    candidates.push({ type: COMMAND.TRADE, playerId, tileId });
+  }
+  for (const partyId of Object.keys(state.turmoil?.parties ?? {})) {
+    candidates.push({ type: COMMAND.SEND_DELEGATE, playerId, partyId });
+  }
+  for (const command of candidates) {
+    const result = executeGameCommand(state, command);
+    if (result.ok && result.state !== state) commands.push(command);
   }
 
   commands.push({ type: COMMAND.PASS, playerId });

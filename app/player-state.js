@@ -208,6 +208,18 @@ export function withLegacyPlayerAccessors(state) {
   return state;
 }
 
+function cloneChoiceValue(value) {
+  if (Array.isArray(value)) return value.map(cloneChoiceValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, cloneChoiceValue(entry)])
+  );
+}
+
+export function clonePendingChoice(choice) {
+  return choice ? cloneChoiceValue(choice) : null;
+}
+
 export function cloneGameState(state) {
   const clone = {
     ...state,
@@ -219,6 +231,7 @@ export function cloneGameState(state) {
       selectedPreludeIds: [...player.selectedPreludeIds],
       hand: [...player.hand],
       playedProjects: [...player.playedProjects],
+      playedEvents: [...(player.playedEvents ?? [])],
       cardResources: { ...player.cardResources },
       cardPlacements: { ...player.cardPlacements },
       cardDiscounts: {
@@ -234,13 +247,16 @@ export function cloneGameState(state) {
     board: Object.fromEntries(
       Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])
     ),
-    pendingChoice: state.pendingChoice
-      ? {
-          ...state.pendingChoice,
-          options: state.pendingChoice.options.map(option => ({ ...option })),
-          continuation: { ...state.pendingChoice.continuation }
-        }
-      : null
+    claimedMilestones: [...(state.claimedMilestones ?? [])],
+    fundedAwards: [...(state.fundedAwards ?? [])],
+    scoreModifiers: cloneChoiceValue(state.scoreModifiers ?? []),
+    boardMarkers: cloneChoiceValue(state.boardMarkers ?? []),
+    generationAttackLedger: cloneChoiceValue(state.generationAttackLedger ?? []),
+    resolvedChoices: cloneChoiceValue(state.resolvedChoices ?? {}),
+    turmoil: cloneChoiceValue(state.turmoil),
+    colonies: cloneChoiceValue(state.colonies),
+    pendingChoice: clonePendingChoice(state.pendingChoice),
+    pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(clonePendingChoice)
   };
   return withLegacyPlayerAccessors(clone);
 }

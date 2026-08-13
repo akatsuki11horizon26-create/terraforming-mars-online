@@ -347,7 +347,9 @@ export class GameRoom {
     draftPick: COMMAND.DRAFT_PICK,
     buyResearch: COMMAND.BUY_RESEARCH,
     standardProject: COMMAND.STANDARD_PROJECT,
-    corporationAction: COMMAND.CORPORATION_ACTION
+    corporationAction: COMMAND.CORPORATION_ACTION,
+    convertFinalGreenery: COMMAND.CONVERT_FINAL_GREENERY,
+    finishFinalGreenery: COMMAND.FINISH_FINAL_GREENERY
   };
 
   private applyAction(

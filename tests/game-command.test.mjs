@@ -845,6 +845,131 @@ test("a project that asks where it goes still reports what was built", () => {
   assert.equal(said, true, "the completed project must name itself in the log");
 });
 
+test("the 0°C ocean bonus creates a resolvable board choice", () => {
+  const { state, seat } = table();
+  const warm = cloneGameState(state);
+  warm.temperature = -2;
+  warm.players = warm.players.map(player => ({
+    ...player,
+    mc: 90,
+    actionsRemaining: 2
+  }));
+
+  const raised = executeGameCommand(warm, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: seat,
+    projectId: "asteroid"
+  });
+
+  assert.equal(raised.ok, true);
+  assert.equal(raised.state.temperature, 0);
+  assert.equal(raised.state.pendingChoice?.ownerPlayerId, seat);
+  assert.ok(raised.state.pendingChoice?.options.length > 0);
+
+  const resolved = executeGameCommand(raised.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: raised.state.pendingChoice.options[0].id
+  });
+
+  assert.equal(resolved.ok, true);
+  assert.equal(resolved.state.pendingChoice, null);
+  assert.equal(resolved.state.oceans, warm.oceans + 1);
+  assert.equal(getPlayer(resolved.state, seat).actionsRemaining, 1);
+});
+
+test("final greenery resolves in turn order through commands", () => {
+  const { state, seat, other } = table();
+  const ending = cloneGameState(state);
+  ending.phase = "final_greenery";
+  ending.currentPlayerId = seat;
+  ending.oxygen = 7;
+  ending.players = ending.players.map(player => ({
+    ...player,
+    plants: player.id === seat ? 10 : 0,
+    passed: false
+  }));
+
+  const before = getPlayer(ending, seat);
+  const asked = executeGameCommand(ending, {
+    type: COMMAND.CONVERT_FINAL_GREENERY,
+    playerId: seat
+  });
+
+  assert.equal(asked.ok, true);
+  assert.ok(asked.state.pendingChoice?.options.length > 0);
+  const option = asked.state.pendingChoice.options.find(item => {
+    const cell = asked.state.board[item.targetCellKey];
+    return cell?.bonusType === "steel" && (cell.bonusAmount ?? 0) > 0;
+  }) ?? asked.state.pendingChoice.options[0];
+  const cell = asked.state.board[option.targetCellKey];
+
+  const placed = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: option.id
+  });
+
+  assert.equal(placed.ok, true);
+  assert.equal(placed.state.board[option.targetCellKey].tileType, "forest");
+  assert.equal(getPlayer(placed.state, seat).plants, before.plants - 8);
+  assert.equal(placed.state.oxygen, ending.oxygen);
+  assert.equal(getPlayer(placed.state, seat).tr, before.tr);
+  if (cell.bonusType === "steel") {
+    assert.equal(getPlayer(placed.state, seat).steel, before.steel + cell.bonusAmount);
+  }
+
+  const firstDone = executeGameCommand(placed.state, {
+    type: COMMAND.FINISH_FINAL_GREENERY,
+    playerId: seat
+  });
+  assert.equal(firstDone.ok, true);
+  assert.equal(firstDone.state.phase, "final_greenery");
+  assert.equal(firstDone.state.currentPlayerId, other);
+
+  const wrongSeat = executeGameCommand(firstDone.state, {
+    type: COMMAND.FINISH_FINAL_GREENERY,
+    playerId: seat
+  });
+  assert.equal(wrongSeat.ok, false);
+  assert.equal(wrongSeat.error.code, ERROR.NOT_YOUR_TURN);
+
+  const finished = executeGameCommand(firstDone.state, {
+    type: COMMAND.FINISH_FINAL_GREENERY,
+    playerId: other
+  });
+  assert.equal(finished.ok, true);
+  assert.equal(finished.state.phase, "game_over");
+  assert.equal(finished.state.isGameOver, true);
+});
+
+test("final greenery commands and research purchases are phase gated", () => {
+  const { state, seat } = table();
+
+  for (const type of [COMMAND.CONVERT_FINAL_GREENERY, COMMAND.FINISH_FINAL_GREENERY]) {
+    const result = executeGameCommand(state, { type, playerId: seat });
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, ERROR.WRONG_PHASE);
+  }
+
+  for (const phase of ["final_greenery", "game_over"]) {
+    const off = cloneGameState(state);
+    off.phase = phase;
+    off.players = off.players.map(player =>
+      player.id === seat
+        ? { ...player, researchCards: ["card-base-acquired-company"] }
+        : player
+    );
+    const result = executeGameCommand(off, {
+      type: COMMAND.BUY_RESEARCH,
+      playerId: seat,
+      cardIds: ["card-base-acquired-company"]
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, ERROR.WRONG_PHASE);
+  }
+});
+
 test("an open choice must be answered before the seat does anything else", () => {
   const { state, seat, other } = table();
   const rich = cloneGameState(state);
