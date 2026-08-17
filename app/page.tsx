@@ -59,6 +59,7 @@ import {
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
+import { colonyDescriptionJP } from "./colony-text.js";
 import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
@@ -817,7 +818,7 @@ export default function Home() {
         return {
           id: tileId,
           name: definition?.name ?? tileId,
-          tradeDescription: definition?.trade?.description ?? "",
+          tradeDescription: colonyDescriptionJP(definition?.trade?.description ?? ""),
           track: definition?.trade?.quantity ?? definition?.trade?.resourceTrack ?? [],
           trackPosition: tile?.trackPosition ?? 0,
           colonies: (tile?.colonies ?? []).map(nameOf),

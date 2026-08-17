@@ -350,3 +350,31 @@ test("The colony track stops at the top of the track", () => {
     assert.equal(tile.trackPosition, 6, "a maxed track does not overshoot");
   }
 });
+
+// The tile file is generated from the reference implementation and carries its
+// English effect text, so the Colonies panel read half Japanese and half English
+// ("Gain n titanium" beside カリスト). The translation is a separate layer; this
+// pins it against a tile being added without one.
+test("every colony effect shown to the player is translated", async () => {
+  const { COLONY_TILES } = await import("../app/colony-tiles.js");
+  const { colonyDescriptionJP, COLONY_DESCRIPTION_JP } = await import("../app/colony-text.js");
+
+  const shown = new Set();
+  for (const tile of COLONY_TILES) {
+    for (const key of ["build", "trade", "colony"]) {
+      if (tile[key]?.description) shown.add(tile[key].description);
+    }
+  }
+
+  const untranslated = [...shown].filter(text => !(text in COLONY_DESCRIPTION_JP));
+  assert.deepEqual(untranslated, [], "a colony effect has no Japanese text");
+
+  // Latin letters surviving translation means the entry is still the source string.
+  for (const text of shown) {
+    const jp = colonyDescriptionJP(text);
+    assert.equal(/[A-Za-z]/.test(jp.replace(/MC|n/g, "")), false, `not translated: ${text} -> ${jp}`);
+  }
+
+  assert.equal(colonyDescriptionJP(""), "", "an empty description stays empty");
+  assert.equal(colonyDescriptionJP("Unknown effect"), "Unknown effect", "an unknown string falls back visibly");
+});
