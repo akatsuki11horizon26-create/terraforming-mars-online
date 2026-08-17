@@ -2049,11 +2049,11 @@ function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId,
     }
   }
 
-  // 0°C lays an ocean. When a player crossed the mark it is their ocean and
-  // pays them TR, and it goes through the legacy pendingOceans path the UI
-  // drives by board click. When the World Government or a global event crossed
-  // it, nobody is paid and nobody is holding the mouse, so it is queued as a
-  // real placement question owned by the first player.
+  // 0°C lays an ocean. Either way it is a placement question that names its own
+  // legal spaces; the two arms differ only in who owns it and who gets paid.
+  // A player who crossed the mark owns it and is paid TR. When the World
+  // Government or a global event crossed it, nobody is paid, so it goes to the
+  // first player and skips the TR.
   if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < MAX_OCEANS) {
     if (grantTr && actorPlayerId) {
       const choice = buildTileChoice(
@@ -2515,8 +2515,6 @@ export function getPlaceholderState() {
     // when they are all answered.
     pendingChoiceQueue: [],
     phaseContinuation: null,
-    // Free oceans the board owes that pay nobody (World Government, events).
-    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil: null,
     colonies: null,
@@ -2672,8 +2670,6 @@ export function getInitialState(options = {}) {
     // when they are all answered.
     pendingChoiceQueue: [],
     phaseContinuation: null,
-    // Free oceans the board owes that pay nobody (World Government, events).
-    pendingUnownedOceans: 0,
     resolvedChoices: {},
     turmoil,
     colonies,

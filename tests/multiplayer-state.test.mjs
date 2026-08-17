@@ -83,7 +83,7 @@ test("Legacy accessors never reach serialized saves", () => {
   const state = getInitialState();
   const parsed = JSON.parse(serializeSavedState(state));
 
-  for (const field of ["mc", "tr", "hand", "steel", "playedProjects", "pendingOceans"]) {
+  for (const field of ["mc", "tr", "hand", "steel", "playedProjects"]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(parsed, field),
       false,
@@ -249,7 +249,13 @@ test("A version 3 save is converted to a solo game rather than discarded", () =>
     heat: 6,
     hand: ["h1", "h2"],
     playedProjects: ["x"],
-    board: { "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" } },
+    // A v3 save stored the whole board, empty spaces included, not just the
+    // occupied ones — the ocean debt below can only be converted into a choice
+    // if the legal spaces are actually present.
+    board: {
+      ...getInitialState({ playerCount: 1 }).board,
+      "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" }
+    },
     deck: ["d1"],
     discardPile: [],
     temperature: -10,
@@ -273,6 +279,20 @@ test("A version 3 save is converted to a solo game rather than discarded", () =>
   assert.equal(restored.pendingChoice.kind, "ocean-placement");
   assert.equal(restored.pendingChoice.continuation.remaining, 2);
   assert.equal(restored.pendingChoice.ownerPlayerId, "player");
+
+  // The UI only draws a tile choice that names its own legal spaces; a choice
+  // with no options highlights nothing, so the board offers no way to answer it
+  // and the restored game cannot be continued.
+  assert.ok(
+    restored.pendingChoice.options.length > 0,
+    "a migrated ocean choice must name the spaces that answer it"
+  );
+  for (const option of restored.pendingChoice.options) {
+    assert.ok(option.targetCellKey, "each option names a board cell");
+    const cell = restored.board[option.targetCellKey];
+    assert.ok(cell, "the named cell exists on the restored board");
+    assert.equal(cell.tileType, "empty", "an occupied cell is not a legal answer");
+  }
 });
 
 test("A version 4 save round-trips unchanged", () => {

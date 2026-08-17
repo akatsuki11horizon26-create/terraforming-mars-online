@@ -162,49 +162,6 @@ export function withLegacyPlayerAccessors(state) {
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(state, "pendingOceans")) {
-    Object.defineProperty(state, "pendingOceans", {
-      configurable: true,
-      enumerable: false,
-      get() {
-        const choice = this.pendingChoice;
-        if (!choice || choice.kind !== "ocean-placement") return 0;
-        return choice.continuation?.remaining ?? 1;
-      },
-      set(value) {
-        const amount = Number(value) || 0;
-        if (amount <= 0) {
-          if (this.pendingChoice?.kind === "ocean-placement") this.pendingChoice = null;
-          return;
-        }
-        const ownerId = (getCurrentPlayer(this) ?? this.players[0])?.id;
-        if (this.pendingChoice?.kind === "ocean-placement") {
-          this.pendingChoice = {
-            ...this.pendingChoice,
-            continuation: { ...this.pendingChoice.continuation, remaining: amount }
-          };
-          return;
-        }
-        this.pendingChoice = {
-          id: `ocean-${ownerId}`,
-          kind: "ocean-placement",
-          ownerPlayerId: ownerId,
-          prompt: "海洋タイルを配置してください。",
-          optional: false,
-          options: [],
-          continuation: {
-            sourceKind: "card",
-            sourceId: "",
-            stage: "place-ocean",
-            consumedAction: true,
-            paid: true,
-            remaining: amount
-          }
-        };
-      }
-    });
-  }
-
   return state;
 }
 
