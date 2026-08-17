@@ -142,13 +142,15 @@ const STEAL_SPECS = Object.freeze({
     prompt: "チタン3、建材4、またはMC7を奪う対象を選んでください。"
   },
   "card-base-virus": {
-    // Virus removes rather than steals. Only the plant half is modelled: cards
-    // carry no resource-type metadata in this catalogue, so "two animals from
-    // any card" cannot be targeted mechanically. Removing five plants is the
-    // branch a player takes when there are no animals to hit anyway.
+    // "任意のカードから動物2個、または任意のプレイヤーから植物5個を取り除く".
+    // Virus removes rather than steals. The animal half targets a *card* rather
+    // than a player's stock, so it is listed separately and offered in the same
+    // question as the plant half. Which cards can hold an animal comes from
+    // `card-resource-types.js`, the same metadata the adding direction uses.
     steal: false,
     resources: [{ resource: "plants", count: 5 }],
-    prompt: "植物5を取り除く対象を選んでください。"
+    cardResources: [{ resourceType: "animal", count: 2 }],
+    prompt: "動物2または植物5を取り除く対象を選んでください。"
   },
   "card-colonies-air-raid": {
     steal: true,

@@ -976,6 +976,408 @@ test("a victim holding none of the resource is never offered or recorded", async
   assert.deepEqual(played.state.generationAttackLedger, []);
 });
 
+// ---------------------------------------------------------------------------
+// Virus: "任意のカードから動物2個、または任意のプレイヤーから植物5個".
+// The animal half targets a card, so it needs the resource-type metadata that
+// `card-resource-types.js` already carries for the adding direction.
+// ---------------------------------------------------------------------------
+
+const VIRUS = "card-base-virus";
+
+// Puts an animal-holding card in front of `playerId` with `amount` on it.
+function withAnimals(state, playerId, cardId, amount) {
+  return {
+    ...state,
+    players: state.players.map(player =>
+      player.id === playerId
+        ? {
+            ...player,
+            playedProjects: [...player.playedProjects, cardId],
+            cardResources: { ...player.cardResources, [cardId]: amount }
+          }
+        : player
+    )
+  };
+}
+
+test("Virus offers animals on any player's card alongside the plant half", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(
+    withAnimals(bare, them, "card-base-birds", 3),
+    me,
+    "card-base-pets",
+    2
+  );
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+
+  const options = played.state.pendingChoice.options;
+  // The plant half still reaches the opponent's stock.
+  assert.ok(options.some(entry => entry.resource === "plants" && entry.targetPlayerId === them));
+  // Both animal cards are targets -- the attacker's own included.
+  const animals = options.filter(entry => entry.cardResourceType === "animal");
+  assert.deepEqual(
+    animals.map(entry => `${entry.targetPlayerId}:${entry.targetCardId}`).sort(),
+    [`${me}:card-base-pets`, `${them}:card-base-birds`].sort()
+  );
+  // A card holding no animals is not a candidate.
+  const empty = withAnimals(bare, them, "card-base-birds", 0);
+  const none = executeGameCommand(empty, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  assert.equal(
+    none.state.pendingChoice.options.some(entry => entry.cardResourceType === "animal"),
+    false,
+    "an empty card holds nothing to remove"
+  );
+});
+
+test("Virus removes two animals from the chosen card and records the attack", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(bare, them, "card-base-birds", 3);
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.cardResourceType === "animal" && entry.targetPlayerId === them
+  );
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+
+  assert.equal(getPlayer(settled.state, them).cardResources["card-base-birds"], 1);
+  assert.equal(getPlayer(settled.state, them).plants, 9, "the plant half was not also taken");
+  assert.equal(settled.state.generationAttackLedger.length, 1);
+  assert.deepEqual(
+    { ...settled.state.generationAttackLedger[0], generation: undefined },
+    {
+      attackerPlayerId: me,
+      victimPlayerId: them,
+      sourceCardId: VIRUS,
+      kind: "resource-removal",
+      resource: "animal",
+      amount: 2,
+      generation: undefined
+    }
+  );
+});
+
+test("Virus destroys the animals rather than taking them", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  // The choice runs through `resource-steal`, which is also the path the
+  // stealing cards use. Virus's spec says steal:false, so the two animals must
+  // leave the table entirely: not onto the attacker's own animal card, not
+  // into any stock of theirs.
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(
+    withAnimals(bare, them, "card-base-birds", 3),
+    me,
+    "card-base-pets",
+    1
+  );
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.cardResourceType === "animal" && entry.targetPlayerId === them
+  );
+
+  const before = getPlayer(played.state, me);
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  const after = getPlayer(settled.state, me);
+
+  assert.equal(getPlayer(settled.state, them).cardResources["card-base-birds"], 1, "two are gone");
+  assert.equal(
+    after.cardResources["card-base-pets"],
+    before.cardResources["card-base-pets"],
+    "the attacker's own animal card gains nothing"
+  );
+  for (const field of ["mc", "steel", "titanium", "plants", "energy", "heat"]) {
+    assert.equal(after[field], before[field], `the attacker's ${field} is untouched`);
+  }
+  // Nothing arrived anywhere else on the attacker's card resources either.
+  assert.deepEqual(after.cardResources, before.cardResources, "no card of theirs gained anything");
+});
+
+test("Virus takes only the one animal a card actually holds", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(bare, them, "card-base-birds", 1);
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.cardResourceType === "animal"
+  );
+  assert.match(option.label, /動物 1/, "the offer says one, not two");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  assert.equal(getPlayer(settled.state, them).cardResources["card-base-birds"], 0);
+  assert.equal(settled.state.generationAttackLedger[0].amount, 1, "one animal, one grievance");
+});
+
+test("Virus hitting the attacker's own card leaves no grievance for Law Suit", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, lawSuitTargets } = await import("../app/game-logic.js");
+
+  const [bare, me] = attackTable(VIRUS);
+  const state = withAnimals(bare, me, "card-base-pets", 3);
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  const own = played.state.pendingChoice.options.find(
+    entry => entry.cardResourceType === "animal" && entry.targetPlayerId === me
+  );
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: own.id
+  });
+
+  assert.equal(getPlayer(settled.state, me).cardResources["card-base-pets"], 1, "they still go");
+  assert.deepEqual(settled.state.generationAttackLedger, [], "but attacking yourself is no attack");
+  assert.deepEqual(lawSuitTargets(settled.state, me), []);
+});
+
+test("Virus still offers the plant half when no card holds an animal", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [state, me, them] = attackTable(VIRUS);
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  const options = played.state.pendingChoice.options;
+  assert.equal(options.every(entry => !entry.cardResourceType), true, "no animals anywhere");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: options.find(entry => entry.resource === "plants").id
+  });
+  assert.equal(getPlayer(settled.state, them).plants, 4, "five plants leave");
+});
+
+test("Virus reaches a card in solo, where there is no other player to hit", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, getInitialState, cloneGameState } = await import("../app/game-logic.js");
+
+  // The plant half needs an opponent, so in solo the animal half is the only
+  // branch left -- and it must not be applied twice on the way through.
+  const solo = cloneGameState(getInitialState({ playerCount: 1 }));
+  const me = solo.players[0].id;
+  solo.phase = "action";
+  solo.oxygen = 14; solo.temperature = 8; solo.oceans = 5;
+  solo.players = solo.players.map(player => ({
+    ...player,
+    corporationId: null, mc: 100, plants: 9, actionsRemaining: 2, turnStep: "start",
+    hand: [VIRUS],
+    playedProjects: [...player.playedProjects, "card-base-birds"],
+    cardResources: { ...player.cardResources, "card-base-birds": 3 }
+  }));
+  solo.currentPlayerId = me;
+
+  const played = executeGameCommand(solo, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+  assert.equal(
+    getPlayer(played.state, me).cardResources["card-base-birds"],
+    3,
+    "nothing moves before the question is answered"
+  );
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: me,
+    optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(getPlayer(settled.state, me).cardResources["card-base-birds"], 1, "two, not four");
+  assert.deepEqual(settled.state.generationAttackLedger, []);
+});
+
+test("a Virus choice survives a save and reload", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { serializeSavedState, loadSavedState } = await import("../app/save-migration.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const [bare, me, them] = attackTable(VIRUS);
+  const state = withAnimals(bare, them, "card-base-birds", 3);
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: VIRUS });
+
+  const reloaded = loadSavedState(serializeSavedState(played.state));
+  assert.equal(reloaded.pendingChoice?.kind, "resource-steal", "the question survived");
+
+  const option = reloaded.pendingChoice.options.find(entry => entry.cardResourceType === "animal");
+  const settled = executeGameCommand(reloaded, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  assert.equal(getPlayer(settled.state, them).cardResources["card-base-birds"], 1);
+});
+
+// ---------------------------------------------------------------------------
+// Special Permit: playable only while the Greens rule, so it needs a Turmoil
+// table rather than the neutral one the other attacks are tested on.
+// ---------------------------------------------------------------------------
+
+const PERMIT = "card-prelude2-special-permit";
+
+// The same two-player attack table, with Turmoil switched on and a ruling party
+// chosen. `createTurmoilState` already opens with the Greens dominant, so the
+// party is set explicitly to say which case each test is exercising.
+async function permitTable(rulingParty) {
+  const { createTurmoilState } = await import("../app/turmoil.js");
+  const [state, me, them] = attackTable(PERMIT);
+  const turmoil = createTurmoilState(state.players.map(player => player.id), []);
+  state.turmoil = { ...turmoil, rulingParty };
+  return [state, me, them];
+}
+
+test("Special Permit is refused unless the Greens rule", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [neutral, meNeutral] = attackTable(PERMIT);
+  const noTurmoil = executeGameCommand(neutral, {
+    type: COMMAND.PLAY_CARD, playerId: meNeutral, cardId: PERMIT
+  });
+  assert.equal(noTurmoil.ok, false, "no Turmoil, no permit");
+
+  const [state, me] = await permitTable("mars-first");
+  const wrongParty = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT
+  });
+  assert.equal(wrongParty.ok, false, "the wrong party rules");
+  assert.deepEqual(wrongParty.state.generationAttackLedger ?? [], []);
+});
+
+test("Special Permit takes four plants from the chosen player and records it", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, lawSuitTargets } = await import("../app/game-logic.js");
+
+  const [state, me, them] = await permitTable("greens");
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT });
+  assert.equal(played.ok, true, "the Greens rule, so it is playable");
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+
+  const option = played.state.pendingChoice.options.find(
+    entry => entry.targetPlayerId === them && entry.resource === "plants"
+  );
+  assert.ok(option, "the opponent is a target");
+  assert.equal(
+    played.state.pendingChoice.options.some(entry => entry.targetPlayerId === me),
+    false,
+    "and the attacker is not"
+  );
+
+  const attackerBefore = getPlayer(played.state, me).plants;
+  const victimBefore = getPlayer(played.state, them).plants;
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+
+  assert.equal(getPlayer(settled.state, them).plants, victimBefore - 4, "four leave");
+  assert.equal(getPlayer(settled.state, me).plants, attackerBefore + 4, "and arrive");
+
+  assert.equal(settled.state.generationAttackLedger.length, 1);
+  assert.deepEqual(settled.state.generationAttackLedger[0], {
+    attackerPlayerId: me,
+    victimPlayerId: them,
+    sourceCardId: PERMIT,
+    kind: "resource-removal",
+    resource: "plants",
+    amount: 4,
+    generation: settled.state.generation
+  });
+
+  // The victim may now sue, and nobody else may.
+  assert.deepEqual(lawSuitTargets(settled.state, them).map(player => player.id), [me]);
+  assert.deepEqual(lawSuitTargets(settled.state, me), []);
+});
+
+test("Special Permit records nothing when the victim holds no plants", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const [state, me] = await permitTable("greens");
+  state.players = state.players.map(player =>
+    player.id === me ? player : { ...player, plants: 0 }
+  );
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT });
+  assert.equal(played.ok, true, "the card is still played");
+  assert.equal(played.state.pendingChoice, null, "but there is nobody worth asking about");
+  assert.deepEqual(played.state.generationAttackLedger, [], "and no grievance");
+});
+
+test("Special Permit runs end to end for the attacking seat", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer, lawSuitTargets } = await import("../app/game-logic.js");
+
+  // One pass over the whole path a real seat takes: play, get asked, answer,
+  // and land. Each step is checked rather than only the end state, because a
+  // choice that resolves correctly while spending two actions, or leaving the
+  // question up, is still broken.
+  const [state, me, them] = await permitTable("greens");
+  const actionsBefore = state.actionsRemaining;
+  const attackerBefore = getPlayer(state, me).plants;
+  const victimBefore = getPlayer(state, them).plants;
+
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT });
+  assert.equal(played.ok, true, "the card is played");
+  assert.equal(played.state.pendingChoice?.kind, "resource-steal", "and raises the question");
+  assert.equal(
+    getPlayer(played.state, them).plants,
+    victimBefore,
+    "nothing moves before the question is answered"
+  );
+
+  const option = played.state.pendingChoice.options.find(entry => entry.targetPlayerId === them);
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  assert.equal(settled.ok, true);
+
+  assert.equal(getPlayer(settled.state, them).plants, victimBefore - 4, "four leave the victim");
+  assert.equal(getPlayer(settled.state, me).plants, attackerBefore + 4, "and reach the attacker");
+  assert.equal(settled.state.pendingChoice, null, "the question is gone");
+  assert.equal(
+    settled.state.actionsRemaining,
+    actionsBefore - 1,
+    "playing a card through a choice costs exactly one action"
+  );
+
+  assert.equal(settled.state.generationAttackLedger.length, 1, "one attack, one entry");
+  assert.deepEqual(settled.state.generationAttackLedger[0], {
+    attackerPlayerId: me,
+    victimPlayerId: them,
+    sourceCardId: PERMIT,
+    kind: "resource-removal",
+    resource: "plants",
+    amount: 4,
+    generation: settled.state.generation
+  });
+  assert.deepEqual(lawSuitTargets(settled.state, them).map(player => player.id), [me]);
+});
+
+test("Special Permit settles identically through the online command path", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  // The online seat sends the same two commands a Durable Object would relay.
+  const [state, me, them] = await permitTable("greens");
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId: PERMIT });
+  const option = played.state.pendingChoice.options.find(entry => entry.targetPlayerId === them);
+
+  // A seat that is not the attacker may not answer the attacker's question.
+  const wrongSeat = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: them, optionId: option.id
+  });
+  assert.equal(wrongSeat.ok, false, "only the attacker resolves it");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: me, optionId: option.id
+  });
+  assert.equal(getPlayer(settled.state, them).plants, 5);
+  assert.equal(settled.state.generationAttackLedger.length, 1);
+});
+
 test("all seven attack cards carry a steal spec", () => {
   const expected = [
     "card-base-flooding",
