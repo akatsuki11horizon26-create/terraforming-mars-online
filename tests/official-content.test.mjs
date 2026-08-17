@@ -157,3 +157,28 @@ test("generated catalog effects cover production, discounts, and dynamic VP", ()
   assert.equal(computeScore(antResult.state) - computeScore(state), 2);
   assert.equal(getCardEffect(earthCatapult).cardDiscount.amount, 2);
 });
+
+// Project cards were all localized but preludes never were, so the Prelude
+//選択 panel listed "Society Support" and "Biosphere Support" in a UI that is
+// Japanese everywhere else. Corporations stay English on purpose: CrediCor and
+// Ecoline are brand names and the Japanese edition prints them that way too.
+test("preludes are named in Japanese, corporations keep their brand names", () => {
+  const hasJapanese = text => /[ぁ-んァ-ヶ一-龠]/.test(text ?? "");
+
+  const untranslated = PRELUDES.filter(prelude => !hasJapanese(prelude.name));
+  assert.deepEqual(
+    untranslated.map(prelude => prelude.englishName ?? prelude.name),
+    [],
+    "a prelude would show an English name in the selection panel"
+  );
+
+  // The English name is kept alongside so lookups by it still work.
+  const society = PRELUDES.find(prelude => prelude.englishName === "Society Support");
+  assert.ok(society, "preludes are still findable by their English name");
+  assert.equal(society.name, "社会支援");
+
+  assert.ok(
+    CORPORATIONS.some(corporation => corporation.name === "CrediCor"),
+    "corporation brand names are left alone"
+  );
+});

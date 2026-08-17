@@ -97,6 +97,10 @@ function migrateV3(parsed) {
     logs: Array.isArray(parsed.logs) ? parsed.logs : [],
     isGameOver: Boolean(parsed.isGameOver),
     gameResult: parsed.gameResult ?? null,
+    // Saves written before multiplayer had a winner carry neither field; the end
+    // screen falls back to gameResult when standings is null.
+    standings: Array.isArray(parsed.standings) ? parsed.standings : null,
+    winnerPlayerIds: Array.isArray(parsed.winnerPlayerIds) ? parsed.winnerPlayerIds : null,
     onboarded: Boolean(parsed.onboarded)
   };
 }

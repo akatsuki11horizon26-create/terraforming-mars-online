@@ -128,6 +128,13 @@ export function viewForPlayer(state, viewerId) {
     // the viewer, or a client reads the seated player's hand instead of its own.
     currentPlayerId: viewerId ?? state.currentPlayerId,
     turnHolderId: state.currentPlayerId,
+    // gameResult is "did the player looking at this screen win". The engine
+    // writes it for the local seat, which offline is the human; online every
+    // client gets its own answer, or the winner reads "MISSION FAILED".
+    // winnerPlayerIds stays as-is: who won is public once the game is over.
+    gameResult: state.winnerPlayerIds
+      ? (state.winnerPlayerIds.includes(viewerId) ? "win" : "loss")
+      : state.gameResult,
     viewerId
   });
 }
