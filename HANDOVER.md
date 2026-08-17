@@ -130,6 +130,20 @@ state.players = state.players.map(p =>
 > カードを1枚ずつ「置いた場合と置かない場合の差」で測らないと発見できない。
 > 「テストが通っている」も「例外が出ない」も、この種のバグの証拠にはならない。
 
+### 2.3.1 候補0の choice は「詰み」であって「無効」ではない
+
+`pendingChoice` があると他の操作は全部ブロックされる（§3）。
+そこに**選択肢が1つも無い choice** を置くと、答える手段が無いまま
+盤面が固まる。例外もログも出ない。§2.3 の一族。
+
+**盤面のマスを答えにする choice は特に危ない。** UI は
+`options[].targetCellKey` が指すマスだけを光らせるので、
+`options: []` は「光るマスが1つも無い」＝**クリックで答えられない**を意味する。
+
+`buildTileChoice` は合法マスが0なら `null` を返す。**この null を握り潰して
+自前の choice オブジェクトを組み立てないこと。** 実際に v3 セーブの移行が
+`options: []` を直接書いており、復元したゲームが操作不能になっていた。
+
 ### 2.4 「二重に見える」と「二重に動く」は別
 
 同じ効果が2箇所にあるのを見つけたとき、**実測と到達性の両方**を確かめる。
@@ -289,13 +303,13 @@ computeScore(state, playerId)            // 既存呼び出し互換のラッパ
 Prod ±=   0箇所
 ```
 
-**資源・TR・生産量への直接代入は全廃した。**
+**資源・TR・生産量への直接代入は全廃した。盤面への直接書き込みも0箇所。**
 最終緑化のTR巻き戻し（かつて `nextState.tr -= 1` と書かれていた1行）は
 `placeTileAt(..., { finalGreenery: true })` としてエンジンへ寄せてある。
 酸素もTRも「上げてから戻す」のではなく、**最初から上げない**。
 
-`page.tsx` に残る唯一の盤面書き込みは `handleCellClick`（旧 `pendingOceans` 経路）。
-**エンジンはもうこの経路に入らない**（下記 §6.3）。
+盤面クリックは `pendingChoice` が名指しした合法マスを答えるだけになった。
+`tileChoiceCells` が無いマスは**すべて操作不能**で、クリックは説明を出すだけ。
 
 ---
 
@@ -507,33 +521,16 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
   `checkParameterThresholds` の両方が `buildTileChoice` を作るようになり、
   `openOrEnqueuePendingChoice` が「既に選択中ならキューへ回す」を引き受ける
 
+- ~~`pendingOceans` の廃止~~ → **アクセサ・UI経路とも削除済み**（`f10cf9b`）。
+  海洋の無償配置は**すべて `pendingChoice` 一本**になった。
+  `save-migration.js` の v3→v4 移行だけが `pendingOceans` の名を知っている
+  （**古いセーブが持っているので消せない**）。移行は `buildTileChoice` で
+  合法マスを埋めるようになった。**候補0の choice はもう作られない**
+- ~~`pendingUnownedOceans`~~ → 削除。初期化されるだけで誰も増やしていなかった
+
 **残っているもの**:
 
 - **非列挙アクセサの廃止**（§2.1）。`state.mc` 系は健在
-- **`pendingOceans` は「派生ビュー」として残っている。**
-  性質が変わったので誤解しないこと:
-
-  | 時期 | 実体 |
-  |---|---|
-  | 以前 | **独立した数値**。UIが増減させ、エンジンも書いていた |
-  | 現在 | **`pendingChoice` を読むだけのアクセサ**。エンジンは1箇所も書かない |
-
-  `player-state.js` の getter は `pendingChoice.kind === "ocean-placement"` の
-  ときだけ `continuation.remaining` を返す。**独立した状態ではないので、
-  ここを消しても盤面の情報は失われない。**
-
-  ただし2つの利用者が残っている:
-
-  1. `page.tsx` の `handleCellClick`（盤面を直接書く最後の1箇所）と、
-     `pendingOceans > 0` を見る**14箇所のボタン無効化条件**
-  2. `save-migration.js` の v3→v4 移行。古いセーブの `pendingOceans: N` を
-     `pendingChoice` へ変換する。**こちらは消せない**（過去のセーブが持っている）
-
-  消すなら「移行は残す・アクセサとUI経路は消す」が正しい分割。
-  UIのボタン条件は `Boolean(pendingChoice)` に寄せれば同じ意味になる
-  （`pendingOceans > 0` は定義上 `pendingChoice` が海洋選択のときだけ真なので、
-  **`pendingChoice` 側の条件に完全に含まれる**）
-
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
