@@ -1,0 +1,53 @@
+name: Deploy online game
+
+# The Workers build is the online one: it carries the Durable Objects that hold
+# live rooms, so a deploy interrupts whoever is mid-game. Unlike the Pages
+# workflow this one refuses to ship until the test job has passed on the same
+# commit, rather than racing it.
+on:
+  workflow_run:
+    workflows: [Test]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: workers-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # workflow_run fires however Test finished, so the result has to be read.
+    # workflow_dispatch has no upstream run and is the manual escape hatch.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    environment:
+      name: cloudflare-workers
+      url: https://mars-frontier.gameofai.workers.dev
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # workflow_run checks out the default branch, not the commit that was
+          # tested. Without this a deploy could ship something Test never saw.
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Deploy
+        # npm run deploy builds first; wrangler needs no config beyond these,
+        # since wrangler.jsonc names the worker and vite.config.ts holds the
+        # bindings.
+        run: npm run deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Report what shipped
+        run: echo "Deployed ${{ github.event.workflow_run.head_sha || github.sha }} to https://mars-frontier.gameofai.workers.dev"

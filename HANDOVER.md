@@ -26,10 +26,25 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 **公開先は2つ。同じソースから別ビルドを出している。**
 
-| 公開先 | URL | 内容 |
-|---|---|---|
-| GitHub Pages | https://akatsuki11horizon26-create.github.io/terraforming-mars-online/ | ソロ・ロボット戦専用（サーバーなし） |
-| Cloudflare Workers | https://mars-frontier.gameofai.workers.dev | 上記＋オンライン対戦 |
+| 公開先 | URL | 内容 | 更新 |
+|---|---|---|---|
+| GitHub Pages | https://akatsuki11horizon26-create.github.io/terraforming-mars-online/ | ソロ・ロボット戦専用（サーバーなし） | `pages.yml`（main push で即） |
+| Cloudflare Workers | https://mars-frontier.gameofai.workers.dev | 上記＋オンライン対戦 | `deploy.yml`（**Test 成功後**） |
+
+> **片方だけ更新される事故に注意。** 以前は Workers 側にワークフローが無く、
+> main にマージすると **Pages だけが更新されてオンライン版が取り残された**。
+> CIが全部緑なので「公開された」と誤認しやすい。現在は両方とも自動化してある。
+
+**2つのワークフローは意図的に非対称。** `pages.yml` は push で無条件に走るが、
+`deploy.yml` は `workflow_run` で **Test の成功を待ってから**走る。
+Workers 側は Durable Objects に**進行中の対戦部屋**を抱えており、
+デプロイすると DO が再起動されるため、壊れたビルドを載せる代償が大きいから。
+
+`deploy.yml` は `workflow_run.head_sha` を明示的にチェックアウトする。
+**既定のままだとテストされたコミットではなくブランチ先端が出る**ので、
+ここを消すと「Testが見ていないものをデプロイする」に戻る。
+
+必要なシークレット: `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`。
 
 ソロ版は `NEXT_PUBLIC_SOLO_ONLY=1` でビルドされ、`ONLINE_ENABLED` が false になる。
 **サーバーが存在しないので、ソロ版のUIはエンジンを直接呼ぶ。** これは設計上の意図であり、
@@ -41,6 +56,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
 - テスト: `node --test`、418件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
+  `test.yml` → `deploy.yml`（Workers）、`pages.yml`（Pages）の3本
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
 ---
@@ -547,8 +563,8 @@ npm run lint             # ESLint
 npx tsc --noEmit -p tsconfig.json | grep '^app/'   # 型（worker/ の既存エラーは無視）
 node scripts/playtest.mjs --games=20 --players=2 --colonies --turmoil
 npm run dev              # localhost:3000
-npm run deploy           # Workers へデプロイ
-git push origin main     # Pages は Actions が自動ビルド
+npm run deploy           # Workers へ手動デプロイ（緊急時のみ。通常は不要）
+git push origin main     # 2つの公開先が両方とも自動で更新される
 ```
 
 ### 作業の型
