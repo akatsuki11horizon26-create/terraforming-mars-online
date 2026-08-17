@@ -260,6 +260,9 @@ interface GameState {
   logs: LogEntry[];
   isGameOver: boolean;
   gameResult: "win" | "loss" | null;
+  // Null in solo, where the planet decides the outcome and there is no ranking.
+  standings: { playerId: string; name: string; score: number; mc: number }[] | null;
+  winnerPlayerIds: string[] | null;
   onboarded: boolean;
   // Canonical multiplayer state. The flat fields above remain readable through
   // the compatibility accessors installed by player-state.js.
@@ -2597,8 +2600,27 @@ export default function Home() {
             </div>
             <div className="modal-body" style={{ textAlign: "center" }}>
               <p style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
-                {activeState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
+                {activeState.standings
+                  ? (activeState.winnerPlayerIds && activeState.winnerPlayerIds.length > 1
+                      ? "🤝 同点、勝利を分け合いました"
+                      : activeState.gameResult === "win" ? "🎉 勝利！" : "💀 敗北")
+                  : activeState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
               </p>
+              {/* Solo is scored against the planet, so there is nobody to rank.
+                  With opponents the result is the ranking, so show it. */}
+              {activeState.standings && (
+                <div style={{ padding: "12px 16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "block", maxWidth: "320px", textAlign: "left", margin: "0 auto 14px" }}>
+                  {activeState.standings.map((entry, index) => {
+                    const isWinner = (activeState.winnerPlayerIds ?? []).includes(entry.playerId);
+                    return (
+                      <div key={entry.playerId} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", fontWeight: isWinner ? "bold" : "normal", color: isWinner ? "var(--color-gold)" : "var(--color-ink)" }}>
+                        <span>{isWinner ? "👑 " : `${index + 1}. `}{entry.name}</span>
+                        <span>{entry.score} 点<span style={{ opacity: 0.6, fontSize: "0.8rem" }}>（{entry.mc} MC）</span></span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div style={{ padding: "16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "inline-block", minWidth: "250px", textAlign: "left", margin: "0 auto" }}>
                 {([
                   ["tr", "TR (開拓評価点)", "var(--color-cyan)"],

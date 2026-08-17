@@ -943,6 +943,89 @@ test("final greenery resolves in turn order through commands", () => {
   assert.equal(finished.state.isGameOver, true);
 });
 
+// A game with opponents is won on points, not on the three tracks. Reading the
+// tracks reported a win to a player who had been outscored 68 to 20, because
+// nothing compared the two — the planet being terraformed is the clock here,
+// not the victory condition.
+function endedTable(scores) {
+  const { state } = table();
+  let next = cloneGameState(state);
+  next.temperature = 8;
+  next.oxygen = 14;
+  next.oceans = 9;
+  next.phase = "final_greenery";
+  next.players = next.players.map((player, index) => ({
+    ...player,
+    plants: 0,
+    passed: false,
+    tr: scores[index].tr,
+    mc: scores[index].mc
+  }));
+  next.currentPlayerId = next.players[0].id;
+  for (let i = 0; i < next.players.length; i++) {
+    const result = executeGameCommand(next, {
+      type: COMMAND.FINISH_FINAL_GREENERY,
+      playerId: next.currentPlayerId
+    });
+    assert.equal(result.ok, true);
+    next = result.state;
+  }
+  assert.equal(next.phase, "game_over");
+  return next;
+}
+
+test("a game with opponents is decided on points, not on the three tracks", () => {
+  const beaten = endedTable([{ tr: 20, mc: 488 }, { tr: 68, mc: 98 }]);
+  assert.deepEqual(beaten.winnerPlayerIds, ["player2"], "the higher score wins");
+  assert.equal(beaten.gameResult, "loss", "maxed tracks do not save an outscored player");
+  assert.deepEqual(
+    beaten.standings.map(entry => [entry.playerId, entry.score]),
+    [["player2", 68], ["player", 20]],
+    "standings are ordered best first"
+  );
+
+  const won = endedTable([{ tr: 70, mc: 10 }, { tr: 20, mc: 10 }]);
+  assert.deepEqual(won.winnerPlayerIds, ["player"]);
+  assert.equal(won.gameResult, "win");
+});
+
+test("a tie on points is broken by MC, and a tie on both is shared", () => {
+  const broken = endedTable([{ tr: 40, mc: 90 }, { tr: 40, mc: 10 }]);
+  assert.deepEqual(broken.winnerPlayerIds, ["player"], "MC breaks an equal score");
+
+  const shared = endedTable([{ tr: 40, mc: 50 }, { tr: 40, mc: 50 }]);
+  assert.deepEqual(
+    shared.winnerPlayerIds.slice().sort(),
+    ["player", "player2"],
+    "equal on both is a shared victory, not an arbitrary pick"
+  );
+});
+
+test("solo is still decided by the planet, not by a ranking", () => {
+  const build = params => {
+    let next = cloneGameState(getInitialState({ playerCount: 1 }));
+    next.temperature = params[0];
+    next.oxygen = params[1];
+    next.oceans = params[2];
+    next.phase = "final_greenery";
+    next.players = next.players.map(player => ({ ...player, plants: 0, passed: false }));
+    next.currentPlayerId = next.players[0].id;
+    const result = executeGameCommand(next, {
+      type: COMMAND.FINISH_FINAL_GREENERY,
+      playerId: next.currentPlayerId
+    });
+    assert.equal(result.ok, true);
+    return result.state;
+  };
+
+  const maxed = build([8, 14, 9]);
+  assert.equal(maxed.gameResult, "win");
+  assert.equal(maxed.standings, null, "there is nobody to rank against");
+
+  const short = build([0, 0, 0]);
+  assert.equal(short.gameResult, "loss");
+});
+
 test("final greenery commands and research purchases are phase gated", () => {
   const { state, seat } = table();
 

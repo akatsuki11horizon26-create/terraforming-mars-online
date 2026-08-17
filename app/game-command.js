@@ -36,6 +36,7 @@ import {
   legalCellsFor,
   placeTileAt,
   isGameOverCheck,
+  calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
   checkParameterThresholds,
@@ -812,14 +813,54 @@ const HANDLERS = {
       return done(next, next.logs);
     }
 
-    const won = isGameOverCheck(next.temperature, next.oxygen, next.oceans);
     next.phase = "game_over";
     next.isGameOver = true;
-    next.gameResult = won ? "win" : "loss";
+
+    // Solo is a mission against the planet: the three tracks decide it and there
+    // is nobody to outscore. With opponents the planet is only the clock — the
+    // official game is won on victory points, ties broken by MC. Reading the
+    // tracks in a robot game reported a win to a player who had been outscored
+    // 68 to 20, because nothing ever compared the two.
+    if (next.players.length === 1) {
+      const won = isGameOverCheck(next.temperature, next.oxygen, next.oceans);
+      next.gameResult = won ? "win" : "loss";
+      next.standings = null;
+      next.logs = addLog(
+        next.logs,
+        "system",
+        `ゲーム終了: ${won ? "テラフォーミングミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`
+      );
+      return done(next, next.logs);
+    }
+
+    const breakdowns = calculateScoreBreakdowns(next);
+    const standings = next.players
+      .map(player => ({
+        playerId: player.id,
+        name: player.name,
+        score: breakdowns[player.id]?.total ?? 0,
+        mc: player.mc ?? 0
+      }))
+      .sort((a, b) => (b.score - a.score) || (b.mc - a.mc));
+
+    // Equal on both score and MC is a shared victory, not an arbitrary pick.
+    const best = standings[0];
+    const winners = standings.filter(entry => entry.score === best.score && entry.mc === best.mc);
+    next.standings = standings;
+    next.winnerPlayerIds = winners.map(entry => entry.playerId);
+    // gameResult stays the local player's outcome, which is what the end screen
+    // reads. Seat "player" is the human in solo, robot and hotseat games alike;
+    // online clients render from their own view. winnerPlayerIds is the neutral
+    // answer for anyone who needs it.
+    const localSeat = next.players.some(player => player.id === "player")
+      ? "player"
+      : next.players[0].id;
+    next.gameResult = winners.some(entry => entry.playerId === localSeat) ? "win" : "loss";
     next.logs = addLog(
       next.logs,
       "system",
-      `ゲーム終了: ${won ? "テラフォーミングミッション成功！" : "テラフォーミング未完了、ミッション失敗。"}`
+      `ゲーム終了: ${standings.map(entry => `${entry.name} ${entry.score}点`).join(" / ")}。` +
+        `勝者は ${winners.map(entry => entry.name).join("・")}。`
     );
     return done(next, next.logs);
   },
