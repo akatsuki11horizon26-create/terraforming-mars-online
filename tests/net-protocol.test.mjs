@@ -150,3 +150,36 @@ test("Malformed messages decode to null rather than throwing", () => {
   assert.equal(decode("[1,2,3]").length, 3);
   assert.deepEqual(decode(encode({ type: "join" })), { type: "join" });
 });
+
+// gameResult means "did the player reading this screen win". The engine writes
+// it for the local seat, so sending that value to every client told the online
+// winner it had lost whenever the winner was not seat "player".
+test("each client is told its own result, but who won is public", () => {
+  const state = makeGame();
+  state.isGameOver = true;
+  state.gameResult = "loss";
+  state.winnerPlayerIds = ["player2"];
+  state.standings = [
+    { playerId: "player2", name: "プレイヤー2", score: 68, mc: 100 },
+    { playerId: "player", name: "プレイヤー1", score: 20, mc: 100 },
+    { playerId: "player3", name: "プレイヤー3", score: 5, mc: 100 }
+  ];
+
+  assert.equal(viewForPlayer(state, "player2").gameResult, "win", "the winner is told it won");
+  assert.equal(viewForPlayer(state, "player").gameResult, "loss");
+  assert.equal(viewForPlayer(state, "player3").gameResult, "loss");
+
+  for (const id of ["player", "player2", "player3"]) {
+    const view = viewForPlayer(state, id);
+    assert.deepEqual(view.winnerPlayerIds, ["player2"], "the winner is public to everyone");
+    assert.equal(view.standings.length, 3, "final scores are public once the game is over");
+  }
+});
+
+test("a game with no winner list keeps the engine's result", () => {
+  const state = makeGame();
+  state.isGameOver = true;
+  state.gameResult = "win";
+  state.winnerPlayerIds = null;
+  assert.equal(viewForPlayer(state, "player").gameResult, "win", "solo and old saves pass through");
+});
