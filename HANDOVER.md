@@ -1,9 +1,10 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-07 / ブランチ `turmoil-solar-phase-audit` / テスト401件
+最終更新: 2026-08-14 / ブランチ `turmoil-solar-phase-audit` / テスト418件
 
-**PR #1（特殊VP・Virus・Special Permit）は open のまま。** 今回の Turmoil /
-Solar Phase の修正は別ブランチに積んである。履歴を混ぜないため分けてある。
+**PR #1（特殊VP・Virus・Special Permit）は open、PR #2（Turmoil / Solar Phase）は
+DRAFT のまま。`main` は24コミット遅れている。** 履歴を混ぜないため分けてあるが、
+**成果はまだ1つも main に入っていない**。
 
 このファイルは**着任した人が最初に読むもの**。
 章の順序は「知らないと事故る順」で、作業の時系列ではない。
@@ -38,7 +39,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、401件
+- テスト: `node --test`、418件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -284,13 +285,17 @@ computeScore(state, playerId)            // 既存呼び出し互換のラッパ
 
 ```
 .mc  ±=   0箇所
-.tr  ±=   1箇所   （最終緑化でTRを戻す1行）
+.tr  ±=   0箇所
 Prod ±=   0箇所
 ```
 
-残る `.tr` 1箇所は、`placeTile` が上げたTRを最終緑化フェーズで戻すもの。
-engine が「最終緑化ではTRも酸素も動かない」を知らないための後始末。
-engine 側に寄せるのが本筋だが未実施。
+**資源・TR・生産量への直接代入は全廃した。**
+最終緑化のTR巻き戻し（かつて `nextState.tr -= 1` と書かれていた1行）は
+`placeTileAt(..., { finalGreenery: true })` としてエンジンへ寄せてある。
+酸素もTRも「上げてから戻す」のではなく、**最初から上げない**。
+
+`page.tsx` に残る唯一の盤面書き込みは `handleCellClick`（旧 `pendingOceans` 経路）。
+**エンジンはもうこの経路に入らない**（下記 §6.3）。
 
 ---
 
@@ -338,6 +343,16 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
   - 各マップ固有の称号5種・褒賞5種
 - **ドラフト制**（ロビーで選択。初期10枚も対象。世代ごとに向きが反転）
 - **ロボット戦**（3難易度。得点差で評価）
+  - **合法手はエンジンが列挙する**（`getLegalCommands`）。ボットは候補を
+    自前で組み立てず、ここから選ぶだけ。称号・褒賞・標準プロジェクト・植民地・
+    代表者派遣は**実際に `executeGameCommand` を試して**、`ok` かつ状態が
+    変わったものだけを合法手とする（「成功を返すが何もしない」を弾くため。§2.3）
+  - `legalCardPayment` が鋼材・チタンの支払いを総当たりし、
+    **最小の資源消費**になる組み合わせを選ぶ。以前は `steel=0, titanium=0`
+    でしか判定しておらず、**鋼材でしか払えないカードが「出せない」扱い**だった
+- **最終緑化フェーズがコマンド化されている**
+  `CONVERT_FINAL_GREENERY` / `FINISH_FINAL_GREENERY`。UI が植物を引いて
+  タイルを置く経路は無くなり、パス順の巡回と終局判定もコマンド層にある
 - **オンライン対戦**（部屋コード、5拡張＋5マップ選択）
 - **特殊得点カード3枚**（Law Suit / Vermin / St. Joseph）— 得点・効果とも完全実装
 - **攻撃カード7枚**（Hired Raiders / Sabotage / Virus / Air Raid /
@@ -401,6 +416,9 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 | 攻撃カード | 対象選択ダイアログが出るか |
 | 最終得点画面 | 内訳が合計と一致し、負の値も表示されるか |
 | **オンライン全般** | **テストで担保できていない**。2端末で企業選択・Prelude・研究購入 |
+| **最終緑化**（08-14で経路変更） | 植物8で緑地が置けるか。**酸素もTRも動かない**か。終了ボタンで次の人に回り、全員終わると終局するか |
+| **気温0°Cボーナス**（08-14で経路変更） | 選択ダイアログが出るか。**選択中に別のダイアログが来たらキューに並ぶ**か（旧経路は盤面クリックだった） |
+| **ロボットの手の質** | 鋼材／チタンでしか払えないカードを**実際に出す**か（旧実装は出せなかった） |
 
 #### 特殊カードの手動確認手順
 
@@ -481,16 +499,44 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 
 ### 6.3 設計上の借り
 
-- **最終緑化のTR巻き戻し**（§3）をエンジンへ寄せる
-- **非列挙アクセサの廃止**（§2.1）
+**返済済み**（2026-08-14）:
+
+- ~~最終緑化のTR巻き戻し~~ → `finalGreenery` フラグでエンジンへ（§3）
+- ~~気温0°Cボーナスが `pendingOceans` と `pendingChoice` に分かれている~~ →
+  **どちらも `pendingChoice` に統一**。`applyParameterThresholds` と
+  `checkParameterThresholds` の両方が `buildTileChoice` を作るようになり、
+  `openOrEnqueuePendingChoice` が「既に選択中ならキューへ回す」を引き受ける
+
+**残っているもの**:
+
+- **非列挙アクセサの廃止**（§2.1）。`state.mc` 系は健在
+- **`pendingOceans` は「派生ビュー」として残っている。**
+  性質が変わったので誤解しないこと:
+
+  | 時期 | 実体 |
+  |---|---|
+  | 以前 | **独立した数値**。UIが増減させ、エンジンも書いていた |
+  | 現在 | **`pendingChoice` を読むだけのアクセサ**。エンジンは1箇所も書かない |
+
+  `player-state.js` の getter は `pendingChoice.kind === "ocean-placement"` の
+  ときだけ `continuation.remaining` を返す。**独立した状態ではないので、
+  ここを消しても盤面の情報は失われない。**
+
+  ただし2つの利用者が残っている:
+
+  1. `page.tsx` の `handleCellClick`（盤面を直接書く最後の1箇所）と、
+     `pendingOceans > 0` を見る**14箇所のボタン無効化条件**
+  2. `save-migration.js` の v3→v4 移行。古いセーブの `pendingOceans: N` を
+     `pendingChoice` へ変換する。**こちらは消せない**（過去のセーブが持っている）
+
+  消すなら「移行は残す・アクセサとUI経路は消す」が正しい分割。
+  UIのボタン条件は `Boolean(pendingChoice)` に寄せれば同じ意味になる
+  （`pendingOceans > 0` は定義上 `pendingChoice` が海洋選択のときだけ真なので、
+  **`pendingChoice` 側の条件に完全に含まれる**）
+
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
-- **旧 `pendingOceans` は残っている。** 気温0°Cボーナスのうち
-  **プレイヤーが跨いだぶん**は今もこの非列挙アクセサ経由で、UIの盤面クリックが消費する。
-  世界政府・世界的イベントが跨いだぶんは `pendingChoice` になる（払い主がいないため）。
-  アクセサ側は options を埋めないので、**choice として扱おうとすると候補0で固まる**。
-  統一するなら engine 側へ寄せること
 
 ---
 
@@ -499,7 +545,7 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 ### コマンド
 
 ```bash
-npm test                 # ビルド + 325テスト
+npm test                 # ビルド + 418テスト
 npm run lint             # ESLint
 npx tsc --noEmit -p tsconfig.json | grep '^app/'   # 型（worker/ の既存エラーは無視）
 node scripts/playtest.mjs --games=20 --players=2 --colonies --turmoil
@@ -556,6 +602,28 @@ ToUnicode CMap を解析する必要がある（`scratchpad/pdfx.py` に実装�
 `github.com/terraforming-mars/terraforming-mars` の `src/server/boards/*Board.ts` を
 curl で取得できる。既存のタルシス盤面と1行ずつ一致することを確認済みで、
 この経路は信頼できる。
+
+---
+
+## 付録0: `b2cd8d6`「complete audited robot opponent mode」（2026-08-14）
+
+**このコミットは本文が空**なので、差分から読み取った内容をここに残す。
+12ファイル・+1176/−669行。テストは401→418件。
+
+| 領域 | 変更 |
+|---|---|
+| `game-command.js` | 最終緑化を2コマンド化。`getLegalCommands` が称号・褒賞・標準プロジェクト・植民地・代表者まで列挙し、**実行してみて状態が変わったものだけ**を返す。`legalCardPayment` で鋼材／チタン払いを総当たり |
+| `game-logic.js` | `placeTileAt` に `finalGreenery`。気温0°Cボーナスを `pendingChoice` へ一本化。`openOrEnqueuePendingChoice` を追加 |
+| `player-state.js` | `cloneGameState` の取りこぼし修正（`playedEvents` / `claimedMilestones` / `fundedAwards` / `scoreModifiers` / `boardMarkers` / `generationAttackLedger` / `resolvedChoices` / `turmoil` / `colonies` / `pendingChoiceQueue`）。`clonePendingChoice` を再帰コピーへ |
+| `page.tsx` | −259行。最終緑化の自前実装とTR巻き戻しを削除 |
+| `bot-player.js` | 866行の書き換え。合法手を自前生成せずエンジンに訊く形へ |
+
+> **`cloneGameState` の取りこぼしは §2.1 の一族。** 浅いコピーで
+> `pendingChoiceQueue` や `turmoil` が共有されると、
+> **片方の分岐が他方の盤面を書き換える**。例外は出ない。
+
+**未確認**: このコミットはブラウザ実機で確認されていない。
+特に最終緑化のコマンド化（`page.tsx` −259行）は経路が丸ごと変わっている。
 
 ---
 
