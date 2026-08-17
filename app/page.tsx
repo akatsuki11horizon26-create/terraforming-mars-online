@@ -653,6 +653,19 @@ export default function Home() {
     : !isRobotGame || activeState.currentPlayerId === HUMAN_ID;
   const pendingChoice = activeState.pendingChoice ?? null;
 
+  // Research happens for everyone at once, so the seat marker is not the player
+  // answering here. In a robot game the marker passes to a bot from generation 2
+  // on, and the single-player accessors follow it — the panel offered the bot's
+  // cards and priced them against the bot's money while the driver effect waited
+  // on the human's own offer, so neither side could move. Offline the answer is
+  // always the human's; online and hotseat keep following the seat.
+  const researchSeat =
+    (isRobotGame && !isOnline
+      ? players.find(player => player.id === HUMAN_ID)
+      : players.find(player => player.id === currentPlayerId)) ?? null;
+  const researchOffer = researchSeat?.researchCards ?? [];
+  const researchBudget = researchSeat?.mc ?? 0;
+
   const playerSummaries = players.map(player => ({
     id: player.id,
     name: player.name,
@@ -1111,7 +1124,9 @@ export default function Home() {
     // — so Beginner Corporation was free here and charged everywhere else.
     const result = executeGameCommand(activeState as never, {
       type: "BUY_RESEARCH",
-      playerId: currentPlayerId,
+      // Research is answered by the player whose offer is on screen, which is
+      // not the seat marker once a robot holds it (see researchSeat).
+      playerId: researchSeat?.id ?? currentPlayerId,
       cardIds: selectedResearchCardIds
     }) as { ok: boolean; state: GameState };
 
@@ -1243,6 +1258,7 @@ export default function Home() {
   const selectedCardPurchaseCost = activeState.phase === "setup" && CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards
     ? 0
     : selectedResearchCardIds.length * 3;
+
 
   const getPhaseNameJP = (phase: string) => {
     switch (phase) {
@@ -1692,7 +1708,7 @@ export default function Home() {
                   提示されたプロジェクトから購入するカードを選択してください。(1枚あたり 3 MC。Beginner Corporationは無料)
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "250px", overflowY: "auto" }}>
-                  {activeState.researchCards.map(id => {
+                  {researchOffer.map(id => {
                     const card = ALL_CARDS.find(c => c.id === id);
                     if (!card) return null;
                     const isSelected = selectedResearchCardIds.includes(id);
@@ -1744,7 +1760,7 @@ export default function Home() {
                   <button
                     className="btn-primary"
                     style={{ padding: "4px 12px", fontSize: "0.75rem" }}
-                    disabled={selectedCardPurchaseCost > activeState.mc}
+                    disabled={selectedCardPurchaseCost > researchBudget}
                     onClick={handleBuyCardsConfirm}
                   >
                     購入を確定する

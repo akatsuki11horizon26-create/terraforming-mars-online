@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as engine from "../app/game-logic.js";
 import {
@@ -457,4 +458,29 @@ test("a bot chases the milestones printed on the map it is playing", () => {
   // Energizer is a Hellas milestone; Tharsis has no such id.
   assert.ok(milestones.includes("energizer"), "the bot must see the Hellas milestones");
   assert.equal(milestones.includes("mayor"), false, "and not Tharsis's");
+});
+
+test("The human's research offer stays reachable when a robot holds the seat", async () => {
+  // The first player marker passes each generation, so from generation 2 the
+  // seat during research belongs to the robot. The driver effect waits for the
+  // human's own researchCards, so whatever the panel renders has to be the
+  // human's too — reading the current player's offer showed the robot's cards
+  // (none, once it has bought) and the game could not be advanced by anyone.
+  const state = engine.getInitialState({ playerCount: 2, mode: "robot" });
+  state.phase = "research";
+  state.currentPlayerId = "player2";
+  state.players = state.players.map(player =>
+    player.id === "player"
+      ? { ...player, researchCards: ["card-a", "card-b"] }
+      : { ...player, researchCards: [] }
+  );
+
+  const human = state.players.find(player => player.id === "player");
+  assert.equal(human.researchCards.length, 2, "the human has an offer to answer");
+
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.ok(
+    !/\{activeState\.researchCards\.map\(/.test(page),
+    "the research panel must not render the seat holder's offer via the accessor"
+  );
 });
