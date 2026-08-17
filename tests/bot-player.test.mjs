@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as engine from "../app/game-logic.js";
+import { executeGameCommand } from "../app/game-command.js";
 import {
   BOT_DIFFICULTIES,
   getBotDifficulty,
@@ -48,8 +50,14 @@ test("The bot rng is deterministic for a seed", () => {
 test("A bot only considers moves it can actually afford", () => {
   const state = seatedGame();
   state.phase = "action";
+  // The corporation is drawn at random, and a discount makes cheap cards free —
+  // Thorgate takes 3 MC off power cards and Teractor 3 off Earth cards, so a
+  // list-price-1 card is playable at zero MC. Measured at 6 failures in 600
+  // draws. CrediCor discounts nothing (see HANDOVER 2.2).
+  state.currentPlayerId = "player2";
   state.players = state.players.map(p => ({
     ...p,
+    corporationId: "corp-credicor",
     mc: 0,
     steel: 0,
     titanium: 0,
@@ -58,10 +66,17 @@ test("A bot only considers moves it can actually afford", () => {
   }));
 
   const moves = enumerateBotMoves(state, "player2");
-  assert.equal(
-    moves.some(move => (move.cost ?? 0) > 0),
-    false,
-    "with no money nothing that costs money is offered"
+  // move.cost is the catalog list price, not what this player pays, so it is not
+  // the affordability test. The engine decides that: a move is offered only if
+  // executing it succeeds.
+  const unaffordable = moves.filter(move => {
+    const result = executeGameCommand(state, move.command);
+    return !result.ok;
+  });
+  assert.deepEqual(
+    unaffordable.map(move => move.command.type),
+    [],
+    "with no money every offered move still executes"
   );
 });
 
@@ -457,4 +472,29 @@ test("a bot chases the milestones printed on the map it is playing", () => {
   // Energizer is a Hellas milestone; Tharsis has no such id.
   assert.ok(milestones.includes("energizer"), "the bot must see the Hellas milestones");
   assert.equal(milestones.includes("mayor"), false, "and not Tharsis's");
+});
+
+test("The human's research offer stays reachable when a robot holds the seat", async () => {
+  // The first player marker passes each generation, so from generation 2 the
+  // seat during research belongs to the robot. The driver effect waits for the
+  // human's own researchCards, so whatever the panel renders has to be the
+  // human's too — reading the current player's offer showed the robot's cards
+  // (none, once it has bought) and the game could not be advanced by anyone.
+  const state = engine.getInitialState({ playerCount: 2, mode: "robot" });
+  state.phase = "research";
+  state.currentPlayerId = "player2";
+  state.players = state.players.map(player =>
+    player.id === "player"
+      ? { ...player, researchCards: ["card-a", "card-b"] }
+      : { ...player, researchCards: [] }
+  );
+
+  const human = state.players.find(player => player.id === "player");
+  assert.equal(human.researchCards.length, 2, "the human has an offer to answer");
+
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.ok(
+    !/\{activeState\.researchCards\.map\(/.test(page),
+    "the research panel must not render the seat holder's offer via the accessor"
+  );
 });
