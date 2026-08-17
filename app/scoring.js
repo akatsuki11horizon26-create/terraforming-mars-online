@@ -1,5 +1,6 @@
 import { CORPORATIONS } from "./official-content.js";
 import { computeMilestoneVp, computeAwardVp } from "./milestones-awards.js";
+import { NEUTRAL as TURMOIL_NEUTRAL, getParty } from "./turmoil.js";
 
 // Scoring runs in two stages: every point in the game becomes a contribution
 // naming who receives it, then contributions are summed per player.
@@ -13,8 +14,8 @@ import { computeMilestoneVp, computeAwardVp } from "./milestones-awards.js";
  * @typedef {Object} ScoreContribution
  * @property {string} targetPlayerId
  * @property {number} points
- * @property {"tr"|"board"|"cards"|"milestones"|"awards"|"modifier"} category
- * @property {"system"|"card"|"milestone"|"award"} sourceType
+ * @property {"tr"|"board"|"cards"|"milestones"|"awards"|"turmoil"|"modifier"} category
+ * @property {"system"|"card"|"milestone"|"award"|"turmoil"} sourceType
  * @property {string} sourceId
  * @property {string=} sourcePlayerId
  * @property {string} label
@@ -27,6 +28,7 @@ export const SCORE_CATEGORIES = Object.freeze([
   "cards",
   "milestones",
   "awards",
+  "turmoil",
   "modifier"
 ]);
 
@@ -287,6 +289,36 @@ export function buildScoreContributions(state, options = {}) {
     });
   }
 
+  // Turmoil rules, FINAL SCORING: "all Party Leaders and the Chairman are worth
+  // 1 VP for the respective player". Neutral markers score for nobody, and a
+  // player leading several parties scores each one.
+  if (state.turmoil) {
+    for (const [partyId, party] of Object.entries(state.turmoil.parties ?? {})) {
+      const leader = party?.leader;
+      if (!leader || leader === TURMOIL_NEUTRAL) continue;
+      contributions.push({
+        targetPlayerId: leader,
+        points: 1,
+        category: "turmoil",
+        sourceType: "turmoil",
+        sourceId: `party-leader-${partyId}`,
+        label: `${getParty(partyId)?.name ?? partyId}の党首`
+      });
+    }
+
+    const chairman = state.turmoil.chairman;
+    if (chairman && chairman !== TURMOIL_NEUTRAL) {
+      contributions.push({
+        targetPlayerId: chairman,
+        points: 1,
+        category: "turmoil",
+        sourceType: "turmoil",
+        sourceId: "chairman",
+        label: "議長"
+      });
+    }
+  }
+
   // Modifiers were settled when they were played -- Law Suit names its target
   // at that moment -- so they are read back rather than recomputed.
   for (const modifier of state.scoreModifiers ?? []) {
@@ -307,17 +339,15 @@ export function buildScoreContributions(state, options = {}) {
 export function calculateScoreBreakdowns(state, options = {}) {
   const contributions = buildScoreContributions(state, options);
 
+  // Seeded from SCORE_CATEGORIES rather than a second hand-written list: a
+  // category that exists in one and not the other lands as NaN in the breakdown
+  // while the total stays right, so the UI shows a blank row and nothing throws.
   const results = Object.fromEntries(
     state.players.map(player => [
       player.id,
       {
         playerId: player.id,
-        tr: 0,
-        board: 0,
-        cards: 0,
-        milestones: 0,
-        awards: 0,
-        modifier: 0,
+        ...Object.fromEntries(SCORE_CATEGORIES.map(category => [category, 0])),
         total: 0,
         details: []
       }

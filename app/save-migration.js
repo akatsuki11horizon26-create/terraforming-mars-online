@@ -1,4 +1,6 @@
 import { createPlayer, withLegacyPlayerAccessors } from "./player-state.js";
+import { isCellPlacementValid } from "./game-logic.js";
+import { buildTileChoice } from "./pending-choice.js";
 
 export const SAVE_KEY = "mars_frontier_game";
 export const CURRENT_RULES_VERSION = 5;
@@ -45,26 +47,33 @@ function migrateV3(parsed) {
     globalRequirementBuffer: Number(parsed.globalRequirementBuffer ?? 0)
   });
 
+  const board = isPlainObject(parsed.board) ? parsed.board : {};
   const pendingOceans = Number(parsed.pendingOceans ?? 0);
+  // v3 owed these oceans as a bare number and let the player click the board to
+  // spend it. The board now answers a choice that names its own legal spaces, so
+  // the debt has to be converted into one — a choice with no options highlights
+  // nothing and leaves the restored game with no way to continue.
   const pendingChoice =
     pendingOceans > 0
-      ? {
-          id: "ocean-player",
-          kind: "ocean-placement",
-          ownerPlayerId: "player",
-          prompt: "海洋タイルを配置してください。",
-          optional: false,
-          options: [],
-          continuation: {
+      ? buildTileChoice(
+          { board, currentPlayerId: "player" },
+          "ocean",
+          {
             sourceKind: "card",
             sourceId: "",
-            stage: "place-ocean",
             consumedAction: true,
             paid: true,
             remaining: pendingOceans
-          }
-        }
+          },
+          Object.values(board).filter(cell => isCellPlacementValid(cell, "ocean", board, "player"))
+        )
       : null;
+  if (pendingChoice) {
+    // buildTileChoice makes a generic tile-placement; the ocean debt is resolved
+    // by its own stage, which is what pays the placement out.
+    pendingChoice.kind = "ocean-placement";
+    pendingChoice.continuation.stage = "place-ocean";
+  }
 
   return {
     // migrateV4ToV5 fills the v5 additions; this stays the v4 shape so there
@@ -81,7 +90,7 @@ function migrateV3(parsed) {
     oxygen: Number(parsed.oxygen ?? 0),
     venus: Number(parsed.venus ?? 0),
     oceans: Number(parsed.oceans ?? 0),
-    board: isPlainObject(parsed.board) ? parsed.board : {},
+    board,
     deck: Array.isArray(parsed.deck) ? parsed.deck : [],
     discardPile: Array.isArray(parsed.discardPile) ? parsed.discardPile : [],
     pendingChoice,

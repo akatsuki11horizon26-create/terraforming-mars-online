@@ -1,6 +1,10 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-06 / コミット `dc03a5b` の次 / テスト325件
+最終更新: 2026-08-14 / ブランチ `turmoil-solar-phase-audit` / テスト418件
+
+**PR #1（特殊VP・Virus・Special Permit）は open、PR #2（Turmoil / Solar Phase）は
+DRAFT のまま。`main` は24コミット遅れている。** 履歴を混ぜないため分けてあるが、
+**成果はまだ1つも main に入っていない**。
 
 このファイルは**着任した人が最初に読むもの**。
 章の順序は「知らないと事故る順」で、作業の時系列ではない。
@@ -35,7 +39,7 @@ Terraforming Mars の非公式Web実装。公式ルール準拠を目指して�
 
 - Next.js 16.2.6 / React 19.2.6 / vinext / Vite 8 / TypeScript 5.9.3
 - Cloudflare Workers + Durable Objects（1部屋1DO）、WebSocket
-- テスト: `node --test`、325件
+- テスト: `node --test`、418件
 - CI: GitHub Actions（lint / 型 / テスト / 全拡張プレイテスト / 5マップ）
 - セーブ: `rulesVersion: 5`。v3・v4は読み込み時に自動移行
 
@@ -75,6 +79,18 @@ const next = { ...state };   // ← アクセサが消える。事故の最大�
 | 企業がランダム（13社） | 初期資源・生産量が毎回違う | 差分で測る |
 | **企業効果が値そのものを変える** | 差分でも落ちる | `corporationId` を固定 |
 | 植民地タイルがランダム | 交易の**収入**が毎回違う | 初期値だけ違う2本の差を取る |
+| **世界的イベントがランダム** | 開始時の dominant party が毎回違う | `globalEventOrder` で配りを固定 |
+
+最後の1つは 2026-08-07 に足された経路。セットアップが引いた2枚のイベントが
+中立代表者を配置し、それが開始時の dominant party を決めるため、
+**盤面がシャッフル依存になった**。これで既存テスト5本が乱数を読む状態になり、
+実行ごとに落ちる組み合わせが変わった。
+
+`getInitialState({ globalEventOrder: [...] })` で配りを固定できる。
+`tests/turmoil.test.mjs` の `pinnedTurmoilState()` がその形。
+**Turmoil のテストで dominance を読むなら必ず固定すること。**
+固定すると kelvinists に中立2個が乗った状態から始まるので、
+「ある政党を優勢にする」には**3個**必要になる（空の政党を使うなら別）。
 
 ```js
 // 悪い例 — 企業を引くたびに変わる
@@ -113,6 +129,20 @@ state.players = state.players.map(p =>
 
 > カードを1枚ずつ「置いた場合と置かない場合の差」で測らないと発見できない。
 > 「テストが通っている」も「例外が出ない」も、この種のバグの証拠にはならない。
+
+### 2.3.1 候補0の choice は「詰み」であって「無効」ではない
+
+`pendingChoice` があると他の操作は全部ブロックされる（§3）。
+そこに**選択肢が1つも無い choice** を置くと、答える手段が無いまま
+盤面が固まる。例外もログも出ない。§2.3 の一族。
+
+**盤面のマスを答えにする choice は特に危ない。** UI は
+`options[].targetCellKey` が指すマスだけを光らせるので、
+`options: []` は「光るマスが1つも無い」＝**クリックで答えられない**を意味する。
+
+`buildTileChoice` は合法マスが0なら `null` を返す。**この null を握り潰して
+自前の choice オブジェクトを組み立てないこと。** 実際に v3 セーブの移行が
+`options: []` を直接書いており、復元したゲームが操作不能になっていた。
 
 ### 2.4 「二重に見える」と「二重に動く」は別
 
@@ -269,13 +299,17 @@ computeScore(state, playerId)            // 既存呼び出し互換のラッパ
 
 ```
 .mc  ±=   0箇所
-.tr  ±=   1箇所   （最終緑化でTRを戻す1行）
+.tr  ±=   0箇所
 Prod ±=   0箇所
 ```
 
-残る `.tr` 1箇所は、`placeTile` が上げたTRを最終緑化フェーズで戻すもの。
-engine が「最終緑化ではTRも酸素も動かない」を知らないための後始末。
-engine 側に寄せるのが本筋だが未実施。
+**資源・TR・生産量への直接代入は全廃した。盤面への直接書き込みも0箇所。**
+最終緑化のTR巻き戻し（かつて `nextState.tr -= 1` と書かれていた1行）は
+`placeTileAt(..., { finalGreenery: true })` としてエンジンへ寄せてある。
+酸素もTRも「上げてから戻す」のではなく、**最初から上げない**。
+
+盤面クリックは `pendingChoice` が名指しした合法マスを答えるだけになった。
+`tileChoiceCells` が無いマスは**すべて操作不能**で、クリックは説明を出すだけ。
 
 ---
 
@@ -295,6 +329,7 @@ engine 側に寄せるのが本筋だが未実施。
 | `app/save-migration.js` | セーブ移行。`CURRENT_RULES_VERSION = 5` |
 | `app/net-protocol.js` | 通信形式と `viewForPlayer`（プライバシーフィルタ） |
 | `app/board-milestones.js` | マップ別の称号・褒賞 |
+| `app/global-events.js` | 世界的イベント36枚の効果スペック（宣言的。§6.3に未対応8枚） |
 | `app/full-card-catalog.js` | **生成物。直接編集しない**（`official-content.js` 経由） |
 | `app/card-resource-types.js` | **生成物**。カード上の資源種別72枚（§2.8） |
 | `app/card-art.data.js` | 428枚のカードアート（生成物、689KB） |
@@ -322,6 +357,16 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
   - 各マップ固有の称号5種・褒賞5種
 - **ドラフト制**（ロビーで選択。初期10枚も対象。世代ごとに向きが反転）
 - **ロボット戦**（3難易度。得点差で評価）
+  - **合法手はエンジンが列挙する**（`getLegalCommands`）。ボットは候補を
+    自前で組み立てず、ここから選ぶだけ。称号・褒賞・標準プロジェクト・植民地・
+    代表者派遣は**実際に `executeGameCommand` を試して**、`ok` かつ状態が
+    変わったものだけを合法手とする（「成功を返すが何もしない」を弾くため。§2.3）
+  - `legalCardPayment` が鋼材・チタンの支払いを総当たりし、
+    **最小の資源消費**になる組み合わせを選ぶ。以前は `steel=0, titanium=0`
+    でしか判定しておらず、**鋼材でしか払えないカードが「出せない」扱い**だった
+- **最終緑化フェーズがコマンド化されている**
+  `CONVERT_FINAL_GREENERY` / `FINISH_FINAL_GREENERY`。UI が植物を引いて
+  タイルを置く経路は無くなり、パス順の巡回と終局判定もコマンド層にある
 - **オンライン対戦**（部屋コード、5拡張＋5マップ選択）
 - **特殊得点カード3枚**（Law Suit / Vermin / St. Joseph）— 得点・効果とも完全実装
 - **攻撃カード7枚**（Hired Raiders / Sabotage / Virus / Air Raid /
@@ -329,6 +374,28 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
   - Virus は「任意のカードから動物2」「任意のプレイヤーから植物5」の
     **両分岐とも実装済み**。1つのダイアログに両方が並ぶ（§2.8）
   - Special Permit はグリーン与党を立てた実プレイ経路でテスト済み
+- **Solar Phase**（公式の順序で1本化、中断可能）
+  1. Game End Check → 2. World Government Terraforming（Venus有効時）
+  → 3. Colony production（交易船返却＋全トラック+1）→ 4. Turmoil
+  - WGT は**第1プレイヤーが選ぶ**（金星／気温／酸素／海洋）。
+    `triggerProduction` が step 2 で停止して `pendingChoice` を置き、
+    `finishSolarPhase` が残りを再開する。TR・配置ボーナスは与えない
+- **Turmoil 最終得点**（党首1VP・議長1VP、中立は加点なし）
+- **世界的イベントは31枚デッキ**（拡張が有効ならColonies/Venus分の5枚が加わる）
+- **選択キュー**（`pendingChoiceQueue` + `phaseContinuation`）
+  複数プレイヤーへ順番に質問できる。セーブ・再接続を跨いで再開する
+- **グローバルパラメータの共通経路**（`applyGlobalParameterChange`）
+  誰が上げても盤面側の閾値（酸素8%→気温、0°C→海洋）が発火し、
+  `grantTr` で「上げた人への報酬」だけを切り分ける
+- **盤面を見るカード**（`ARCTIC_ALGAE_ID` ほか、テーブル駆動）
+  Arctic Algae は誰の海洋でも、Aphrodite は誰の金星上昇でも発火する
+- **Turmoil の世界的イベント36枚**（`app/global-events.js` の宣言的スペック）
+  - 影響力を数え、「数えるものは最大5」の上限を持つ
+  - 損失は影響力で軽減してから適用する
+  - **`effectText` を文字列解析しない。** 表示用の日本語であり、
+    そこから挙動を復元するのは推測になる
+  - `missingGlobalEventEffects` が空であることをテストで担保。
+    スペックの無いカードを足すと落ちる
 
 ---
 
@@ -336,14 +403,17 @@ scripts/playtest.mjs               完全なゲームを回して不変条件を
 
 **ここが次にやること。**
 
-### 6.1 ブラウザで一度も動作確認していない（最優先）
+### 6.1 ブラウザ確認（選択ダイアログは確認済み、それ以外は未確認）
 
-**テスト325件・CI・プレイテストはすべて通っているが、実機は未確認。**
-型・lint・ビルドはどれも見た目を検証しない。
+**テスト401件・CI・プレイテストはすべて通っている。** 実機確認は部分的に済んだ。
 
-**ロジックは完了扱いになっているが、ブラウザ確認だけは持ち越されている。**
-Chrome 拡張が接続できないセッションが続いたため、UI は一度も人間の目で見られていない。
-`npm run dev` で `localhost:3000` が上がることは確認済み。
+**2026-08-07 に選択ダイアログ系はブラウザで確認済み。**
+世界政府（4択・海洋の合法マス強調・配置してTR/ボーナスなし・Solar Phase再開）、
+Paradigm Breakdown（2人ぶん4問を消化）、Corrosive Rain（MC/カード2枚の3択）、
+Dry Deserts（海洋除去→資源2回）を実際にクリックして通した。
+**ここで1件バグを見つけて直した**（ホットシートの席が質問の持ち主に移らない、下記付録）。
+
+**それ以外のUI（下の表）は未確認のまま。** 特にオンライン2端末は未確認。
 
 確認すべきもの:
 
@@ -360,6 +430,9 @@ Chrome 拡張が接続できないセッションが続いたため、UI は一�
 | 攻撃カード | 対象選択ダイアログが出るか |
 | 最終得点画面 | 内訳が合計と一致し、負の値も表示されるか |
 | **オンライン全般** | **テストで担保できていない**。2端末で企業選択・Prelude・研究購入 |
+| **最終緑化**（08-14で経路変更） | 植物8で緑地が置けるか。**酸素もTRも動かない**か。終了ボタンで次の人に回り、全員終わると終局するか |
+| **気温0°Cボーナス**（08-14で経路変更） | 選択ダイアログが出るか。**選択中に別のダイアログが来たらキューに並ぶ**か（旧経路は盤面クリックだった） |
+| **ロボットの手の質** | 鋼材／チタンでしか払えないカードを**実際に出す**か（旧実装は出せなかった） |
 
 #### 特殊カードの手動確認手順
 
@@ -388,21 +461,49 @@ Chrome 拡張が接続できないセッションが続いたため、UI は一�
 
 ### 6.2 未実装・未検証のルール
 
-| 項目 | 状態 |
-|---|---|
-| World Government Terraforming（Venus） | 未実装 |
-| 植民地トラックが世代終了時に上昇しない | 未検証 |
-| Turmoil の世界的イベントが効果を発動しない | 未検証（ログ表示のみ） |
-| 有料代表者（予備から5MC）が無料で送れる | 未検証 |
-| Prelude ソロの世代数 | **出典待ち**（下記） |
+2026-08-07 の再監査で、この表にあった項目はすべて公式ルールブックと突き合わせて
+**修正済み**。以下は当時の指摘と結果の対応。
 
-**Prelude ソロ14世代**: 監査は「公式は12世代」と指摘。実装は
-`generation >= 14` のハードコード1箇所で、Prelude の有無を見ていないのは実測で確認済み
-（`preludeEnabled` は追加済みなので判定は可能）。
-**ただし出典が取れないため未修正。** `Downloads/MARS拡張ルール/` にあるのは
-Prelude 2 のルールブックだけで、solo の記載が無い（テキストは改行なしの1行なので
-`grep -oiE ".{90}solo.{140}"` のような文字列検索で確認すること）。
-**根拠なしに世代数を変えない。**
+| 項目 | 結果 |
+|---|---|
+| World Government Terraforming（Venus） | 実装済み（Solar phase step 2） |
+| 植民地トラックが世代終了時に上昇しない | 確定バグ→修正（`advanceColonyProduction`） |
+| Turmoil の世界的イベントが効果を発動しない | 確定バグ→36枚すべて実装 |
+| 有料代表者（予備から5MC）が無料で送れる | 確定バグ→修正 |
+| Prelude ソロの世代数 | **12世代に修正**（出典が見つかった、下記） |
+
+再監査で新たに見つかり、あわせて直したもの:
+
+- **旧与党のボーナスが支払われていた**。`runTurmoilPhase` は `advanceTurmoil` の
+  *前* にボーナスを払っていた（変数名も `outgoing`）。公式は 3a で与党交代 →
+  3b で**新**与党のボーナス
+- **与党になった政党の代表者が盤上に残っていた**。leader 1個しか除去せず、
+  次世代の dominance と influence が狂う
+- **Party Leader の同数処理**。`computePartyLeader` が現職を受け取らず、配列順で
+  先にいる方へ交代していた。配列順と現職が一致する並びでは素通りするので、
+  テストは `["A","B","B","A"]` の並びでないと検出できない
+- **世界的イベントの初期配置**。3枚目を current に配っていたが、公式は
+  Coming と Distant のみ（"no CURRENT Global Event to execute the first generation"）
+
+**Prelude ソロ12世代**: 前任者は「出典が取れない」として保留していたが、
+出典は手元にあった。`Downloads/MARS拡張ルール/TM_RULEBOOK_JPN_図形原状保持版.pdf`
+は**ファイル名に反して『プレリュード』のルール説明書 第5刷**である
+（内部名 `_PRELUDE_RULES JPN reprint 202412.indd`）。p.3 に
+
+> 『プレリュード』を使った１人プレイ
+> １人ゲームに『プレリュード』を導入する場合、**12 世代**が終了するまでに、
+> テラフォーミングを完了させてください。
+
+とある。同ページの「地球化指数ソロ」にも
+「期限は14世代（ただしプレリュード・カードを導入していれば12世代）」と重ねて書かれている。
+数字はページ画像を3倍に拡大して目視確認済み（§8 の数字化けの件があるため）。
+
+> **ファイル名から中身を推定して除外しない。** この1件は
+> 「TM_RULEBOOK_JPN」という名前を基本セットのものと読んで開かなかったために、
+> 監査2回ぶん保留され続けた。
+
+なお同ページには未実装の**「地球化指数ソロ」バリエーション**
+（全パラメータではなく TR63 以上、標準プロジェクト「緩衝ガスの導入」16MC）もある。
 
 **Special Permit は実プレイ経路でテスト済み。** `createTurmoilState` で Turmoil を
 立てて `rulingParty` を差し替えれば、通常のコマンド経路で最後まで通せる。
@@ -412,8 +513,24 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 
 ### 6.3 設計上の借り
 
-- **最終緑化のTR巻き戻し**（§3）をエンジンへ寄せる
-- **非列挙アクセサの廃止**（§2.1）
+**返済済み**（2026-08-14）:
+
+- ~~最終緑化のTR巻き戻し~~ → `finalGreenery` フラグでエンジンへ（§3）
+- ~~気温0°Cボーナスが `pendingOceans` と `pendingChoice` に分かれている~~ →
+  **どちらも `pendingChoice` に統一**。`applyParameterThresholds` と
+  `checkParameterThresholds` の両方が `buildTileChoice` を作るようになり、
+  `openOrEnqueuePendingChoice` が「既に選択中ならキューへ回す」を引き受ける
+
+- ~~`pendingOceans` の廃止~~ → **アクセサ・UI経路とも削除済み**（`f10cf9b`）。
+  海洋の無償配置は**すべて `pendingChoice` 一本**になった。
+  `save-migration.js` の v3→v4 移行だけが `pendingOceans` の名を知っている
+  （**古いセーブが持っているので消せない**）。移行は `buildTileChoice` で
+  合法マスを埋めるようになった。**候補0の choice はもう作られない**
+- ~~`pendingUnownedOceans`~~ → 削除。初期化されるだけで誰も増やしていなかった
+
+**残っているもの**:
+
+- **非列挙アクセサの廃止**（§2.1）。`state.mc` 系は健在
 - `p-capital` と `card-base-capital` の重複エントリ。
   現在は後者が配られないため実害が無いが、**汎用分岐とハードコードの両方が存在する**。
   触るときは二重計上に注意
@@ -425,7 +542,7 @@ Turmoil 無し・別与党・グリーン与党の3通りで拒否理由まで�
 ### コマンド
 
 ```bash
-npm test                 # ビルド + 325テスト
+npm test                 # ビルド + 418テスト
 npm run lint             # ESLint
 npx tsc --noEmit -p tsconfig.json | grep '^app/'   # 型（worker/ の既存エラーは無視）
 node scripts/playtest.mjs --games=20 --players=2 --colonies --turmoil
@@ -485,7 +602,61 @@ curl で取得できる。既存のタルシス盤面と1行ずつ一致する�
 
 ---
 
-## 付録: このセッションで直したもの
+## 付録0: `b2cd8d6`「complete audited robot opponent mode」（2026-08-14）
+
+**このコミットは本文が空**なので、差分から読み取った内容をここに残す。
+12ファイル・+1176/−669行。テストは401→418件。
+
+| 領域 | 変更 |
+|---|---|
+| `game-command.js` | 最終緑化を2コマンド化。`getLegalCommands` が称号・褒賞・標準プロジェクト・植民地・代表者まで列挙し、**実行してみて状態が変わったものだけ**を返す。`legalCardPayment` で鋼材／チタン払いを総当たり |
+| `game-logic.js` | `placeTileAt` に `finalGreenery`。気温0°Cボーナスを `pendingChoice` へ一本化。`openOrEnqueuePendingChoice` を追加 |
+| `player-state.js` | `cloneGameState` の取りこぼし修正（`playedEvents` / `claimedMilestones` / `fundedAwards` / `scoreModifiers` / `boardMarkers` / `generationAttackLedger` / `resolvedChoices` / `turmoil` / `colonies` / `pendingChoiceQueue`）。`clonePendingChoice` を再帰コピーへ |
+| `page.tsx` | −259行。最終緑化の自前実装とTR巻き戻しを削除 |
+| `bot-player.js` | 866行の書き換え。合法手を自前生成せずエンジンに訊く形へ |
+
+> **`cloneGameState` の取りこぼしは §2.1 の一族。** 浅いコピーで
+> `pendingChoiceQueue` や `turmoil` が共有されると、
+> **片方の分岐が他方の盤面を書き換える**。例外は出ない。
+
+**未確認**: このコミットはブラウザ実機で確認されていない。
+特に最終緑化のコマンド化（`page.tsx` −259行）は経路が丸ごと変わっている。
+
+---
+
+## 付録: 2026-08-07 の再監査で直したもの
+
+公式ルールブックと突き合わせて `CONFIRMED BUG` と判定したものだけを直した。
+
+| コミット | 内容 |
+|---|---|
+| `1567100` | Preludeソロ12世代 / 植民地トラック上昇 / Party Leader同数 / 有料代表者5MC |
+| `3adfef4` | **旧与党のボーナスが支払われていた** / 与党の代表者が盤上に残っていた |
+| `4f353aa` | World Government Terraforming（Venus、Solar phase step 2）を実装 |
+| `e8e519c` | 世界的イベントの初期配置（current に3枚目を配っていた）と中立代表者の配置 |
+| `2161484` | 世界的イベント36枚の効果を実装（それまではログ1行だけ） |
+| `9c459de` | Turmoil最終得点（党首・議長）／得点内訳のカテゴリがNaNになる不具合 |
+| `663a162` | 拡張別のイベント絞り込み（31枚 vs 36枚） |
+| `a6f9bcd` | 選択の要らないイベント4枚（Election / Revolution / Cloud Societies / Sponsored Projects） |
+| `66082c4` | WGT を第1プレイヤーの選択に。Solar Phase を中断可能へ |
+| `2c924f8` | 残り4枚（Aquifer / Dry Deserts / Paradigm Breakdown / Corrosive Rain） |
+| `c469bfe` | Generous Funding / Red Influence のoff-by-one、Diversityの影響力計算とタグ集計 |
+| `e33083d` | **選択キュー**。複数プレイヤーへの順次質問。キューの秘匿漏れも修正 |
+| `e776e25` | パラメータ変更の共通経路。WGT/イベントでも閾値が発火 |
+| `a78cc15` | Arctic Algae / Aphrodite を盤面監視の効果として実装 |
+| `354a47a` | 宣言だけで未処理のspecキーをテストで落とす |
+| `df24cd8` | 選択の検証がクライアント入力ではなくエンジン側であることを固定 |
+| `be07659` | **ホットシートの席が質問の持ち主に移らない**（ブラウザで発見） |
+
+**監査で却下したもの**: `computeDominantParty` の同数処理は
+公式の "or clockwise in case of tie" と一致しており `ALREADY CORRECT`。
+Party Leader の同数処理は指摘自体は正しかったが、
+**「配列の先頭が選ばれる」という説明は不正確**で、
+配列順と現職が一致する並びでは再現しない（§2.2）。
+
+---
+
+## 付録2: それ以前のセッションで直したもの
 
 参照用。**詳細は各コミットメッセージにある。**
 

@@ -162,50 +162,19 @@ export function withLegacyPlayerAccessors(state) {
     });
   }
 
-  if (!Object.prototype.hasOwnProperty.call(state, "pendingOceans")) {
-    Object.defineProperty(state, "pendingOceans", {
-      configurable: true,
-      enumerable: false,
-      get() {
-        const choice = this.pendingChoice;
-        if (!choice || choice.kind !== "ocean-placement") return 0;
-        return choice.continuation?.remaining ?? 1;
-      },
-      set(value) {
-        const amount = Number(value) || 0;
-        if (amount <= 0) {
-          if (this.pendingChoice?.kind === "ocean-placement") this.pendingChoice = null;
-          return;
-        }
-        const ownerId = (getCurrentPlayer(this) ?? this.players[0])?.id;
-        if (this.pendingChoice?.kind === "ocean-placement") {
-          this.pendingChoice = {
-            ...this.pendingChoice,
-            continuation: { ...this.pendingChoice.continuation, remaining: amount }
-          };
-          return;
-        }
-        this.pendingChoice = {
-          id: `ocean-${ownerId}`,
-          kind: "ocean-placement",
-          ownerPlayerId: ownerId,
-          prompt: "海洋タイルを配置してください。",
-          optional: false,
-          options: [],
-          continuation: {
-            sourceKind: "card",
-            sourceId: "",
-            stage: "place-ocean",
-            consumedAction: true,
-            paid: true,
-            remaining: amount
-          }
-        };
-      }
-    });
-  }
-
   return state;
+}
+
+function cloneChoiceValue(value) {
+  if (Array.isArray(value)) return value.map(cloneChoiceValue);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, cloneChoiceValue(entry)])
+  );
+}
+
+export function clonePendingChoice(choice) {
+  return choice ? cloneChoiceValue(choice) : null;
 }
 
 export function cloneGameState(state) {
@@ -219,6 +188,7 @@ export function cloneGameState(state) {
       selectedPreludeIds: [...player.selectedPreludeIds],
       hand: [...player.hand],
       playedProjects: [...player.playedProjects],
+      playedEvents: [...(player.playedEvents ?? [])],
       cardResources: { ...player.cardResources },
       cardPlacements: { ...player.cardPlacements },
       cardDiscounts: {
@@ -234,13 +204,16 @@ export function cloneGameState(state) {
     board: Object.fromEntries(
       Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])
     ),
-    pendingChoice: state.pendingChoice
-      ? {
-          ...state.pendingChoice,
-          options: state.pendingChoice.options.map(option => ({ ...option })),
-          continuation: { ...state.pendingChoice.continuation }
-        }
-      : null
+    claimedMilestones: [...(state.claimedMilestones ?? [])],
+    fundedAwards: [...(state.fundedAwards ?? [])],
+    scoreModifiers: cloneChoiceValue(state.scoreModifiers ?? []),
+    boardMarkers: cloneChoiceValue(state.boardMarkers ?? []),
+    generationAttackLedger: cloneChoiceValue(state.generationAttackLedger ?? []),
+    resolvedChoices: cloneChoiceValue(state.resolvedChoices ?? {}),
+    turmoil: cloneChoiceValue(state.turmoil),
+    colonies: cloneChoiceValue(state.colonies),
+    pendingChoice: clonePendingChoice(state.pendingChoice),
+    pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(clonePendingChoice)
   };
   return withLegacyPlayerAccessors(clone);
 }

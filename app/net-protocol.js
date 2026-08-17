@@ -81,6 +81,23 @@ function publicPlayer(player) {
 
 // Builds the state one player is allowed to see. Their own record is complete;
 // everyone else is reduced to counts.
+// Strips a choice down to the fact that it exists. The owner sees it whole;
+// everyone else learns only that someone is being asked something, because the
+// options can name cards in a hand.
+function redactChoiceFor(choice, viewerId) {
+  if (!choice || choice.ownerPlayerId === viewerId) return choice ?? null;
+  return {
+    id: choice.id,
+    kind: choice.kind,
+    ownerPlayerId: choice.ownerPlayerId,
+    prompt: choice.prompt,
+    optional: choice.optional,
+    options: [],
+    continuation: { stage: choice.continuation?.stage ?? "" },
+    hidden: true
+  };
+}
+
 export function viewForPlayer(state, viewerId) {
   if (!state) return null;
   // A plain spread drops the non-enumerable accessors that make state.hand and
@@ -95,19 +112,13 @@ export function viewForPlayer(state, viewerId) {
     ),
     // A pending choice belonging to someone else must not leak its options,
     // which can name cards in their hand.
-    pendingChoice:
-      state.pendingChoice && state.pendingChoice.ownerPlayerId !== viewerId
-        ? {
-            id: state.pendingChoice.id,
-            kind: state.pendingChoice.kind,
-            ownerPlayerId: state.pendingChoice.ownerPlayerId,
-            prompt: state.pendingChoice.prompt,
-            optional: state.pendingChoice.optional,
-            options: [],
-            continuation: { stage: state.pendingChoice.continuation?.stage ?? "" },
-            hidden: true
-          }
-        : state.pendingChoice,
+    pendingChoice: redactChoiceFor(state.pendingChoice, viewerId),
+    // The queue behind it is just as sensitive: a global event queues one
+    // question per player, so an unfiltered queue hands every viewer the hand
+    // of everyone still waiting to answer.
+    pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(choice =>
+      redactChoiceFor(choice, viewerId)
+    ),
     // The deck order is a secret; its size is not.
     deck: undefined,
     deckCount: state.deck?.length ?? 0,

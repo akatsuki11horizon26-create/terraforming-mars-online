@@ -1,47 +1,55 @@
 import {
   ALL_CARDS,
-  getCardPlayableStatus,
-  getCardPaymentCost,
-  getCardActionStatus,
-  getMilestoneStatus,
-  getAwardStatus,
+  CORPORATIONS,
   getPlayer,
   calculateScoreBreakdowns,
-  hasPositiveVpIcon
+  countActiveTags,
+  countAdjacentOceans,
+  cloneGameState,
+  hasPositiveVpIcon,
+  DECLINE_CHOICE
 } from "./game-logic.js";
-import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
-import { executeGameCommand, COMMAND } from "./game-command.js";
+import { executeGameCommand, getLegalCommands, COMMAND } from "./game-command.js";
 
 export const BOT_DIFFICULTIES = [
   {
     id: "easy",
     name: "初級ロボット",
-    description: "手なりで動く。安い手を優先し、称号や褒賞はほとんど狙わない。",
-    // Weakness comes from picking noisily among good moves, not from being blind
-    // to terraforming: discounting globalDelta made easy games run 5-10 extra
-    // generations because nobody pushed the parameters to their caps.
+    description: "良い手の中から大まかに選び、長期得点より目先の開拓を優先する。",
     noise: 9,
-    greed: 0.9,
     minMoveValue: 0,
-    researchReserve: 6
+    researchReserve: 6,
+    researchThreshold: 0,
+    lookahead: 0,
+    topK: 4,
+    candidateRatio: 0.6,
+    weightScale: { award: 0.3, milestone: 0.5, vp: 0.6, attack: 0.3 }
   },
   {
     id: "normal",
     name: "中級ロボット",
-    description: "生産量とTRを地道に伸ばし、条件が揃えば称号も取りにくる。",
+    description: "生産量とTRを伸ばし、称号や褒賞も状況に応じて狙う。",
     noise: 5,
-    greed: 1.1,
     minMoveValue: 0.5,
-    researchReserve: 9
+    researchReserve: 9,
+    researchThreshold: 1.5,
+    lookahead: 0,
+    topK: 4,
+    candidateRatio: 1,
+    weightScale: { award: 1, milestone: 1, vp: 1, attack: 1 }
   },
   {
     id: "hard",
     name: "上級ロボット",
-    description: "終盤の得点効率まで見て動く。称号・褒賞の取り合いに積極的。",
+    description: "終盤の得点効率と次の一手まで見て行動する。",
     noise: 0,
-    greed: 1.3,
     minMoveValue: 1,
-    researchReserve: 12
+    researchReserve: 12,
+    researchThreshold: 2.5,
+    lookahead: 2,
+    topK: 4,
+    candidateRatio: 1,
+    weightScale: { award: 1.25, milestone: 1.2, vp: 1.2, attack: 1.1 }
   }
 ];
 
@@ -49,7 +57,6 @@ export function getBotDifficulty(id) {
   return BOT_DIFFICULTIES.find(entry => entry.id === id) ?? BOT_DIFFICULTIES[1];
 }
 
-// A cheap deterministic generator so a seeded game replays identically.
 export function makeBotRng(seed) {
   let state = (seed >>> 0) || 1;
   return () => {
@@ -59,6 +66,13 @@ export function makeBotRng(seed) {
     state >>>= 0;
     return state / 4294967296;
   };
+}
+
+function deterministicRng(state, botId) {
+  let seed = ((state.generation ?? 1) * 2654435761) >>> 0;
+  for (const char of String(botId)) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0;
+  seed ^= ((getPlayer(state, botId)?.actionsRemaining ?? 0) + 1) * 2246822519;
+  return makeBotRng(seed);
 }
 
 const PRODUCTION_WEIGHT = {
@@ -71,8 +85,6 @@ const PRODUCTION_WEIGHT = {
 };
 
 const STOCK_WEIGHT = {
-  // Spending MC is the point of the game: valuing a coin as highly as the thing
-  // it buys makes the bot hoard and never finish terraforming.
   mc: 0.45,
   steel: 1.6,
   titanium: 2.2,
@@ -81,359 +93,383 @@ const STOCK_WEIGHT = {
   heat: 0.9
 };
 
-// How much a bot values one more point of terraforming rating. TR is both a
-// victory point and income every generation, so it outweighs raw resources.
-function trValue(state) {
-  const remaining = Math.max(1, 14 - (state.generation ?? 1));
-  return 4 + Math.min(6, remaining * 0.4);
+const TILE_BONUS_WEIGHT = {
+  mc: 0.45,
+  steel: 1.6,
+  titanium: 2.2,
+  plant: 2,
+  plants: 2,
+  energy: 1,
+  heat: 0.9,
+  card: 2.4,
+  animal: 2,
+  microbe: 1.5
+};
+
+function phaseFactors(state) {
+  const generation = state.generation ?? 1;
+  const limit = state.mode === "solo" ? (state.preludeEnabled ? 12 : 14) : 14;
+  const left = Math.max(0, limit - generation);
+  const completed = [state.oxygen >= 14, state.temperature >= 8, state.oceans >= 9].filter(Boolean).length;
+  const endgame = Math.max(1 - Math.min(1, left / limit), completed / 3);
+  return {
+    production: Math.min(4, left * 0.5),
+    vp: 1 + endgame * 2.5,
+    tr: 4 + Math.min(6, left * 0.4),
+    stock: 0.7 + endgame * 0.6,
+    endgame
+  };
 }
 
-function scorePlayerDelta(before, after, state, greed) {
-  let score = 0;
+function safeScores(state) {
+  try {
+    return calculateScoreBreakdowns(state);
+  } catch {
+    return {};
+  }
+}
 
-  score += (after.tr - before.tr) * trValue(state);
+function tagsTotal(state, playerId) {
+  const tags = ["Building", "Space", "Science", "Power", "Earth", "Jovian", "Plant", "Microbe", "Animal", "Venus"];
+  return tags.reduce((sum, tag) => sum + countActiveTags(state, playerId, tag), 0);
+}
+
+function evaluateDelta(before, after, ctx) {
+  const beforePlayer = getPlayer(before, ctx.botId);
+  const afterPlayer = getPlayer(after, ctx.botId);
+  if (!beforePlayer || !afterPlayer) return -Infinity;
+  const { factors, difficulty } = ctx;
+  let score = (afterPlayer.tr - beforePlayer.tr) * factors.tr;
 
   for (const [field, weight] of Object.entries(PRODUCTION_WEIGHT)) {
-    const delta = (after[field] ?? 0) - (before[field] ?? 0);
-    // Production compounds, so early generations value it more than late ones.
-    const generationsLeft = Math.max(1, 14 - (state.generation ?? 1));
-    score += delta * weight * Math.min(4, generationsLeft * 0.5);
+    score += ((afterPlayer[field] ?? 0) - (beforePlayer[field] ?? 0)) * weight * factors.production;
   }
-
   for (const [field, weight] of Object.entries(STOCK_WEIGHT)) {
-    score += ((after[field] ?? 0) - (before[field] ?? 0)) * weight;
+    score += ((afterPlayer[field] ?? 0) - (beforePlayer[field] ?? 0)) * weight * factors.stock;
   }
 
-  const vpDelta = (after.playedProjects?.length ?? 0) - (before.playedProjects?.length ?? 0);
-  score += vpDelta * 0.5 * greed;
-
-  return score;
-}
-
-function globalDelta(before, after, greed) {
-  // Raising a global parameter is worth more than the TR alone when it also
-  // pushes the game toward the ending the bot is winning.
-  let score = 0;
-  // Terraforming has to outweigh pure engine-building, or two bots build
-  // production forever and the global parameters never finish.
+  score += ((afterPlayer.hand?.length ?? 0) - (beforePlayer.hand?.length ?? 0)) * 1.2;
+  score += (tagsTotal(after, ctx.botId) - tagsTotal(before, ctx.botId)) * 0.4;
+  score += ((afterPlayer.actionsRemaining ?? 0) - (beforePlayer.actionsRemaining ?? 0)) * 0.8;
   score += ((after.oxygen ?? 0) - (before.oxygen ?? 0)) * 6;
   score += ((after.temperature ?? 0) - (before.temperature ?? 0)) * 3;
   score += ((after.oceans ?? 0) - (before.oceans ?? 0)) * 9;
   score += ((after.venus ?? 0) - (before.venus ?? 0)) * 1.5;
-  return score * greed;
-}
 
-// Victory points the move actually moves, for the bot and against everyone
-// else. Counting played cards instead valued every card the same, so a card
-// scoring per animal, a cathedral and a law suit were all worth nothing.
-//
-// The scorer reads the board as it stands, so a Vermin holding nine animals
-// contributes zero here rather than the penalty it might inflict later. That
-// is deliberate: the bot values what a move is worth now, not what it could
-// become, which keeps it from hoarding a card that may never trigger.
-const VP_WEIGHT = 3;
-const INTERACTION_WEIGHT = 1.5;
+  const beforeScores = ctx.baselineScores ?? safeScores(before);
+  const afterScores = safeScores(after);
+  const ownVp = (afterScores[ctx.botId]?.total ?? 0) - (beforeScores[ctx.botId]?.total ?? 0);
+  score += ownVp * 3 * factors.vp * difficulty.weightScale.vp;
 
-function victoryDelta(before, after, botId, greed) {
-  let beforeScores;
-  let afterScores;
-  try {
-    beforeScores = calculateScoreBreakdowns(before);
-    afterScores = calculateScoreBreakdowns(after);
-  } catch {
-    return 0;
+  const opponents = (before.players ?? []).filter(player => player.id !== ctx.botId);
+  if (opponents.length > 0) {
+    let opponentVp = 0;
+    let attack = 0;
+    for (const opponent of opponents) {
+      opponentVp += (afterScores[opponent.id]?.total ?? 0) - (beforeScores[opponent.id]?.total ?? 0);
+      const afterOpponent = getPlayer(after, opponent.id);
+      if (!afterOpponent) continue;
+      for (const [field, weight] of Object.entries(PRODUCTION_WEIGHT)) {
+        attack += Math.max(0, (opponent[field] ?? 0) - (afterOpponent[field] ?? 0)) * weight * 0.8;
+      }
+      for (const [field, weight] of Object.entries(STOCK_WEIGHT)) {
+        attack += Math.max(0, (opponent[field] ?? 0) - (afterOpponent[field] ?? 0)) * weight * 0.6;
+      }
+    }
+    score -= opponentVp * 1.5 / opponents.length;
+    score += attack * difficulty.weightScale.attack;
   }
 
-  const own =
-    (afterScores[botId]?.total ?? 0) - (beforeScores[botId]?.total ?? 0);
+  const beforeColonies = Object.values(before.colonies?.tiles ?? {}).reduce(
+    (sum, tile) => sum + (tile.colonies ?? []).filter(id => id === ctx.botId).length,
+    0
+  );
+  const afterColonies = Object.values(after.colonies?.tiles ?? {}).reduce(
+    (sum, tile) => sum + (tile.colonies ?? []).filter(id => id === ctx.botId).length,
+    0
+  );
+  score += (afterColonies - beforeColonies) * 6;
 
-  const opponents = (before.players ?? []).filter(player => player.id !== botId);
-  const opponentDelta = opponents.length
-    ? opponents.reduce(
-        (sum, player) =>
-          sum +
-          ((afterScores[player.id]?.total ?? 0) - (beforeScores[player.id]?.total ?? 0)),
-        0
-      ) / opponents.length
-    : 0;
-
-  return (own * VP_WEIGHT - opponentDelta * INTERACTION_WEIGHT) * greed;
-}
-
-// Scores a candidate move by simulating it and diffing the result. Simulation
-// beats hand-written per-card rules: it stays correct as cards change.
-function scoreMove(state, botId, move, apply, difficulty, rng) {
-  const before = getPlayer(state, botId);
-  if (!before) return -Infinity;
-
-  let after;
-  try {
-    after = apply();
-  } catch {
-    return -Infinity;
-  }
-  if (!after) return -Infinity;
-
-  const afterPlayer = getPlayer(after, botId);
-  if (!afterPlayer) return -Infinity;
-
-  let score = scorePlayerDelta(before, afterPlayer, state, difficulty.greed);
-  score += globalDelta(state, after, difficulty.greed);
-  score += victoryDelta(state, after, botId, difficulty.greed);
-  score += move.bonus ?? 0;
-
-  if (difficulty.noise > 0) score += (rng() - 0.5) * difficulty.noise;
   return score;
+}
+
+function researchCardValue(card, state, botId, factors) {
+  const player = getPlayer(state, botId);
+  if (!player || !card) return -Infinity;
+  let value = hasPositiveVpIcon(card) ? 2 : 0;
+  value += (card.victoryPoints ?? 0) * 2;
+  const expectedIncome = Math.max(0, (player.mcProd ?? 0) + (player.tr ?? 20));
+  const affordability = (card.cost ?? 0) <= (player.mc ?? 0) + expectedIncome * 2 ? 1 : 0.3;
+  value *= affordability;
+  for (const tag of card.tags ?? []) value += countActiveTags(state, botId, tag) * 0.5;
+  const effect = JSON.stringify(card.effectSpec ?? {});
+  if (/Prod|production/i.test(effect)) value += factors.production;
+  return value;
+}
+
+export const BOT_STANDARD_PROJECTS = [
+  { id: "power_plant", commandId: "power-plant", name: "発電所の建設", cost: 11 },
+  { id: "asteroid", commandId: "asteroid", name: "小惑星の衝突", cost: 14 },
+  { id: "ocean", commandId: "aquifer", name: "海洋の沈降", cost: 18 },
+  { id: "greenery", commandId: "greenery", name: "緑化プロジェクト", cost: 23 },
+  { id: "city", commandId: "city", name: "都市の建設", cost: 25 },
+  { id: "convert_plants", commandId: "convert-plants", name: "植物の緑化", cost: 8 },
+  { id: "convert_heat", commandId: "convert-heat", name: "熱による加熱", cost: 8 },
+  { id: "sell_patents", commandId: "sell-patents", name: "パテントの売却", cost: 0 }
+];
+
+const PROJECT_BY_COMMAND = new Map(BOT_STANDARD_PROJECTS.map(project => [project.commandId, project]));
+
+function moveFromCommand(command) {
+  if (command.type === COMMAND.PLAY_CARD) {
+    return { kind: "play", card: ALL_CARDS.find(card => card.id === command.cardId), command };
+  }
+  if (command.type === COMMAND.USE_CARD_ACTION) {
+    return { kind: "action", card: ALL_CARDS.find(card => card.id === command.cardId), command };
+  }
+  if (command.type === COMMAND.CLAIM_MILESTONE) return { kind: "milestone", id: command.milestoneId, command };
+  if (command.type === COMMAND.FUND_AWARD) return { kind: "award", id: command.awardId, command };
+  if (command.type === COMMAND.STANDARD_PROJECT) {
+    return { kind: "standard", project: PROJECT_BY_COMMAND.get(command.projectId), command };
+  }
+  if (command.type === COMMAND.CORPORATION_ACTION) return { kind: "corporation", command };
+  if (command.type === COMMAND.BUILD_COLONY) return { kind: "colony", tileId: command.tileId, command };
+  if (command.type === COMMAND.TRADE) return { kind: "trade", tileId: command.tileId, command };
+  if (command.type === COMMAND.SEND_DELEGATE) return { kind: "delegate", partyId: command.partyId, command };
+  return null;
+}
+
+function commandFromMove(move, botId, state) {
+  if (move.command) return { ...move.command, playerId: botId };
+  if (move.kind === "play") return { type: COMMAND.PLAY_CARD, playerId: botId, cardId: move.card.id };
+  if (move.kind === "action") return { type: COMMAND.USE_CARD_ACTION, playerId: botId, cardId: move.card.id };
+  if (move.kind === "milestone") return { type: COMMAND.CLAIM_MILESTONE, playerId: botId, milestoneId: move.id };
+  if (move.kind === "award") return { type: COMMAND.FUND_AWARD, playerId: botId, awardId: move.id };
+  if (move.kind === "standard") {
+    const command = { type: COMMAND.STANDARD_PROJECT, playerId: botId, projectId: move.project.commandId };
+    if (move.project.commandId === "sell-patents") command.cardIds = move.cardIds ?? getPlayer(state, botId)?.hand?.slice(0, 1) ?? [];
+    return command;
+  }
+  if (move.kind === "corporation") return { type: COMMAND.CORPORATION_ACTION, playerId: botId };
+  if (move.kind === "colony") return { type: COMMAND.BUILD_COLONY, playerId: botId, tileId: move.tileId };
+  if (move.kind === "trade") return { type: COMMAND.TRADE, playerId: botId, tileId: move.tileId };
+  if (move.kind === "delegate") return { type: COMMAND.SEND_DELEGATE, playerId: botId, partyId: move.partyId };
+  return null;
 }
 
 export function enumerateBotMoves(state, botId) {
   const bot = getPlayer(state, botId);
   if (!bot) return [];
-  const moves = [];
-
-  for (const cardId of bot.hand ?? []) {
-    const card = ALL_CARDS.find(item => item.id === cardId);
-    if (!card) continue;
-    const status = getCardPlayableStatus(card, state, 0, 0);
-    if (!status.playable) continue;
-    const cost = getCardPaymentCost(card, state, 0, 0);
-    if ((bot.mc ?? 0) < cost) continue;
-    // victoryDelta measures what the card is actually worth once played, so
-    // this is only a nudge toward cards that score at all. Reading
-    // victoryPoints alone rated every dynamic VP card at zero.
-    const printsPoints = hasPositiveVpIcon(card);
-    moves.push({
-      kind: "play",
-      card,
-      cost,
-      bonus: (card.victoryPoints ?? 0) * 3 + (printsPoints && !card.victoryPoints ? 2 : 0)
+  let seated = state;
+  if (state.currentPlayerId !== botId) {
+    seated = cloneGameState(state);
+    seated.currentPlayerId = botId;
+  }
+  return getLegalCommands(seated, botId)
+    .filter(command => ![COMMAND.PASS, COMMAND.END_TURN].includes(command.type))
+    .map(moveFromCommand)
+    .filter(Boolean)
+    .slice(0, 80)
+    .map(move => {
+      if (move.kind === "play") {
+        return {
+          ...move,
+          cost: move.card?.cost ?? 0,
+          bonus: (move.card?.victoryPoints ?? 0) * 3 + (hasPositiveVpIcon(move.card) ? 2 : 0)
+        };
+      }
+      if (move.kind === "milestone") {
+        const claimed = state.milestones?.claimed?.length ?? state.claimedMilestones?.length ?? 0;
+        return { ...move, bonus: 15 * (1 + claimed * 0.3) };
+      }
+      if (move.kind === "award") return { ...move, bonus: 4 };
+      return move;
     });
-  }
-
-  for (const cardId of bot.playedProjects ?? []) {
-    const card = ALL_CARDS.find(item => item.id === cardId);
-    if (!card) continue;
-    if (getCardActionStatus(state, card).playable) {
-      moves.push({ kind: "action", card, bonus: 1 });
-    }
-  }
-
-  // Each map prints its own five; the bot used to chase Tharsis's on every board.
-  for (const milestone of milestonesForBoard(state.boardId)) {
-    if (getMilestoneStatus(state, milestone.id, botId).claimable) {
-      moves.push({ kind: "milestone", id: milestone.id, bonus: 5 * 3 });
-    }
-  }
-
-  for (const award of awardsForBoard(state.boardId)) {
-    if (getAwardStatus(state, award.id, botId).fundable) {
-      moves.push({ kind: "award", id: award.id, bonus: 4 });
-    }
-  }
-
-  for (const project of BOT_STANDARD_PROJECTS) {
-    if ((bot.mc ?? 0) < project.cost) continue;
-    if (!project.available(state)) continue;
-    moves.push({ kind: "standard", project, cost: project.cost });
-  }
-
-  return moves;
 }
 
-// Picks the highest scoring move, or null when passing is better. `simulate`
-// takes a move and returns the resulting state without mutating the original.
+function scoreMove(state, botId, move, simulate, ctx) {
+  let after;
+  try {
+    after = simulate(move, state);
+  } catch {
+    return { move, score: -Infinity, after: state };
+  }
+  if (!after || after === state) return { move, score: -Infinity, after: state };
+  let score = evaluateDelta(state, after, ctx) + (move.bonus ?? 0);
+  if (move.kind === "milestone") score += (move.bonus ?? 0) * (ctx.difficulty.weightScale.milestone - 1);
+  if (move.kind === "award") score += (move.bonus ?? 0) * (ctx.difficulty.weightScale.award - 1);
+  if (ctx.difficulty.noise > 0) score += (ctx.rng() - 0.5) * ctx.difficulty.noise;
+  return { move, score, after };
+}
+
 export function chooseBotMove(state, botId, simulate, difficultyId, rng) {
   const difficulty = getBotDifficulty(difficultyId);
-  const random = rng ?? Math.random;
+  const random = rng ?? deterministicRng(state, botId);
   const moves = enumerateBotMoves(state, botId);
   if (moves.length === 0) return null;
-
-  let best = null;
-  let bestScore = -Infinity;
-
-  for (const move of moves) {
-    const score = scoreMove(state, botId, move, () => simulate(move), difficulty, random);
-    if (score > bestScore) {
-      bestScore = score;
-      best = move;
-    }
-  }
-
-  // A move has to beat doing nothing. Hoarding for a better generation is a real
-  // option, so weak plays are declined rather than taken for their own sake.
-  const threshold = difficulty.minMoveValue ?? 0;
-  if (!best || bestScore < threshold) return null;
-  return best;
-}
-
-// Applies a chosen move and returns { state, logs }. Kept next to the chooser so
-// simulation and execution can never drift apart.
-export function applyBotMove(engine, state, botId, move, logs) {
-  const { cloneGameState, claimMilestone, fundAward } = engine;
-
-  // Card effects resolve against currentPlayerId, so the seat has to be the bot
-  // before anything is applied or the human is credited with the bot's card.
-  if (state.currentPlayerId !== botId) {
-    const seated = cloneGameState(state);
-    seated.currentPlayerId = botId;
-    state = seated;
-  }
-
-  // Playing and acting go through the shared command layer, so the bot pays,
-  // draws triggers and spends its action by exactly the same rules the human
-  // does. Hand-rolling them here is how the bot came to skip corporation
-  // effects and double-count its standard projects.
-  // A card that parks a choice has not spent the action yet -- the command
-  // layer spends it when the last question is answered. Claiming otherwise
-  // gave the bot a free action on every such card.
-  const spentBy = (before, after) =>
-    (getPlayer(after, botId)?.actionsRemaining ?? 0) <
-    (getPlayer(before, botId)?.actionsRemaining ?? 0);
-
-  if (move.kind === "play") {
-    const result = executeGameCommand(state, {
-      type: COMMAND.PLAY_CARD,
-      playerId: botId,
-      cardId: move.card.id
-    });
-    return {
-      state: result.state,
-      logs: result.state.logs ?? logs,
-      actionSpent: spentBy(state, result.state)
-    };
-  }
-
-  if (move.kind === "action") {
-    const result = executeGameCommand(state, {
-      type: COMMAND.USE_CARD_ACTION,
-      playerId: botId,
-      cardId: move.card.id
-    });
-    return {
-      state: result.state,
-      logs: result.state.logs ?? logs,
-      actionSpent: spentBy(state, result.state)
-    };
-  }
-
-  if (move.kind === "milestone") {
-    const result = claimMilestone(state, move.id, logs, botId);
-    return { state: result.state, logs: result.logs };
-  }
-
-  if (move.kind === "award") {
-    const result = fundAward(state, move.id, logs, botId);
-    return { state: result.state, logs: result.logs };
-  }
-
-  if (move.kind === "standard") {
-    // The same command a human's click produces, so the bot pays what they pay
-    // and raises each parameter exactly as often.
-    const result = executeGameCommand(state, {
-      type: COMMAND.STANDARD_PROJECT,
-      playerId: botId,
-      projectId: move.project.commandId
-    });
-    if (!result.ok) return { state, logs };
-    // A project that places a tile asks where; the bot takes the first legal
-    // space, which is what its own version did.
-    let settled = result.state;
-    while (settled.pendingChoice?.ownerPlayerId === botId) {
-      const answered = executeGameCommand(settled, {
-        type: COMMAND.RESOLVE_PENDING,
-        playerId: botId,
-        optionId: settled.pendingChoice.options[0]?.id
-      });
-      if (!answered.ok) break;
-      settled = answered.state;
-    }
-    return { state: settled, logs: settled.logs ?? logs, actionSpent: true };
-  }
-
-  return { state, logs };
-}
-
-// Any effect can stop on a choice the bot must answer before play continues.
-// Left unresolved, the game simply never advances.
-export function resolveBotChoices(engine, state, botId, rng, limit = 24) {
-  const { DECLINE_CHOICE } = engine;
-  let current = state;
-  const random = rng ?? Math.random;
-
-  // Answering through the command layer is what pays the corporation triggers
-  // and threshold bonuses, spends the action the play deferred, and writes the
-  // completion log. Calling resolvePendingChoice directly skipped all of it.
-  const answer = optionId => {
-    const result = executeGameCommand(current, {
-      type: COMMAND.RESOLVE_PENDING,
-      playerId: botId,
-      optionId
-    });
-    return result.state;
+  const ctx = {
+    botId,
+    difficulty,
+    factors: phaseFactors(state),
+    baselineScores: safeScores(state),
+    rng: random
   };
+  const scored = moves.map(move => scoreMove(state, botId, move, simulate, ctx)).sort((a, b) => b.score - a.score);
 
+  if (difficulty.lookahead > 0) {
+    for (const entry of scored.slice(0, difficulty.topK)) {
+      const nextMoves = enumerateBotMoves(entry.after, botId).slice(0, 20);
+      let future = 0;
+      for (const move of nextMoves) {
+        const command = commandFromMove(move, botId, entry.after);
+        if (!command) continue;
+        const result = executeGameCommand(entry.after, command);
+        if (!result.ok || result.state === entry.after) continue;
+        const settled = resolveBotChoices(
+          { DECLINE_CHOICE },
+          result.state,
+          botId,
+          random,
+          24,
+          difficultyId
+        );
+        future = Math.max(future, evaluateDelta(entry.after, settled, {
+          ...ctx,
+          factors: phaseFactors(entry.after),
+          baselineScores: safeScores(entry.after)
+        }));
+      }
+      entry.score += future * 0.45;
+    }
+    scored.sort((a, b) => b.score - a.score);
+  }
+
+  const eligibleCount = Math.max(1, Math.ceil(scored.length * difficulty.candidateRatio));
+  const eligible = scored.slice(0, eligibleCount).filter(entry => entry.score >= difficulty.minMoveValue);
+  if (eligible.length === 0) return null;
+  if (difficulty.id === "easy") return eligible[Math.floor(random() * eligible.length)].move;
+  return eligible[0].move;
+}
+
+export function applyBotMove(engine, state, botId, move, logs) {
+  let current = state;
+  if (state.currentPlayerId !== botId) {
+    current = engine.cloneGameState(state);
+    current.currentPlayerId = botId;
+  }
+  const command = commandFromMove(move, botId, current);
+  if (!command) return { state, logs, actionSpent: false };
+  const beforeActions = getPlayer(current, botId)?.actionsRemaining ?? 0;
+  const result = executeGameCommand(current, command);
+  if (!result.ok) return { state, logs, actionSpent: false };
+  const afterActions = getPlayer(result.state, botId)?.actionsRemaining ?? 0;
+  return {
+    state: result.state,
+    logs: result.state.logs ?? logs,
+    actionSpent: afterActions < beforeActions
+  };
+}
+
+function tileChoiceScore(state, botId, choice, option) {
+  const cell = state.board?.[option.targetCellKey ?? option.payload?.targetCellKey];
+  if (!cell) return 0;
+  let score = 0;
+  if (cell.bonusType === "multi" && Array.isArray(cell.bonus)) {
+    for (const bonus of cell.bonus) score += (TILE_BONUS_WEIGHT[bonus.type] ?? 1) * (bonus.amount ?? 1);
+  } else if (cell.bonusType && cell.bonusType !== "none") {
+    score += (TILE_BONUS_WEIGHT[cell.bonusType] ?? 1) * (cell.bonusAmount ?? 1);
+  }
+  score += countAdjacentOceans(cell.q, cell.r, state.board) * 2;
+  const adjacent = Object.values(state.board ?? {}).filter(other => {
+    const dq = other.q - cell.q;
+    const dr = other.r - cell.r;
+    return Math.max(Math.abs(dq), Math.abs(dr), Math.abs(dq + dr)) === 1;
+  });
+  const tileType = option.payload?.tileType ?? choice.continuation?.payload?.tileType;
+  if (tileType === "city") score += adjacent.filter(other => other.tileType === "forest").length * 1.5;
+  if (tileType === "forest") {
+    score += adjacent.filter(other => other.tileType === "city" && other.placedBy === botId).length * 1.5;
+    score -= adjacent.filter(other => other.tileType === "city" && other.placedBy && other.placedBy !== botId).length * 0.75;
+  }
+  return score;
+}
+
+export function scoreChoiceOption(state, botId, choice, option, difficultyId = "normal") {
+  const targetPlayerId = option.targetPlayerId ?? option.payload?.targetPlayerId;
+  const attackKinds = new Set(["resource-attack", "production-attack", "resource-steal", "law-suit"]);
+  if (attackKinds.has(choice.kind) && targetPlayerId === botId && !option.targetCardId && !option.payload?.targetCardId) {
+    return -Infinity;
+  }
+  if (["tile-placement", "ocean-placement", "cathedral-placement", "ocean-removal"].includes(choice.kind)) {
+    return tileChoiceScore(state, botId, choice, option);
+  }
+  if (["discard-card", "event-discard"].includes(choice.kind)) {
+    const cardId = option.cardId ?? option.payload?.cardId ?? option.id;
+    return -researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, phaseFactors(state));
+  }
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: botId,
+    optionId: option.id
+  });
+  if (!result.ok || result.state === state) return -Infinity;
+  const difficulty = getBotDifficulty(difficultyId);
+  return evaluateDelta(state, result.state, {
+    botId,
+    difficulty,
+    factors: phaseFactors(state),
+    baselineScores: safeScores(state),
+    rng: deterministicRng(state, botId)
+  });
+}
+
+export function resolveBotChoices(engine, state, botId, rng, limit = 24, difficultyId = "normal") {
+  let current = state;
+  const random = rng ?? deterministicRng(state, botId);
   for (let i = 0; i < limit; i++) {
     const choice = current.pendingChoice;
     if (!choice || choice.ownerPlayerId !== botId) break;
-
-    const options = choice.options ?? [];
+    const options = [
+      ...(choice.options ?? []),
+      ...(choice.optional ? [{ id: engine.DECLINE_CHOICE, label: "decline" }] : [])
+    ];
     if (options.length === 0) {
-      if (!choice.optional) break;
-      const declined = answer(DECLINE_CHOICE);
-      if (declined === current) break;
-      current = declined;
-      continue;
+      break;
     }
-
-    // Tile placements prefer squares that pay a bonus; everything else takes the
-    // first legal option, which the engine has already filtered to be valid.
-    let picked = options[0];
-    if (choice.kind === "tile-placement" || choice.kind === "ocean-placement") {
-      const scored = options.map(option => {
-        const cell = current.board?.[option.targetCellKey];
-        let value = 0;
-        if (cell?.bonusType && cell.bonusType !== "none") value += (cell.bonusAmount ?? 0) + 1;
-        if (cell?.bonusType === "card") value += 1;
-        return { option, value };
-      });
-      scored.sort((a, b) => b.value - a.value);
-      const top = scored.filter(entry => entry.value === scored[0].value);
-      picked = top[Math.floor(random() * top.length)].option;
-    } else if (options.length > 1) {
-      picked = options[Math.floor(random() * options.length)];
-    }
-
-    const settled = answer(picked.id);
-    if (settled === current) break;
-    current = settled;
+    const scored = options.map(option => ({
+      option,
+      score: scoreChoiceOption(current, botId, choice, option, difficultyId),
+      tie: random()
+    })).sort((a, b) => b.score - a.score || b.tie - a.tie);
+    const picked = scored[0]?.option;
+    if (!picked) break;
+    const result = executeGameCommand(current, {
+      type: COMMAND.RESOLVE_PENDING,
+      playerId: botId,
+      optionId: picked.id
+    });
+    if (!result.ok || result.state === current) break;
+    current = result.state;
   }
-
   return current;
 }
 
-// Drives one bot turn to completion: it either takes its best move and spends an
-// action, or passes. Returns the state the caller should save.
 export function runBotTurn(engine, state, botId, difficultyId, rng, logs) {
-  const { handleActionSpend, passPlayer } = engine;
+  const random = rng ?? deterministicRng(state, botId);
   const currentLogs = logs ?? state.logs;
-
-  const simulate = move =>
-    resolveBotChoices(engine, applyBotMove(engine, state, botId, move, currentLogs).state, botId, rng);
-  const move = chooseBotMove(state, botId, simulate, difficultyId, rng);
-
+  const simulate = (move, base = state) => {
+    const applied = applyBotMove(engine, base, botId, move, base.logs ?? currentLogs);
+    return resolveBotChoices(engine, applied.state, botId, random, 24, difficultyId);
+  };
+  const move = chooseBotMove(state, botId, simulate, difficultyId, random);
   if (!move) {
-    const passed = passPlayer(state, currentLogs, botId);
-    return { state: passed.state, logs: passed.logs, move: null };
+    const passed = executeGameCommand(state, { type: COMMAND.PASS, playerId: botId });
+    return { state: passed.state, logs: passed.state.logs ?? currentLogs, move: null };
   }
-
   const applied = applyBotMove(engine, state, botId, move, currentLogs);
-  const settled = resolveBotChoices(engine, applied.state, botId, rng);
-  // Moves routed through the command layer have already spent the action;
-  // spending again would give the bot half the turns it should have.
-  const spent = applied.actionSpent
-    ? settled
-    : handleActionSpend(settled, settled.logs ?? applied.logs);
-  return { state: spent, logs: spent.logs, move };
+  const settled = resolveBotChoices(engine, applied.state, botId, random, 24, difficultyId);
+  return { state: settled, logs: settled.logs ?? applied.logs, move };
 }
 
 export function describeBotMove(move) {
@@ -442,150 +478,122 @@ export function describeBotMove(move) {
   if (move.kind === "action") return `【${move.card.name}】のアクションを使用しました。`;
   if (move.kind === "milestone") return "称号を獲得しました。";
   if (move.kind === "award") return "褒賞を出資しました。";
-  return "行動しました。";
+  if (move.kind === "standard") return `標準プロジェクト【${move.project.name}】を実行しました。`;
+  if (move.kind === "colony") return "植民地を建設しました。";
+  if (move.kind === "trade") return "植民地と交易しました。";
+  if (move.kind === "delegate") return "代表者を送りました。";
+  return "企業アクションを実行しました。";
 }
 
-// The research phase offers four cards at 3 MC each. A bot buys what it can
-// afford and would plausibly play, leaving a reserve to actually play them.
 export function runBotResearch(engine, state, botId, difficultyId) {
-  const { cloneGameState } = engine;
   const difficulty = getBotDifficulty(difficultyId);
   const bot = getPlayer(state, botId);
   if (!bot || (bot.researchCards?.length ?? 0) === 0) return state;
-
-  const reserve = difficulty.researchReserve ?? 12;
-  const affordable = Math.max(0, Math.floor(((bot.mc ?? 0) - reserve) / 3));
-  const wanted = bot.researchCards.filter(cardId => {
-    const card = ALL_CARDS.find(item => item.id === cardId);
-    if (!card) return false;
-    // Skip cards it could never pay for even at full price.
-    return (card.cost ?? 0) <= (bot.mc ?? 0) + 20;
+  const factors = phaseFactors(state);
+  const corporation = CORPORATIONS.find(entry => entry.id === bot.corporationId);
+  const freeStartingCards = state.phase === "setup" && corporation?.effects?.freeStartingCards;
+  const affordable = freeStartingCards
+    ? bot.researchCards.length
+    : Math.max(0, Math.floor(((bot.mc ?? 0) - difficulty.researchReserve) / 3));
+  const ranked = bot.researchCards
+    .map(cardId => ({ cardId, value: researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, factors) }))
+    .filter(entry => entry.value >= difficulty.researchThreshold)
+    .sort((a, b) => b.value - a.value);
+  const limit = difficulty.id === "hard" && factors.endgame > 0.7 && (bot.hand?.length ?? 0) >= 5
+    ? Math.min(1, affordable)
+    : affordable;
+  const result = executeGameCommand(state, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: botId,
+    cardIds: ranked.slice(0, limit).map(entry => entry.cardId)
   });
-
-  const buying = wanted.slice(0, Math.min(affordable, wanted.length));
-  const next = cloneGameState(state);
-  next.players = next.players.map(player =>
-    player.id === botId
-      ? {
-          ...player,
-          hand: [...player.hand, ...buying],
-          mc: player.mc - buying.length * 3,
-          researchCards: []
-        }
-      : player
-  );
-  next.discardPile = [
-    ...next.discardPile,
-    ...bot.researchCards.filter(id => !buying.includes(id))
-  ];
-  return next;
+  return result.ok ? result.state : state;
 }
 
-// Standard projects live in page.tsx, so the bot needs its own path to the two
-// that reliably move the global parameters. Without these it can raise oxygen
-// from cards but never place an ocean, and the game never ends.
-export const BOT_STANDARD_PROJECTS = [
-  {
-    id: "ocean",
-    commandId: "aquifer",
-    name: "海洋の沈降",
-    cost: 18,
-    available: state => (state.oceans ?? 0) < 9,
-    apply: (engine, state, botId, logs) => {
-      const next = engine.cloneGameState(state);
-      next.currentPlayerId = botId;
-      next.mc -= 18;
-      const cells = engine.legalCellsFor(next, "ocean", botId);
-      if (cells.length === 0) return null;
-      const cell = cells[0];
-      // placeTileAt already raises the ocean count and TR; adding them here
-      // moved both twice for a single project.
-      engine.placeTileAt(next, next.board[`${cell.q},${cell.r}`] ?? cell, "ocean", botId, "standard-ocean");
-      return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【海洋の沈降】を実行しました。") };
-    }
-  },
-  {
-    id: "asteroid",
-    commandId: "asteroid",
-    name: "小惑星の衝突",
-    cost: 14,
-    available: state => (state.temperature ?? -30) < 8,
-    apply: (engine, state, botId, logs) => {
-      const next = engine.cloneGameState(state);
-      next.currentPlayerId = botId;
-      next.mc -= 14;
-      next.temperature = Math.min(8, (next.temperature ?? -30) + 2);
-      next.tr += 1;
-      return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【小惑星の衝突】を実行しました。") };
-    }
-  },
-  {
-    id: "greenery",
-    commandId: "greenery",
-    name: "緑化プロジェクト",
-    cost: 23,
-    available: state => (state.oxygen ?? 0) < 14,
-    apply: (engine, state, botId, logs) => {
-      const next = engine.cloneGameState(state);
-      next.currentPlayerId = botId;
-      next.mc -= 23;
-      const cells = engine.legalCellsFor(next, "forest", botId);
-      if (cells.length === 0) return null;
-      const cell = cells[0];
-      engine.placeTileAt(next, next.board[`${cell.q},${cell.r}`] ?? cell, "forest", botId, "standard-greenery");
-      return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【緑化プロジェクト】を実行しました。") };
-    }
-  },
-  {
-    id: "power_plant",
-    commandId: "power-plant",
-    name: "発電所の建設",
-    cost: 11,
-    available: () => true,
-    apply: (engine, state, botId, logs) => {
-      const next = engine.cloneGameState(state);
-      next.currentPlayerId = botId;
-      next.mc -= 11;
-      next.energyProd += 1;
-      return { state: next, logs: engine.addLog(logs, "cpu", "標準プロジェクト【発電所の建設】を実行しました。") };
-    }
-  }
-];
-
-// Advances a robot game to the point where it is the human's turn again, or the
-// game ends. Callers drive this after every human action.
-export function advanceRobotGame(engine, state, humanId, difficultyId, rng, maxSteps = 400) {
+export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 40) {
   let current = state;
-  let steps = 0;
-
-  while (steps++ < maxSteps) {
-    if (current.phase === "research") {
-      // Bots buy their own research; the human's offer waits for the human.
-      for (const player of current.players) {
-        if (player.id === humanId) continue;
-        current = runBotResearch(engine, current, player.id, difficultyId);
-      }
-      const humanPlayer = engine.getPlayer(current, humanId);
-      if ((humanPlayer?.researchCards?.length ?? 0) > 0) return current;
-      current = engine.cloneGameState(current);
-      current.phase = "action";
+  const random = rng ?? deterministicRng(state, botId);
+  for (let step = 0; step < maxSteps && current.phase === "setup"; step++) {
+    const bot = getPlayer(current, botId);
+    if (!bot) break;
+    let command = null;
+    if (!bot.corporationId && (bot.corporationOptions?.length ?? 0) > 0) {
+      const corporationId = bot.corporationOptions[Math.floor(random() * bot.corporationOptions.length)];
+      command = { type: COMMAND.SELECT_CORPORATION, playerId: botId, corporationId };
+    } else if ((bot.preludeOptions?.length ?? 0) >= 2 && (bot.selectedPreludeIds?.length ?? 0) === 0) {
+      command = { type: COMMAND.SELECT_PRELUDES, playerId: botId, preludeIds: bot.preludeOptions.slice(0, 2) };
+    } else if (current.draft?.queues?.[botId]?.length > 0) {
+      const cards = current.draft.queues[botId];
+      const cardId = cards.slice().sort((a, b) =>
+        researchCardValue(ALL_CARDS.find(card => card.id === b), current, botId, phaseFactors(current)) -
+        researchCardValue(ALL_CARDS.find(card => card.id === a), current, botId, phaseFactors(current))
+      )[0];
+      command = { type: COMMAND.DRAFT_PICK, playerId: botId, cardId };
+    } else if ((bot.researchCards?.length ?? 0) > 0) {
+      const next = runBotResearch(engine, current, botId, difficultyId);
+      if (next === current) break;
+      current = next;
       continue;
     }
-
-    if (current.phase !== "action") return current;
-    if (current.currentPlayerId === humanId) return current;
-    if (current.pendingChoice && current.pendingChoice.ownerPlayerId === humanId) return current;
-
-    const before = current.currentPlayerId;
-    const result = runBotTurn(engine, current, before, difficultyId, rng);
+    if (!command) break;
+    const result = executeGameCommand(current, command);
+    if (!result.ok || result.state === current) break;
     current = result.state;
-
-    // Nothing moved: bail rather than spin.
-    if (current.currentPlayerId === before && current.phase === "action" && !result.move) {
-      const stillStuck = engine.getPlayer(current, before)?.passed;
-      if (!stillStuck) return current;
-    }
   }
+  return current;
+}
 
+export function advanceRobotGame(engine, state, humanId, difficultyId, rng, maxSteps = 400) {
+  let current = state;
+  const random = rng ?? deterministicRng(state, humanId);
+  for (let step = 0; step < maxSteps; step++) {
+    const choiceOwner = current.pendingChoice?.ownerPlayerId;
+    if (choiceOwner) {
+      if (choiceOwner === humanId) return current;
+      const settled = resolveBotChoices(engine, current, choiceOwner, random, 24, difficultyId);
+      if (settled === current) return current;
+      current = settled;
+      continue;
+    }
+    if (current.phase === "setup") {
+      let moved = false;
+      for (const player of current.players) {
+        if (player.id === humanId) continue;
+        const next = runBotSetup(engine, current, player.id, difficultyId, random);
+        moved ||= next !== current;
+        current = next;
+      }
+      if (!moved || current.phase === "setup") return current;
+      continue;
+    }
+    if (current.phase === "research") {
+      let moved = false;
+      for (const player of current.players) {
+        if (player.id === humanId) continue;
+        const next = runBotResearch(engine, current, player.id, difficultyId);
+        moved ||= next !== current;
+        current = next;
+      }
+      if ((getPlayer(current, humanId)?.researchCards?.length ?? 0) > 0 || !moved) return current;
+      continue;
+    }
+    if (current.phase === "final_greenery") {
+      if (current.currentPlayerId === humanId) return current;
+      const botId = current.currentPlayerId;
+      const legal = getLegalCommands(current, botId);
+      const command = legal.find(item => item.type === COMMAND.CONVERT_FINAL_GREENERY) ??
+        legal.find(item => item.type === COMMAND.FINISH_FINAL_GREENERY);
+      if (!command) return current;
+      const result = executeGameCommand(current, command);
+      if (!result.ok || result.state === current) return current;
+      current = result.state;
+      continue;
+    }
+    if (current.phase !== "action" || current.currentPlayerId === humanId) return current;
+    const botId = current.currentPlayerId;
+    const result = runBotTurn(engine, current, botId, difficultyId, random);
+    if (result.state === current) return current;
+    current = result.state;
+  }
   return current;
 }

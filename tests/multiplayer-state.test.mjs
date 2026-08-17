@@ -83,7 +83,7 @@ test("Legacy accessors never reach serialized saves", () => {
   const state = getInitialState();
   const parsed = JSON.parse(serializeSavedState(state));
 
-  for (const field of ["mc", "tr", "hand", "steel", "playedProjects", "pendingOceans"]) {
+  for (const field of ["mc", "tr", "hand", "steel", "playedProjects"]) {
     assert.equal(
       Object.prototype.hasOwnProperty.call(parsed, field),
       false,
@@ -103,6 +103,60 @@ test("Accessors survive cloning and engine calls", () => {
   const spent = handleActionSpend(state, state.logs);
   assert.equal(spent.mc, 50, "handleActionSpend keeps the accessor surface");
   assert.equal(spent.actionsRemaining, 1);
+});
+
+test("Player-state clones do not share event or queued-choice data", () => {
+  const state = getInitialState();
+  state.players[0].playedEvents = ["event-a"];
+  state.pendingChoiceQueue = [
+    {
+      id: "queued",
+      kind: "tile-placement",
+      ownerPlayerId: "player",
+      prompt: "queued",
+      optional: false,
+      options: [{ id: "0,0", label: "0,0", targetCellKey: "0,0" }],
+      continuation: {
+        sourceKind: "card",
+        sourceId: "source",
+        stage: "tile-placement",
+        consumedAction: true,
+        paid: true,
+        payload: { tileType: "forest" },
+        afterPlay: { oxygen: 0 }
+      }
+    }
+  ];
+
+  const cloned = cloneGameState(state);
+  cloned.players[0].playedEvents.push("event-b");
+  cloned.pendingChoiceQueue[0].options[0].label = "changed";
+  cloned.pendingChoiceQueue[0].continuation.payload.tileType = "city";
+  cloned.pendingChoiceQueue[0].continuation.afterPlay.oxygen = 8;
+
+  assert.deepEqual(state.players[0].playedEvents, ["event-a"]);
+  assert.equal(state.pendingChoiceQueue[0].options[0].label, "0,0");
+  assert.equal(state.pendingChoiceQueue[0].continuation.payload.tileType, "forest");
+  assert.equal(state.pendingChoiceQueue[0].continuation.afterPlay.oxygen, 0);
+});
+
+test("Player-state clones isolate expansion and resolution state", () => {
+  const state = getInitialState();
+  state.turmoil = { parties: { greens: { delegates: ["player"] } } };
+  state.colonies = { tiles: { luna: { colonies: ["player"] } } };
+  state.generationAttackLedger = [{ attackerPlayerId: "player", detail: { amount: 1 } }];
+  state.resolvedChoices = { card: ["stage-one"] };
+
+  const cloned = cloneGameState(state);
+  cloned.turmoil.parties.greens.delegates.push("neutral");
+  cloned.colonies.tiles.luna.colonies.push("player2");
+  cloned.generationAttackLedger[0].detail.amount = 2;
+  cloned.resolvedChoices.card.push("stage-two");
+
+  assert.deepEqual(state.turmoil.parties.greens.delegates, ["player"]);
+  assert.deepEqual(state.colonies.tiles.luna.colonies, ["player"]);
+  assert.equal(state.generationAttackLedger[0].detail.amount, 1);
+  assert.deepEqual(state.resolvedChoices.card, ["stage-one"]);
 });
 
 test("Production resolves for every player and rotates the first player", () => {
@@ -140,6 +194,36 @@ test("The 14-generation limit applies to solo only", () => {
   );
 });
 
+// 『プレリュード』ルール説明書 第5刷 p.3:
+// 「１人ゲームに『プレリュード』を導入する場合、12 世代が終了するまでに、
+//  テラフォーミングを完了させてください。」
+test("A solo game with Prelude ends after 12 generations, not 14", () => {
+  const prelude = getInitialState({ prelude: true });
+  prelude.generation = 12;
+  assert.equal(
+    triggerProduction(prelude, prelude.logs).phase,
+    "final_greenery",
+    "Prelude shortens the solo game to 12 generations"
+  );
+
+  const eleventh = getInitialState({ prelude: true });
+  eleventh.generation = 11;
+  assert.equal(
+    triggerProduction(eleventh, eleventh.logs).phase,
+    "research",
+    "the twelfth generation still has to be played"
+  );
+
+  // Without Prelude the limit stays at 14.
+  const plain = getInitialState();
+  plain.generation = 12;
+  assert.equal(
+    triggerProduction(plain, plain.logs).phase,
+    "research",
+    "a solo game without Prelude runs to 14 generations"
+  );
+});
+
 test("A version 3 save is converted to a solo game rather than discarded", () => {
   const legacy = {
     rulesVersion: 3,
@@ -165,7 +249,13 @@ test("A version 3 save is converted to a solo game rather than discarded", () =>
     heat: 6,
     hand: ["h1", "h2"],
     playedProjects: ["x"],
-    board: { "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" } },
+    // A v3 save stored the whole board, empty spaces included, not just the
+    // occupied ones — the ocean debt below can only be converted into a choice
+    // if the legal spaces are actually present.
+    board: {
+      ...getInitialState({ playerCount: 1 }).board,
+      "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" }
+    },
     deck: ["d1"],
     discardPile: [],
     temperature: -10,
@@ -189,6 +279,20 @@ test("A version 3 save is converted to a solo game rather than discarded", () =>
   assert.equal(restored.pendingChoice.kind, "ocean-placement");
   assert.equal(restored.pendingChoice.continuation.remaining, 2);
   assert.equal(restored.pendingChoice.ownerPlayerId, "player");
+
+  // The UI only draws a tile choice that names its own legal spaces; a choice
+  // with no options highlights nothing, so the board offers no way to answer it
+  // and the restored game cannot be continued.
+  assert.ok(
+    restored.pendingChoice.options.length > 0,
+    "a migrated ocean choice must name the spaces that answer it"
+  );
+  for (const option of restored.pendingChoice.options) {
+    assert.ok(option.targetCellKey, "each option names a board cell");
+    const cell = restored.board[option.targetCellKey];
+    assert.ok(cell, "the named cell exists on the restored board");
+    assert.equal(cell.tileType, "empty", "an occupied cell is not a legal answer");
+  }
 });
 
 test("A version 4 save round-trips unchanged", () => {

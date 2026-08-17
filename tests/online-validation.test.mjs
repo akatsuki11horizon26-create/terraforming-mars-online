@@ -63,6 +63,7 @@ test("every action the server handles is reachable from the UI", async () => {
   const handled = new Set(
     [...room.matchAll(/case "([a-zA-Z]+)":/g)].map(match => match[1])
   );
+  for (const match of room.matchAll(/^\s+([a-zA-Z]+): COMMAND\./gm)) handled.add(match[1]);
   const sent = new Set(
     [...page.matchAll(/sendAction\("([a-zA-Z]+)"/g)].map(match => match[1])
   );
@@ -82,7 +83,9 @@ test("every action the server handles is reachable from the UI", async () => {
     "buildColony",
     "trade",
     "resolveChoice",
-    "pass"
+    "pass",
+    "convertFinalGreenery",
+    "finishFinalGreenery"
   ]) {
     assert.ok(handled.has(action), `the server must handle ${action}`);
     assert.ok(sent.has(action), `the UI must send ${action} online`);
@@ -104,7 +107,9 @@ test("the server routes shared actions through the command layer", () => {
     "pass",
     "resolveChoice",
     "chooseCorporation",
-    "choosePreludes"
+    "choosePreludes",
+    "convertFinalGreenery",
+    "finishFinalGreenery"
   ]) {
     assert.match(map, new RegExp(`${action}: COMMAND\.`), `${action} must go through the command layer`);
   }

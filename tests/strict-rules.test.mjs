@@ -188,14 +188,15 @@ test("Parameter threshold bonuses", () => {
   let state = getInitialState();
   state.temperature = -26;
   state.heatProd = 0;
-  state.pendingOceans = 0;
+  state.pendingChoice = null;
 
   // Temperature increases from -26 to -22, crossing -24
   let logs = [];
   const result = checkParameterThresholds(-26, -22, 0, 0, state, logs);
-  
+
   assert.equal(result.state.heatProd, 1); // gained +1 heat production
-  assert.equal(result.state.pendingOceans, 0);
+  // -24 pays heat production only; the free ocean is the 0°C threshold.
+  assert.equal(result.state.pendingChoice, null);
 });
 
 test("Oxygen bonus crosses temperature thresholds without recursion", () => {

@@ -211,6 +211,186 @@ export function buildTileChoice(state, tileType, context, legalCells) {
   };
 }
 
+// Solar phase step 2 (Venus Next): "The first player [...] now acts as the WG,
+// and chooses a non-maxed global parameter and increases that track one step, or
+// places an ocean tile."
+//
+// The owner is the first player, not the player whose turn it is — the marker
+// has not moved yet and the acting player may be someone else entirely, so this
+// takes the owner explicitly rather than reading state.currentPlayerId.
+export function buildWorldGovernmentChoice(state, ownerPlayerId, options) {
+  if (!options || options.length === 0) return null;
+  return {
+    id: makeChoiceId("world-government", "solar-phase", ownerPlayerId),
+    kind: "world-government",
+    ownerPlayerId,
+    prompt: "世界政府のテラフォーミング: 上昇させるパラメータを選んでください。",
+    // The step is mandatory while any parameter is unmaxed.
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: "solar-phase",
+      sourceId: "world-government",
+      stage: "world-government",
+      // Nothing about this belongs to a player's turn.
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
+// One "discard a card" question for a global event, owned by a named player
+// rather than whoever is in turn.
+//
+// The options are a snapshot of the hand when the question was queued. The
+// resolver re-checks that the answer is still in the hand, because an earlier
+// question in the same queue may already have removed it.
+export function buildEventDiscardChoice(state, ownerPlayerId, sourceId, index, total, cards) {
+  const player = (state.players ?? []).find(entry => entry.id === ownerPlayerId);
+  const hand = player?.hand ?? [];
+  if (hand.length === 0) return null;
+
+  return {
+    id: makeChoiceId(`event-discard-${index}`, sourceId, ownerPlayerId),
+    kind: "event-discard",
+    ownerPlayerId,
+    prompt:
+      total > 1
+        ? `世界的イベント: 捨てるカードを選んでください（${index + 1}/${total}）。`
+        : "世界的イベント: 捨てるカードを選んでください。",
+    optional: false,
+    options: hand.map(cardId => {
+      const card = (cards ?? []).find(item => item.id === cardId);
+      return { id: cardId, label: card?.name ?? cardId, cardId };
+    }),
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: `event-discard-${index}`,
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
+// Corrosive Rain: pay up to 10 M€, or take 2 floaters off one card. Both
+// branches are in one list — picking a card is picking the floater branch — so
+// a player with several floater cards names the one they spend.
+export function buildCorrosiveRainChoice(state, ownerPlayerId, sourceId, { floaters, mc, cards }) {
+  if (!cards || cards.length === 0) return null;
+  return {
+    id: makeChoiceId("corrosive-rain", sourceId, ownerPlayerId),
+    kind: "corrosive-rain",
+    ownerPlayerId,
+    prompt: `世界的イベント: ${mc} MC を失うか、カードからフローターを${floaters}個取り除いてください。`,
+    optional: false,
+    options: [
+      { id: "__mc__", label: `${mc} MC を失う`, payMc: true },
+      ...cards.map(card => ({
+        id: card.cardId,
+        label: `${card.label} からフローターを${floaters}個`,
+        cardId: card.cardId
+      }))
+    ],
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: "corrosive-rain",
+      consumedAction: false,
+      paid: true,
+      remaining: 1,
+      payload: { floaters, mc }
+    }
+  };
+}
+
+// "Gain 1 standard resource per influence." The reference lets the player split
+// the total freely across the six resources (SelectAmount 0..count each, summing
+// to count), so this asks one resource at a time — the same freedom, one pick
+// per point, and it fits the queue without a bespoke multi-amount widget.
+export function buildStandardResourcePickChoice(state, ownerPlayerId, sourceId, index, total) {
+  return {
+    id: makeChoiceId(`standard-resource-${index}`, sourceId, ownerPlayerId),
+    kind: "standard-resource-pick",
+    ownerPlayerId,
+    prompt:
+      total > 1
+        ? `世界的イベント: 獲得する資源を選んでください（${index + 1}/${total}）。`
+        : "世界的イベント: 獲得する資源を選んでください。",
+    optional: false,
+    options: STANDARD_RESOURCES.map(resource => ({
+      id: resource.id,
+      label: resource.label,
+      resource: resource.id
+    })),
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: `standard-resource-${index}`,
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
+// "Add a floater to a card per influence." The player names the card each time,
+// and may stack them all on one card.
+export function buildFloaterPlacementChoice(state, ownerPlayerId, sourceId, index, total, targets) {
+  if (!targets || targets.length === 0) return null;
+  return {
+    id: makeChoiceId(`floater-placement-${index}`, sourceId, ownerPlayerId),
+    kind: "floater-placement",
+    ownerPlayerId,
+    prompt:
+      total > 1
+        ? `世界的イベント: フローターを置くカードを選んでください（${index + 1}/${total}）。`
+        : "世界的イベント: フローターを置くカードを選んでください。",
+    optional: false,
+    options: targets.map(target => ({
+      id: target.cardId,
+      label: target.label,
+      cardId: target.cardId
+    })),
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: `floater-placement-${index}`,
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
+// Dry Deserts takes an ocean back off the board. The first player picks which,
+// and the squares under it revert to empty.
+export function buildOceanRemovalChoice(state, sourceId, ownerPlayerId, oceanCells) {
+  if (!oceanCells || oceanCells.length === 0) return null;
+  return {
+    id: makeChoiceId("ocean-removal", sourceId, ownerPlayerId),
+    kind: "ocean-removal",
+    ownerPlayerId,
+    prompt: "世界的イベント: 取り除く海洋タイルを選んでください。",
+    optional: false,
+    options: oceanCells.map(cell => ({
+      id: `${cell.q},${cell.r}`,
+      label: `(${cell.q}, ${cell.r})`,
+      targetCellKey: `${cell.q},${cell.r}`
+    })),
+    continuation: {
+      sourceKind: "global-event",
+      sourceId,
+      stage: "ocean-removal",
+      consumedAction: false,
+      paid: true,
+      remaining: 1
+    }
+  };
+}
+
 export function isChoiceOwnedBy(choice, playerId) {
   return Boolean(choice) && choice.ownerPlayerId === playerId;
 }

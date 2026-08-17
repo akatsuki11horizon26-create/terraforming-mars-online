@@ -43,6 +43,7 @@ next-env.d.ts
 /.wrangler/
 /outputs/
 /work/
+/tmp/
 /.dev-output.log
 /.dev-error.log
 .luna-audit.md

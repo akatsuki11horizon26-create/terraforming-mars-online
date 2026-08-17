@@ -42,7 +42,7 @@ export type GamePhase =
   | "final_greenery"
   | "game_over";
 
-export type GameMode = "solo" | "hotseat";
+export type GameMode = "solo" | "hotseat" | "robot";
 
 export interface PlayerState {
   id: PlayerId;
@@ -97,7 +97,14 @@ export interface PendingChoiceOption {
 }
 
 export interface PendingChoiceContinuation {
-  sourceKind: "card" | "prelude" | "corporation" | "standard-project" | "card-action";
+  sourceKind:
+    | "card"
+    | "prelude"
+    | "corporation"
+    | "standard-project"
+    | "card-action"
+    | "threshold"
+    | "final-greenery";
   sourceId: string;
   stage: string;
   consumedAction: boolean;

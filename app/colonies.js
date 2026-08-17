@@ -165,6 +165,16 @@ export function resetFleets(colonies) {
   return next;
 }
 
+// Solar phase step 3 (Colonies rules): fleets come home *and* every white marker
+// climbs one step. Returning the fleets alone leaves trade income frozen.
+export function advanceColonyProduction(colonies) {
+  const next = resetFleets(colonies);
+  for (const tile of Object.values(next.tiles)) {
+    tile.trackPosition = Math.min(tile.trackPosition + 1, MAX_COLONY_TRACK_POSITION);
+  }
+  return next;
+}
+
 export function countColonies(colonies, playerId) {
   return Object.values(colonies?.tiles ?? {}).reduce(
     (sum, tile) => sum + tile.colonies.filter(owner => owner === playerId).length,

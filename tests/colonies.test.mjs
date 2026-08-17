@@ -320,3 +320,33 @@ test("Turmoil and Colonies card effects reach the game state", async () => {
     "the card grants an extra trade fleet"
   );
 });
+
+// Colonies rules, Solar phase STEP 3: "Return all Trade Fleets from the Colony
+// Tiles to the Trade Fleets Tile. Move the white marker one step up the Colony
+// track on each Colony Tile."
+test("Every colony track climbs one step when the generation ends", () => {
+  let state = getInitialState({ playerCount: 2, colonies: true });
+  const before = Object.fromEntries(
+    Object.values(state.colonies.tiles).map(tile => [tile.id, tile.trackPosition])
+  );
+
+  const after = triggerProduction(state, state.logs);
+
+  for (const tile of Object.values(after.colonies.tiles)) {
+    assert.equal(
+      tile.trackPosition,
+      Math.min(before[tile.id] + 1, 6),
+      `${tile.id} advances one step up the colony track`
+    );
+  }
+});
+
+test("The colony track stops at the top of the track", () => {
+  let state = getInitialState({ playerCount: 2, colonies: true });
+  for (const tile of Object.values(state.colonies.tiles)) tile.trackPosition = 6;
+
+  const after = triggerProduction(state, state.logs);
+  for (const tile of Object.values(after.colonies.tiles)) {
+    assert.equal(tile.trackPosition, 6, "a maxed track does not overshoot");
+  }
+});
