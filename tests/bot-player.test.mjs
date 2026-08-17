@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as engine from "../app/game-logic.js";
+import { executeGameCommand } from "../app/game-command.js";
 import {
   BOT_DIFFICULTIES,
   getBotDifficulty,
@@ -49,8 +50,14 @@ test("The bot rng is deterministic for a seed", () => {
 test("A bot only considers moves it can actually afford", () => {
   const state = seatedGame();
   state.phase = "action";
+  // The corporation is drawn at random, and a discount makes cheap cards free —
+  // Thorgate takes 3 MC off power cards and Teractor 3 off Earth cards, so a
+  // list-price-1 card is playable at zero MC. Measured at 6 failures in 600
+  // draws. CrediCor discounts nothing (see HANDOVER 2.2).
+  state.currentPlayerId = "player2";
   state.players = state.players.map(p => ({
     ...p,
+    corporationId: "corp-credicor",
     mc: 0,
     steel: 0,
     titanium: 0,
@@ -59,10 +66,17 @@ test("A bot only considers moves it can actually afford", () => {
   }));
 
   const moves = enumerateBotMoves(state, "player2");
-  assert.equal(
-    moves.some(move => (move.cost ?? 0) > 0),
-    false,
-    "with no money nothing that costs money is offered"
+  // move.cost is the catalog list price, not what this player pays, so it is not
+  // the affordability test. The engine decides that: a move is offered only if
+  // executing it succeeds.
+  const unaffordable = moves.filter(move => {
+    const result = executeGameCommand(state, move.command);
+    return !result.ok;
+  });
+  assert.deepEqual(
+    unaffordable.map(move => move.command.type),
+    [],
+    "with no money every offered move still executes"
   );
 });
 

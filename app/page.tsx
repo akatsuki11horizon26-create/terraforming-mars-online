@@ -1259,7 +1259,6 @@ export default function Home() {
     ? 0
     : selectedResearchCardIds.length * 3;
 
-
   const getPhaseNameJP = (phase: string) => {
     switch (phase) {
       case "setup": return "初期セットアップ (カード選択)";
