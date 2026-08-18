@@ -456,13 +456,26 @@ function playedResourceValueBonus(state, keys) {
   return bonus;
 }
 
+// A ruling policy can reprice a resource too. Only the party's first policy is
+// ever in force (turmoil.js sets rulingPolicyId to policies[0] when a party
+// takes power), so of the six passives written down, Reds' trSurcharge and
+// Unity's titaniumValue are the two a game can actually reach. Mars First's
+// steelValue sits on policy 3 and stays unreachable until the policy can be
+// chosen; reading it here costs nothing and is right if it ever becomes so.
+function policyResourceBonus(state, passiveName) {
+  return hasPolicy(state.turmoil, passiveName)?.amount ?? 0;
+}
+
 function getSteelValue(state) {
-  return 2 + playedResourceValueBonus(state, ["steelValue"]);
+  return 2
+    + playedResourceValueBonus(state, ["steelValue"])
+    + policyResourceBonus(state, "steelValue");
 }
 
 function getTitaniumValue(state) {
   return (getCorporation(state)?.effects?.titaniumValue ?? 3)
-    + playedResourceValueBonus(state, ["titaniumValue", "titanumValue"]);
+    + playedResourceValueBonus(state, ["titaniumValue", "titanumValue"])
+    + policyResourceBonus(state, "titaniumValue");
 }
 
 // Deep-copies shared state and every player. The legacy single-player accessors are
