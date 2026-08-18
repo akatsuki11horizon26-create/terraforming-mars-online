@@ -142,3 +142,66 @@ test("Pioneer reads the live colony count", async () => {
   // milestoneContext did not pass colonyCount, so Pioneer was unclaimable.
   assert.equal(getMilestoneStatus(state, "pioneer", "player").score, 1);
 });
+
+// The board data carries these three fields and the engine read none of them.
+// A test that asserts only the data passes while the rule is entirely absent —
+// which is how "the Hellas south pole charges to place" sat green above with
+// nothing ever charging it.
+test("the Hellas south pole charges 6 M€ and pays an ocean tile", async () => {
+  const { getInitialState, getBoardCells, placeTileAt, getPlayer } =
+    await import("../app/game-logic.js");
+  const state = getInitialState({ board: "hellas", mode: "solo" });
+  const pole = getBoardCells("hellas").find(cell => cell.name === "南極");
+  const before = getPlayer(state, "player").mc;
+  const oceansBefore = state.oceans;
+
+  // It is a land space whose placement bonus is an ocean tile, so the tile laid
+  // here is an ordinary city/greenery — the ocean comes from the bonus.
+  placeTileAt(state, state.board[`${pole.q},${pole.r}`], "city", "player");
+
+  assert.equal(before - getPlayer(state, "player").mc, 6,
+    "placing on the south pole charges 6 M€");
+  assert.equal(state.oceans, oceansBefore + 1,
+    "the south pole pays an ocean tile as its placement bonus");
+});
+
+// `tile.on` is parsed into effect.tilePlacementRule and then read by nothing,
+// so every card that names where its tile may go offered the whole board.
+// Mohole Area is the sharp case: it must go ON an ocean-reserved space, but a
+// special tile is only allowed on dry land, so none of the spaces it was
+// offered were ever legal ones.
+test("a card that names where its tile goes only offers those spaces", async () => {
+  const { getInitialState, legalCellsFor } = await import("../app/game-logic.js");
+  const state = getInitialState({ board: "tharsis", mode: "solo" });
+
+  const mohole = legalCellsFor(state, "special", "player", "ocean");
+  assert.ok(mohole.length > 0, "Mohole Area must have somewhere legal to go");
+  assert.ok(mohole.every(cell => cell.isOceanOnly),
+    "Mohole Area goes on a space reserved for an ocean");
+
+  const lava = legalCellsFor(state, "special", "player", "volcanic");
+  assert.ok(lava.length > 0, "Lava Flows must have somewhere legal to go");
+  assert.ok(lava.every(cell => cell.volcanic),
+    "Lava Flows goes on a volcano");
+
+  const preserve = legalCellsFor(state, "special", "player", "isolated");
+  assert.ok(preserve.length > 0, "Natural Preserve must have somewhere legal to go");
+  assert.ok(preserve.every(cell => cell.isOceanOnly === false),
+    "Natural Preserve still needs dry land");
+});
+
+// Hellas and Utopia have no volcanic spaces, so enforcing the volcanic rule
+// there would leave Lava Flows with nowhere legal to go. The board data has
+// carried noVolcanicRestriction from the start for exactly this reason.
+test("a card needing a volcano loses that restriction on maps without one", async () => {
+  const { getInitialState, legalCellsFor, BOARDS } = await import("../app/game-logic.js");
+  for (const id of MAPS) {
+    const state = getInitialState({ board: id, mode: "solo" });
+    const legal = legalCellsFor(state, "special", "player", "volcanic");
+    assert.ok(legal.length > 0, `${id} must leave Lava Flows somewhere to go`);
+    if (!BOARDS[id].noVolcanicRestriction) {
+      assert.ok(legal.every(cell => cell.volcanic),
+        `${id} has volcanoes, so the tile belongs on one`);
+    }
+  }
+});

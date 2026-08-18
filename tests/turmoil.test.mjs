@@ -6,10 +6,12 @@ import {
   runTurmoilPhase,
   getInfluence,
   getTrSurcharge,
+  getCardPaymentCost,
   getCardPlayableStatus,
   triggerProduction,
   resolvePendingChoice,
   GLOBAL_EVENTS,
+  ALL_CARDS,
   PARTIES,
   NEUTRAL
 } from "../app/game-logic.js";
@@ -1903,4 +1905,18 @@ test("Every queued question names an owner who can answer it", () => {
   for (const player of current.players) {
     assert.equal(player.hand.length, 1, "each discarded two of their own cards");
   }
+});
+
+// Reds' TR surcharge was the only ruling policy anything read. Unity's is the
+// other one a game can actually reach — a party takes power on its first
+// policy, and only Reds and Unity have a passive there.
+test("Unity in power makes titanium worth one more", () => {
+  const state = getInitialState({ board: "tharsis", mode: "solo", turmoil: true });
+  state.players = state.players.map(player => ({ ...player, titanium: 8, mc: 80 }));
+  const space = ALL_CARDS.find(card => card.tags.includes("Space") && card.cost >= 20);
+
+  const before = getCardPaymentCost(space, state, 0, 1);
+  const unity = { ...state, turmoil: { ...state.turmoil, rulingParty: "unity", rulingPolicyId: "up01" } };
+  assert.equal(getCardPaymentCost(space, unity, 0, 1), before - 1,
+    "Unity's ruling policy raises the value of titanium");
 });

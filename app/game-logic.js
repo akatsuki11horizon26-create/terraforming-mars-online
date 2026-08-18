@@ -438,8 +438,44 @@ function getCorporationDiscount(card, corporation) {
           : 0);
 }
 
+// Advanced Alloys, Rego Plastics and Mercurian Alloys each raise what a
+// resource is worth when it pays for a card. The bonus lives on the played
+// card, so it is summed over the player's tableau rather than read off the
+// corporation. The reference implementation misspells the titanium key as
+// "titanumValue" and the generated catalogue carries the typo, so both
+// spellings count.
+function playedResourceValueBonus(state, keys) {
+  const player = getPlayer(state, state.currentPlayerId) ?? state.players?.[0];
+  const played = player?.playedProjects ?? [];
+  let bonus = 0;
+  for (const cardId of played) {
+    const behavior = ALL_CARDS.find(card => card.id === cardId)?.effectSpec?.behavior;
+    if (!behavior) continue;
+    for (const key of keys) bonus += behavior[key] ?? 0;
+  }
+  return bonus;
+}
+
+// A ruling policy can reprice a resource too. Only the party's first policy is
+// ever in force (turmoil.js sets rulingPolicyId to policies[0] when a party
+// takes power), so of the six passives written down, Reds' trSurcharge and
+// Unity's titaniumValue are the two a game can actually reach. Mars First's
+// steelValue sits on policy 3 and stays unreachable until the policy can be
+// chosen; reading it here costs nothing and is right if it ever becomes so.
+function policyResourceBonus(state, passiveName) {
+  return hasPolicy(state.turmoil, passiveName)?.amount ?? 0;
+}
+
+function getSteelValue(state) {
+  return 2
+    + playedResourceValueBonus(state, ["steelValue"])
+    + policyResourceBonus(state, "steelValue");
+}
+
 function getTitaniumValue(state) {
-  return getCorporation(state)?.effects?.titaniumValue ?? 3;
+  return (getCorporation(state)?.effects?.titaniumValue ?? 3)
+    + playedResourceValueBonus(state, ["titaniumValue", "titanumValue"])
+    + policyResourceBonus(state, "titaniumValue");
 }
 
 // Deep-copies shared state and every player. The legacy single-player accessors are
@@ -749,19 +785,22 @@ function drawCards(state, count, tag) {
   return drawn;
 }
 
-function firstLegalSpace(state, type) {
+function firstLegalSpace(state, type, placementRule) {
   return Object.values(state.board)
     .sort((a, b) => `${a.q},${a.r}`.localeCompare(`${b.q},${b.r}`))
-    .find(cell => isCellPlacementValid(cell, type, state.board));
+    .find(cell => isCellPlacementValid(cell, type, state.board, undefined, placementRule, state.boardId));
 }
 
-function placeTile(state, type, count = 1, cardId) {
+// A card whose tile has only one legal space is laid without asking. That path
+// has to respect the card's placement rule too, or the rule holds only while
+// the player is being offered a choice.
+function placeTile(state, type, count = 1, cardId, placementRule) {
   // Tiles belong to whoever is acting, not to a hardcoded "player": in a hotseat
   // game that credited every tile, and the TR for it, to the first seat.
   const ownerId = state.currentPlayerId ?? state.players?.[0]?.id ?? "player";
   let placed = 0;
   for (let i = 0; i < count; i++) {
-    const cell = firstLegalSpace(state, type);
+    const cell = firstLegalSpace(state, type, placementRule);
     if (!cell) break;
     // Delegating keeps automatic placements — preludes, corporation openings,
     // cards that place without asking — paying the same placement bonus, ocean
@@ -898,7 +937,7 @@ function applyEffect(state, effect, logs, options = {}) {
   }
   if (!skipTile && effect.tile) {
     const count = effect.tileCount ?? 1;
-    const placed = placeTile(nextState, effect.tile, count, effect.cardId);
+    const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule);
     nextLogs = addLog(nextLogs, "system", `${effect.tile}タイルを${placed}枚配置しました。`);
   }
   if (effect.draw) {
@@ -1109,7 +1148,7 @@ export function applyCardEffect(state, card, logs, options = {}) {
   const willChooseTile =
     !options.skipTile &&
     Boolean(effect.tile) &&
-    legalCellsFor(nextState, effect.tile).length > 1;
+    legalCellsFor(nextState, effect.tile, undefined, effect.tilePlacementRule).length > 1;
 
   // The victim is picked after the fact, so the decrement must not also run
   // here — otherwise the acting player is hit and then the chosen one is too.
@@ -1197,7 +1236,7 @@ function queuePendingChoices(state, card, context) {
   // Where a tile goes is the player's decision, not the first legal space.
   const effect = getCardEffect(card);
   if (effect.tile && !done.includes("tile-placement")) {
-    const legal = legalCellsFor(state, effect.tile);
+    const legal = legalCellsFor(state, effect.tile, undefined, effect.tilePlacementRule);
     if (legal.length > 1) {
       return buildTileChoice(
         state,
@@ -1840,10 +1879,10 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   };
 }
 
-export function legalCellsFor(state, tileType, playerId) {
+export function legalCellsFor(state, tileType, playerId, placementRule = null) {
   const owner = playerId ?? state.currentPlayerId;
   return Object.values(state.board).filter(cell =>
-    isCellPlacementValid(cell, tileType, state.board, owner)
+    isCellPlacementValid(cell, tileType, state.board, owner, placementRule, state.boardId)
   );
 }
 
@@ -1882,6 +1921,16 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
       );
     }
     if (!worldGovernment) {
+      // Hellas' south pole costs 6 M€ to build on and pays an ocean tile back.
+      // The board data carried placementCost from the start and nothing ever
+      // charged it, so the space was free. Affordability is checked where the
+      // space is offered; this is the payment itself.
+      if (cell.placementCost) {
+        state.players = state.players.map(p =>
+          p.id === ownerId ? { ...p, mc: Math.max(0, p.mc - cell.placementCost) } : p
+        );
+      }
+
       grantPlacementBonus(state, cell, ownerId);
 
       // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
@@ -2156,6 +2205,19 @@ function grantPlacementBonus(state, cell, ownerId) {
       : [];
 
   for (const grant of grants) {
+    // Hellas' south pole pays an ocean tile, not a resource. There is no
+    // player field for it, so the generic branch below silently dropped it —
+    // `field in player` was false and the grant vanished. The tile goes to a
+    // real ocean space, which is the player's choice; with the space already
+    // paid for, the first legal one keeps the placement automatic like every
+    // other bonus here.
+    if (grant.type === "ocean-tile") {
+      if (state.oceans < MAX_OCEANS) {
+        const target = firstLegalSpace(state, "ocean");
+        if (target) placeTileAt(state, target, "ocean", ownerId);
+      }
+      continue;
+    }
     if (grant.type === "card") {
       const drawn = drawFromDeck(state, grant.amount);
       state.players = state.players.map(player =>
@@ -2240,8 +2302,9 @@ export function getCardActionStatus(state, card) {
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
-  const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / 2)) : 0;
-  const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * 2);
+  const steelWorth = getSteelValue(state);
+  const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / steelWorth)) : 0;
+  const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * steelWorth);
   if (state.mc < mcCost) return { playable: false, reason: "MCが不足しています。" };
   if (action.tile === "ocean" && state.oceans >= 9) return { playable: false, reason: "海洋タイルが上限に達しています。" };
   if (action.revealTag && state.deck.length === 0 && state.discardPile.length === 0) {
@@ -2306,11 +2369,12 @@ export function applyCardAction(state, card, logs, branchIndex) {
   nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
   if (action.energyCost) nextState.energy -= action.energyCost;
   let steelCover = 0;
+  const actionSteelWorth = getSteelValue(nextState);
   if (action.steelCost) {
-    steelCover = Math.min(nextState.steel, Math.floor((action.mcCost ?? 0) / 2));
+    steelCover = Math.min(nextState.steel, Math.floor((action.mcCost ?? 0) / actionSteelWorth));
     nextState.steel -= steelCover;
   }
-  if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * 2);
+  if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * actionSteelWorth);
 
   let nextLogs = addLog(logs, "player", `カードアクションを実行しました: 【${card.name}】`);
   if (action.revealTag) {
@@ -3617,7 +3681,7 @@ export function getCardDiscount(card, state) {
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
   const totalDiscount = corporationDiscount + ongoingDiscount;
-  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / 2)) : 0;
+  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / getSteelValue(state))) : 0;
   const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.floor(Math.max(0, card.cost - totalDiscount) / getTitaniumValue(state))) : 0;
   return { maxSteel, maxTitanium };
 }
@@ -3626,7 +3690,7 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
-  return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
+  return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * getSteelValue(state) - titaniumUsed * getTitaniumValue(state));
 }
 
 // Law Suit may only be aimed at someone who attacked you this generation, so
@@ -4023,10 +4087,46 @@ export function getLegalOwnedAdjacentSpaces(board, playerId = "player") {
   return Array.from(adjacentKeys);
 }
 
-export function isCellPlacementValid(cell, type, board, playerId = "player") {
+// A card that names where its tile goes ("on either Tharsis Tholus...", "on a
+// space reserved for ocean") parses that into effect.tilePlacementRule. The
+// rule was stored and never read, so every such card offered the whole board —
+// and Mohole Area, which must go ON an ocean space, was offered only the dry
+// land a special tile is otherwise limited to, so it never had a legal space.
+function satisfiesPlacementRule(cell, rule, board, boardId) {
+  if (!rule) return true;
+  // "Hellas has no volcanoes and no Noctis region, so those cards lose their
+  // placement restrictions here" — the same is true of Utopia. Enforcing the
+  // volcanic rule on a board with no volcanic space would leave Lava Flows
+  // with nowhere legal to go, turning a playable card into a dead one.
+  if (rule === "volcanic" && BOARDS[boardId]?.noVolcanicRestriction) return true;
+  switch (rule) {
+    case "ocean":
+      return Boolean(cell.isOceanOnly);
+    case "land":
+      return !cell.isOceanOnly;
+    case "volcanic":
+      return Boolean(cell.volcanic);
+    case "city":
+      return hasAdjacentCity(cell.q, cell.r, board);
+    case "isolated":
+      return getAdjacentCells(cell.q, cell.r).every(pos => {
+        const neighbour = board[`${pos.q},${pos.r}`];
+        return !neighbour || neighbour.tileType === "empty";
+      });
+    case "away-from-cities":
+      return !hasAdjacentCity(cell.q, cell.r, board);
+    // New Holland upgrades an existing ocean rather than taking a bare space;
+    // that is its own placement flow, so it is not a filter over empty spaces.
+    default:
+      return true;
+  }
+}
+
+export function isCellPlacementValid(cell, type, board, playerId = "player", placementRule = null, boardId = "tharsis") {
   if (cell.tileType !== "empty") return false;
   // Noctis City's space is reserved for that card alone.
   if (cell.reservedFor && cell.reservedFor !== type) return false;
+  if (!satisfiesPlacementRule(cell, placementRule, board, boardId)) return false;
 
   if (type === "ocean") {
     // There are exactly nine ocean tiles. The counter saturated at 9 while the
@@ -4038,7 +4138,9 @@ export function isCellPlacementValid(cell, type, board, playerId = "player") {
     if (cell.isOceanOnly) return false;
     return !hasAdjacentCity(cell.q, cell.r, board);
   } else if (type === "special") {
-    // Special tiles ignore the greenery adjacency rule; they only need dry land.
+    // Special tiles ignore the greenery adjacency rule; they only need dry land
+    // — unless the card sends the tile to an ocean space, as Mohole Area does.
+    if (placementRule === "ocean") return true;
     return !cell.isOceanOnly;
   } else {
     // forest (greenery)
