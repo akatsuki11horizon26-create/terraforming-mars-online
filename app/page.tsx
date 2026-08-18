@@ -140,6 +140,12 @@ interface PlayerRecord {
   plants?: number;
   energy?: number;
   heat?: number;
+  mcProd?: number;
+  steelProd?: number;
+  titaniumProd?: number;
+  plantsProd?: number;
+  energyProd?: number;
+  heatProd?: number;
 }
 interface MilestoneDefinition {
   id: string;
@@ -656,8 +662,13 @@ export default function Home() {
   // What the last card actually did, gathered per seat so it works for the
   // opponents too. lastAction names the card; the diff supplies the numbers.
   useEffect(() => {
+    // Production is the half that was missing. This is a game about raising
+    // production, so a card like 発電所の建設 moved nothing the panel could see
+    // and reported only its own cost — which reads as the effect not firing.
     const RESOURCES: Record<string, string> = {
-      MC: "", TR: "", 建材: "", チタン: "", 植物: "", エネルギー: "", 熱: ""
+      MC: "", TR: "", 建材: "", チタン: "", 植物: "", エネルギー: "", 熱: "",
+      "MC生産": "", "建材生産": "", "チタン生産": "", "植物生産": "",
+      "電力生産": "", "熱生産": ""
     };
     const readSeat = (player: PlayerRecord): Record<string, number> => ({
       MC: player.mc ?? 0,
@@ -666,7 +677,13 @@ export default function Home() {
       チタン: player.titanium ?? 0,
       植物: player.plants ?? 0,
       エネルギー: player.energy ?? 0,
-      熱: player.heat ?? 0
+      熱: player.heat ?? 0,
+      "MC生産": player.mcProd ?? 0,
+      "建材生産": player.steelProd ?? 0,
+      "チタン生産": player.titaniumProd ?? 0,
+      "植物生産": player.plantsProd ?? 0,
+      "電力生産": player.energyProd ?? 0,
+      "熱生産": player.heatProd ?? 0
     });
     const globals: Record<string, number> = {
       気温: activeState.temperature,
