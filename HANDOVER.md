@@ -594,7 +594,8 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 | **称号／褒賞パネル** | 5+5、進捗つき（テラフォーマー 14/35）。**褒賞を設立すると 30→22 MC、次は14 MC** と正しく上がる |
 | 標準プロジェクトパネル | アクションフェーズ外では「アクションフェーズでのみ実行できます」 |
 
-**まだ未確認**: **オンライン2端末**（最重要）。これだけ残っている。
+**オンライン対戦は起動直後にクラッシュする（2026-08-19 発見・未修正）。**
+§6.7 参照。§6.1 の「未確認」はこれで解消したが、**動作しないことが判明した**。
 
 > **2026-08-18: 残り5件はブラウザで確認済み**（dev サーバー実機）。
 >
@@ -647,6 +648,56 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 差分に出ない。資源7種と生産6種を見ている。**カード上のリソース（微生物・動物・
 フローター）、植民地、議員数、特殊VP はまだ見ていない** ——
 それらだけが動くカードは、今もパネルに「コストが引かれた」以外何も出ない。
+
+### 6.7 オンライン対戦は「ゲーム開始」で落ちる（未修正）
+
+**2端末は要らない。同じブラウザの別タブで検証できる。** ただし条件がある。
+
+`playerId` は `localStorage` の `mars_frontier_identity` に保存された**1個のID**
+（`use-room.ts:27 getIdentity`）。localStorage はタブ間で共有されるので、
+**素直に2タブ開くと両方が同じ playerId を送り**、サーバーは
+`members.find(m => m.playerId === identity.playerId)`（`worker/room.ts:223`）で
+**同一人物の再接続とみなす**。結果、両タブとも「参加者 1/5・自分・部屋主」になり、
+**同じ合言葉なのに相手が見えない**。バグではなく識別子の設計。
+
+**回避手順**（これで参加者 2/5 になることを確認した）:
+
+1. タブAで部屋を作る（この時点の ID で接続が確立する）
+2. **タブBで `localStorage.setItem('mars_frontier_identity', 別の値)` してから参加する**
+   —— A は接続済みなので後から ID を書き換えても影響しない
+
+**そして「ゲーム開始」を押すと両タブが真っ白になる。**
+
+```
+TypeError: Cannot read properties of undefined (reading 'length')
+```
+
+React がツリー全体を落とすので画面が空になる。**本番（Workers）で再現、100%。**
+
+**原因の当たり**: `viewForPlayer`（`net-protocol.js`）は
+**相手の `hand` / `researchCards` / `corporationOptions` / `preludeOptions` を
+`undefined` にし**、`deck` と `discardPile` も `undefined` にする。
+ローカルで同じ view を作って確認済み:
+
+```
+view の undefined なトップレベル: [ 'deck', 'discardPile' ]
+ seat player  isSelf=false hand=undefined research=undefined corpOpts=undefined
+ seat player2 isSelf=true  hand=0        research=10         corpOpts=2
+```
+
+**どこがこれを無防備に読んでいるかは未特定。** `page.tsx` の
+`activeState.hand.length`（2082・2482行）は自分の手札なので無関係のはず。
+`game-logic.js:993` の `corporationOptions.length` と `1005` の
+`preludeOptions.length` は `turnOrder` 全員を回すので候補だが、
+`advanceSetupTurn` はサーバー側でしか呼ばれない。
+
+**次の一手**: 上の回避手順で2タブを繋ぎ、**開始前に**
+`window.addEventListener('error', ...)` を仕込んでから「ゲーム開始」を押す。
+本番はminifyされているので、`worker` をローカルで動かす
+（`wrangler dev`）ほうがスタックが読める。
+
+> **セーブ復元経由では再現できない。** `loadSavedState` が `deck` の非配列を
+> 弾いて view を丸ごと捨てるため。WebSocket から来た view を直接描かせる必要がある。
 
 ### 6.6 「配信された」を「動いている」と書かない
 
