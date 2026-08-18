@@ -189,3 +189,19 @@ test("a card that names where its tile goes only offers those spaces", async () 
   assert.ok(preserve.every(cell => cell.isOceanOnly === false),
     "Natural Preserve still needs dry land");
 });
+
+// Hellas and Utopia have no volcanic spaces, so enforcing the volcanic rule
+// there would leave Lava Flows with nowhere legal to go. The board data has
+// carried noVolcanicRestriction from the start for exactly this reason.
+test("a card needing a volcano loses that restriction on maps without one", async () => {
+  const { getInitialState, legalCellsFor, BOARDS } = await import("../app/game-logic.js");
+  for (const id of MAPS) {
+    const state = getInitialState({ board: id, mode: "solo" });
+    const legal = legalCellsFor(state, "special", "player", "volcanic");
+    assert.ok(legal.length > 0, `${id} must leave Lava Flows somewhere to go`);
+    if (!BOARDS[id].noVolcanicRestriction) {
+      assert.ok(legal.every(cell => cell.volcanic),
+        `${id} has volcanoes, so the tile belongs on one`);
+    }
+  }
+});

@@ -752,7 +752,7 @@ function drawCards(state, count, tag) {
 function firstLegalSpace(state, type, placementRule) {
   return Object.values(state.board)
     .sort((a, b) => `${a.q},${a.r}`.localeCompare(`${b.q},${b.r}`))
-    .find(cell => isCellPlacementValid(cell, type, state.board, undefined, placementRule));
+    .find(cell => isCellPlacementValid(cell, type, state.board, undefined, placementRule, state.boardId));
 }
 
 // A card whose tile has only one legal space is laid without asking. That path
@@ -1846,7 +1846,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
 export function legalCellsFor(state, tileType, playerId, placementRule = null) {
   const owner = playerId ?? state.currentPlayerId;
   return Object.values(state.board).filter(cell =>
-    isCellPlacementValid(cell, tileType, state.board, owner, placementRule)
+    isCellPlacementValid(cell, tileType, state.board, owner, placementRule, state.boardId)
   );
 }
 
@@ -4054,8 +4054,13 @@ export function getLegalOwnedAdjacentSpaces(board, playerId = "player") {
 // rule was stored and never read, so every such card offered the whole board —
 // and Mohole Area, which must go ON an ocean space, was offered only the dry
 // land a special tile is otherwise limited to, so it never had a legal space.
-function satisfiesPlacementRule(cell, rule, board) {
+function satisfiesPlacementRule(cell, rule, board, boardId) {
   if (!rule) return true;
+  // "Hellas has no volcanoes and no Noctis region, so those cards lose their
+  // placement restrictions here" — the same is true of Utopia. Enforcing the
+  // volcanic rule on a board with no volcanic space would leave Lava Flows
+  // with nowhere legal to go, turning a playable card into a dead one.
+  if (rule === "volcanic" && BOARDS[boardId]?.noVolcanicRestriction) return true;
   switch (rule) {
     case "ocean":
       return Boolean(cell.isOceanOnly);
@@ -4079,11 +4084,11 @@ function satisfiesPlacementRule(cell, rule, board) {
   }
 }
 
-export function isCellPlacementValid(cell, type, board, playerId = "player", placementRule = null) {
+export function isCellPlacementValid(cell, type, board, playerId = "player", placementRule = null, boardId = "tharsis") {
   if (cell.tileType !== "empty") return false;
   // Noctis City's space is reserved for that card alone.
   if (cell.reservedFor && cell.reservedFor !== type) return false;
-  if (!satisfiesPlacementRule(cell, placementRule, board)) return false;
+  if (!satisfiesPlacementRule(cell, placementRule, board, boardId)) return false;
 
   if (type === "ocean") {
     // There are exactly nine ocean tiles. The counter saturated at 9 while the
