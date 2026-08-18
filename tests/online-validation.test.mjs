@@ -119,3 +119,29 @@ test("the server routes shared actions through the command layer", () => {
   assert.match(dispatch, /playerId: seat/, "the authenticated seat must win");
   assert.doesNotMatch(dispatch, /playerId: payload/, "a client-supplied playerId must never be trusted");
 });
+
+// The server has its own turn guard in front of the command layer. The command
+// layer deliberately exempts the answers every seat gives at once — corporation,
+// preludes, drafting and buying research (SETUP_COMMANDS in game-command.js).
+// The server did not, so once one seat had bought its research the other could
+// never answer: the research phase never ended and no generation past the first
+// could start. Playing a full two-seat game over the socket deadlocked at
+// generation 2 every time.
+test("the server exempts the same simultaneous answers the engine does", async () => {
+  const source = await readFile(new URL("../worker/room.ts", import.meta.url), "utf8");
+
+  const simultaneous = source.match(/SIMULTANEOUS_ACTIONS = new Set\(\[([\s\S]*?)\]\)/);
+  assert.ok(simultaneous, "the server must name the actions it exempts");
+  const exempt = [...simultaneous[1].matchAll(/"([a-zA-Z]+)"/g)].map(m => m[1]);
+
+  for (const action of ["chooseCorporation", "choosePreludes", "draftPick", "buyResearch"]) {
+    assert.ok(exempt.includes(action), `${action} is answered by every seat at once`);
+  }
+
+  // And the guard has to actually consult it, or the set is decoration.
+  assert.match(
+    source,
+    /!isOwnPendingChoice && !isSimultaneous && state\.currentPlayerId !== seat/,
+    "the turn guard must let a simultaneous answer through"
+  );
+});
