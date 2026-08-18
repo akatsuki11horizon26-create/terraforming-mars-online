@@ -1090,3 +1090,22 @@ test("an open choice must be answered before the seat does anything else", () =>
   });
   assert.equal(settled.ok, true);
 });
+
+// The screen diffs the numbers to show what a move did, but a diff cannot say
+// which card moved them or whose turn it was. On a robot's turn that left the
+// player watching values change with no stated cause.
+test("playing a card records who played what", () => {
+  const { state, seat } = table();
+  const before = state.lastAction?.seq ?? 0;
+  const result = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: seat, cardId: "card-base-acquired-company"
+  });
+
+  assert.equal(result.ok, true);
+  const action = result.state.lastAction;
+  assert.equal(action.playerId, seat);
+  assert.equal(action.kind, "card");
+  assert.equal(action.cardId, "card-base-acquired-company");
+  assert.ok(action.cardName, "the card is named so the panel can print it");
+  assert.ok(action.seq > before, "the counter moves so the same play is not reported twice");
+});

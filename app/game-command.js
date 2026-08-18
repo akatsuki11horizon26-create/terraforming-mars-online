@@ -247,6 +247,13 @@ function placeOrAsk(state, command, tileType, label, source) {
 function finishProject(state, command, label, before) {
   const actor = getPlayer(state, command.playerId);
   state.logs = addLog(state.logs, "player", `標準プロジェクト【${label}】を実行しました。`, actor?.name);
+  state.lastAction = {
+    seq: (state.lastAction?.seq ?? 0) + 1,
+    playerId: command.playerId,
+    playerName: actor?.name,
+    kind: "standard",
+    cardName: label
+  };
   const settled = before
     ? checkParameterThresholds(before.temperature, state.temperature, before.oxygen, state.oxygen, state, state.logs)
     : { state, logs: state.logs };
@@ -506,6 +513,18 @@ const HANDLERS = {
         : player
     );
 
+    // Who did what, for the screen. The UI diffs the numbers to show what moved,
+    // but a diff alone cannot say which card moved them or whose turn it was —
+    // on a robot's turn the player would just see values change with no cause.
+    paid.lastAction = {
+      seq: (state.lastAction?.seq ?? 0) + 1,
+      playerId: command.playerId,
+      playerName: actor.name,
+      kind: "card",
+      cardId: card.id,
+      cardName: card.name
+    };
+
     const beforeTemp = paid.temperature;
     const beforeOxygen = paid.oxygen;
     const result = applyCardEffect(paid, card, paid.logs);
@@ -559,6 +578,15 @@ const HANDLERS = {
     }
     const status = getCardActionStatus(state, card);
     if (!status.playable) return fail(state, ERROR.ACTION_REFUSED, status.reason);
+    state = cloneGameState(state);
+    state.lastAction = {
+      seq: (state.lastAction?.seq ?? 0) + 1,
+      playerId: command.playerId,
+      playerName: actor?.name,
+      kind: "action",
+      cardId: card.id,
+      cardName: card.name
+    };
 
     const result = applyCardAction(state, card, state.logs, command.branchIndex);
     if (!result.playable) return fail(state, ERROR.ACTION_REFUSED, "その操作は実行できませんでした。");

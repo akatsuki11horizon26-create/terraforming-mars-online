@@ -264,6 +264,14 @@ interface GameState {
   // Null in solo, where the planet decides the outcome and there is no ranking.
   standings: { playerId: string; name: string; score: number; mc: number }[] | null;
   winnerPlayerIds: string[] | null;
+  lastAction?: {
+    seq: number;
+    playerId: string;
+    playerName?: string;
+    kind: string;
+    cardId?: string;
+    cardName?: string;
+  } | null;
   onboarded: boolean;
   // Canonical multiplayer state. The flat fields above remain readable through
   // the compatibility accessors installed by player-state.js.
@@ -438,6 +446,10 @@ export default function Home() {
   const [setupPrelude, setSetupPrelude] = useState(false);
   const [setupVenus, setSetupVenus] = useState(false);
   const [setupPromo, setSetupPromo] = useState(false);
+  // Drafting is a turn rule rather than an expansion, and the engine ignores it
+  // in a one-seat game, so it rides alongside the expansion flags but is only
+  // offered once there is a table.
+  const [setupDraft, setSetupDraft] = useState(false);
 
   // Swaps the placeholder for a real game and records that the deal happened.
   const setDealtState = (next: GameState) => {
@@ -540,12 +552,28 @@ export default function Home() {
   const [changeFlashes, setChangeFlashes] = useState<
     { id: number; label: string; delta: number }[]
   >([]);
+  // One card, one card. The flashes above say a number moved; this says which
+  // card moved it and — on someone else's turn — who played it. Without it a
+  // robot's turn is just numbers changing for no visible reason.
+  const [actionReport, setActionReport] = useState<{
+    id: number;
+    title: string;
+    who: string | null;
+    mine: boolean;
+    changes: { label: string; delta: number; unit: string }[];
+  } | null>(null);
   // The four global parameters, shown centre-screen with their readings.
   const [parameterCutIns, setParameterCutIns] = useState<
     { id: number; label: string; from: number; to: number; unit: string }[]
   >([]);
   const trackedRef = React.useRef<Record<string, number> | null>(null);
   const flashSeq = React.useRef(0);
+  // Every seat's numbers, so a change on the opponent's turn can be reported.
+  const tableRef = React.useRef<Record<string, Record<string, number>> | null>(null);
+  const lastSeqRef = React.useRef(0);
+  // A tile that just appeared, so the board itself shows where the move landed.
+  const [freshTiles, setFreshTiles] = useState<string[]>([]);
+  const tilesRef = React.useRef<Set<string> | null>(null);
 
   useEffect(() => {
     const me = activeState.players?.find(p => p.id === currentPlayerId);
@@ -606,6 +634,112 @@ export default function Home() {
       clearTimeout(cutInTimer);
     };
   }, [activeState, currentPlayerId]);
+
+  // Which spaces gained a tile since the last render. A panel says what a move
+  // did; this says where, which is the half a number cannot carry.
+  useEffect(() => {
+    const occupied = new Set(
+      Object.entries(activeState.board ?? {})
+        .filter(([, cell]) => cell?.tileType && cell.tileType !== "empty")
+        .map(([key]) => key)
+    );
+    const previous = tilesRef.current;
+    tilesRef.current = occupied;
+    if (!previous) return;
+    const added = [...occupied].filter(key => !previous.has(key));
+    if (added.length === 0) return;
+    setFreshTiles(added);
+    const timer = setTimeout(() => setFreshTiles([]), 2200);
+    return () => clearTimeout(timer);
+  }, [activeState]);
+
+  // What the last card actually did, gathered per seat so it works for the
+  // opponents too. lastAction names the card; the diff supplies the numbers.
+  useEffect(() => {
+    const RESOURCES: Record<string, string> = {
+      MC: "", TR: "", 建材: "", チタン: "", 植物: "", エネルギー: "", 熱: ""
+    };
+    const readSeat = (player: PlayerRecord): Record<string, number> => ({
+      MC: player.mc ?? 0,
+      TR: player.tr ?? 0,
+      建材: player.steel ?? 0,
+      チタン: player.titanium ?? 0,
+      植物: player.plants ?? 0,
+      エネルギー: player.energy ?? 0,
+      熱: player.heat ?? 0
+    });
+    const globals: Record<string, number> = {
+      気温: activeState.temperature,
+      酸素: activeState.oxygen,
+      海洋: activeState.oceans,
+      金星: activeState.venus ?? 0
+    };
+
+    const table: Record<string, Record<string, number>> = {};
+    for (const player of activeState.players ?? []) table[player.id] = readSeat(player);
+    table.__globals = globals;
+    // The generation turning over pays everyone at once. Those numbers belong to
+    // the production phase, not to whichever card happened to be played last —
+    // attributing them to it printed a card's name over someone else's income.
+    table.__phase = { generation: activeState.generation, production: activeState.phase === "production" ? 1 : 0 };
+
+    const previous = tableRef.current;
+    tableRef.current = table;
+    const generationTurned =
+      previous && previous.__phase?.generation !== table.__phase.generation;
+
+    const action = activeState.lastAction;
+    // The first pass only records the baseline. A restored save already carries
+    // a seq, so it is adopted here rather than treated as a play that just
+    // happened — otherwise the panel fires once on load with nothing to show.
+    if (!previous) {
+      lastSeqRef.current = action?.seq ?? 0;
+      return;
+    }
+    if (!action) return;
+    // Only report a play once. Re-renders of the same state must not replay it.
+    if (action.seq <= lastSeqRef.current) return;
+    if (generationTurned || activeState.phase === "production") {
+      lastSeqRef.current = action.seq;
+      return;
+    }
+
+    const actorBefore = previous[action.playerId];
+    const actorNow = table[action.playerId];
+    const changes: { label: string; delta: number; unit: string }[] = [];
+    if (actorBefore && actorNow) {
+      for (const label of Object.keys(RESOURCES)) {
+        const delta = (actorNow[label] ?? 0) - (actorBefore[label] ?? 0);
+        if (delta !== 0) changes.push({ label, delta, unit: "" });
+      }
+    }
+    for (const [label, unit] of Object.entries(GLOBAL_PARAMETERS)) {
+      const delta = globals[label] - (previous.__globals?.[label] ?? globals[label]);
+      if (delta !== 0) changes.push({ label, delta, unit });
+    }
+    // A card that only asks a question moves nothing yet; the report follows
+    // once the choice is answered and the numbers actually move. The seq is not
+    // consumed until then, or that later movement would be skipped as stale.
+    if (changes.length === 0) return;
+    lastSeqRef.current = action.seq;
+
+    const mine = action.playerId === currentPlayerId;
+    setActionReport({
+      id: ++flashSeq.current,
+      title: action.cardName ?? "アクション",
+      who: mine ? null : action.playerName ?? null,
+      mine,
+      changes
+    });
+  }, [activeState, currentPlayerId]);
+
+  // The report lingers a beat longer than a resource flash: it is meant to be
+  // read, and on an opponent's turn it is the only thing that explains the move.
+  useEffect(() => {
+    if (!actionReport) return;
+    const timer = setTimeout(() => setActionReport(null), 2600);
+    return () => clearTimeout(timer);
+  }, [actionReport]);
 
   // In a robot game every non-human seat is driven here. The delay is deliberate:
   // instant opponent turns read as nothing having happened.
@@ -903,6 +1037,7 @@ export default function Home() {
     prelude?: boolean;
     venus?: boolean;
     promo?: boolean;
+    draft?: boolean;
     mode?: "solo" | "hotseat" | "robot";
     botDifficulty?: string;
     board?: string;
@@ -1294,6 +1429,7 @@ export default function Home() {
       playerNames: names,
       mode: "robot",
       botDifficulty: robotDifficulty,
+      draft: setupDraft,
       ...chosenExpansions()
     });
     setShowRobotSetup(false);
@@ -1319,6 +1455,7 @@ export default function Home() {
         .slice(0, setupPlayerCount)
         .map(name => name.trim())
         .map((name, index) => name || `プレイヤー${index + 1}`),
+      draft: setupDraft,
       ...chosenExpansions()
     });
   };
@@ -1362,6 +1499,8 @@ export default function Home() {
     onVenus: setSetupVenus,
     promo: setupPromo,
     onPromo: setSetupPromo,
+    draft: setupDraft,
+    onDraft: setSetupDraft,
     onCancel: () => setShowGameSetup(false),
     onStart: startFromSetup
   };
@@ -1555,6 +1694,7 @@ export default function Home() {
                 const top = SPHERE_RADIUS + HEX_STEP_Y * (cell.r - BOARD_CENTRE.r) - HEX_HEIGHT / 2;
 
                 let classes = "hex-cell ";
+                if (freshTiles.includes(`${cell.q},${cell.r}`)) classes += "hex-just-placed ";
                 let content = "";
                 let label = "";
 
@@ -1818,6 +1958,34 @@ export default function Home() {
               {flash.label} {flash.delta > 0 ? "+" : ""}{flash.delta}
             </div>
           ))}
+        </div>
+      )}
+
+      {actionReport && (
+        <div
+          className="action-report"
+          data-mine={actionReport.mine ? "yes" : "no"}
+          aria-live="polite"
+          key={actionReport.id}
+        >
+          {actionReport.who && <div className="action-report-who">{actionReport.who}</div>}
+          <div className="action-report-title">{actionReport.title}</div>
+          <div className="action-report-changes">
+            {actionReport.changes.map(change => (
+              <span
+                key={change.label}
+                className="action-report-delta"
+                data-sign={change.delta > 0 ? "up" : "down"}
+              >
+                <span className="action-report-delta-label">{change.label}</span>
+                <span className="action-report-delta-value">
+                  {change.delta > 0 ? "+" : "−"}
+                  {Math.abs(change.delta)}
+                  {change.unit}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       )}
 
