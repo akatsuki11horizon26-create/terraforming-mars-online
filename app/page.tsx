@@ -723,7 +723,15 @@ export default function Home() {
     if (changes.length === 0) return;
     lastSeqRef.current = action.seq;
 
-    const mine = action.playerId === currentPlayerId;
+    // "Mine" is a seat, not a turn. currentPlayerId is whoever holds the turn
+    // now, and by the time a play resolves the turn has often already moved on —
+    // which labelled the player's own card as an opponent's and gave it the
+    // longer, opponent-length stay. Online it is the viewer's seat; offline the
+    // human is always "player". In hotseat every seat is this person, so nothing
+    // is ever someone else's move.
+    const mine = isOnline
+      ? action.playerId === seatId
+      : activeState.mode === "hotseat" || action.playerId === HUMAN_ID;
     setActionReport({
       id: ++flashSeq.current,
       title: action.cardName ?? "アクション",
@@ -731,13 +739,18 @@ export default function Home() {
       mine,
       changes
     });
-  }, [activeState, currentPlayerId]);
+  }, [activeState, currentPlayerId, isOnline, seatId]);
 
-  // The report lingers a beat longer than a resource flash: it is meant to be
-  // read, and on an opponent's turn it is the only thing that explains the move.
+  // Your own move needs no explaining — you chose it — so it clears quickly and
+  // gets out of the way of the board. Someone else's is the only thing that says
+  // what just happened, so it stays long enough to read. Both durations let the
+  // blink finish; cutting a panel mid-blink reads as a glitch.
   useEffect(() => {
     if (!actionReport) return;
-    const timer = setTimeout(() => setActionReport(null), 2600);
+    const timer = setTimeout(
+      () => setActionReport(null),
+      actionReport.mine ? 1300 : 2600
+    );
     return () => clearTimeout(timer);
   }, [actionReport]);
 
