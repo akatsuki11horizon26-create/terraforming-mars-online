@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CLIENT_MESSAGES, SERVER_MESSAGES, decode, encode } from "./net-protocol.js";
+import { CLIENT_MESSAGES, SERVER_MESSAGES, decode, encode, hydrateView } from "./net-protocol.js";
 
 export interface RoomMember {
   playerId: string;
@@ -90,7 +90,10 @@ export function useRoom() {
       const message = decode(String(event.data)) as Record<string, unknown> | null;
       if (!message) return;
       if (message.type === SERVER_MESSAGES.ROOM) setRoom(message.room as RoomSummary);
-      else if (message.type === SERVER_MESSAGES.VIEW) setView(message.view as Record<string, unknown>);
+      // JSON leaves the non-enumerable accessors behind, so the view has to be
+      // rebuilt here or every state.hand / state.mc read comes back undefined.
+      else if (message.type === SERVER_MESSAGES.VIEW)
+        setView(hydrateView(message.view) as Record<string, unknown>);
       else if (message.type === SERVER_MESSAGES.ERROR) setError(String(message.reason));
     });
 

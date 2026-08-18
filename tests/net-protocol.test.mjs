@@ -9,7 +9,8 @@ import {
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
   encode,
-  decode
+  decode,
+  hydrateView
 } from "../app/net-protocol.js";
 
 function makeGame() {
@@ -182,4 +183,20 @@ test("a game with no winner list keeps the engine's result", () => {
   state.gameResult = "win";
   state.winnerPlayerIds = null;
   assert.equal(viewForPlayer(state, "player").gameResult, "win", "solo and old saves pass through");
+});
+
+// The accessors that make state.hand / state.mc read the seated player are
+// non-enumerable, which is what keeps them out of saved games — and out of
+// JSON.stringify. A view therefore arrives at the client with every one of
+// them missing, so page.tsx reading activeState.hand.length threw
+// "Cannot read properties of undefined" and React blanked the whole screen
+// the moment an online game started.
+test("a view still answers state.hand after crossing the wire", () => {
+  const state = getInitialState({ playerCount: 2, playerNames: ["A", "B"], board: "tharsis" });
+  const seat = state.players[1].id;
+  const overWire = hydrateView(decode(encode({ type: "view", view: viewForPlayer(state, seat) })).view);
+
+  assert.ok(Array.isArray(overWire.hand), "state.hand must survive the round trip");
+  assert.equal(typeof overWire.mc, "number", "state.mc must survive the round trip");
+  assert.equal(overWire.mc, state.players[1].mc, "and it must read the viewer's own seat");
 });
