@@ -98,6 +98,16 @@ function redactChoiceFor(choice, viewerId) {
   };
 }
 
+// The other half of viewForPlayer. Those accessors are non-enumerable, which
+// is exactly why JSON.stringify leaves them behind — so the view the server
+// carefully built arrives at the client with state.hand, state.mc and the rest
+// all undefined. Every online game blanked the screen on its first render for
+// want of this call.
+export function hydrateView(view) {
+  if (!view || typeof view !== "object" || !Array.isArray(view.players)) return view;
+  return withLegacyPlayerAccessors(view);
+}
+
 export function viewForPlayer(state, viewerId) {
   if (!state) return null;
   // A plain spread drops the non-enumerable accessors that make state.hand and

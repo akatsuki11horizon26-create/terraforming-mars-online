@@ -1,6 +1,6 @@
 # 引き継ぎ書
 
-最終更新: 2026-08-18 / ブランチ `main` / テスト432件
+最終更新: 2026-08-19 / ブランチ `main` / テスト433件
 
 **PR #1〜#5 すべてマージ済み。両方の公開先に反映を確認した。**
 **2026-08-18: PR #6 マージ済み・両公開先に反映確認。未確認はオンライン2端末のみ。**
@@ -594,8 +594,8 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 | **称号／褒賞パネル** | 5+5、進捗つき（テラフォーマー 14/35）。**褒賞を設立すると 30→22 MC、次は14 MC** と正しく上がる |
 | 標準プロジェクトパネル | アクションフェーズ外では「アクションフェーズでのみ実行できます」 |
 
-**オンライン対戦は起動直後にクラッシュする（2026-08-19 発見・未修正）。**
-§6.7 参照。§6.1 の「未確認」はこれで解消したが、**動作しないことが判明した**。
+**オンライン対戦は動く（2026-08-19 修正）。** §6.7 参照。
+§6.1 の「オンライン2端末が未確認」は、**2タブで検証して解消した**。
 
 > **2026-08-18: 残り5件はブラウザで確認済み**（dev サーバー実機）。
 >
@@ -649,7 +649,7 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 フローター）、植民地、議員数、特殊VP はまだ見ていない** ——
 それらだけが動くカードは、今もパネルに「コストが引かれた」以外何も出ない。
 
-### 6.7 オンライン対戦は「ゲーム開始」で落ちる（未修正）
+### 6.7 オンライン対戦は2タブで検証する（クラッシュは修正済み）
 
 **2端末は要らない。同じブラウザの別タブで検証できる。** ただし条件がある。
 
@@ -666,38 +666,38 @@ Dry Deserts（海洋除去→資源2回）を実際にクリックして通し�
 2. **タブBで `localStorage.setItem('mars_frontier_identity', 別の値)` してから参加する**
    —— A は接続済みなので後から ID を書き換えても影響しない
 
-**そして「ゲーム開始」を押すと両タブが真っ白になる。**
+#### かつて「ゲーム開始」で両タブが真っ白になった（修正済み）
 
 ```
 TypeError: Cannot read properties of undefined (reading 'length')
 ```
 
-React がツリー全体を落とすので画面が空になる。**本番（Workers）で再現、100%。**
+**原因は JSON 化で非列挙アクセサが消えること。**
+`state.hand` / `state.mc` などは `players[currentPlayerId]` を読む
+**非列挙**アクセサ（`player-state.js`）。非列挙にしてあるのは
+セーブに古い値の写しを残さないためだが、**`JSON.stringify` も同じ理由で落とす**。
 
-**原因の当たり**: `viewForPlayer`（`net-protocol.js`）は
-**相手の `hand` / `researchCards` / `corporationOptions` / `preludeOptions` を
-`undefined` にし**、`deck` と `discardPile` も `undefined` にする。
-ローカルで同じ view を作って確認済み:
+サーバーは `viewForPlayer` で丁寧にアクセサを付けて返すのに、
+WebSocket を通った時点で全部消える。クライアント（`use-room.ts:93`）は
+それをそのまま `setView` していたので、`page.tsx:2082` の
+`activeState.hand.length` が `undefined.length` になって React がツリーごと落ちた。
 
-```
-view の undefined なトップレベル: [ 'deck', 'discardPile' ]
- seat player  isSelf=false hand=undefined research=undefined corpOpts=undefined
- seat player2 isSelf=true  hand=0        research=10         corpOpts=2
-```
+**修正**: `net-protocol.js` に `hydrateView()` を足し、
+受信直後に `withLegacyPlayerAccessors` を掛け直す。
 
-**どこがこれを無防備に読んでいるかは未特定。** `page.tsx` の
-`activeState.hand.length`（2082・2482行）は自分の手札なので無関係のはず。
-`game-logic.js:993` の `corporationOptions.length` と `1005` の
-`preludeOptions.length` は `turnOrder` 全員を回すので候補だが、
-`advanceSetupTurn` はサーバー側でしか呼ばれない。
+> **`viewForPlayer` は「作る側」だけの関数だった。** ワイヤーの向こうで
+> 元に戻す相棒が無かった。**送る側で加工したものは、受け取る側で戻す必要がある**
+> —— テスト（`net-protocol.test.mjs`）は `viewForPlayer` の戻り値を
+> **直接**検査していたので、JSON を通していなかった。だから14件全部緑のまま
+> オンラインは一度も成立していなかった。
+> 現在は `encode`/`decode` を通した往復を検査するテストがある。
 
-**次の一手**: 上の回避手順で2タブを繋ぎ、**開始前に**
-`window.addEventListener('error', ...)` を仕込んでから「ゲーム開始」を押す。
-本番はminifyされているので、`worker` をローカルで動かす
-（`wrangler dev`）ほうがスタックが読める。
+**再現できなかった経路**: セーブ復元は使えない。`loadSavedState` が
+`deck` の非配列を弾いて view を丸ごと捨てる。WebSocket 経由でしか再現しない。
 
-> **セーブ復元経由では再現できない。** `loadSavedState` が `deck` の非配列を
-> 弾いて view を丸ごと捨てるため。WebSocket から来た view を直接描かせる必要がある。
+**ローカル検証は `npm run dev` でよい。** `vinext dev` は Durable Object 込みで
+動く（`/api/room/XXXXX/ws` が 426 を返せば生きている）。本番はminifyされていて
+スタックが読めないので、**必ずローカルで再現させてから直すこと。**
 
 ### 6.6 「配信された」を「動いている」と書かない
 
