@@ -2586,6 +2586,7 @@ export function getPlaceholderState() {
     isGameOver: false,
     gameResult: null,
     standings: null,
+    lastAction: null,
     winnerPlayerIds: null,
     onboarded: false
   });
@@ -2750,6 +2751,7 @@ export function getInitialState(options = {}) {
     isGameOver: false,
     gameResult: null,
     standings: null,
+    lastAction: null,
     winnerPlayerIds: null,
     onboarded: false
   });

@@ -1416,3 +1416,120 @@ div[tabindex="0"]:focus-visible {
   gap: 6px;
   flex-wrap: wrap;
 }
+
+/* One card, one panel: the card's name and every number it moved. On an
+   opponent's turn this is the only thing that says what happened, so it sits
+   centre-stage rather than in the corner with the resource ticks. */
+.action-report {
+  position: fixed;
+  left: 50%;
+  top: 30%;
+  transform: translateX(-50%);
+  z-index: 75;
+  min-width: 210px;
+  max-width: min(92vw, 420px);
+  padding: 12px 20px 14px;
+  text-align: center;
+  pointer-events: none;
+  background-color: color-mix(in srgb, var(--surface-1) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-cyan) 45%, transparent);
+  border-top-width: 3px;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+  animation: action-report-in 2.6s ease-out forwards;
+}
+
+/* Someone else's move is tinted so it is never mistaken for your own. */
+.action-report[data-mine="no"] {
+  border-color: color-mix(in srgb, var(--accent-ember) 45%, transparent);
+}
+
+.action-report-who {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--accent-ember);
+  margin-bottom: 2px;
+}
+
+.action-report-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-hi);
+  margin-bottom: 8px;
+}
+
+.action-report-changes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  justify-content: center;
+}
+
+.action-report-delta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.action-report-delta-label {
+  font-size: 0.72rem;
+  color: var(--text-lo, #c9bfae);
+}
+
+/* The number is the point, so it is the loud part: sized up, coloured by
+   direction, and blinking twice before it settles. */
+.action-report-delta-value {
+  font-size: 1.15rem;
+  font-weight: 800;
+  animation: action-delta-blink 0.9s ease-in-out 2;
+}
+
+.action-report-delta[data-sign="up"] .action-report-delta-value {
+  color: var(--accent-green);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent-green) 55%, transparent);
+}
+
+.action-report-delta[data-sign="down"] .action-report-delta-value {
+  color: var(--accent-ember);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--accent-ember) 55%, transparent);
+}
+
+@keyframes action-delta-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@keyframes action-report-in {
+  0% { opacity: 0; transform: translateX(-50%) translateY(12px) scale(0.96); }
+  8% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  85% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .action-report { animation-duration: 1ms; }
+  /* Keep the colour, drop the flashing: blinking text is the part that hurts.
+     animation-name must be cleared explicitly — a shorthand reset here loses to
+     the earlier shorthand in some engines and the text kept blinking. */
+  .action-report-delta-value {
+    animation-name: none;
+    animation-iteration-count: 1;
+  }
+}
+
+/* Where the last tile landed. Fades on its own so the board does not stay lit. */
+.hex-cell.hex-just-placed {
+  animation: hex-just-placed 2.2s ease-out forwards;
+  z-index: 5;
+}
+
+@keyframes hex-just-placed {
+  0%, 60% {
+    box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 16px 4px color-mix(in srgb, var(--accent-cyan) 60%, transparent);
+  }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hex-cell.hex-just-placed { animation-duration: 1ms; }
+}

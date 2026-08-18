@@ -107,6 +107,8 @@ export function GameSetupPanel({
   onVenus,
   promo,
   onPromo,
+  draft,
+  onDraft,
   onCancel,
   onStart
 }: {
@@ -129,6 +131,8 @@ export function GameSetupPanel({
   onVenus: (on: boolean) => void;
   promo: boolean;
   onPromo: (on: boolean) => void;
+  draft: boolean;
+  onDraft: (on: boolean) => void;
   onCancel: () => void;
   onStart: () => void;
 }) {
@@ -252,6 +256,26 @@ export function GameSetupPanel({
                   />
                 ))}
               </div>
+            </div>
+          )}
+
+          {(intent === "robot" || playerCount > 1) && (
+            <div>
+              <div className="section-title">
+                <span>カードの配り方</span>
+                <span className="section-note">
+                  {intent === "robot" ? "ロボットも一緒に回す" : "2人以上でのみ選べる"}
+                </span>
+              </div>
+              <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+                <input type="checkbox" checked={draft} onChange={event => onDraft(event.target.checked)} />
+                <span>
+                  <strong style={{ fontSize: "0.8rem" }}>ドラフト制</strong>
+                  <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                    研究フェイズに4枚受け取り、1枚選んで残りを隣へ回す。世代ごとに回す向きが反転する。
+                  </div>
+                </span>
+              </label>
             </div>
           )}
 

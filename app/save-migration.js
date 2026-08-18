@@ -101,6 +101,9 @@ function migrateV3(parsed) {
     // screen falls back to gameResult when standings is null.
     standings: Array.isArray(parsed.standings) ? parsed.standings : null,
     winnerPlayerIds: Array.isArray(parsed.winnerPlayerIds) ? parsed.winnerPlayerIds : null,
+    // Only drives the on-screen effect, so a save without it simply shows nothing
+    // until the next card is played.
+    lastAction: isPlainObject(parsed.lastAction) ? parsed.lastAction : null,
     onboarded: Boolean(parsed.onboarded)
   };
 }
