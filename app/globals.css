@@ -1484,6 +1484,20 @@ div[tabindex="0"]:focus-visible {
   animation: action-delta-blink 0.9s ease-in-out 2;
 }
 
+/* Your own move clears in 1.3s to keep the board visible, so its blink is one
+   shorter pass — two full cycles would still be running when the panel goes,
+   and a blink cut mid-stride reads as a glitch rather than an effect. */
+.action-report[data-mine="yes"] .action-report-delta-value {
+  animation: action-delta-blink 0.6s ease-in-out 2;
+}
+
+/* The container's own fade has to match the shorter life too. Left at 2.6s the
+   panel stayed fully opaque for its whole 1.3s and then vanished on the state
+   change, with no fade at all. */
+.action-report[data-mine="yes"] {
+  animation-duration: 1.3s;
+}
+
 .action-report-delta[data-sign="up"] .action-report-delta-value {
   color: var(--accent-green);
   text-shadow: 0 0 10px color-mix(in srgb, var(--accent-green) 55%, transparent);
