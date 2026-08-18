@@ -303,10 +303,17 @@ export class GameRoom {
     const isOwnPendingChoice =
       action === "resolveChoice" &&
       (state.pendingChoice as { ownerPlayerId?: string } | null)?.ownerPlayerId === seat;
-    if (!isOwnPendingChoice && state.currentPlayerId !== seat) {
+    // Corporations, preludes, drafting and buying research are answered by
+    // every seat at once — the command layer exempts them for that reason
+    // (SETUP_COMMANDS in game-command.js). Demanding the turn here as well
+    // deadlocked the game: once one seat had bought, the other could never
+    // answer, so the research phase never ended and no generation after the
+    // first could start.
+    const isSimultaneous = GameRoom.SIMULTANEOUS_ACTIONS.has(action);
+    if (!isOwnPendingChoice && !isSimultaneous && state.currentPlayerId !== seat) {
       return this.fail(socket, "あなたの手番ではありません。");
     }
-    if (state.pendingChoice && !isOwnPendingChoice) {
+    if (state.pendingChoice && !isOwnPendingChoice && !isSimultaneous) {
       return this.fail(socket, "先に選択を解決してください。");
     }
     // A pass is final for the generation, whatever the client sends.
@@ -331,6 +338,16 @@ export class GameRoom {
   // stops the server, the offline UI and the bot each enforcing their own
   // version of a rule: the seat check, the possession check and spending an
   // action now happen in exactly one place.
+  // Answered by every seat at once, so they are not gated on whose turn it is.
+  // Mirrors SETUP_COMMANDS in game-command.js, which is where the real rule
+  // lives; the engine still refuses a seat that has nothing to answer.
+  private static readonly SIMULTANEOUS_ACTIONS = new Set([
+    "chooseCorporation",
+    "choosePreludes",
+    "draftPick",
+    "buyResearch"
+  ]);
+
   private static readonly COMMAND_MAP: Record<string, string> = {
     playCard: COMMAND.PLAY_CARD,
     cardAction: COMMAND.USE_CARD_ACTION,
