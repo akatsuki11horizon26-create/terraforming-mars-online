@@ -438,8 +438,31 @@ function getCorporationDiscount(card, corporation) {
           : 0);
 }
 
+// Advanced Alloys, Rego Plastics and Mercurian Alloys each raise what a
+// resource is worth when it pays for a card. The bonus lives on the played
+// card, so it is summed over the player's tableau rather than read off the
+// corporation. The reference implementation misspells the titanium key as
+// "titanumValue" and the generated catalogue carries the typo, so both
+// spellings count.
+function playedResourceValueBonus(state, keys) {
+  const player = getPlayer(state, state.currentPlayerId) ?? state.players?.[0];
+  const played = player?.playedProjects ?? [];
+  let bonus = 0;
+  for (const cardId of played) {
+    const behavior = ALL_CARDS.find(card => card.id === cardId)?.effectSpec?.behavior;
+    if (!behavior) continue;
+    for (const key of keys) bonus += behavior[key] ?? 0;
+  }
+  return bonus;
+}
+
+function getSteelValue(state) {
+  return 2 + playedResourceValueBonus(state, ["steelValue"]);
+}
+
 function getTitaniumValue(state) {
-  return getCorporation(state)?.effects?.titaniumValue ?? 3;
+  return (getCorporation(state)?.effects?.titaniumValue ?? 3)
+    + playedResourceValueBonus(state, ["titaniumValue", "titanumValue"]);
 }
 
 // Deep-copies shared state and every player. The legacy single-player accessors are
@@ -2266,8 +2289,9 @@ export function getCardActionStatus(state, card) {
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
-  const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / 2)) : 0;
-  const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * 2);
+  const steelWorth = getSteelValue(state);
+  const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / steelWorth)) : 0;
+  const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * steelWorth);
   if (state.mc < mcCost) return { playable: false, reason: "MCが不足しています。" };
   if (action.tile === "ocean" && state.oceans >= 9) return { playable: false, reason: "海洋タイルが上限に達しています。" };
   if (action.revealTag && state.deck.length === 0 && state.discardPile.length === 0) {
@@ -2332,11 +2356,12 @@ export function applyCardAction(state, card, logs, branchIndex) {
   nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
   if (action.energyCost) nextState.energy -= action.energyCost;
   let steelCover = 0;
+  const actionSteelWorth = getSteelValue(nextState);
   if (action.steelCost) {
-    steelCover = Math.min(nextState.steel, Math.floor((action.mcCost ?? 0) / 2));
+    steelCover = Math.min(nextState.steel, Math.floor((action.mcCost ?? 0) / actionSteelWorth));
     nextState.steel -= steelCover;
   }
-  if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * 2);
+  if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * actionSteelWorth);
 
   let nextLogs = addLog(logs, "player", `カードアクションを実行しました: 【${card.name}】`);
   if (action.revealTag) {
@@ -3643,7 +3668,7 @@ export function getCardDiscount(card, state) {
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
   const totalDiscount = corporationDiscount + ongoingDiscount;
-  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / 2)) : 0;
+  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / getSteelValue(state))) : 0;
   const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.floor(Math.max(0, card.cost - totalDiscount) / getTitaniumValue(state))) : 0;
   return { maxSteel, maxTitanium };
 }
@@ -3652,7 +3677,7 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
-  return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * 2 - titaniumUsed * getTitaniumValue(state));
+  return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * getSteelValue(state) - titaniumUsed * getTitaniumValue(state));
 }
 
 // Law Suit may only be aimed at someone who attacked you this generation, so

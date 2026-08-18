@@ -182,3 +182,48 @@ test("preludes are named in Japanese, corporations keep their brand names", () =
     "corporation brand names are left alone"
   );
 });
+
+// "建材の価値が1 MC上昇" / "チタンの価値が1 MC上昇". Steel was hardcoded at 2 and
+// titanium read only the corporation, so all three cards were inert. Note the
+// reference implementation spells it "titanumValue" and the catalogue carries
+// that typo through, so both spellings have to be honoured.
+test("cards that raise the value of steel or titanium actually raise it", () => {
+  const state = getInitialState({ board: "tharsis", mode: "solo" });
+  state.players = state.players.map(player => ({
+    ...player, steel: 5, titanium: 5, mc: 60
+  }));
+  const building = ALL_CARDS.find(card => card.tags.includes("Building") && card.cost >= 12);
+  const space = ALL_CARDS.find(card => card.tags.includes("Space") && card.cost >= 15);
+
+  const steelBefore = getCardPaymentCost(building, state, 1, 0);
+  const titaniumBefore = getCardPaymentCost(space, state, 0, 1);
+
+  const played = { ...state };
+  played.players = state.players.map(player => ({
+    ...player,
+    playedProjects: [...player.playedProjects, "card-base-advanced-alloys"]
+  }));
+
+  assert.equal(getCardPaymentCost(building, played, 1, 0), steelBefore - 1,
+    "Advanced Alloys makes each steel worth one more");
+  assert.equal(getCardPaymentCost(space, played, 0, 1), titaniumBefore - 1,
+    "Advanced Alloys makes each titanium worth one more");
+
+  // Rego Plastics moves steel only and Mercurian Alloys titanium only, so a
+  // single shared bonus would pass the assertions above and still be wrong.
+  const withCard = cardId => {
+    const next = { ...state };
+    next.players = state.players.map(player => ({
+      ...player, playedProjects: [...player.playedProjects, cardId]
+    }));
+    return next;
+  };
+
+  const rego = withCard("card-promo-rego-plastics");
+  assert.equal(getCardPaymentCost(building, rego, 1, 0), steelBefore - 1, "Rego Plastics raises steel");
+  assert.equal(getCardPaymentCost(space, rego, 0, 1), titaniumBefore, "Rego Plastics leaves titanium alone");
+
+  const mercurian = withCard("card-promo-mercurian-alloys");
+  assert.equal(getCardPaymentCost(building, mercurian, 1, 0), steelBefore, "Mercurian Alloys leaves steel alone");
+  assert.equal(getCardPaymentCost(space, mercurian, 0, 1), titaniumBefore - 1, "Mercurian Alloys raises titanium");
+});
