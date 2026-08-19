@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { getInitialState } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import {
   viewForPlayer,
   normalizeRoomCode,
@@ -220,4 +221,63 @@ test("a draft queue is as private as the hand it becomes", () => {
   }
   // The count is public — you may know how far along the pass is.
   assert.equal(view.draft.queueCounts?.player, state.draft.queues.player.length);
+});
+
+// A leak is a field somebody forgot to hide, so checking the fields we thought
+// of proves little. This walks the whole view looking for any card id that
+// belongs to another seat or to the deck — the draft queue was found exactly
+// this way, after the hand, research offer and choice queue had all been
+// covered individually.
+test("no view ever contains a card that belongs to someone else", () => {
+  const viewer = "player2";
+  const inspect = (state, label) => {
+    const view = viewForPlayer(state, viewer);
+    const secret = new Set();
+    for (const player of state.players) {
+      if (player.id === viewer) continue;
+      for (const field of ["hand", "researchCards", "corporationOptions", "preludeOptions"]) {
+        for (const id of player[field] ?? []) secret.add(id);
+      }
+    }
+    for (const id of state.deck ?? []) secret.add(id);
+    for (const [seat, queue] of Object.entries(state.draft?.queues ?? {})) {
+      if (seat !== viewer) for (const id of queue ?? []) secret.add(id);
+    }
+
+    const found = [];
+    const walked = new WeakSet();
+    const walk = (node, path) => {
+      if (node == null) return;
+      if (typeof node === "string") {
+        if (secret.has(node)) found.push(path.replace(/\[\d+\]/g, "[]"));
+        return;
+      }
+      if (typeof node !== "object" || walked.has(node)) return;
+      walked.add(node);
+      if (Array.isArray(node)) node.forEach((item, i) => walk(item, `${path}[${i}]`));
+      else for (const [key, value] of Object.entries(node)) walk(value, path ? `${path}.${key}` : key);
+    };
+    walk(view, "");
+    assert.deepEqual([...new Set(found)], [], `${label} leaked`);
+    return secret.size;
+  };
+
+  let state = getInitialState({
+    playerCount: 3, playerNames: ["A", "B", "C"], board: "tharsis",
+    draft: true, prelude: true, turmoil: true, colonies: true, venus: true, promo: true
+  });
+  assert.ok(inspect(state, "at deal") > 100, "the deal must hold secrets worth hiding");
+
+  // Mid-draft is the state the queue leak lived in: cards dealt, none chosen.
+  const order = state.turnOrder;
+  for (const seat of order) {
+    const queue = state.draft?.queues?.[seat];
+    if (queue?.length) {
+      const result = executeGameCommand(state, {
+        type: COMMAND.DRAFT_PICK, playerId: seat, cardId: queue[0]
+      });
+      if (result.ok) state = result.state;
+    }
+  }
+  inspect(state, "mid-draft");
 });
