@@ -200,3 +200,24 @@ test("a view still answers state.hand after crossing the wire", () => {
   assert.equal(typeof overWire.mc, "number", "state.mc must survive the round trip");
   assert.equal(overWire.mc, state.players[1].mc, "and it must read the viewer's own seat");
 });
+
+// Hands are hidden, and a draft queue is a hand in transit — it is the cards a
+// player is about to choose from and pass on. The view redacted hands and the
+// pending-choice queue but sent draft.queues through untouched, so every seat
+// could read what its opponents were about to draw.
+test("a draft queue is as private as the hand it becomes", () => {
+  const state = getInitialState({
+    playerCount: 3, playerNames: ["A", "B", "C"], board: "tharsis", draft: true
+  });
+  assert.ok(state.draft?.queues, "this test needs a drafted game");
+
+  const view = viewForPlayer(state, "player2");
+  const queues = view.draft?.queues ?? {};
+
+  assert.ok(Array.isArray(queues.player2), "the viewer still sees the cards it must pick from");
+  for (const seat of ["player", "player3"]) {
+    assert.ok(!Array.isArray(queues[seat]), `${seat}'s queue must not reach another player`);
+  }
+  // The count is public — you may know how far along the pass is.
+  assert.equal(view.draft.queueCounts?.player, state.draft.queues.player.length);
+});

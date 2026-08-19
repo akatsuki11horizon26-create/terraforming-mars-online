@@ -108,6 +108,18 @@ export function hydrateView(view) {
   return withLegacyPlayerAccessors(view);
 }
 
+function redactDraftFor(draft, viewerId) {
+  if (!draft || typeof draft !== "object") return draft ?? null;
+  const queues = draft.queues ?? {};
+  const visible = {};
+  const counts = {};
+  for (const [seat, cards] of Object.entries(queues)) {
+    counts[seat] = Array.isArray(cards) ? cards.length : 0;
+    if (seat === viewerId) visible[seat] = cards;
+  }
+  return { ...draft, queues: visible, queueCounts: counts };
+}
+
 export function viewForPlayer(state, viewerId) {
   if (!state) return null;
   // A plain spread drops the non-enumerable accessors that make state.hand and
@@ -129,6 +141,11 @@ export function viewForPlayer(state, viewerId) {
     pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(choice =>
       redactChoiceFor(choice, viewerId)
     ),
+    // A draft queue is a hand in transit: the cards this player is about to
+    // choose from and pass on. Hands are hidden, so these must be too — the
+    // spread sent every seat's queue to every viewer. Counts stay public so a
+    // client can still show how far the pass has got.
+    draft: redactDraftFor(state.draft, viewerId),
     // The deck order is a secret; its size is not.
     deck: undefined,
     deckCount: state.deck?.length ?? 0,
