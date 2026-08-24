@@ -1828,6 +1828,10 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           worldGovernment: byWorldGovernment,
           finalGreenery
         });
+        // placeTileAt writes its own lines -- the ruling policy payout among
+        // them -- onto next.logs. Carrying on from the snapshot taken before
+        // the call silently dropped every one of them.
+        nextLogs = next.logs ?? nextLogs;
         nextLogs = addLog(
           nextLogs,
           "system",

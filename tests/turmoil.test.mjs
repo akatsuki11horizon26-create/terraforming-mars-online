@@ -2020,3 +2020,35 @@ test("Red Appeasement needs an unpassed table and ends your generation", async (
   assert.equal(getPlayer(played.state, "player").passed, true, "playing it is passing");
   assert.equal(played.state.currentPlayerId, "player2", "and the seat moves on");
 });
+
+// placeTileAt writes its own log lines -- the ruling policy payout among them --
+// onto state.logs. The tile-placement resolver carried on from a snapshot taken
+// before that call, so every line written during placement was dropped: the
+// money moved but the screen never said why.
+test("Logs written while a tile is placed survive the pending choice", async () => {
+  const { applyCardEffect, resolvePendingChoice, ALL_CARDS, getPlayer } =
+    await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.turmoil.rulingParty = "greens";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.playedProjects = ["p-search-for-life", "p-mars-university"];
+
+  const played = applyCardEffect(state, ALL_CARDS.find(c => c.id === "p-plantation"), state.logs);
+  assert.equal(played.state.pendingChoice?.kind, "tile-placement");
+
+  const mcBefore = getPlayer(played.state, "player").mc;
+  const settled = resolvePendingChoice(
+    played.state, played.state.pendingChoice.options[0].id, played.state.logs, "player"
+  ).state;
+
+  assert.equal(getPlayer(settled, "player").mc, mcBefore + 4, "Greens pay for the greenery");
+  assert.ok(
+    settled.logs.some(entry => /政策/.test(entry.text)),
+    "and the log says so"
+  );
+});
