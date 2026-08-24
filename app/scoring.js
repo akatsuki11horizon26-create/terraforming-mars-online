@@ -280,7 +280,9 @@ export function buildScoreContributions(state, options = {}) {
     });
   }
 
-  const awardVp = computeAwardVp(state, { cards, corporations: CORPORATIONS });
+  // Scientist counts science tags, and a prelude tag is as real as any other,
+  // so the award needs the same prelude list the milestones now get.
+  const awardVp = computeAwardVp(state, { cards, preludes, corporations: CORPORATIONS });
   for (const [playerId, points] of Object.entries(awardVp)) {
     if (!points) continue;
     contributions.push({

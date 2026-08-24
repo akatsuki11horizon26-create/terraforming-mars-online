@@ -282,11 +282,11 @@ function finishAction(state, command, label, before) {
 const STANDARD_PROJECTS = {
   "power-plant": {
     label: "発電所の建設",
-    // powerPlantDiscount matched no corporation, so this read as a discount
-    // nobody had. Thorgate's powerDiscount is deliberately NOT used here: its
-    // effect text in official-content.js is "電力タグのカードコスト-3", which
-    // game-logic applies to cards carrying the Power tag, not to this project.
-    cost: () => 11,
+    // Thorgate discounts BOTH halves of its printed text: power-tag cards, and
+    // this standard project. The Japanese effect line only mentioned the cards,
+    // so the project stayed at full price for the one corporation built around
+    // buying it.
+    cost: (state, corporation) => 11 - (corporation?.effects?.powerDiscount ?? 0),
     run(state, command) {
       state.players = state.players.map(player =>
         player.id === command.playerId ? { ...player, energyProd: player.energyProd + 1 } : player

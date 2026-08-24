@@ -18,14 +18,23 @@ export function countTiles(board, playerId, tileType) {
   ).length;
 }
 
-export function countTags(player, cards, tag, corporation) {
+// Preludes stay face up in front of the player and their tags count like any
+// other, which the card-requirement path already honoured. Builder and
+// Scientist read this one instead, so those two milestones -- and the Scientist
+// award -- were the only places where a prelude tag did not exist.
+export function countTags(player, cards, tag, corporation, preludes = []) {
   const normalized = String(tag).toLowerCase();
-  const fromCards = player.playedProjects.reduce((sum, id) => {
-    const card = cards.find(item => item.id === id);
-    return sum + (card?.tags?.some(t => String(t).toLowerCase() === normalized) ? 1 : 0);
-  }, 0);
-  const fromCorporation = corporation?.tags?.some(t => String(t).toLowerCase() === normalized) ? 1 : 0;
-  return fromCards + fromCorporation;
+  const has = card => card?.tags?.some(t => String(t).toLowerCase() === normalized);
+  const fromCards = (player.playedProjects ?? []).reduce(
+    (sum, id) => sum + (has(cards.find(item => item.id === id)) ? 1 : 0),
+    0
+  );
+  const fromPreludes = (player.selectedPreludeIds ?? []).reduce(
+    (sum, id) => sum + (has(preludes.find(item => item.id === id)) ? 1 : 0),
+    0
+  );
+  const fromCorporation = has(corporation) ? 1 : 0;
+  return fromCards + fromPreludes + fromCorporation;
 }
 
 export const MILESTONES = [
@@ -58,7 +67,7 @@ export const MILESTONES = [
     name: "建築家",
     description: "建材タグ8枚以上",
     threshold: 8,
-    getScore: context => countTags(context.player, context.cards, "Building", context.corporation)
+    getScore: context => countTags(context.player, context.cards, "Building", context.corporation, context.preludes)
   },
   {
     id: "planner",
@@ -90,7 +99,7 @@ export const AWARDS = [
     id: "scientist",
     name: "科学者",
     description: "科学タグが最多",
-    getScore: context => countTags(context.player, context.cards, "Science", context.corporation)
+    getScore: context => countTags(context.player, context.cards, "Science", context.corporation, context.preludes)
   },
   {
     id: "thermalist",

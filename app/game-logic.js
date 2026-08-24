@@ -2,6 +2,8 @@ import { CARD_EXPANSION_DEPENDENCIES, CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJ
 import {
   DEFAULT_PLAYER_NAMES,
   SOLO_STARTING_TR,
+  SOLO_TR_SWING_THRESHOLD,
+  SOLO_COLONIES_MC_PENALTY,
   createPlayer,
   getCurrentPlayer,
   getPlayer,
@@ -886,20 +888,25 @@ function applyEffect(state, effect, logs, options = {}) {
         (nextState.globalRequirementBuffer ?? 0) + effect.globalParameterRequirementBonus.steps;
     }
   }
-  if (effect.cardDiscount?.amount && !effect.cardDiscount.per) {
-    if (effect.cardDiscount.nextCardOnly) {
+  // Four shapes reach this field: a flat discount, a tagged one, a list of
+  // tagged ones (Space Lanes), and per:"card" (Mass Converter, which is still
+  // just an ongoing per-card discount). Only the first two were handled, so the
+  // other two cards granted nothing at all.
+  for (const discount of [effect.cardDiscount].flat().filter(Boolean)) {
+    if (!discount.amount) continue;
+    if (discount.nextCardOnly) {
       // Indentured Workers and Conscription discount the NEXT card only, the
       // same shape as Special Design. Folding them into the running total would
       // discount every card for the rest of the game.
       nextState.oneShotCardDiscount = Math.max(
         nextState.oneShotCardDiscount ?? 0,
-        effect.cardDiscount.amount
+        discount.amount
       );
-    } else if (effect.cardDiscount.tag) {
-      const tag = String(effect.cardDiscount.tag).toLowerCase();
-      nextState.cardDiscounts.tags[tag] = (nextState.cardDiscounts.tags[tag] ?? 0) + effect.cardDiscount.amount;
+    } else if (discount.tag) {
+      const tag = String(discount.tag).toLowerCase();
+      nextState.cardDiscounts.tags[tag] = (nextState.cardDiscounts.tags[tag] ?? 0) + discount.amount;
     } else {
-      nextState.cardDiscounts.all = (nextState.cardDiscounts.all ?? 0) + effect.cardDiscount.amount;
+      nextState.cardDiscounts.all = (nextState.cardDiscounts.all ?? 0) + discount.amount;
     }
   }
 
@@ -1005,6 +1012,36 @@ export function applyCorporation(state, corporationId, playerId) {
   ["mc", "steel", "titanium", "plants", "energy", "heat"].forEach(resource => {
     nextState[`${resource}Prod`] = corporation.starting.production?.[resource] ?? 0;
   });
+  // Colonies' solo variant opens at -2 M€ production, which balances the extra
+  // income the colonies themselves provide. Production is written here, so the
+  // penalty has to be applied after the corporation's own starting values.
+  if (nextState.mode === "solo" && nextState.colonies) {
+    nextState.mcProd = (nextState.mcProd ?? 0) - SOLO_COLONIES_MC_PENALTY;
+    nextState.logs = addLog(
+      nextState.logs,
+      "system",
+      `ソロ+Coloniesのため MC生産量 -${SOLO_COLONIES_MC_PENALTY}`
+    );
+  }
+
+  // The solo setup writes its two neutral cities straight onto the board before
+  // anyone has a corporation, so the per-city trigger never saw them. Tharsis
+  // Republic is owed that production the moment it is chosen.
+  const perCity = corporation.effects?.cityProduction ?? 0;
+  if (perCity > 0) {
+    const standingCities = Object.values(nextState.board ?? {}).filter(
+      cell => cell.tileType === "city"
+    ).length;
+    if (standingCities > 0) {
+      nextState.mcProd = (nextState.mcProd ?? 0) + perCity * standingCities;
+      nextState.logs = addLog(
+        nextState.logs,
+        "system",
+        `${corporation.name}: 盤上の都市${standingCities}枚ぶん MC生産量 +${perCity * standingCities}`
+      );
+    }
+  }
+
   nextState.logs = addLog(nextState.logs, "player", `${actor.name} が企業【${corporation.name}】を選択しました。`);
   nextState.currentPlayerId = state.currentPlayerId;
   return advanceSetupTurn(nextState);
@@ -3142,6 +3179,14 @@ function evaluatePartyBonus(state, bonus, player) {
 }
 
 function applyTrSwing(players, bonus) {
+  // "Lowest TR" has no meaning with one player -- everyone is the lowest -- so
+  // the solo rules replace the comparison with a fixed threshold: the bonus
+  // lands only while TR is 20 or under.
+  if (players.length === 1) {
+    const [only] = players;
+    if (bonus.kind === "lowestTr" && only.tr > SOLO_TR_SWING_THRESHOLD) return players;
+    return [{ ...only, tr: Math.max(0, only.tr + bonus.amount) }];
+  }
   const values = players.map(player => player.tr);
   const target = bonus.kind === "lowestTr" ? Math.min(...values) : Math.max(...values);
   return players.map(player =>
@@ -3205,6 +3250,7 @@ function milestoneContext(state, player) {
     player,
     board: state.board,
     cards: ALL_CARDS,
+    preludes: PRELUDES,
     corporation: CORPORATIONS.find(c => c.id === player.corporationId),
     // Utopia's Pioneer milestone counts colonies, which live outside the player.
     colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0

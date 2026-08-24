@@ -439,3 +439,140 @@ test("A branch chosen inside a card action still pays threshold bonuses", async 
   assert.equal(settled.oxygen, 8);
   assert.equal(settled.temperature, -28, "8% oxygen pays +2C from a branch too");
 });
+
+// Thorgate's printed text discounts power-tag cards AND the power plant
+// standard project. The Japanese effect line only mentioned the cards, so the
+// project stayed at list price for the one corporation built around buying it.
+test("Thorgate discounts the power plant standard project", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const paidBy = corporationId => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = corporationId;
+    seat.mc = 100;
+    seat.actionsRemaining = 2;
+    const before = seat.mc;
+    const result = executeGameCommand(state, {
+      type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "power-plant"
+    });
+    assert.equal(result.ok, true);
+    return before - getPlayer(result.state, "player").mc;
+  };
+
+  assert.equal(paidBy(null), 11);
+  assert.equal(paidBy("corp-thorgate"), 8);
+});
+
+// Capital's curated override replaced the generated spec wholesale, and
+// getCardEffect returns card.effect verbatim when it exists -- so the card that
+// says "place a city tile" placed nothing.
+test("Capital places a city", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer, getCardEffect } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(entry => entry.id === "p-capital");
+  assert.equal(getCardEffect(card).tile, "city", "the effect still carries the tile");
+
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  state.oceans = 4;
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.energyProd = 3;
+
+  const played = applyCardEffect(state, card, state.logs);
+  const placedOrAsked =
+    Boolean(played.state.pendingChoice) ||
+    Object.values(played.state.board).filter(cell => cell.tileType === "city").length > 2;
+  assert.ok(placedOrAsked, "the city is placed or its space is asked for");
+});
+
+// cardDiscount arrives in four shapes and only two were handled: Mass Converter
+// carries per:"card" and Space Lanes carries a list, so both granted nothing.
+test("Every shape of card discount is applied", async () => {
+  const { applyCardEffect, applyPreludes, ALL_CARDS, PRELUDES, getPlayer, getCardPaymentCost } =
+    await import("../app/game-logic.js");
+
+  const space = ALL_CARDS.find(c => c.tags.includes("Space") && c.cost === 14);
+  let state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const listed = getCardPaymentCost(space, state, 0, 0);
+  state = applyCardEffect(state, ALL_CARDS.find(c => c.id === "card-base-mass-converter"), state.logs).state;
+  assert.equal(getCardPaymentCost(space, state, 0, 0), listed - 2, "a per-card discount is ongoing");
+
+  const lanes = PRELUDES.find(p => p.id === "card-prelude2-space-lanes");
+  let table = getInitialState({ playerCount: 1, prelude: true });
+  const seat = getPlayer(table, "player");
+  seat.setupStep = "prelude";
+  seat.preludeOptions = [lanes.id, PRELUDES.find(p => p.id !== lanes.id).id];
+  seat.mc = 100;
+  const jovian = ALL_CARDS.find(c => c.tags.includes("Jovian"));
+  const beforeLanes = getCardPaymentCost(jovian, table, 0, 0);
+  table = applyPreludes(table, seat.preludeOptions, "player");
+  assert.equal(getCardPaymentCost(jovian, table, 0, 0), beforeLanes - 2, "a list of discounts all apply");
+});
+
+// Preludes stay face up and their tags count. The card-requirement path already
+// knew that; the milestone/award path counted only played projects, so Builder
+// and Scientist were the only places a prelude tag did not exist.
+test("Prelude tags count toward Builder and the Scientist award", async () => {
+  const { PRELUDES, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const { countTags } = await import("../app/milestones-awards.js");
+
+  const building = PRELUDES.find(p => (p.tags ?? []).some(t => /building/i.test(t)));
+  const state = getInitialState({ playerCount: 2, prelude: true });
+  const seat = getPlayer(state, state.players[0].id);
+  seat.playedProjects = [];
+  seat.selectedPreludeIds = [building.id];
+
+  assert.equal(countTags(seat, ALL_CARDS, "Building", null, PRELUDES), 1);
+});
+
+// "The player with the lowest TR" is meaningless with one player, so the solo
+// rules swap the comparison for a fixed threshold.
+test("The Reds solo bonus stops above TR 20", async () => {
+  const { runTurmoilPhase, getPlayer } = await import("../app/game-logic.js");
+  const after = tr => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = "reds";
+    state.turmoil.rulingPolicyId = null;
+    getPlayer(state, "player").tr = tr;
+    const out = runTurmoilPhase(state, state.logs);
+    return getPlayer(out.state ?? out, "player").tr;
+  };
+  // Turmoil takes 1 TR from everyone; the Reds bonus gives it back below 20.
+  assert.equal(after(20), 19, "at the threshold the bonus applies");
+  assert.equal(after(21), 20, "above it only the -1 lands");
+});
+
+// Solo neutral cities are written onto the board before anyone has a
+// corporation, so the per-city trigger never saw them.
+test("Tharsis Republic collects for the solo neutral cities", async () => {
+  const { applyCorporation, getPlayer } = await import("../app/game-logic.js");
+  const take = options => {
+    const state = getInitialState(options);
+    const seat = state.players[0];
+    seat.corporationOptions = ["corp-tharsis"];
+    return getPlayer(applyCorporation(state, "corp-tharsis", seat.id), seat.id).mcProd;
+  };
+  assert.equal(take({ playerCount: 1 }), 2, "two neutral cities are already standing");
+  assert.equal(take({ playerCount: 2 }), 0, "a normal table starts empty");
+});
+
+// Colonies' solo variant opens 2 M€ production down.
+test("A Colonies solo game starts at -2 M€ production", async () => {
+  const { applyCorporation, getPlayer } = await import("../app/game-logic.js");
+  const start = options => {
+    const state = getInitialState(options);
+    const seat = state.players[0];
+    seat.corporationOptions = ["corp-beginner"];
+    return getPlayer(applyCorporation(state, "corp-beginner", seat.id), seat.id).mcProd;
+  };
+  assert.equal(start({ playerCount: 1, colonies: true }), -2);
+  assert.equal(start({ playerCount: 1 }), 0, "without Colonies there is no penalty");
+  assert.equal(start({ playerCount: 2, colonies: true }), 0, "and none at a normal table");
+});

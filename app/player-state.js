@@ -43,6 +43,11 @@ export const LEGACY_PLAYER_FIELDS = [...PLAYER_SCALAR_FIELDS, ...PLAYER_REF_FIEL
 // no opponent to race and the 14-generation limit provides the pressure instead.
 export const STARTING_TR = 20;
 export const SOLO_STARTING_TR = 14;
+// The solo replacement for "the player with the lowest TR": Turmoil's Reds
+// bonus lands only while TR is at or below this.
+export const SOLO_TR_SWING_THRESHOLD = 20;
+// Colonies' solo variant starts the player 2 M€ production down.
+export const SOLO_COLONIES_MC_PENALTY = 2;
 
 export const DEFAULT_PLAYER_NAMES = [
   "プレイヤー1",
