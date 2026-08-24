@@ -88,10 +88,25 @@ function checkInvariants(state, where) {
   if (oceanTiles !== state.oceans) {
     report("ocean-count-mismatch", `board has ${oceanTiles}, counter says ${state.oceans}`, { where });
   }
+  // Artificial Lake places an ocean on a space NOT reserved for ocean, so an
+  // ocean on land is legal exactly as often as that card has been played. More
+  // than that means something placed an ocean where it should not have.
+  const artificialLakes = (state.players ?? []).reduce(
+    (sum, player) =>
+      sum + (player.playedProjects ?? []).filter(id => id === "card-base-artificial-lake").length,
+    0
+  );
+  const oceansOnLand = Object.values(state.board).filter(
+    cell => cell.tileType === "ocean" && !cell.isOceanOnly
+  );
+  if (oceansOnLand.length > artificialLakes) {
+    report(
+      "ocean-on-land",
+      `${oceansOnLand.length} on land but only ${artificialLakes} Artificial Lake(s) played`,
+      { where }
+    );
+  }
   for (const cell of Object.values(state.board)) {
-    if (cell.tileType === "ocean" && !cell.isOceanOnly) {
-      report("ocean-on-land", `${cell.q},${cell.r}`, { where });
-    }
     if (cell.tileType !== "empty" && cell.tileType !== "ocean" && cell.placedBy === null) {
       report("unowned-tile", `${cell.q},${cell.r} ${cell.tileType}`, { where });
     }
