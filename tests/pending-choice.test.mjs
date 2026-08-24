@@ -219,8 +219,13 @@ test("Placing next to an ocean pays 2 MC per adjacent ocean", async () => {
   seed.tileType = "ocean";
   state.oceans = 1;
 
-  const greeneryCard = ALL_CARDS.find(card => card.effectSpec?.behavior?.greenery !== undefined);
-  assert.ok(greeneryCard, "the catalog has a greenery-placing card");
+  // Mangrove and Protected Valley put their greenery ON an ocean space, so they
+  // never offer the land square next to one. This is about the ordinary
+  // adjacency payout, so it needs an ordinary greenery card.
+  const greeneryCard = ALL_CARDS.find(
+    card => card.effectSpec?.behavior?.greenery !== undefined && !card.effectSpec.behavior.greenery.on
+  );
+  assert.ok(greeneryCard, "the catalog has an unrestricted greenery-placing card");
 
   let result = applyCardEffect(state, greeneryCard, state.logs);
   assert.equal(result.status, "pending");

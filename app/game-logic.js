@@ -669,17 +669,24 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     }
   }
   if (typeof raw.removeAnyPlants === "number") effect.removePlants = (effect.removePlants ?? 0) + raw.removeAnyPlants;
+  // `on` says where the card overrides the ordinary placement rule for its tile
+  // type -- Artificial Lake puts an ocean on land, Mangrove puts a greenery on
+  // an ocean space, Research Outpost needs an isolated one. Only raw.tile
+  // carried it through, so those four cards placed like any other tile.
   if (raw.ocean !== undefined) {
     effect.tile = "ocean";
     effect.tileCount = raw.ocean.count ?? 1;
+    if (raw.ocean.on) effect.tilePlacementRule = raw.ocean.on;
   }
   if (raw.city !== undefined) {
     effect.tile = "city";
     effect.tileCount = raw.city.count ?? 1;
+    if (raw.city.on) effect.tilePlacementRule = raw.city.on;
   }
   if (raw.greenery !== undefined) {
     effect.tile = "forest";
     effect.tileCount = raw.greenery.count ?? 1;
+    if (raw.greenery.on) effect.tilePlacementRule = raw.greenery.on;
   }
   if (raw.tile && typeof raw.tile === "object") {
     // TileType numbers come from the reference implementation's enum. Special
@@ -2997,6 +3004,9 @@ export function buildColonyOn(state, tileId, logs, playerId) {
   next.players = next.players.map(player =>
     player.id === actorId ? { ...player, mc: player.mc - COLONY_BUILD_COST } : player
   );
+  // Building a colony is a standard project in the Colonies rules, so Standard
+  // Technology refunds against it like any other.
+  grantStandardProjectRebate(next, actorId);
   const tile = getColonyTile(tileId);
   let nextLogs = addLog(
     logs,
@@ -3178,7 +3188,7 @@ function evaluatePartyBonus(state, bonus, player) {
   }
 }
 
-function applyTrSwing(players, bonus) {
+export function applyTrSwing(players, bonus) {
   // "Lowest TR" has no meaning with one player -- everyone is the lowest -- so
   // the solo rules replace the comparison with a fixed threshold: the bonus
   // lands only while TR is 20 or under.
@@ -3824,6 +3834,24 @@ export function computeScore(state, playerId) {
   return calculateScoreBreakdowns(state)[targetId]?.total ?? 0;
 }
 
+// Standard Technology refunds 3 M€ after a standard project is paid for. It is
+// summed across the tableau rather than hard-coded to one card id, so a second
+// printing of the same effect would work without touching this.
+export function grantStandardProjectRebate(state, playerId) {
+  const player = getPlayer(state, playerId);
+  const rebate = (player?.playedProjects ?? []).reduce((sum, id) => {
+    const card = ALL_CARDS.find(item => item.id === id);
+    return sum + (card ? getCardEffect(card).standardProjectRebate ?? 0 : 0);
+  }, 0);
+  if (rebate <= 0) return 0;
+
+  state.players = state.players.map(entry =>
+    entry.id === playerId ? { ...entry, mc: entry.mc + rebate } : entry
+  );
+  state.logs = addLog(state.logs, "system", `Standard Technology: MC +${rebate}`);
+  return rebate;
+}
+
 export function getCardDiscount(card, state) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
@@ -4227,6 +4255,10 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     if (resource === "cardResources" && (state.cardResources[card.id] ?? 0) < amount) return { playable: false, reason: "カード資源が不足しています。" };
   }
 
+  // Deliberately NOT checked: whether the card's tile has anywhere to go. The
+  // official rules place a tile "if possible" and say an impossible placement
+  // does not prevent the card from being played, so refusing it here would be a
+  // house rule rather than a fix.
   return { playable: true, reason: "" };
 }
 
@@ -4315,6 +4347,9 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
     // board kept accepting them, so a tenth could be placed.
     const placed = Object.values(board).filter(space => space.tileType === "ocean").length;
     if (placed >= MAX_OCEANS) return false;
+    // Artificial Lake says "on a non-reserved LAND area", which is exactly the
+    // opposite of the default, so the card's own rule wins.
+    if (placementRule === "land") return true;
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
@@ -4326,8 +4361,12 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
     return !cell.isOceanOnly;
   } else {
     // forest (greenery)
+    // Mangrove and Protected Valley place their greenery ON an ocean space, and
+    // say so on the card, which also frees them from the adjacency rule -- there
+    // is nothing to be adjacent to out there.
+    if (placementRule === "ocean") return Boolean(cell.isOceanOnly);
     if (cell.isOceanOnly) return false;
-    
+
     // Greenery adjacency rule: must be adjacent to player's owned tiles if valid adjacent space exists
     const legalAdjacentSpaces = getLegalOwnedAdjacentSpaces(board, playerId);
     if (legalAdjacentSpaces.length > 0) {

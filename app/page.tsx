@@ -67,7 +67,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid, Standings } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID } from "./game-command.js";
+import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getStandardProjectCost as jsGetStandardProjectCost } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
@@ -1377,7 +1377,7 @@ export default function Home() {
   };
 
   const handleFinalGreeneryConvert = () => {
-    if (!isMyTurn || pendingChoice || activeState.plants < 8) return;
+    if (!isMyTurn || pendingChoice || activeState.plants < plantGreeneryCost) return;
     if (isOnline) return void online.sendAction("convertFinalGreenery");
     const result = executeGameCommand(activeState as never, {
       type: COMMAND.CONVERT_FINAL_GREENERY,
@@ -1467,7 +1467,13 @@ export default function Home() {
     ? getCardDiscount(selectedCard, activeState)
     : { maxSteel: 0, maxTitanium: 0 };
 
-  const isPlantsConvertAffordable = activeState.plants >= 8;
+  // Ecoline discounts this conversion, so the price is asked of the engine
+  // rather than written as 8 in five places.
+  const plantGreeneryCost =
+    (jsGetStandardProjectCost(activeState, currentPlayerId, "convert-plants") as number | null) ?? 8;
+  const powerPlantCost =
+    (jsGetStandardProjectCost(activeState, currentPlayerId, "power-plant") as number | null) ?? 11;
+  const isPlantsConvertAffordable = activeState.plants >= plantGreeneryCost;
   const isHeatConvertAffordable = activeState.heat >= 8;
 
   const scoreValue = computeScore(activeState);
@@ -2094,13 +2100,13 @@ export default function Home() {
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                 <p style={{ fontSize: "0.75rem", lineHeight: "1.3" }}>
-                  現在保有している植物資源（残り: {activeState.plants}）から最後の緑地を配置できます。(植物 8につき1枚)
+                  現在保有している植物資源（残り: {activeState.plants}）から最後の緑地を配置できます。(植物 {plantGreeneryCost}につき1枚)
                 </p>
                 <div style={{ display: "flex", gap: "10px" }}>
                   <button
                     className="btn-primary"
                     style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem" }}
-                    disabled={!isMyTurn || Boolean(pendingChoice) || activeState.plants < 8}
+                    disabled={!isMyTurn || Boolean(pendingChoice) || activeState.plants < plantGreeneryCost}
                     onClick={handleFinalGreeneryConvert}
                   >
                     緑地を配置する
@@ -2495,29 +2501,29 @@ export default function Home() {
               <h2 className="cyber-panel-title">標準プロジェクト</h2>
             </div>
             <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {(["corp-ecoline", "corp-unmi", "corp-robinson"] as string[]).includes(activeState.corporationId ?? "") && (
+              {(["corp-unmi", "corp-robinson"] as string[]).includes(activeState.corporationId ?? "") && (
                 <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
                   <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
                   <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
-                    {activeState.corporationId === "corp-ecoline" ? "植物7で緑地を配置" : activeState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
+                    {activeState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
                       {corporationActionUsed && (
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || (activeState.corporationId === "corp-ecoline" ? activeState.plants < 7 : activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-ecoline" ? "植物7を支払い緑地を配置します。" : activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || (activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 11 | エネルギー生産量 +1</div>
+                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC {powerPlantCost} | エネルギー生産量 +1</div>
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(11) || Boolean(pendingChoice)}
-                  onClick={() => confirmAction("発電所の建設", "11 MC を支払い、エネルギー生産量を1段階上げます。", () => handleStandardProjectPlay("power_plant"))}
+                  disabled={!canPayStandardCost(powerPlantCost) || Boolean(pendingChoice)}
+                  onClick={() => confirmAction("発電所の建設", `${powerPlantCost} MC を支払い、エネルギー生産量を1段階上げます。`, () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
                 </button>
@@ -2610,13 +2616,13 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
                     <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 8 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 {plantGreeneryCost} | 緑地タイルを配置, 酸素 +1%, TR +1</div>
                   </div>
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={activeState.plants < 8 || Boolean(pendingChoice)}
-                    onClick={() => confirmAction("植物の変換", "植物 8 を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("plants_convert"))}
+                    disabled={activeState.plants < plantGreeneryCost || Boolean(pendingChoice)}
+                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。`, () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
                   </button>

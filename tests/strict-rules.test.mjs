@@ -535,18 +535,19 @@ test("Prelude tags count toward Builder and the Scientist award", async () => {
 // "The player with the lowest TR" is meaningless with one player, so the solo
 // rules swap the comparison for a fixed threshold.
 test("The Reds solo bonus stops above TR 20", async () => {
-  const { runTurmoilPhase, getPlayer } = await import("../app/game-logic.js");
-  const after = tr => {
-    const state = getInitialState({ playerCount: 1, turmoil: true });
-    state.turmoil.rulingParty = "reds";
-    state.turmoil.rulingPolicyId = null;
-    getPlayer(state, "player").tr = tr;
-    const out = runTurmoilPhase(state, state.logs);
-    return getPlayer(out.state ?? out, "player").tr;
-  };
-  // Turmoil takes 1 TR from everyone; the Reds bonus gives it back below 20.
-  assert.equal(after(20), 19, "at the threshold the bonus applies");
-  assert.equal(after(21), 20, "above it only the -1 lands");
+  // applyTrSwing is exercised directly: runTurmoilPhase also resolves whichever
+  // global event was dealt, and some of those move TR, which made an
+  // end-to-end assertion nondeterministic.
+  const { applyTrSwing } = await import("../app/game-logic.js");
+  const bonus = { kind: "lowestTr", amount: 1 };
+
+  assert.equal(applyTrSwing([{ tr: 20 }], bonus)[0].tr, 21, "at the threshold the bonus applies");
+  assert.equal(applyTrSwing([{ tr: 21 }], bonus)[0].tr, 21, "above it nothing is given");
+  assert.equal(applyTrSwing([{ tr: 14 }], bonus)[0].tr, 15, "well under it applies");
+
+  // With opponents the comparison is the real one again: only the lowest gains.
+  const table = applyTrSwing([{ id: "a", tr: 30 }, { id: "b", tr: 25 }], bonus);
+  assert.deepEqual(table.map(entry => entry.tr), [30, 26], "only the lowest TR moves");
 });
 
 // Solo neutral cities are written onto the board before anyone has a
@@ -575,4 +576,118 @@ test("A Colonies solo game starts at -2 M€ production", async () => {
   assert.equal(start({ playerCount: 1, colonies: true }), -2);
   assert.equal(start({ playerCount: 1 }), 0, "without Colonies there is no penalty");
   assert.equal(start({ playerCount: 2, colonies: true }), 0, "and none at a normal table");
+});
+
+// Four cards override the default placement rule for their tile type, and the
+// override lived in `on`, which only raw.tile carried through. Artificial Lake
+// and Mangrove were placing on exactly the spaces they forbid.
+test("A card's own placement rule beats the default for its tile type", async () => {
+  const { ALL_CARDS, getCardEffect, legalCellsFor } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 1 });
+  state.currentPlayerId = "player";
+
+  const legalFor = id => {
+    const effect = getCardEffect(ALL_CARDS.find(card => card.id === id));
+    return {
+      rule: effect.tilePlacementRule,
+      cells: legalCellsFor(state, effect.tile, undefined, effect.tilePlacementRule)
+    };
+  };
+
+  // "Place an ocean tile ON AN AREA NOT RESERVED FOR OCEAN."
+  const lake = legalFor("card-base-artificial-lake");
+  assert.equal(lake.rule, "land");
+  assert.ok(lake.cells.length > 0);
+  assert.ok(lake.cells.every(cell => !cell.isOceanOnly), "never on a reserved ocean space");
+
+  // "Place a greenery tile ON AN AREA RESERVED FOR OCEAN."
+  for (const id of ["card-base-mangrove", "card-base-protected-valley"]) {
+    const greenery = legalFor(id);
+    assert.equal(greenery.rule, "ocean", `${id} keeps its rule`);
+    assert.ok(greenery.cells.length > 0, `${id} has somewhere to go`);
+    assert.ok(greenery.cells.every(cell => cell.isOceanOnly), `${id} goes only on ocean spaces`);
+  }
+
+  // "Place a city tile NEXT TO NO OTHER TILE."
+  const outpost = legalFor("card-base-research-outpost");
+  assert.equal(outpost.rule, "isolated");
+  assert.ok(outpost.cells.length > 0);
+});
+
+// The official rules place a card's tile "if possible" and state that being
+// unable to place it does not stop the card being played. This looks like a
+// missing guard, so it is pinned here: adding one would be a house rule.
+test("A card is playable even when its tile has nowhere to go", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(entry => entry.id === "card-base-research-outpost");
+
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.hand = [card.id];
+
+  // Fill every dry space, so nothing is isolated and the city cannot be placed.
+  for (const cell of Object.values(state.board)) {
+    if (cell.tileType === "empty" && !cell.isOceanOnly) {
+      cell.tileType = "forest";
+      cell.placedBy = "player";
+    }
+  }
+
+  assert.equal(getCardPlayableStatus(card, state).playable, true, "still playable");
+  const played = applyCardEffect(state, card, state.logs);
+  assert.ok(played.state, "and it resolves rather than throwing");
+});
+
+// Standard Technology shipped with an empty effect spec: a 6 M€ science tag and
+// nothing else. It refunds 3 M€ after a standard project is PAID FOR, which
+// excludes Sell Patents and the two resource conversions -- those are standard
+// actions, not projects -- and includes building a colony, which the Colonies
+// rules name as a standard project.
+test("Standard Technology refunds 3 M€ on standard projects only", async () => {
+  const { getPlayer, buildColonyOn } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const CARD = "card-base-standard-technology";
+
+  const spend = (projectId, holding) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.plants = 30;
+    seat.heat = 30;
+    seat.actionsRemaining = 2;
+    seat.hand = ["p-mine"];
+    if (holding) seat.playedProjects = [CARD];
+    const before = seat.mc;
+    const result = executeGameCommand(state, {
+      type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId, cardIds: ["p-mine"]
+    });
+    assert.equal(result.ok, true, `${projectId} runs`);
+    return before - getPlayer(result.state, "player").mc;
+  };
+
+  assert.equal(spend("power-plant", false), 11);
+  assert.equal(spend("power-plant", true), 8, "3 M€ comes back");
+  assert.equal(spend("asteroid", true), 11, "and on any other project");
+  assert.equal(spend("convert-plants", true), 0, "a conversion is an action, not a project");
+  assert.equal(spend("sell-patents", true), -1, "Sell Patents is excluded and still pays 1");
+
+  const colony = holding => {
+    const state = getInitialState({ playerCount: 2, colonies: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    if (holding) seat.playedProjects = [CARD];
+    const before = seat.mc;
+    const out = buildColonyOn(state, state.colonies.tilesInPlay[0], state.logs, "player");
+    assert.equal(out.built, true);
+    return before - getPlayer(out.state, "player").mc;
+  };
+  assert.equal(colony(false), 17);
+  assert.equal(colony(true), 14, "building a colony is a standard project too");
 });

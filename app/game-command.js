@@ -36,6 +36,7 @@ import {
   legalCellsFor,
   placeTileAt,
   isSoloMissionComplete,
+  grantStandardProjectRebate,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
@@ -279,6 +280,16 @@ function finishAction(state, command, label, before) {
   return { ok: true, state: spent, events: [] };
 }
 
+// One place that resolves a standard project's price, so the UI, the engine and
+// the bot cannot disagree about what a corporation discounts.
+export function getStandardProjectCost(state, playerId, projectId) {
+  const project = STANDARD_PROJECTS[projectId];
+  if (!project) return null;
+  const actor = getPlayer(state, playerId);
+  const corporation = CORPORATIONS.find(item => item.id === actor?.corporationId);
+  return project.cost(state, corporation);
+}
+
 const STANDARD_PROJECTS = {
   "power-plant": {
     label: "発電所の建設",
@@ -334,12 +345,11 @@ const STANDARD_PROJECTS = {
     label: "植物の緑化",
     pays: "plants",
     places: "forest",
-    // greeneryPlantCost matched no corporation, so this was always 8 by
-    // accident rather than by decision. It stays 8 by decision: this codebase
-    // gives Ecoline its 7 plants as a once-per-generation corporation action
-    // (CORPORATION_ACTIONS below), and reading plantGreeneryCost here as well
-    // would hand it both a permanent discount and the action.
-    cost: () => 8,
+    // Ecoline's printed effect is a standing discount on this conversion, not a
+    // separate once-per-generation action. Modelling it as an action gave it
+    // one greenery a generation where the card gives it as many as the plants
+    // allow -- and left the 8-plant conversion sitting beside it.
+    cost: (state, corporation) => corporation?.effects?.plantGreeneryCost ?? 8,
     run: (state, command) => placeOrAsk(state, command, "forest", "植物の緑化")
   },
   "convert-heat": {
@@ -397,33 +407,6 @@ function raiseTemperature(state, playerId) {
 // costs and what it does; the handler below does the checking and the spending,
 // exactly as it does for a card action.
 const CORPORATION_ACTIONS = {
-  "corp-ecoline": {
-    label: "Ecoline: 植物7を支払い緑地を配置しました。",
-    blocked: actor => ((actor.plants ?? 0) < 7 ? "植物が不足しています。" : null),
-    run(state, command) {
-      state.players = state.players.map(player =>
-        player.id === command.playerId ? { ...player, plants: (player.plants ?? 0) - 7 } : player
-      );
-      const before = { temperature: state.temperature, oxygen: state.oxygen };
-      const placed = placeOrAsk(state, command, "forest", "Ecoline: 植物7を支払い緑地を配置しました。", {
-        kind: "corporation-action",
-        id: "corp-ecoline"
-      });
-      // A greenery raises oxygen, so a threshold may have been crossed.
-      if (placed.ok && !placed.pendingAction) {
-        const settled = checkParameterThresholds(
-          before.temperature,
-          placed.state.temperature,
-          before.oxygen,
-          placed.state.oxygen,
-          placed.state,
-          placed.state.logs
-        );
-        return { ...placed, state: settled.state };
-      }
-      return placed;
-    }
-  },
   "corp-unmi": {
     label: "UNMI: MC3を支払いTRを1上げました。",
     // UNMI may only buy a TR step in a generation where it already raised one.
@@ -791,6 +774,13 @@ const HANDLERS = {
     const next = cloneGameState(state);
     payProjectCost(next, command.playerId, project, cost, corporation);
 
+    // Standard Technology pays out "after you pay for a standard project",
+    // excluding Sell Patents. The plant and heat conversions are standard
+    // ACTIONS rather than projects, and `pays` is exactly what marks them.
+    if (command.projectId !== "sell-patents" && !project.pays) {
+      grantStandardProjectRebate(next, command.playerId);
+    }
+
     // CrediCor: "基本コスト20以上のカードまたは標準プロジェクトを支払うとMC4".
     // The card half already fires in applyCorporationTriggers; this is the half
     // that only the UI used to pay, so the bot and the online build never got it.
@@ -832,7 +822,10 @@ const HANDLERS = {
 
   [COMMAND.CONVERT_FINAL_GREENERY](state, command) {
     const actor = getPlayer(state, command.playerId);
-    if ((actor.plants ?? 0) < 8) {
+    // Ecoline's discount is a property of the conversion, so it applies in the
+    // final greenery phase as well as during the game.
+    const plantCost = getStandardProjectCost(state, command.playerId, "convert-plants") ?? 8;
+    if ((actor.plants ?? 0) < plantCost) {
       return fail(state, ERROR.CANNOT_AFFORD, "植物が不足しています。");
     }
     const legal = legalCellsFor(state, "forest", command.playerId);
@@ -842,7 +835,7 @@ const HANDLERS = {
 
     const next = cloneGameState(state);
     next.players = next.players.map(player =>
-      player.id === command.playerId ? { ...player, plants: player.plants - 8 } : player
+      player.id === command.playerId ? { ...player, plants: player.plants - plantCost } : player
     );
     const choice = buildTileChoice(
       next,
