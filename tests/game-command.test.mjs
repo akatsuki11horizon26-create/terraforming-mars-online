@@ -1153,3 +1153,39 @@ test("Special Design relaxes only the next card played", () => {
     "the relaxation is spent and does not persist"
   );
 });
+
+// Helion may spend heat as money, and HOW MUCH is the player's decision --
+// burning heat to keep megacredits is a real line of play. The engine used to
+// decide for them, using heat only to cover a shortfall.
+test("Helion chooses how much heat to spend as money", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const buy = (corporationId, payment) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = corporationId;
+    seat.mc = 50;
+    seat.heat = 20;
+    seat.actionsRemaining = 2;
+    const before = { mc: seat.mc, heat: seat.heat };
+    const result = executeGameCommand(state, {
+      type: COMMAND.STANDARD_PROJECT,
+      playerId: "player",
+      projectId: "power-plant",
+      ...(payment ? { payment } : {})
+    });
+    assert.equal(result.ok, true);
+    const after = getPlayer(result.state, "player");
+    return { mc: before.mc - after.mc, heat: before.heat - after.heat };
+  };
+
+  assert.deepEqual(buy("corp-helion", undefined), { mc: 11, heat: 0 }, "unasked, heat covers only a shortfall");
+  assert.deepEqual(buy("corp-helion", { heat: 11 }), { mc: 0, heat: 11 }, "or the whole price");
+  assert.deepEqual(buy("corp-helion", { heat: 5 }), { mc: 6, heat: 5 }, "or part of it");
+  assert.deepEqual(
+    buy("corp-credicor", { heat: 11 }), { mc: 11, heat: 0 },
+    "a corporation without the ability cannot spend heat whatever it asks for"
+  );
+});

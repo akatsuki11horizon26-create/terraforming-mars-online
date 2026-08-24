@@ -34,7 +34,8 @@ export const PLAYER_REF_FIELDS = [
   "cardResources",
   "cardPlacements",
   "cardDiscounts",
-  "usedCardActions"
+  "usedCardActions",
+  "usedPolicyActions"
 ];
 
 export const LEGACY_PLAYER_FIELDS = [...PLAYER_SCALAR_FIELDS, ...PLAYER_REF_FIELDS];
@@ -94,6 +95,7 @@ export function createPlayer(id, name, overrides = {}) {
     // "各世代につき１回ずつしか使用できません" — the ids of blue-card actions
     // already spent this generation. Cleared in the production phase.
     usedCardActions: [],
+    usedPolicyActions: [],
     globalRequirementBuffer: 0,
     oneShotRequirementBuffer: 0,
     oneShotCardDiscount: 0,

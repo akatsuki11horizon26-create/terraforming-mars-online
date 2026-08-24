@@ -38,6 +38,8 @@ import {
   isSoloMissionComplete,
   grantStandardProjectRebate,
   refreshColonyActivation,
+  getRulingPolicy,
+  drawCards,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
@@ -66,6 +68,7 @@ export const COMMAND = {
   BUY_RESEARCH: "BUY_RESEARCH",
   STANDARD_PROJECT: "STANDARD_PROJECT",
   CORPORATION_ACTION: "CORPORATION_ACTION",
+  USE_RULING_POLICY: "USE_RULING_POLICY",
   CONVERT_FINAL_GREENERY: "CONVERT_FINAL_GREENERY",
   FINISH_FINAL_GREENERY: "FINISH_FINAL_GREENERY"
 };
@@ -189,7 +192,7 @@ function spend(state, result, flag) {
 
 // Paying for a standard project. Helion may cover megacredits with heat; the
 // two conversion projects are paid in the resource they convert.
-function payProjectCost(state, playerId, project, cost, corporation) {
+function payProjectCost(state, playerId, project, cost, corporation, requestedHeat) {
   const actor = getPlayer(state, playerId);
   if (project.pays === "plants" || project.pays === "heat") {
     const field = project.pays;
@@ -199,7 +202,13 @@ function payProjectCost(state, playerId, project, cost, corporation) {
     return 0;
   }
   const heatAvailable = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-  const heatUsed = Math.min(heatAvailable, Math.max(0, cost - (actor.mc ?? 0)));
+  // Helion may spend heat as money, and how much is the player's decision --
+  // burning heat to keep megacredits is a real line of play. Without an
+  // explicit amount the old behaviour stands: heat only covers the shortfall.
+  const heatUsed =
+    requestedHeat === undefined
+      ? Math.min(heatAvailable, Math.max(0, cost - (actor.mc ?? 0)))
+      : Math.min(heatAvailable, Math.max(0, Math.trunc(requestedHeat)), cost);
   state.players = state.players.map(player =>
     player.id === playerId
       ? { ...player, mc: player.mc - (cost - heatUsed), heat: (player.heat ?? 0) - heatUsed }
@@ -410,6 +419,38 @@ function raiseTemperature(state, playerId) {
 // The three corporations that carry an action of their own. Each states what it
 // costs and what it does; the handler below does the checking and the spending,
 // exactly as it does for a card action.
+// Keyed by the policy's `action` name rather than by party, so a policy that
+// moves between parties keeps working.
+const RULING_POLICY_ACTIONS = {
+  // "Spend 10 M€ to draw 3 cards" -- once a generation.
+  draw: {
+    oncePerGeneration: true,
+    run(state, command, policy) {
+      const drawn = drawCards(state, policy.count ?? 3);
+      state.logs = addLog(state.logs, "system", `カードを${drawn.length}枚引きました。`);
+      return { state };
+    }
+  },
+  // "Spend 10 M€ to increase your energy and heat production 1 step each" --
+  // as often as the player can pay for it.
+  kelvinistProduction: {
+    oncePerGeneration: false,
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId
+          ? {
+              ...player,
+              energyProd: (player.energyProd ?? 0) + 1,
+              heatProd: (player.heatProd ?? 0) + 1
+            }
+          : player
+      );
+      state.logs = addLog(state.logs, "system", "電力生産量 +1、熱生産量 +1");
+      return { state };
+    }
+  }
+};
+
 const CORPORATION_ACTIONS = {
   "corp-unmi": {
     label: "UNMI: MC3を支払いTRを1上げました。",
@@ -470,9 +511,13 @@ const HANDLERS = {
 
     const cost = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
     const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
-    const heatPaid = corporation?.effects?.heatAsMoney
-      ? Math.max(0, Math.min(actor.heat ?? 0, cost - (actor.mc ?? 0)))
-      : 0;
+    // Helion decides how much heat to burn; without an explicit amount the heat
+    // only covers what the megacredits cannot.
+    const heatAvailable = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+    const heatPaid =
+      command.payment?.heat === undefined
+        ? Math.max(0, Math.min(heatAvailable, cost - (actor.mc ?? 0)))
+        : Math.min(heatAvailable, Math.max(0, Math.trunc(command.payment.heat)), cost);
     if ((actor.mc ?? 0) + heatPaid < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "支払いできません。");
     }
@@ -788,7 +833,7 @@ const HANDLERS = {
     }
 
     const next = cloneGameState(state);
-    payProjectCost(next, command.playerId, project, cost, corporation);
+    payProjectCost(next, command.playerId, project, cost, corporation, command.payment?.heat);
 
     // Standard Technology pays out "after you pay for a standard project",
     // excluding Sell Patents. The plant and heat conversions are standard
@@ -813,6 +858,54 @@ const HANDLERS = {
 
   // A corporation's own action. The UI used to run these itself, which is why
   // it could raise Robinson's production without the engine ever seeing it.
+  // Scientists and Kelvinists put an action on the table while they govern.
+  // Every other policy is passive or fires on a trigger, so this is the whole
+  // of the "policy you can use" surface.
+  [COMMAND.USE_RULING_POLICY](state, command) {
+    if (!state.turmoil) return fail(state, ERROR.ACTION_REFUSED, "Turmoilは有効ではありません。");
+    const policy = getRulingPolicy(state.turmoil);
+    const definition = policy?.action ? RULING_POLICY_ACTIONS[policy.action] : null;
+    if (!definition) {
+      return fail(state, ERROR.ACTION_REFUSED, "現在の与党に使用できる政策アクションはありません。");
+    }
+    // The client may have drawn its button under the previous government.
+    if (command.policyId && command.policyId !== policy.id) {
+      return fail(state, ERROR.ACTION_REFUSED, "政権が変わったため、その政策は使用できません。");
+    }
+
+    const actor = getPlayer(state, command.playerId);
+    const usedKey = `@policy:${policy.id}`;
+    if (definition.oncePerGeneration && (actor.usedPolicyActions ?? []).includes(usedKey)) {
+      return fail(state, ERROR.ACTION_ALREADY_USED, "この世代の政策アクションは使用済みです。");
+    }
+    const cost = policy.cost ?? 0;
+    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const heatAsMoney = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+    if ((actor.mc ?? 0) + heatAsMoney < cost) {
+      return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
+    }
+
+    const next = cloneGameState(state);
+    const heatPaid = Math.max(0, Math.min(actor.heat ?? 0, cost - (actor.mc ?? 0)));
+    next.players = next.players.map(player =>
+      player.id === command.playerId
+        ? {
+            ...player,
+            mc: player.mc - (cost - heatPaid),
+            heat: (player.heat ?? 0) - heatPaid,
+            ...(definition.oncePerGeneration
+              ? { usedPolicyActions: [...(player.usedPolicyActions ?? []), usedKey] }
+              : {})
+          }
+        : player
+    );
+    next.logs = addLog(next.logs, "player", `与党政策: ${policy.description}`, actor?.name);
+
+    const run = definition.run(next, command, policy);
+    const spent = handleActionSpend(run.state ?? next, (run.state ?? next).logs);
+    return { ok: true, state: spent, events: [] };
+  },
+
   [COMMAND.CORPORATION_ACTION](state, command) {
     const actor = getPlayer(state, command.playerId);
     const action = CORPORATION_ACTIONS[actor.corporationId];

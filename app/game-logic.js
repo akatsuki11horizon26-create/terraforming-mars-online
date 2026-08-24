@@ -507,7 +507,8 @@ export function cloneGameState(state) {
         all: player.cardDiscounts?.all ?? 0,
         tags: { ...(player.cardDiscounts?.tags ?? {}) }
       },
-      usedCardActions: [...(player.usedCardActions ?? [])]
+      usedCardActions: [...(player.usedCardActions ?? [])],
+      usedPolicyActions: [...(player.usedPolicyActions ?? [])]
     })),
     turnOrder: [...(state.turnOrder ?? [])],
     deck: [...state.deck],
@@ -780,7 +781,7 @@ export function getCardEffect(card) {
   return { ...effect, cardId: card.id };
 }
 
-function drawCards(state, count, tag) {
+export function drawCards(state, count, tag) {
   let deck = [...state.deck];
   let discard = [...state.discardPile];
   const drawn = [];
@@ -867,7 +868,7 @@ function applyEffect(state, effect, logs, options = {}) {
   if (effect.plants) addResource(nextState, "plants", effect.plants);
   if (effect.energy) addResource(nextState, "energy", effect.energy);
   if (effect.heat) addResource(nextState, "heat", effect.heat);
-  if (effect.tr) nextState.tr += effect.tr;
+  if (effect.tr) increaseTerraformRating(nextState, nextState.currentPlayerId, effect.tr, "card");
   // Solo play has nobody else to hit, so the removal still lands on the only
   // player present; with opponents the victim is chosen instead.
   if (effect.removePlants && !options.skipResourceAttack) {
@@ -879,7 +880,7 @@ function applyEffect(state, effect, logs, options = {}) {
     // temperature and oxygen tracks do.
     const beforeVenus = nextState.venus ?? 0;
     nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
-    nextState.tr += Math.max(0, (nextState.venus - beforeVenus) / 2);
+    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.venus - beforeVenus) / 2), "card");
     // Aphrodite and anything else watching the scale reacts to a card's step
     // just as it does to the World Government's.
     grantParameterRaisedCardEffects(nextState, "venus", (nextState.venus - beforeVenus) / 2);
@@ -975,12 +976,12 @@ function applyEffect(state, effect, logs, options = {}) {
   if (effect.temperatureSteps) {
     const before = nextState.temperature;
     nextState.temperature = Math.min(8, nextState.temperature + effect.temperatureSteps * 2);
-    nextState.tr += Math.max(0, (nextState.temperature - before) / 2);
+    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.temperature - before) / 2), "card");
   }
   if (effect.oxygenSteps) {
     const before = nextState.oxygen;
     nextState.oxygen = Math.min(14, nextState.oxygen + effect.oxygenSteps);
-    nextState.tr += Math.max(0, nextState.oxygen - before);
+    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, nextState.oxygen - before), "card");
   }
   if (effect.offBoardCity) {
     // Kept off state.board on purpose: everything that counts cities, checks
@@ -2362,10 +2363,47 @@ export function applyWorldGovernmentParameter(state, parameter, logs) {
   return result.logs;
 }
 
-function bumpTr(state, playerId, amount) {
+// The single place a terraforming rating changes. Every path used to add to
+// state.tr on its own, which is why a cross-cutting rule like the Reds levy had
+// no seat to sit in: some rises would be taxed and others silently would not.
+//
+// `reason` says WHY the rating moved, because the levy does not apply to all of
+// them -- only to terraforming a player chooses to do on their turn.
+export function increaseTerraformRating(state, playerId, steps, reason = "action") {
+  const amount = Math.trunc(steps);
+  if (!amount) return 0;
+
+  const targetId = playerId ?? state.currentPlayerId;
   state.players = state.players.map(player =>
-    player.id === playerId ? { ...player, tr: player.tr + amount } : player
+    player.id === targetId ? { ...player, tr: Math.max(0, player.tr + amount) } : player
   );
+
+  // A drop in rating is never a terraforming action, so it is never levied.
+  if (amount > 0 && TAXABLE_TR_REASONS.has(reason)) {
+    payRulingPolicyTrLevy(state, targetId, amount);
+  }
+  return amount;
+}
+
+// Terraforming the player chose to do. The chairman's rating, the World
+// Government's free step and the Turmoil upkeep are not choices, so the Reds
+// levy does not reach them.
+const TAXABLE_TR_REASONS = new Set(["action", "card", "standard-project", "threshold"]);
+
+function payRulingPolicyTrLevy(state, playerId, steps) {
+  const owed = getTrSurcharge(state, steps);
+  if (owed <= 0) return;
+  const payer = getPlayer(state, playerId);
+  const paid = Math.min(owed, payer?.mc ?? 0);
+  if (paid <= 0) return;
+  state.players = state.players.map(player =>
+    player.id === playerId ? { ...player, mc: player.mc - paid } : player
+  );
+  state.logs = addLog(state.logs, "system", `レッズ政策: TR上昇 ${steps}段階につき ${paid} MC を支払いました。`);
+}
+
+function bumpTr(state, playerId, amount) {
+  increaseTerraformRating(state, playerId, amount, "action");
 }
 
 // Placement bonuses printed on the space go to whoever covers it.
@@ -3217,6 +3255,7 @@ export function finishTurmoilPhase(state, logs) {
   // The chairman gains 1 TR on taking office.
   if (result.newChairman && result.newChairman !== NEUTRAL) {
     next.players = next.players.map(player =>
+      // Becoming chairman is not terraforming, so it is outside the levy.
       player.id === result.newChairman ? { ...player, tr: player.tr + 1 } : player
     );
     const chairman = getPlayer(next, result.newChairman);
@@ -4326,6 +4365,16 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     return { playable: false, reason: "資源（MC）が不足しています。" };
   }
 
+  // "You may not raise your TR unless you can pay." The levy is not a debt the
+  // player part-pays: a card that would raise the rating beyond what they can
+  // afford to be taxed for cannot be played at all. Only the rating the card
+  // states is counted here -- a threshold bonus reached mid-effect is not
+  // knowable before the effect runs.
+  const trLevy = getTrSurcharge(state, getCardEffect(card).tr ?? 0);
+  if (trLevy > 0 && state.mc + heatAsMoney - costAfterDiscount < trLevy) {
+    return { playable: false, reason: `レッズ政策の課税 ${trLevy} MC を支払えません。` };
+  }
+
   const requirements = card.requires ?? {};
   const buffer =
     (corporation?.effects?.requirementBuffer ?? 0) +
@@ -4504,7 +4553,7 @@ export function applyVenusThresholds(state, oldVenus, logs) {
     currentLogs = addLog(currentLogs, "system", "金星 8% 達成ボーナス: カードを1枚ドロー");
   }
   if (oldVenus < 16 && newVenus >= 16) {
-    nextState.tr += 1;
+    increaseTerraformRating(nextState, nextState.currentPlayerId, 1, "threshold");
     currentLogs = addLog(currentLogs, "system", "金星 16% 達成ボーナス: TR +1");
   }
   return { state: nextState, logs: currentLogs };
@@ -4522,7 +4571,7 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
       nextState.temperature = Math.min(8, nextState.temperature + 2);
       effectiveTemp = Math.max(effectiveTemp, nextState.temperature);
       if (tempBefore < 8) {
-        nextState.tr += 1;
+        increaseTerraformRating(nextState, nextState.currentPlayerId, 1, "threshold");
         currentLogs = addLog(currentLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C, TR +1");
       } else {
         currentLogs = addLog(currentLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C (気温上限のためTR増加なし)");
@@ -4706,6 +4755,8 @@ export function triggerProduction(state, logAcc) {
       passed: false,
       // "このプレイヤー・マーカーは、産出フェイズに除去します"
       usedCardActions: [],
+      // A once-a-generation policy action is refreshed with everything else.
+      usedPolicyActions: [],
       // Special Design lasts "this generation" at most, so an unspent
       // relaxation must not carry into the next one. Same for the one-shot
       // discounts (Indentured Workers, Conscription).

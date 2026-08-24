@@ -2052,3 +2052,132 @@ test("Logs written while a tile is placed survive the pending choice", async () 
     "and the log says so"
   );
 });
+
+// The Reds levy is "lose 3 M€ for each step your TR is raised; you may not
+// raise TR unless you can pay". Every path that raised TR used to add to the
+// rating on its own, so no levy could reach them all consistently.
+test("The Reds levy applies to every terraforming path and to none of the others", async () => {
+  const { applyCardEffect, checkParameterThresholds, cloneGameState, ALL_CARDS, getPlayer, runTurmoilPhase } =
+    await import("../app/game-logic.js");
+
+  const table = (party = "reds") => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = party;
+    state.turmoil.rulingPolicyId = null;
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    getPlayer(state, "player").mc = 200;
+    return state;
+  };
+
+  // A card that raises the rating directly.
+  const trCard = ALL_CARDS.find(c => c.effectSpec?.behavior?.tr === 1 && (c.cost ?? 99) < 25);
+  const levied = applyCardEffect(table(), trCard, []).state;
+  const unlevied = applyCardEffect(table("greens"), trCard, []).state;
+  assert.equal(
+    getPlayer(unlevied, "player").mc - getPlayer(levied, "player").mc, 3,
+    "one step costs 3 M€ under the Reds and nothing under anyone else"
+  );
+
+  // A threshold bonus raises the rating too, and is taxed the same way.
+  const base = table();
+  const crossed = checkParameterThresholds(
+    -30, -30, 7, 8, { ...cloneGameState(base), oxygen: 8 }, base.logs
+  );
+  assert.equal(
+    getPlayer(base, "player").mc - getPlayer(crossed.state, "player").mc, 3,
+    "the 8% oxygen bonus is terraforming and is levied"
+  );
+
+  // Becoming chairman and the Turmoil upkeep are not terraforming.
+  const government = getInitialState({ playerCount: 2, turmoil: true });
+  government.turmoil.rulingParty = "reds";
+  government.turmoil.rulingPolicyId = null;
+  government.turmoil.dominantParty = "reds";
+  government.turmoil.parties.reds.leader = "player";
+  for (const player of government.players) player.mc = 100;
+  const after = runTurmoilPhase(government, government.logs);
+  assert.equal(
+    getPlayer(after.state ?? after, "player").mc, 100,
+    "the chairman's rating and the -1 upkeep are outside the levy"
+  );
+});
+
+// "You may not raise your TR unless you can pay" -- the levy is not a debt that
+// is part-paid, so a card whose rating the player cannot afford to be taxed for
+// cannot be played at all.
+test("A card is unplayable when the Reds levy on it cannot be paid", async () => {
+  const { getCardPlayableStatus, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(c => c.effectSpec?.behavior?.tr === 1 && (c.cost ?? 99) < 25);
+
+  const withMoney = (mc, party) => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = party;
+    state.turmoil.rulingPolicyId = null;
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = mc;
+    seat.hand = [card.id];
+    return getCardPlayableStatus(card, state).playable;
+  };
+
+  assert.equal(withMoney(card.cost, "reds"), false, "the cost alone is not enough under the Reds");
+  assert.equal(withMoney(card.cost + 3, "reds"), true, "the cost plus the levy is");
+  assert.equal(withMoney(card.cost, "greens"), true, "and under anyone else the cost is enough");
+});
+
+// Scientists put a once-a-generation action on the table; Kelvinists put one
+// with no limit. Every other policy is passive or fires on a trigger.
+test("The ruling party's policy action follows its own usage limit", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const table = party => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = party;
+    state.turmoil.rulingPolicyId = null;
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.actionsRemaining = 2;
+    return state;
+  };
+
+  // Scientists: 10 M€ for three cards, once per generation per player.
+  const first = executeGameCommand(table("scientists"), {
+    type: COMMAND.USE_RULING_POLICY, playerId: "player"
+  });
+  assert.equal(first.ok, true);
+  assert.equal(getPlayer(first.state, "player").mc, 90, "10 M€, and the cards are not bought");
+  assert.equal(getPlayer(first.state, "player").hand.length, 3);
+
+  const again = { ...first.state };
+  getPlayer(again, "player").actionsRemaining = 2;
+  assert.equal(
+    executeGameCommand(again, { type: COMMAND.USE_RULING_POLICY, playerId: "player" }).ok,
+    false,
+    "and not a second time this generation"
+  );
+
+  // Kelvinists: as often as the player can pay.
+  let running = table("kelvinists");
+  let uses = 0;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    getPlayer(running, "player").actionsRemaining = 2;
+    const used = executeGameCommand(running, { type: COMMAND.USE_RULING_POLICY, playerId: "player" });
+    if (!used.ok) break;
+    running = used.state;
+    uses += 1;
+  }
+  assert.equal(uses, 3, "no per-generation limit");
+  assert.equal(getPlayer(running, "player").energyProd, 3);
+  assert.equal(getPlayer(running, "player").heatProd, 3);
+
+  // A party whose policy is passive offers no action at all.
+  assert.equal(
+    executeGameCommand(table("unity"), { type: COMMAND.USE_RULING_POLICY, playerId: "player" }).ok,
+    false
+  );
+});

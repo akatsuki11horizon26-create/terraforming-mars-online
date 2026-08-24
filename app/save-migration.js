@@ -46,7 +46,8 @@ function migrateV3(parsed) {
       : { all: 0, tags: {} },
     globalRequirementBuffer: Number(parsed.globalRequirementBuffer ?? 0),
     oneShotRequirementBuffer: Number(parsed.oneShotRequirementBuffer ?? 0),
-    oneShotCardDiscount: Number(parsed.oneShotCardDiscount ?? 0)
+    oneShotCardDiscount: Number(parsed.oneShotCardDiscount ?? 0),
+    usedPolicyActions: Array.isArray(parsed.usedPolicyActions) ? [...parsed.usedPolicyActions] : []
   });
 
   const board = isPlainObject(parsed.board) ? parsed.board : {};
