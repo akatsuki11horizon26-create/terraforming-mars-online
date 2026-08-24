@@ -611,6 +611,112 @@
   white-space: nowrap;
 }
 
+.standings {
+  display: grid;
+  gap: 3px;
+}
+
+.standings-row {
+  display: grid;
+  grid-template-columns: 18px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--line-hard);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.standings-row[data-self="true"] {
+  border-left-color: var(--accent-cyan);
+}
+
+.standings-row[data-active="true"] {
+  background-color: rgba(240, 162, 60, 0.1);
+}
+
+.standings-row[data-passed="true"] {
+  opacity: 0.55;
+}
+
+.standings-rank {
+  color: var(--text-low);
+  font-weight: 700;
+  text-align: center;
+}
+
+.standings-name {
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.standings-tr {
+  color: var(--accent-cyan);
+}
+
+.standings-vp {
+  font-weight: 700;
+  color: var(--text-hi);
+  min-width: 44px;
+  text-align: right;
+}
+
+/* The same standings inline under the HUD, so the score is readable without
+   opening a drawer — the drawer copy is the detailed one. */
+/* .main-content is a two-column grid whose implicit rows share the leftover
+   height, so without align-self the row was squeezed to 8px and its chips
+   spilled over the board. */
+.hud-standings {
+  grid-column: 1 / -1;
+  align-self: start;
+  height: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-standing {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+  background-color: color-mix(in srgb, var(--surface-2) 80%, transparent);
+  border-left: 2px solid var(--line-hard);
+  white-space: nowrap;
+}
+
+.hud-standing[data-self="true"] {
+  border-left-color: var(--accent-cyan);
+}
+
+.hud-standing[data-active="true"] {
+  background-color: rgba(240, 162, 60, 0.14);
+}
+
+.hud-standing[data-passed="true"] {
+  opacity: 0.55;
+}
+
+.hud-standing-name {
+  font-weight: 700;
+  color: var(--text-hi);
+}
+
+.hud-standing-tr {
+  color: var(--accent-cyan);
+}
+
+.hud-standing-vp {
+  font-weight: 700;
+  color: var(--text-hi);
+}
+
 /* Compact status readout: generation, TR and score on one line rather than a
    stack of labelled rows, which is what let the old panel run past a screen. */
 

@@ -1,4 +1,4 @@
-import { CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
+import { CARD_EXPANSION_DEPENDENCIES, CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
 import {
   DEFAULT_PLAYER_NAMES,
   SOLO_STARTING_TR,
@@ -1063,7 +1063,12 @@ export function applyPreludes(state, preludeIds, playerId) {
   nextState.setupStep = "projects";
   nextState.actionsRemaining = 2;
   nextState.turnStep = "start";
-  let logs = addLog(nextState.logs, "player", `Prelude【${selected.map(prelude => prelude.name).join("】【")}】を解決しました。`);
+  let logs = addLog(
+    nextState.logs,
+    "player",
+    `Prelude【${selected.map(prelude => prelude.name).join("】【")}】を解決しました。`,
+    actor.name
+  );
   selected.forEach(prelude => {
     const effect = getCardEffect(prelude);
     const result = applyEffect(nextState, effect, logs);
@@ -2622,7 +2627,13 @@ export function enabledExpansions(options = {}) {
 }
 
 function poolFor(cards, allowed) {
-  return cards.filter(card => allowed.has(card.expansion ?? "base"));
+  return cards.filter(card => {
+    if (!allowed.has(card.expansion ?? "base")) return false;
+    // A Prelude-box card can still need Venus, Colonies or Turmoil to do
+    // anything; its own expansion being on is not enough.
+    const needs = CARD_EXPANSION_DEPENDENCIES[card.id];
+    return !needs || needs.every(expansion => allowed.has(expansion));
+  });
 }
 
 export function getInitialState(options = {}) {
@@ -2885,7 +2896,11 @@ export function buildColonyOn(state, tileId, logs, playerId) {
     player.id === actorId ? { ...player, mc: player.mc - COLONY_BUILD_COST } : player
   );
   const tile = getColonyTile(tileId);
-  let nextLogs = addLog(logs, "system", `${tile?.name ?? tileId} に入植しました。`);
+  let nextLogs = addLog(
+    logs,
+    "system",
+    `${getPlayer(next, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} に入植しました。`
+  );
 
   const granted = grantColonyBenefit(next, result.bonus, actorId, nextLogs);
   next.logs = granted.logs;
@@ -2929,7 +2944,7 @@ export function tradeWith(state, tileId, logs, playerId) {
   let nextLogs = addLog(
     logs,
     "system",
-    `${tile?.name ?? tileId} と交易しました（${payment.cost}${TRADE_LABELS[payment.resource]} 支払い）。`
+    `${getPlayer(next, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} と交易しました（${payment.cost}${TRADE_LABELS[payment.resource]} 支払い）。`
   );
 
   const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs);

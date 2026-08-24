@@ -218,7 +218,8 @@ export function ResourceGrid({
 export function OpponentStrip({
   players,
   selfId,
-  turnHolderId
+  turnHolderId,
+  scores
 }: {
   players: {
     id: string;
@@ -231,6 +232,7 @@ export function OpponentStrip({
   }[];
   selfId: string;
   turnHolderId: string;
+  scores?: Record<string, number>;
 }) {
   const opponents = players.filter(player => player.id !== selfId);
   if (opponents.length === 0) return null;
@@ -247,8 +249,56 @@ export function OpponentStrip({
           <span className="opponent-name">{player.name}</span>
           <span className="opponent-stats">
             <span title="TR">TR {player.tr}</span>
+            {scores?.[player.id] !== undefined && (
+              <span title="現在の勝利点">{scores[player.id]}点</span>
+            )}
             <span title="MC">{player.mc}</span>
             <span title="手札">手 {player.handCount ?? player.hand?.length ?? 0}</span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Every seat's TR and current victory points side by side. The opponent strip
+// deliberately omits the viewer, so on its own it never answered "who is
+// winning" — only "what are the others up to".
+export function Standings({
+  players,
+  selfId,
+  turnHolderId,
+  scores
+}: {
+  players: { id: string; name: string; tr: number; passed?: boolean }[];
+  selfId: string;
+  turnHolderId: string;
+  scores: Record<string, number>;
+}) {
+  const ranked = [...players].sort(
+    (a, b) => (scores[b.id] ?? 0) - (scores[a.id] ?? 0) || b.tr - a.tr
+  );
+
+  return (
+    <div className="standings">
+      {ranked.map((player, index) => (
+        <div
+          key={player.id}
+          className="standings-row"
+          data-self={player.id === selfId ? "true" : "false"}
+          data-active={player.id === turnHolderId ? "true" : "false"}
+          data-passed={player.passed ? "true" : "false"}
+        >
+          <span className="standings-rank">{index + 1}</span>
+          <span className="standings-name">
+            {player.name}
+            {player.id === selfId ? "（あなた）" : ""}
+          </span>
+          <span className="standings-tr" title="テラフォーミングレーティング">
+            TR {player.tr}
+          </span>
+          <span className="standings-vp" title="現在の勝利点（暫定）">
+            {scores[player.id] ?? 0} 点
           </span>
         </div>
       ))}

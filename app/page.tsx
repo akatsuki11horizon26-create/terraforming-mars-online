@@ -62,7 +62,7 @@ import { BOARD_CENTRE } from "./tharsis-board.js";
 import { colonyDescriptionJP } from "./colony-text.js";
 import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
-import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid } from "./global-params";
+import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid, Standings } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
 import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
@@ -1423,7 +1423,13 @@ export default function Home() {
   // The final screen used to re-derive its own breakdown from playedProjects
   // and fixed victoryPoints, so dynamic VP, preludes, milestones and awards all
   // read as zero while the total beside them included every one of them.
-  const scoreBreakdown = calculateScoreBreakdowns(activeState)[currentPlayerId];
+  const allBreakdowns = calculateScoreBreakdowns(activeState);
+  const scoreBreakdown = allBreakdowns[currentPlayerId];
+  // Provisional victory points for every seat, so the standings never require
+  // waiting for the final screen to find out who is ahead.
+  const scoresByPlayer = Object.fromEntries(
+    Object.entries(allBreakdowns).map(([id, entry]) => [id, entry?.total ?? 0])
+  ) as Record<string, number>;
   const selectedCardPurchaseCost = activeState.phase === "setup" && CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards
     ? 0
     : selectedResearchCardIds.length * 3;
@@ -1697,6 +1703,26 @@ export default function Home() {
             <button className="hud-btn" onClick={() => setOpenDrawer("log")}>ミッションログ</button>
           </div>
         </div>
+
+        {players.length > 1 && (
+          <div className="hud-standings" title="各プレイヤーの TR と現在の勝利点">
+            {[...players]
+              .sort((a, b) => (scoresByPlayer[b.id] ?? 0) - (scoresByPlayer[a.id] ?? 0) || b.tr - a.tr)
+              .map(player => (
+                <span
+                  key={player.id}
+                  className="hud-standing"
+                  data-self={player.id === currentPlayerId ? "true" : "false"}
+                  data-active={player.id === turnHolderId ? "true" : "false"}
+                  data-passed={player.passed ? "true" : "false"}
+                >
+                  <span className="hud-standing-name">{player.name}</span>
+                  <span className="hud-standing-tr">TR {player.tr}</span>
+                  <span className="hud-standing-vp">{scoresByPlayer[player.id] ?? 0}点</span>
+                </span>
+              ))}
+          </div>
+        )}
 
         {/* Center Column: Mars Board */}
         <div
@@ -2324,11 +2350,23 @@ export default function Home() {
         </div>
         {players.length > 1 && (
           <div className="drawer-section">
+            <div className="section-title"><span>順位（TR / 勝利点）</span></div>
+            <Standings
+              players={players as never}
+              selfId={currentPlayerId}
+              turnHolderId={turnHolderId}
+              scores={scoresByPlayer}
+            />
+          </div>
+        )}
+        {players.length > 1 && (
+          <div className="drawer-section">
             <div className="section-title"><span>他プレイヤー</span></div>
             <OpponentStrip
               players={players as never}
               selfId={currentPlayerId}
               turnHolderId={turnHolderId}
+              scores={scoresByPlayer}
             />
           </div>
         )}

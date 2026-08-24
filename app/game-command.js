@@ -525,6 +525,15 @@ const HANDLERS = {
       cardName: card.name
     };
 
+    // The effect log alone never said who played what, so a robot's turn read as
+    // unattributed numbers moving. Name the actor and the card before the effect.
+    paid.logs = addLog(
+      paid.logs,
+      "player",
+      `【${card.name}】をプレイしました（${cost} MC）。`,
+      actor.name
+    );
+
     const beforeTemp = paid.temperature;
     const beforeOxygen = paid.oxygen;
     const result = applyCardEffect(paid, card, paid.logs);
@@ -587,6 +596,12 @@ const HANDLERS = {
       cardId: card.id,
       cardName: card.name
     };
+    state.logs = addLog(
+      state.logs,
+      "player",
+      `【${card.name}】のアクションを使用しました。`,
+      actor?.name
+    );
 
     const result = applyCardAction(state, card, state.logs, command.branchIndex);
     if (!result.playable) return fail(state, ERROR.ACTION_REFUSED, "その操作は実行できませんでした。");

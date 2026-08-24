@@ -262,4 +262,49 @@ export const PRELUDES = localize(mergeCatalog(FULL_PRELUDES, CURATED_PRELUDE_OVE
 export const GLOBAL_EVENTS = localize(FULL_GLOBAL_EVENTS);
 export const STANDARD_PROJECTS = localize(FULL_STANDARD_PROJECTS);
 export const STANDARD_ACTIONS = localize(FULL_STANDARD_ACTIONS);
+// Prelude, Prelude 2 and Promo cards ship in their own boxes but some of them
+// only function inside another expansion: they place a colony, raise the Venus
+// track, carry floaters, or gate on a Turmoil party. Filtering by `expansion`
+// alone let those into a Prelude-only game, where they are unplayable or do
+// nothing. Cards that merely SCALE with another expansion ("gain 1 M€ per
+// colony you have") are absent on purpose — they are legal at zero.
+export const CARD_EXPANSION_DEPENDENCIES = Object.freeze({
+  // --- Preludes ---
+  "card-prelude2-atmospheric-enhancers": ["venus"],
+  "card-prelude2-floating-trade-hub": ["venus"],
+  "card-prelude2-planetary-alliance": ["venus"],
+  "card-prelude2-venus-contract": ["venus"],
+  "card-prelude2-venus-l1-shade": ["venus"],
+  "card-promo-giant-solar-collector": ["venus"],
+  "card-prelude2-early-colonization": ["colonies"],
+  "card-prelude2-old-mining-colony": ["colonies"],
+  "card-promo-strategic-base-planning": ["colonies"],
+  "card-prelude2-corridors-of-power": ["turmoil"],
+  "card-prelude2-high-circles": ["turmoil"],
+  "card-prelude2-rise-to-power": ["turmoil"],
+  // --- Projects ---
+  "card-prelude2-cloud-tourism": ["venus"],
+  "card-prelude2-floating-refinery": ["venus"],
+  "card-prelude2-ishtar-expedition": ["venus"],
+  "card-prelude2-stratospheric-expedition": ["venus"],
+  "card-prelude2-unexpected-application": ["venus"],
+  "card-prelude2-venus-orbital-survey": ["venus"],
+  "card-prelude2-venus-shuttles": ["venus"],
+  "card-prelude2-venus-trade-hub": ["venus"],
+  "card-prelude2-venus-allies": ["venus"],
+  "card-promo-saturn-surfing": ["venus"],
+  "card-promo-weather-balloons": ["venus"],
+  "card-prelude2-l1-trade-terminal": ["colonies"],
+  "card-prelude2-envoys-from-venus": ["venus", "turmoil"],
+  "card-prelude2-ghg-shipment": ["venus", "turmoil"],
+  "card-prelude2-colonial-envoys": ["colonies", "turmoil"],
+  "card-prelude2-colonial-representation": ["colonies", "turmoil"],
+  "card-prelude2-frontier-town": ["turmoil"],
+  "card-prelude2-jovian-envoys": ["turmoil"],
+  "card-prelude2-red-appeasement": ["turmoil"],
+  "card-prelude2-special-permit": ["turmoil"],
+  "card-prelude2-sponsoring-nation": ["turmoil"],
+  "card-prelude2-summit-logistics": ["turmoil"],
+  "card-prelude2-wg-project": ["turmoil"]
+});
 export const OFFICIAL_CONTENT_VERSION = 2;

@@ -155,6 +155,10 @@ div[tabindex="0"]:focus-visible {
   display: grid;
   /* Board first, player panel second; the old left column is now a drawer. */
   grid-template-columns: minmax(0, 1fr) minmax(260px, 330px);
+  /* The two full-width bars (HUD, standings) size to their content; only the
+     board row absorbs the leftover height. Left implicit, the grid divided the
+     space evenly and squeezed the standings row to 8px under its own chips. */
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 12px;
   padding: 12px;
   overflow: hidden;
