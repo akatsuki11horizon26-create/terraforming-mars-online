@@ -458,3 +458,64 @@ test("Resource colonies stay dormant until a card can hold their resource", asyn
     "and only the colony matching that resource"
   );
 });
+
+// The rules let the trader pick which of the three costs to pay, and the choice
+// is real: energy is scarce for some engines and worthless to others. Callers
+// that pass nothing keep the old automatic order, so the bot and saved games
+// are unaffected.
+test("A trade can name which resource pays for it", async () => {
+  const { tradeWith, getPlayer, tradePaymentOptions, cloneGameState } =
+    await import("../app/game-logic.js");
+
+  const table = () => {
+    const state = getInitialState({ playerCount: 2, colonies: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 40;
+    seat.energy = 10;
+    seat.titanium = 10;
+    return state;
+  };
+
+  assert.equal(tradePaymentOptions(table(), "player").length, 3, "all three are affordable");
+
+  // The trade also PAYS OUT, and the payout resource depends on which colony
+  // was dealt -- a colony paying energy nets against an energy cost. Comparing
+  // the SAME trade paid two different ways isolates the choice from the payout.
+  // One table, forked -- calling table() twice deals different colonies, and a
+  // different colony pays a different reward, which is not what is under test.
+  const shared = table();
+  const sharedTile = activeTile(shared.colonies);
+  const balances = payWith => {
+    const state = cloneGameState(shared);
+    const before = { ...getPlayer(state, "player") };
+    const out = tradeWith(state, sharedTile, state.logs, "player", payWith ? { payWith } : {});
+    assert.equal(out.traded, true, `${payWith ?? "auto"} trades`);
+    const after = getPlayer(out.state, "player");
+    return {
+      energy: after.energy - before.energy,
+      titanium: after.titanium - before.titanium,
+      mc: after.mc - before.mc
+    };
+  };
+
+  // The payout is whatever this one colony pays; the DIFFERENCE between two
+  // payment choices for the SAME trade is the payment itself.
+  const viaTitanium = balances("titanium");
+  const viaMc = balances("mc");
+  assert.equal(
+    viaMc.titanium - viaTitanium.titanium, 3,
+    "paying with titanium costs exactly 3 titanium more than not paying with it"
+  );
+  assert.equal(
+    viaTitanium.mc - viaMc.mc, 9,
+    "and paying with megacredits costs exactly 9 M€ more"
+  );
+
+  // A resource that cannot pay is refused rather than quietly swapped. One
+  // table, so the tile it names is the tile it trades with.
+  const state = table();
+  const refused = tradeWith(state, activeTile(state.colonies), [], "player", { payWith: "plants" });
+  assert.equal(refused.traded, false);
+});

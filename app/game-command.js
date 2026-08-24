@@ -74,6 +74,9 @@ export const COMMAND = {
 // shares the used-action list with the cards so one flag covers both.
 export const CORPORATION_ACTION_ID = "@corporation-action";
 
+// Red Appeasement ends the player's generation as part of its own resolution.
+const RED_APPEASEMENT_CARD_ID = "card-prelude2-red-appeasement";
+
 export const ERROR = {
   UNKNOWN_COMMAND: "UNKNOWN_COMMAND",
   NOT_YOUR_TURN: "NOT_YOUR_TURN",
@@ -566,6 +569,15 @@ const HANDLERS = {
     // A card that can hold floaters, microbes or animals wakes the colony that
     // trades in that resource.
     refreshColonyActivation(thresholds.state);
+
+    // "This counts as passing. You get no other turns this generation." The
+    // ordinary pass path would only end the turn, because the player has just
+    // acted, so the pass is asked for explicitly.
+    if (card.id === RED_APPEASEMENT_CARD_ID) {
+      const passed = passPlayer(thresholds.state, thresholds.logs, command.playerId, { forced: true });
+      return { ok: true, state: passed.state, events: [] };
+    }
+
     const spent = handleActionSpend(thresholds.state, thresholds.logs);
     return { ok: true, state: spent, events: [] };
   },

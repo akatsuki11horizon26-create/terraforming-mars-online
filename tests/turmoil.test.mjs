@@ -1979,3 +1979,44 @@ test("The ruling party's tile policy pays out when a tile is laid", async () => 
   assert.equal(lay("greens", "city", "mc"), 0, "and only for a greenery");
   assert.equal(lay("unity", "forest", "steel"), 0, "a party without a tile policy pays nothing");
 });
+
+// "Requires ... AND THAT NO OTHER PLAYER HAS PASSED. Increase M€ production 2
+// steps. This counts as passing. You get no other turns this generation."
+// Only the production step was implemented, so the card was a free +2.
+test("Red Appeasement needs an unpassed table and ends your generation", async () => {
+  const { getCardPlayableStatus, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { sendDelegate } = await import("../app/turmoil.js");
+  const ID = "card-prelude2-red-appeasement";
+  const card = ALL_CARDS.find(entry => entry.id === ID);
+
+  const table = otherPassed => {
+    const state = getInitialState({ playerCount: 2, turmoil: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.hand = [ID];
+    seat.actionsRemaining = 2;
+    // Two delegates satisfy the Reds requirement without them governing.
+    state.turmoil = sendDelegate(state.turmoil, "player", "reds", { fromLobby: true }).turmoil;
+    state.turmoil = sendDelegate(state.turmoil, "player", "reds", {}).turmoil;
+    getPlayer(state, "player2").passed = otherPassed;
+    return state;
+  };
+
+  assert.equal(getCardPlayableStatus(card, table(false)).playable, true);
+  assert.equal(
+    getCardPlayableStatus(card, table(true)).playable,
+    false,
+    "somebody has already passed, so the cost is not a real one"
+  );
+
+  const state = table(false);
+  const before = getPlayer(state, "player").mcProd;
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: "player", cardId: ID });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, "player").mcProd, before + 2);
+  assert.equal(getPlayer(played.state, "player").passed, true, "playing it is passing");
+  assert.equal(played.state.currentPlayerId, "player2", "and the seat moves on");
+});

@@ -769,3 +769,70 @@ test("Cities on reserved off-board slots never reach the map", async () => {
   // A city that really is on Mars still asks.
   assert.equal(play("p-capital").asked, true, "Capital still picks a space");
 });
+
+// Off-board cities are city tiles the player owns, so they count where "cities
+// you own" is the question, and never where the board is. Keeping those two as
+// separate queries is what stops adjacency scoring picking them up.
+test("Off-board cities count for Mayor and Landlord but not for board scoring", async () => {
+  const { getPlayer, getMilestoneStatus, scoreAward, calculateScoreBreakdowns } =
+    await import("../app/game-logic.js");
+  const { getAward } = await import("../app/milestones-awards.js");
+
+  const state = getInitialState({ playerCount: 2 });
+  state.phase = "action";
+  const seatId = state.players[0].id;
+  getPlayer(state, seatId).mc = 100;
+
+  let placed = 0;
+  for (const cell of Object.values(state.board)) {
+    if (placed < 2 && cell.tileType === "empty" && !cell.isOceanOnly) {
+      cell.tileType = "city";
+      cell.placedBy = seatId;
+      placed += 1;
+    }
+  }
+
+  assert.equal(getMilestoneStatus(state, "mayor", seatId).score, 2);
+  const boardOnlyVp = calculateScoreBreakdowns(state)[seatId].board;
+
+  state.offBoardCities = [
+    { space: "01", ownerId: seatId, cardId: "card-base-ganymede-colony" }
+  ];
+
+  assert.equal(getMilestoneStatus(state, "mayor", seatId).score, 3, "Mayor counts it");
+  const landlord = scoreAward(getAward("landlord"), state, { cards: [], corporations: [] });
+  assert.equal(
+    landlord.scores.find(entry => entry.playerId === seatId).score, 3,
+    "Landlord counts it"
+  );
+  assert.equal(
+    calculateScoreBreakdowns(state)[seatId].board, boardOnlyVp,
+    "but it has no adjacency, so board VP is unchanged"
+  );
+});
+
+// The ruling policy rewards what a player does on their turn. The final
+// greenery conversion happens after the last generation, with no government in
+// session, and the World Government's own tile pays nobody.
+test("A tile policy does not fire for final greenery or the World Government", async () => {
+  const { placeTileAt, legalCellsFor, getPlayer } = await import("../app/game-logic.js");
+
+  const lay = options => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = "greens";
+    state.turmoil.rulingPolicyId = null;
+    state.currentPlayerId = "player";
+    for (const cell of Object.values(state.board)) {
+      cell.bonusType = "none";
+      cell.bonusAmount = 0;
+      cell.bonus = null;
+    }
+    const before = getPlayer(state, "player").mc;
+    placeTileAt(state, legalCellsFor(state, "forest", "player")[0], "forest", "player", undefined, options);
+    return getPlayer(state, "player").mc - before;
+  };
+
+  assert.equal(lay({}), 4, "an ordinary greenery pays");
+  assert.equal(lay({ finalGreenery: true }), 0);
+  assert.equal(lay({ worldGovernment: true }), 0);
+});

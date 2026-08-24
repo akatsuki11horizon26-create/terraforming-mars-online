@@ -18,6 +18,14 @@ export function countTiles(board, playerId, tileType) {
   ).length;
 }
 
+// Ganymede, Phobos, Stanford Torus and the Venus cities are city tiles the
+// player owns, so they count for Mayor and Landlord -- they are simply not ON
+// Mars, which is why anything reading the board must not see them. Keeping the
+// two questions separate is what stops board adjacency scoring picking them up.
+export function countOffBoardCities(offBoardCities, playerId) {
+  return (offBoardCities ?? []).filter(entry => entry.ownerId === playerId).length;
+}
+
 // Preludes stay face up in front of the player and their tags count like any
 // other, which the card-requirement path already honoured. Builder and
 // Scientist read this one instead, so those two milestones -- and the Scientist
@@ -53,7 +61,9 @@ export const MILESTONES = [
     name: "市長",
     description: "都市タイル3枚以上",
     threshold: 3,
-    getScore: context => countTiles(context.board, context.player.id, "city")
+    getScore: context =>
+      countTiles(context.board, context.player.id, "city") +
+      countOffBoardCities(context.offBoardCities, context.player.id)
   },
   {
     id: "gardener",
@@ -87,7 +97,7 @@ export const AWARDS = [
     getScore: context =>
       Object.values(context.board).filter(
         cell => cell.placedBy === context.player.id && cell.tileType !== "empty" && cell.tileType !== "ocean"
-      ).length
+      ).length + countOffBoardCities(context.offBoardCities, context.player.id)
   },
   {
     id: "banker",
@@ -178,6 +188,9 @@ export function scoreAward(award, state, context) {
       ...context,
       player,
       board: state.board,
+      // Taken from the state rather than the caller's context, so a caller that
+      // forgets to pass it cannot silently drop the off-board cities.
+      offBoardCities: state.offBoardCities ?? [],
       // Tag-counting awards need the scored player's own corporation.
       corporation: corporations.find(c => c.id === player.corporationId)
     })

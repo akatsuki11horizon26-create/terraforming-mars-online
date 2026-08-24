@@ -2084,7 +2084,7 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
       }
 
       grantPlacementCorporationEffects(state, cell, tileType, ownerId);
-      grantRulingPolicyTileEffects(state, tileType, ownerId);
+      grantRulingPolicyTileEffects(state, tileType, ownerId, { finalGreenery });
     }
     // Cards that watch for a tile being laid fire either way.
     grantCityPlacementCardEffects(state, tileType);
@@ -2114,10 +2114,15 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
 // Only Unity's titanium price was ever wired up, so five of the six policies a
 // game can actually reach did nothing -- and with them, most of the reason to
 // care who governs.
-function grantRulingPolicyTileEffects(state, tileType, ownerId) {
+function grantRulingPolicyTileEffects(state, tileType, ownerId, context = {}) {
   const policy = getRulingPolicy(state.turmoil);
   if (policy?.trigger !== "onTilePlaced") return;
   if (policy.tileType && policy.tileType !== tileType) return;
+  // The policy rewards what a player does on their turn. The final greenery
+  // conversion happens after the last generation, when no government is in
+  // session to pay anyone -- and the World Government's own tile is already
+  // excluded by the caller, which skips every placement reward for it.
+  if (context.finalGreenery) return;
 
   if (policy.resource && policy.amount) {
     state.players = state.players.map(player =>
@@ -3068,7 +3073,7 @@ export function buildColonyOn(state, tileId, logs, playerId) {
   return { state: next, logs: granted.logs, built: true };
 }
 
-export function tradeWith(state, tileId, logs, playerId) {
+export function tradeWith(state, tileId, logs, playerId, options = {}) {
   if (!state.colonies) {
     return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), traded: false };
   }
@@ -3081,10 +3086,24 @@ export function tradeWith(state, tileId, logs, playerId) {
       .join(" / ");
     return { state, logs: addLog(logs, "system", `交易には ${shown} のいずれかが必要です。`), traded: false };
   }
-  // Pay with whichever resource is least useful elsewhere: energy and titanium
-  // before megacredits, matching how the cost is normally settled at the table.
+  // The rules let the trader choose which of the three costs to pay, and that
+  // choice is real: energy is scarce for some engines and worthless to others.
+  // Callers that do not care keep the old behaviour -- energy and titanium
+  // before megacredits -- so the bot and existing saves are unaffected.
   const priority = ["energy", "titanium", "mc"];
-  const payment = payable.slice().sort((a, b) => priority.indexOf(a.resource) - priority.indexOf(b.resource))[0];
+  const chosen = options.payWith
+    ? payable.find(entry => entry.resource === options.payWith)
+    : null;
+  if (options.payWith && !chosen) {
+    return {
+      state,
+      logs: addLog(logs, "system", `${TRADE_LABELS[options.payWith] ?? options.payWith} では支払えません。`),
+      traded: false
+    };
+  }
+  const payment =
+    chosen ??
+    payable.slice().sort((a, b) => priority.indexOf(a.resource) - priority.indexOf(b.resource))[0];
 
   // Cards such as Trade Envoys read the track this many steps further along.
   const offset = tradeOffsetFor(state, actorId);
@@ -3308,6 +3327,7 @@ function milestoneContext(state, player) {
   return {
     player,
     board: state.board,
+    offBoardCities: state.offBoardCities ?? [],
     cards: ALL_CARDS,
     preludes: PRELUDES,
     corporation: CORPORATIONS.find(c => c.id === player.corporationId),
@@ -4078,6 +4098,8 @@ export function placeCathedral(state, actorId, cellKey) {
 }
 
 export const LAW_SUIT_ID = "card-promo-law-suit";
+// "This counts as passing. You get no other turns this generation."
+const RED_APPEASEMENT_ID = "card-prelude2-red-appeasement";
 export const LAW_SUIT_STEAL = 3;
 
 // Only someone who actually took something from you this generation may be
@@ -4271,6 +4293,18 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   if (steelUsed > maxSteel || titaniumUsed > maxTitanium) {
     return { playable: false, reason: "資源割引の上限を超えています。" };
   }
+  // "AND THAT NO OTHER PLAYER HAS PASSED" -- the card buys a production step in
+  // exchange for the rest of your generation, which is only a real cost while
+  // everyone else can still act.
+  if (card.id === RED_APPEASEMENT_ID) {
+    const someoneElsePassed = (state.players ?? []).some(
+      player => player.id !== state.currentPlayerId && player.passed
+    );
+    if (someoneElsePassed) {
+      return { playable: false, reason: "他のプレイヤーがすでにパスしています。" };
+    }
+  }
+
   // Law Suit answers an attack, so it cannot be played when nobody has made
   // one this generation.
   if (card.id === LAW_SUIT_ID && lawSuitTargets(state, state.currentPlayerId).length === 0) {
@@ -4604,14 +4638,16 @@ export function handleActionSpend(state, logAcc) {
 
 // A player passing leaves the action phase for this generation only. Production
 // runs once everyone has passed, not when the first player does.
-export function passPlayer(state, logAcc, playerId) {
+export function passPlayer(state, logAcc, playerId, options = {}) {
   const actorId = playerId ?? state.currentPlayerId;
   const actor = getPlayer(state, actorId);
 
   // The rulebook defines a pass as taking no action that turn: "１つもアクショ
   // ンを実行しなければ（パス）". Having already acted, the turn simply ends and
   // the seat moves on; the player is still in the generation.
-  if (actor && actor.actionsRemaining < 2) {
+  // Red Appeasement is the exception: it says "this counts as passing" no
+  // matter what the player did first, so it asks for the pass outright.
+  if (!options.forced && actor && actor.actionsRemaining < 2) {
     const ended = endTurn(state, logAcc, actorId);
     return { state: ended.state, logs: ended.logs, generationEnded: false, endedTurnOnly: true };
   }
