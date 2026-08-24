@@ -13,6 +13,16 @@ import {
 import { getColonyTile } from "../app/colony-tiles.js";
 import { MAX_COLONIES_PER_TILE, STARTING_FLEET_SIZE } from "../app/colonies.js";
 
+// Titan, Enceladus and Miranda stay off the track until a card that can hold
+// their resource is played, so a test that just wants "a colony" has to ask for
+// one that is actually usable -- tilesInPlay[0] is shuffled.
+function activeTile(colonies) {
+  const id = colonies.tilesInPlay.find(tile => colonies.tiles[tile]?.active !== false);
+  if (!id) throw new Error("no active colony tile in play");
+  return id;
+}
+
+
 test("All twelve colony tiles carry a seven-step trade track", () => {
   assert.equal(COLONY_TILES.length, 12);
   for (const tile of COLONY_TILES) {
@@ -82,7 +92,7 @@ test("Building a colony pays the build bonus and raises the track", () => {
 
 test("A player may not colonise the same tile twice", () => {
   const state = getInitialState({ playerCount: 2, colonies: true });
-  const tileId = state.colonies.tilesInPlay[0];
+  const tileId = activeTile(state.colonies);
 
   const first = buildColonyOn(state, tileId, state.logs, "player");
   const second = buildColonyOn(first.state, tileId, first.logs, "player");
@@ -93,7 +103,7 @@ test("A player may not colonise the same tile twice", () => {
 
 test("A tile holds at most three colonies", () => {
   let state = getInitialState({ playerCount: 5, colonies: true });
-  const tileId = state.colonies.tilesInPlay[0];
+  const tileId = activeTile(state.colonies);
 
   for (const id of ["player", "player2", "player3"]) {
     state = buildColonyOn(state, tileId, state.logs, id).state;
@@ -129,7 +139,7 @@ test("Trading pays the trader and every colony owner", () => {
 
 test("Trading consumes a fleet and closes the tile for the generation", () => {
   let state = getInitialState({ playerCount: 2, colonies: true });
-  const tileId = state.colonies.tilesInPlay[0];
+  const tileId = activeTile(state.colonies);
 
   const traded = tradeWith(state, tileId, state.logs, "player");
   assert.equal(traded.traded, true);
@@ -144,7 +154,7 @@ test("Trading consumes a fleet and closes the tile for the generation", () => {
 
 test("The trade track resets to the number of colonies present", () => {
   let state = getInitialState({ playerCount: 3, colonies: true });
-  const tileId = state.colonies.tilesInPlay[0];
+  const tileId = activeTile(state.colonies);
 
   state = buildColonyOn(state, tileId, state.logs, "player").state;
   state = buildColonyOn(state, tileId, state.logs, "player2").state;
@@ -160,14 +170,14 @@ test("The trade track resets to the number of colonies present", () => {
 
 test("Fleets return at the end of the generation", () => {
   const state = getInitialState({ playerCount: 2, colonies: true });
-  const traded = tradeWith(state, state.colonies.tilesInPlay[0], state.logs, "player");
+  const traded = tradeWith(state, activeTile(state.colonies), state.logs, "player");
   assert.equal(availableFleets(traded.state.colonies, "player"), 0);
 
   const produced = triggerProduction(traded.state, traded.logs);
 
   assert.equal(availableFleets(produced.colonies, "player"), STARTING_FLEET_SIZE);
   assert.equal(
-    produced.colonies.tiles[state.colonies.tilesInPlay[0]].tradedThisGeneration,
+    produced.colonies.tiles[activeTile(state.colonies)].tradedThisGeneration,
     false,
     "tiles reopen for trade"
   );
@@ -185,7 +195,7 @@ test("Colony requirements read live state", () => {
 
   assert.equal(getCardPlayableStatus(card, state).playable, false);
 
-  state = buildColonyOn(state, state.colonies.tilesInPlay[0], state.logs, "player").state;
+  state = buildColonyOn(state, activeTile(state.colonies), state.logs, "player").state;
   assert.equal(countColonies(state.colonies, "player"), 1);
   assert.equal(getCardPlayableStatus(card, state).playable, true);
 });
@@ -217,7 +227,7 @@ test("trading and building colonies cost what the rulebook says", async () => {
   // so two runs need not share a tile. Build one game and fork it, which keeps
   // every comparison on the same tile paying the same income.
   const base = table({});
-  const tile = Object.keys(base.colonies.tiles)[0];
+  const tile = activeTile(base.colonies);
   function fork(overrides) {
     const state = cloneGameState(base);
     state.players = state.players.map(player => ({ ...player, ...overrides }));
@@ -385,7 +395,7 @@ test("every colony effect shown to the player is translated", async () => {
 test("A card that allows it may place a second colony on the same tile", async () => {
   const { buildColony, canBuildColony } = await import("../app/colonies.js");
   const state = getInitialState({ playerCount: 2, colonies: true });
-  const tile = state.colonies.tilesInPlay[0];
+  const tile = activeTile(state.colonies);
 
   const first = buildColony(state.colonies, tile, "player");
   assert.equal(first.built, true);
@@ -404,4 +414,47 @@ test("A card that allows it may place a second colony on the same tile", async (
   const second = buildColony(first.colonies, tile, "player", { allowDuplicates: true });
   assert.equal(second.built, true);
   assert.deepEqual(second.colonies.tiles[tile].colonies, ["player", "player"]);
+});
+
+// Titan, Enceladus and Miranda pay out in a resource that has to live on a
+// card, so their marker starts on the moon picture: until somebody plays a card
+// that can hold floaters, microbes or animals, the colony cannot be settled or
+// traded with. All three were available from turn one.
+test("Resource colonies stay dormant until a card can hold their resource", async () => {
+  const { getPlayer, canTrade, canBuildColony, ALL_CARDS } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  for (const id of ["titan", "enceladus", "miranda"]) {
+    if (!state.colonies.tilesInPlay.includes(id)) {
+      state.colonies.tilesInPlay.push(id);
+      state.colonies.tiles[id] = { id, trackPosition: 0, colonies: [], active: false };
+    }
+  }
+
+  assert.equal(canTrade(state.colonies, "titan", "player").ok, false, "dormant: no trade");
+  assert.equal(canBuildColony(state.colonies, "titan", "player").ok, false, "dormant: no colony");
+
+  const floaterCard = ALL_CARDS.find(
+    card => getCardResourceType(card.id) === "floater" && card.cost < 20 && !card.requirements?.length
+  );
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.hand = [floaterCard.id];
+  seat.actionsRemaining = 2;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: floaterCard.id
+  });
+  assert.equal(played.ok, true);
+
+  assert.equal(played.state.colonies.tiles.titan.active, true, "a floater card wakes Titan");
+  assert.equal(canTrade(played.state.colonies, "titan", "player").ok, true);
+  assert.equal(
+    played.state.colonies.tiles.enceladus.active, false,
+    "and only the colony matching that resource"
+  );
 });

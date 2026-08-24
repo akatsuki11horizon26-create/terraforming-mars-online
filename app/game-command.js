@@ -37,6 +37,7 @@ import {
   placeTileAt,
   isSoloMissionComplete,
   grantStandardProjectRebate,
+  refreshColonyActivation,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
@@ -562,6 +563,9 @@ const HANDLERS = {
       return { ok: true, state: thresholds.state, events: [], pendingAction: thresholds.state.pendingChoice };
     }
 
+    // A card that can hold floaters, microbes or animals wakes the colony that
+    // trades in that resource.
+    refreshColonyActivation(thresholds.state);
     const spent = handleActionSpend(thresholds.state, thresholds.logs);
     return { ok: true, state: spent, events: [] };
   },

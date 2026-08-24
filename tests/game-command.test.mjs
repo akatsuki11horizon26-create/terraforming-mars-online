@@ -8,7 +8,17 @@ import {
   getPlayer,
   CORPORATIONS
 } from "../app/game-logic.js";
-import { executeGameCommand, getLegalCommands, COMMAND, ERROR } from "../app/game-command.js";
+import { executeGameCommand, getLegalCommands, getStandardProjectCost, COMMAND, ERROR } from "../app/game-command.js";
+
+// Titan, Enceladus and Miranda stay off the track until a card that can hold
+// their resource is played, so a test that just wants "a colony" has to ask for
+// one that is usable -- the tiles in play are shuffled.
+function activeTile(colonies) {
+  const id = colonies.tilesInPlay.find(tile => colonies.tiles[tile]?.active !== false);
+  if (!id) throw new Error("no active colony tile in play");
+  return id;
+}
+
 
 // A seated two-player game with the turn holder holding one cheap card.
 function table(options = {}) {
@@ -74,7 +84,7 @@ test("playing a card applies its effect and spends one action", () => {
 
 test("an action only costs a turn when it succeeds", () => {
   const { state, seat } = table({ colonies: true });
-  const tile = Object.keys(state.colonies.tiles)[0];
+  const tile = activeTile(state.colonies);
 
   const traded = executeGameCommand(state, { type: COMMAND.TRADE, playerId: seat, tileId: tile });
   assert.equal(traded.ok, true);
@@ -898,7 +908,10 @@ test("final greenery resolves in turn order through commands", () => {
 
   assert.equal(placed.ok, true);
   assert.equal(placed.state.board[option.targetCellKey].tileType, "forest");
-  assert.equal(getPlayer(placed.state, seat).plants, before.plants - 8);
+  // table() deals a random corporation, and Ecoline converts at 7 rather than
+  // 8, so the price is asked for rather than assumed.
+  const finalGreeneryCost = getStandardProjectCost(ending, seat, "convert-plants") ?? 8;
+  assert.equal(getPlayer(placed.state, seat).plants, before.plants - finalGreeneryCost);
   assert.equal(placed.state.oxygen, ending.oxygen);
   assert.equal(getPlayer(placed.state, seat).tr, before.tr);
   if (cell.bonusType === "steel") {

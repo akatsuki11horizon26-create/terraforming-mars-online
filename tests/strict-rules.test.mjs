@@ -14,6 +14,16 @@ import {
   INITIAL_CELLS
 } from "../app/game-logic.js";
 
+// Titan, Enceladus and Miranda stay off the track until a card that can hold
+// their resource is played, so a test that just wants "a colony" has to ask for
+// one that is actually usable -- tilesInPlay[0] is shuffled.
+function activeTile(colonies) {
+  const id = colonies.tilesInPlay.find(tile => colonies.tiles[tile]?.active !== false);
+  if (!id) throw new Error("no active colony tile in play");
+  return id;
+}
+
+
 test("Initial state setup tests", () => {
   const state = getInitialState();
   
@@ -403,7 +413,7 @@ test("A card allowing duplicate colonies still cannot use a full tile", async ()
   const { buildColony, canBuildColony } = await import("../app/colonies.js");
   const state = getInitialState({ playerCount: 4, colonies: true });
   let colonies = state.colonies;
-  const tile = colonies.tilesInPlay[0];
+  const tile = activeTile(colonies);
   for (const id of ["player", "player2", "player3"]) {
     colonies = buildColony(colonies, tile, id).colonies;
   }
@@ -684,7 +694,7 @@ test("Standard Technology refunds 3 M€ on standard projects only", async () =>
     seat.mc = 100;
     if (holding) seat.playedProjects = [CARD];
     const before = seat.mc;
-    const out = buildColonyOn(state, state.colonies.tilesInPlay[0], state.logs, "player");
+    const out = buildColonyOn(state, activeTile(state.colonies), state.logs, "player");
     assert.equal(out.built, true);
     return before - getPlayer(out.state, "player").mc;
   };

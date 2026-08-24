@@ -104,6 +104,7 @@ export {
 };
 import {
   COLONY_TILES,
+  activateResourceColonies,
   availableFleets,
   buildColony,
   canBuildColony,
@@ -3837,6 +3838,23 @@ export function computeScore(state, playerId) {
 // Standard Technology refunds 3 M€ after a standard project is paid for. It is
 // summed across the tableau rather than hard-coded to one card id, so a second
 // printing of the same effect would work without touching this.
+// Titan, Enceladus and Miranda sit off the track until somebody plays a card
+// that can hold floaters, microbes or animals. Called after anything that adds
+// to a tableau, so the check is one pass over what the players now hold.
+export function refreshColonyActivation(state) {
+  if (!state.colonies) return state;
+  const held = [];
+  for (const player of state.players ?? []) {
+    for (const id of player.playedProjects ?? []) {
+      const type = getCardResourceType(id);
+      if (type) held.push(type);
+    }
+  }
+  const woken = activateResourceColonies(state.colonies, held);
+  if (woken !== state.colonies) state.colonies = woken;
+  return state;
+}
+
 export function grantStandardProjectRebate(state, playerId) {
   const player = getPlayer(state, playerId);
   const rebate = (player?.playedProjects ?? []).reduce((sum, id) => {

@@ -253,7 +253,14 @@ test("A robot resolves and finishes its final greenery opportunity", () => {
 
   assert.equal(finished.phase, "game_over");
   assert.equal(finished.isGameOver, true);
-  assert.equal(engine.getPlayer(finished, "player2").plants, 0);
+  // Ecoline converts at 7 rather than 8, and the corporation is dealt at
+  // random, so the assertion is "it spent what a conversion costs", not "it
+  // ended on exactly zero".
+  assert.ok(
+    engine.getPlayer(finished, "player2").plants < before.plants,
+    "the robot spent its plants on a greenery"
+  );
+  assert.ok(engine.getPlayer(finished, "player2").plants <= 1);
   assert.equal(engine.getPlayer(finished, "player2").tr, before.tr);
   assert.equal(finished.oxygen, state.oxygen);
   assert.equal(

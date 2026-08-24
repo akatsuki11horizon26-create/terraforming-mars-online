@@ -12,13 +12,46 @@ export const TILES_IN_PLAY = { 1: 5, 2: 5, 3: 5, 4: 6, 5: 7 };
 
 export { COLONY_TILES, getColonyTile };
 
+// These three pay out in a resource that has to live on a card, so their marker
+// starts on the moon picture rather than on the track: until somebody plays a
+// card that can hold the resource, there is nowhere for the trade to go and the
+// colony can be neither settled nor traded with.
+const REQUIRED_RESOURCE_BY_COLONY = {
+  titan: "floater",
+  enceladus: "microbe",
+  miranda: "animal"
+};
+
+export function colonyRequiresResource(tileId) {
+  return REQUIRED_RESOURCE_BY_COLONY[tileId] ?? null;
+}
+
+// Moves a dormant colony onto the track once a card that can hold its resource
+// reaches the table.
+export function activateResourceColonies(colonies, resourceTypes) {
+  if (!colonies) return colonies;
+  const wanted = new Set(resourceTypes.filter(Boolean));
+  const waking = Object.values(colonies.tiles).filter(
+    tile => tile.active === false && wanted.has(REQUIRED_RESOURCE_BY_COLONY[tile.id])
+  );
+  if (waking.length === 0) return colonies;
+
+  const next = cloneColonies(colonies);
+  for (const tile of waking) {
+    next.tiles[tile.id].active = true;
+    next.tiles[tile.id].trackPosition = 1;
+  }
+  return next;
+}
+
 export function createColoniesState(playerIds, shuffledTileIds) {
   const count = TILES_IN_PLAY[playerIds.length] ?? 5;
   const inPlay = shuffledTileIds.slice(0, count);
 
   const tiles = {};
   for (const id of inPlay) {
-    tiles[id] = { id, trackPosition: 1, colonies: [] };
+    const active = REQUIRED_RESOURCE_BY_COLONY[id] === undefined;
+    tiles[id] = { id, trackPosition: active ? 1 : 0, colonies: [], active };
   }
 
   const fleets = {};
@@ -42,6 +75,9 @@ export function availableFleets(colonies, playerId) {
 export function canBuildColony(colonies, tileId, playerId, { allowDuplicates = false } = {}) {
   const tile = getTile(colonies, tileId);
   if (!tile) return { ok: false, reason: "その植民地は場にありません。" };
+  if (tile.active === false) {
+    return { ok: false, reason: "この植民地は対応する資源カードが場に出るまで使用できません。" };
+  }
   if (tile.colonies.length >= MAX_COLONIES_PER_TILE) {
     return { ok: false, reason: "この植民地は満杯です。" };
   }
@@ -91,6 +127,9 @@ function resolveBuildBonus(definition, colonyIndex) {
 export function canTrade(colonies, tileId, playerId) {
   const tile = getTile(colonies, tileId);
   if (!tile) return { ok: false, reason: "その植民地は場にありません。" };
+  if (tile.active === false) {
+    return { ok: false, reason: "この植民地は対応する資源カードが場に出るまで使用できません。" };
+  }
   if (availableFleets(colonies, playerId) <= 0) {
     return { ok: false, reason: "使用可能な交易船がありません。" };
   }

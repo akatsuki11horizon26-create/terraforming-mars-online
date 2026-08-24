@@ -4,6 +4,16 @@ import { getInitialState, getBoardCells } from "../app/game-logic.js";
 import { milestonesForBoard, awardsForBoard } from "../app/board-milestones.js";
 import { getMilestone, getAward } from "../app/milestones-awards.js";
 
+// Titan, Enceladus and Miranda stay off the track until a card that can hold
+// their resource is played, so a test that just wants "a colony" has to ask for
+// one that is usable -- the tiles in play are shuffled.
+function activeTile(colonies) {
+  const id = colonies.tilesInPlay.find(tile => colonies.tiles[tile]?.active !== false);
+  if (!id) throw new Error("no active colony tile in play");
+  return id;
+}
+
+
 const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis"];
 
 test("every map is a complete 61-space board", () => {
@@ -136,7 +146,7 @@ test("Pioneer reads the live colony count", async () => {
   state.phase = "action";
   state.players = state.players.map(player => ({ ...player, mc: 80 }));
 
-  const tile = Object.keys(state.colonies.tiles)[0];
+  const tile = activeTile(state.colonies);
   state = buildColonyOn(state, tile, [], "player").state;
 
   // milestoneContext did not pass colonyCount, so Pioneer was unclaimable.
