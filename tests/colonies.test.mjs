@@ -378,3 +378,30 @@ test("every colony effect shown to the player is translated", async () => {
   assert.equal(colonyDescriptionJP(""), "", "an empty description stays empty");
   assert.equal(colonyDescriptionJP("Unknown effect"), "Unknown effect", "an unknown string falls back visibly");
 });
+
+// Research Colony and Space Port Colony override the one-colony-per-tile rule.
+// The choice handler always passed { allowDuplicates }, but buildColony only
+// declared three parameters, so the flag was dropped and the cards did nothing.
+test("A card that allows it may place a second colony on the same tile", async () => {
+  const { buildColony, canBuildColony } = await import("../app/colonies.js");
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  const tile = state.colonies.tilesInPlay[0];
+
+  const first = buildColony(state.colonies, tile, "player");
+  assert.equal(first.built, true);
+
+  assert.equal(
+    canBuildColony(first.colonies, tile, "player").ok,
+    false,
+    "the ordinary rule still refuses a duplicate"
+  );
+  assert.equal(
+    canBuildColony(first.colonies, tile, "player", { allowDuplicates: true }).ok,
+    true,
+    "the card's exception is honoured"
+  );
+
+  const second = buildColony(first.colonies, tile, "player", { allowDuplicates: true });
+  assert.equal(second.built, true);
+  assert.deepEqual(second.colonies.tiles[tile].colonies, ["player", "player"]);
+});

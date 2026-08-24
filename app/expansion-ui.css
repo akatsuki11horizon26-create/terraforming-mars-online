@@ -611,6 +611,194 @@
   white-space: nowrap;
 }
 
+/* Expansion state that must be readable while choosing an action: the ruling
+   policy applies to every card played this generation, and colony availability
+   decides whether a trade is even possible. Both were drawer-only before. */
+.influence-breakdown {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  list-style: none;
+  background-color: var(--surface-2);
+  border-left: 2px solid var(--accent-violet);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.influence-breakdown li {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-mid);
+}
+
+.expansion-glance {
+  display: grid;
+  gap: 6px;
+}
+
+.glance-card {
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--accent-cyan);
+  background-color: var(--surface-2);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.glance-card--turmoil {
+  border-left-color: var(--accent-violet);
+}
+
+.glance-card--colonies {
+  border-left-color: var(--accent-cyan);
+}
+
+.glance-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text-hi);
+  font: inherit;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.glance-title:hover {
+  background-color: color-mix(in srgb, var(--accent-cyan) 12%, transparent);
+}
+
+.glance-title-note {
+  color: var(--text-mid);
+  font-weight: 400;
+}
+
+.glance-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, auto) minmax(0, 1fr);
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 8px;
+  border-left: 3px solid var(--party-color);
+}
+
+.glance-label {
+  color: var(--text-low);
+  font-size: 10px;
+}
+
+.glance-party {
+  color: var(--text-hi);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* The policy text is the long part; it truncates rather than wrapping the row
+   to three lines, and the full text stays available as a tooltip. */
+.glance-policy {
+  color: var(--text-mid);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.glance-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 4px 8px;
+  border-top: 1px solid var(--line-soft);
+  color: var(--text-mid);
+}
+
+.glance-event {
+  color: var(--accent-amber);
+}
+
+.glance-event-next {
+  color: var(--text-low);
+}
+
+.glance-flag {
+  margin-left: auto;
+  padding: 1px 6px;
+  background-color: color-mix(in srgb, var(--accent-green) 20%, transparent);
+  color: var(--accent-green);
+  font-weight: 700;
+}
+
+.colony-glance-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.colony-glance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px minmax(0, 52px) minmax(0, 1fr) 28px;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 8px;
+}
+
+.colony-glance-row + .colony-glance-row {
+  border-top: 1px solid color-mix(in srgb, var(--line-soft) 55%, transparent);
+}
+
+/* A colony that cannot be traded with this generation is dimmed rather than
+   hidden: it still matters for building and for owner bonuses. */
+.colony-glance-row[data-available="false"] {
+  color: var(--text-low);
+}
+
+.colony-glance-row[data-available="true"] .colony-glance-status {
+  color: var(--accent-green);
+  font-weight: 700;
+}
+
+.colony-glance-name,
+.colony-glance-owners {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.colony-glance-name {
+  color: var(--text-hi);
+  font-weight: 700;
+}
+
+.colony-glance-row[data-available="false"] .colony-glance-name {
+  color: var(--text-low);
+}
+
+.colony-glance-income {
+  color: var(--accent-amber);
+  text-align: right;
+}
+
+.colony-glance-owners {
+  color: var(--text-mid);
+  font-size: 10px;
+}
+
+.colony-glance-slots {
+  color: var(--text-low);
+  text-align: right;
+}
+
+.param-note {
+  margin-top: 2px;
+  color: var(--text-low);
+  font-size: 10px;
+}
+
 .standings {
   display: grid;
   gap: 3px;

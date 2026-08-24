@@ -27,10 +27,12 @@ import {
 import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
 import {
   AwardPanel,
+  ColonyGlance,
   ColonyPanel,
   MilestonePanel,
   PendingChoiceDialog,
   PlayerBar,
+  TurmoilGlance,
   TurmoilPanel
 } from "./expansion-panels";
 import {
@@ -41,6 +43,8 @@ import {
   getAwardStatus as jsGetAwardStatus,
   getNextAwardCost as jsGetNextAwardCost,
   getInfluence as jsGetInfluence,
+  getInfluenceBreakdown as jsGetInfluenceBreakdown,
+  getRulingPolicy as jsGetRulingPolicy,
   sendDelegateToParty as jsSendDelegateToParty,
   buildColonyOn as jsBuildColonyOn,
   tradeWith as jsTradeWith,
@@ -82,6 +86,18 @@ const ONLINE_ENABLED = process.env.NEXT_PUBLIC_SOLO_ONLY !== "1";
 
 // The human always holds the first seat; robot opponents fill the rest.
 const HUMAN_ID = "player";
+
+// Colony tracks that step through resource TYPES rather than amounts name them
+// with the engine's internal keys, which are not Japanese and not for players.
+const RESOURCE_LABELS_JP: Record<string, string> = {
+  mc: "MC",
+  megacredits: "MC",
+  steel: "建材",
+  titanium: "チタン",
+  plants: "植物",
+  energy: "電力",
+  heat: "熱"
+};
 
 // Keys match the tracked snapshot's labels. Values are the unit printed after
 // the reading in the cut-in.
@@ -936,10 +952,21 @@ export default function Home() {
     };
   });
 
+  const rulingPolicy = activeState.turmoil
+    ? (jsGetRulingPolicy(activeState.turmoil) as { description?: string } | null)
+    : null;
+
   const turmoilView = activeState.turmoil
     ? {
         chairmanName: nameOf(activeState.turmoil.chairman),
         influence: jsGetInfluence(activeState.turmoil, currentPlayerId) as number,
+        influenceParts: (jsGetInfluenceBreakdown(activeState.turmoil, currentPlayerId) as {
+          parts: { label: string; amount: number }[];
+        }).parts,
+        rulingPolicyText: rulingPolicy?.description ?? "",
+        // A free Lobby delegate is the cheapest political action there is, and
+        // it is refilled every generation, so missing it is pure loss.
+        hasFreeLobbyDelegate: activeState.turmoil.lobby.includes(currentPlayerId),
         parties: (jsPARTIES as PartyDefinition[]).map(party => {
           const seat = activeState.turmoil!.parties[party.id];
           return {
@@ -948,7 +975,8 @@ export default function Home() {
             delegates: seat?.delegates ?? [],
             leaderName: seat?.leader ? nameOf(seat.leader) : undefined,
             isRuling: activeState.turmoil!.rulingParty === party.id,
-            isDominant: activeState.turmoil!.dominantParty === party.id
+            isDominant: activeState.turmoil!.dominantParty === party.id,
+            delegateCount: (seat?.delegates ?? []).length
           };
         }),
         events: (
@@ -989,7 +1017,21 @@ export default function Home() {
           canBuild: build.ok,
           buildReason: build.reason,
           canTrade: tradeCheck.ok,
-          tradeReason: tradeCheck.reason
+          tradeReason: tradeCheck.reason,
+          // What the trader collects right now: the white marker's slot on the
+          // track. Shown so a trade can be compared without opening the drawer.
+          // Two kinds of track exist — most pay an AMOUNT of one resource, but
+          // Europa's steps name a different resource each time, so a bare
+          // lookup printed the raw key ("mc") where a number belonged.
+          currentIncome: (() => {
+            const step = tile?.trackPosition ?? 0;
+            const amounts = definition?.trade?.quantity;
+            if (Array.isArray(amounts)) return String(amounts[step] ?? "—");
+            const resources = definition?.trade?.resourceTrack;
+            if (Array.isArray(resources)) return RESOURCE_LABELS_JP[String(resources[step])] ?? "—";
+            return "—";
+          })(),
+          colonyCount: (tile?.colonies ?? []).length
         };
       })
     : [];
@@ -1831,6 +1873,32 @@ export default function Home() {
 
         {/* Right Column: Resources & Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          {/* The expansion state a player needs while choosing an action. These
+              used to live only behind drawer buttons, so the ruling policy and
+              which colonies were still open were invisible at decision time. */}
+          {(turmoilView || colonyViews.length > 0) && (
+            <div className="expansion-glance">
+              {turmoilView && (
+                <TurmoilGlance
+                  parties={turmoilView.parties as never}
+                  chairmanName={turmoilView.chairmanName}
+                  influence={turmoilView.influence}
+                  rulingPolicyText={turmoilView.rulingPolicyText}
+                  events={turmoilView.events as never}
+                  hasFreeLobbyDelegate={turmoilView.hasFreeLobbyDelegate}
+                  onOpen={() => setOpenDrawer("turmoil")}
+                />
+              )}
+              {colonyViews.length > 0 && (
+                <ColonyGlance
+                  colonies={colonyViews as never}
+                  fleets={jsAvailableFleets(activeState.colonies, currentPlayerId) as number}
+                  onOpen={() => setOpenDrawer("colonies")}
+                />
+              )}
+            </div>
+          )}
+
           {/* Resource Panel */}
           <div className="cyber-panel" style={{ flex: 1 }}>
             <div className="cyber-panel-header">
@@ -2560,6 +2628,7 @@ export default function Home() {
             parties={turmoilView.parties}
             chairmanName={turmoilView.chairmanName}
             influence={turmoilView.influence}
+            influenceParts={turmoilView.influenceParts}
             events={turmoilView.events}
             canSendDelegate={Boolean(activeState.turmoil?.lobby.includes(currentPlayerId))}
             onSendDelegate={handleSendDelegate}

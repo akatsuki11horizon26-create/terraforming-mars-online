@@ -35,7 +35,7 @@ import {
   addLog,
   legalCellsFor,
   placeTileAt,
-  isGameOverCheck,
+  isSoloMissionComplete,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
@@ -491,6 +491,10 @@ const HANDLERS = {
     }
 
     const paid = cloneGameState(state);
+    // A one-shot requirement relaxation (Special Design) is spent by the next
+    // card played, which is this one. Clear it before the effect runs so the
+    // card that grants it can re-arm it in the same breath if it ever does.
+    const hadOneShot = (getPlayer(state, command.playerId)?.oneShotRequirementBuffer ?? 0) > 0;
     paid.players = paid.players.map(player =>
       player.id === command.playerId
         ? {
@@ -500,6 +504,7 @@ const HANDLERS = {
             steel: (player.steel ?? 0) - steelUsed,
             titanium: (player.titanium ?? 0) - titaniumUsed,
             hand: player.hand.filter(id => id !== card.id),
+            ...(hadOneShot ? { oneShotRequirementBuffer: 0 } : {}),
             // A red event is resolved and set aside; keeping it in
             // playedProjects made its tags count for the rest of the game.
             // Law Suit is the exception: it goes to the player who was sued,
@@ -603,12 +608,35 @@ const HANDLERS = {
       actor?.name
     );
 
+    const actionBeforeTemp = state.temperature;
+    const actionBeforeOxygen = state.oxygen;
     const result = applyCardAction(state, card, state.logs, command.branchIndex);
     if (!result.playable) return fail(state, ERROR.ACTION_REFUSED, "その操作は実行できませんでした。");
     if (result.awaitingChoice) {
       return { ok: true, state: result.state, events: [], pendingAction: result.state.pendingChoice };
     }
-    const spent = handleActionSpend(result.state, result.logs);
+
+    // Raising a global parameter pays the same threshold bonus however it was
+    // raised. Only PLAY_CARD checked, so an oxygen step taken through a blue
+    // card's action skipped the +2C at 8% and every bonus it would cascade to.
+    const actionThresholds = checkParameterThresholds(
+      actionBeforeTemp,
+      result.state.temperature,
+      actionBeforeOxygen,
+      result.state.oxygen,
+      result.state,
+      result.logs
+    );
+    if (actionThresholds.state.pendingChoice) {
+      return {
+        ok: true,
+        state: actionThresholds.state,
+        events: [],
+        pendingAction: actionThresholds.state.pendingChoice
+      };
+    }
+
+    const spent = handleActionSpend(actionThresholds.state, actionThresholds.logs);
     return { ok: true, state: spent, events: [] };
   },
 
@@ -865,7 +893,9 @@ const HANDLERS = {
     // tracks in a robot game reported a win to a player who had been outscored
     // 68 to 20, because nothing ever compared the two.
     if (next.players.length === 1) {
-      const won = isGameOverCheck(next.temperature, next.oxygen, next.oceans);
+      // Venus Next's solo variant adds 30% Venus to the win condition, so a
+      // Venus solo game could be "won" while ignoring Venus entirely.
+      const won = isSoloMissionComplete(next);
       next.gameResult = won ? "win" : "loss";
       next.standings = null;
       next.logs = addLog(

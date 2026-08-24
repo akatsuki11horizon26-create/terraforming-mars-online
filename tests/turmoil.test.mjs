@@ -1920,3 +1920,33 @@ test("Unity in power makes titanium worth one more", () => {
   assert.equal(getCardPaymentCost(space, unity, 0, 1), before - 1,
     "Unity's ruling policy raises the value of titanium");
 });
+
+// "Requires that <party> is ruling, OR that you have 2 delegates there." Only
+// the ruling half was checked, which made the alternative unreachable and shut
+// off every party-gated card whenever that party was out of government.
+test("A party requirement is met by two delegates, not only by ruling", async () => {
+  const { normalizePartyId, sendDelegate } = await import("../app/turmoil.js");
+  const { ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+
+  let state = getInitialState({ playerCount: 2, turmoil: true });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+
+  const card = ALL_CARDS.find(
+    entry => (entry.requirements ?? []).some(item => item.party) && (entry.cost ?? 99) < 20
+  );
+  const wanted = normalizePartyId(card.requirements.find(item => item.party).party);
+  assert.notEqual(state.turmoil.rulingParty, wanted, "the party under test is not in government");
+
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.hand = [card.id];
+
+  assert.equal(getCardPlayableStatus(card, state).playable, false, "no delegates, no play");
+
+  state.turmoil = sendDelegate(state.turmoil, "player", wanted, { fromLobby: true }).turmoil;
+  assert.equal(getCardPlayableStatus(card, state).playable, false, "one delegate is not enough");
+
+  state.turmoil = sendDelegate(state.turmoil, "player", wanted, {}).turmoil;
+  assert.equal(getCardPlayableStatus(card, state).playable, true, "two delegates satisfy it");
+});

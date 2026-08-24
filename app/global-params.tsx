@@ -26,7 +26,8 @@ export function GlobalParameters({
       target: "+8°C",
       progress: ((temperature + 30) / 38) * 100,
       done: temperature >= 8,
-      color: "var(--accent-ember)"
+      color: "var(--accent-ember)",
+      note: ""
     },
     {
       key: "oxygen",
@@ -35,7 +36,8 @@ export function GlobalParameters({
       target: "14%",
       progress: (oxygen / 14) * 100,
       done: oxygen >= 14,
-      color: "var(--accent-green)"
+      color: "var(--accent-green)",
+      note: ""
     },
     {
       key: "oceans",
@@ -44,7 +46,8 @@ export function GlobalParameters({
       target: "9枚",
       progress: (oceans / 9) * 100,
       done: oceans >= 9,
-      color: "var(--accent-cyan)"
+      color: "var(--accent-cyan)",
+      note: ""
     }
   ];
 
@@ -56,7 +59,8 @@ export function GlobalParameters({
       target: "30%",
       progress: (venus / 30) * 100,
       done: venus >= 30,
-      color: "var(--accent-violet)"
+      color: "var(--accent-violet)",
+      note: venus < 8 ? "次: 8%でカード1枚" : venus < 16 ? "次: 16%でTR+1" : venus < 30 ? "閾値ボーナス済み" : "最大"
     });
   }
 
@@ -80,6 +84,7 @@ export function GlobalParameters({
               }}
             />
           </div>
+          {track.note ? <div className="param-note">{track.note}</div> : null}
         </div>
       ))}
     </div>
@@ -107,7 +112,19 @@ export function GlobalParametersCompact({
     { key: "oceans", icon: "🌊", value: `${oceans}/9`, done: oceans >= 9, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 9枚` }
   ];
   if (showVenus) {
-    chips.push({ key: "venus", icon: "♀", value: `${venus}%`, done: venus >= 30, color: "var(--accent-violet)", title: `金星 ${venus}% / 目標 30%` });
+    // The raw percentage never said what the next step buys. 8% draws a card and
+    // 16% gives an extra TR, and in a multiplayer game Venus is not an ending
+    // condition at all — all of which change whether raising it is worth doing.
+    const nextVenusReward =
+      venus < 8 ? "8%でカード1枚" : venus < 16 ? "16%でTR+1" : venus < 30 ? "報酬なし" : "最大";
+    chips.push({
+      key: "venus",
+      icon: "♀",
+      value: `${venus}%`,
+      done: venus >= 30,
+      color: "var(--accent-violet)",
+      title: `金星 ${venus}% / 目標 30% ・ 次: ${nextVenusReward} ・ 2%ごとにTR+1`
+    });
   }
 
   return (

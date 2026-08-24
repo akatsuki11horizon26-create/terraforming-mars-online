@@ -73,12 +73,15 @@ export { getCardResourceType };
 import {
   DELEGATE_RESERVE_COST,
   NEUTRAL,
+  PARTY_REQUIREMENT_DELEGATES,
   PARTIES,
   advanceGlobalEvents,
   cloneTurmoil,
+  countDelegates,
   formNewGovernment,
   createTurmoilState,
   getInfluence,
+  getInfluenceBreakdown,
   getParty,
   getRulingPolicy,
   hasPolicy,
@@ -92,6 +95,7 @@ export {
   NEUTRAL,
   PARTIES,
   getInfluence,
+  getInfluenceBreakdown,
   getParty,
   getRulingPolicy,
   totalDelegates
@@ -867,7 +871,21 @@ function applyEffect(state, effect, logs, options = {}) {
     nextState = venusBonus.state;
     nextLogs = venusBonus.logs;
   }
-  if (effect.globalParameterRequirementBonus?.steps) nextState.globalRequirementBuffer = (nextState.globalRequirementBuffer ?? 0) + effect.globalParameterRequirementBonus.steps;
+  // Special Design relaxes the requirements of the NEXT card only, while
+  // Adaptation Technology is a permanent effect. Both wrote to the same
+  // running total and nothing ever cleared it, so a single Special Design
+  // loosened every global requirement for the rest of the game.
+  if (effect.globalParameterRequirementBonus?.steps) {
+    if (effect.globalParameterRequirementBonus.nextCardOnly) {
+      nextState.oneShotRequirementBuffer = Math.max(
+        nextState.oneShotRequirementBuffer ?? 0,
+        effect.globalParameterRequirementBonus.steps
+      );
+    } else {
+      nextState.globalRequirementBuffer =
+        (nextState.globalRequirementBuffer ?? 0) + effect.globalParameterRequirementBonus.steps;
+    }
+  }
   if (effect.cardDiscount?.amount && !effect.cardDiscount.per) {
     if (effect.cardDiscount.tag) {
       const tag = String(effect.cardDiscount.tag).toLowerCase();
@@ -1071,9 +1089,24 @@ export function applyPreludes(state, preludeIds, playerId) {
   );
   selected.forEach(prelude => {
     const effect = getCardEffect(prelude);
+    // A prelude raises global parameters like anything else, so the threshold
+    // bonuses owed for crossing -24C, -20C, 0C or 8% are owed here too. Huge
+    // Asteroid takes the temperature up three steps and used to collect none.
+    const preludeBeforeTemp = nextState.temperature;
+    const preludeBeforeOxygen = nextState.oxygen;
     const result = applyEffect(nextState, effect, logs);
     nextState = result.state;
-    logs = addLog(result.logs, "system", `Prelude効果: ${prelude.effectText}`);
+    logs = result.logs;
+    const crossed = checkParameterThresholds(
+      preludeBeforeTemp,
+      nextState.temperature,
+      preludeBeforeOxygen,
+      nextState.oxygen,
+      nextState,
+      logs
+    );
+    nextState = crossed.state;
+    logs = addLog(crossed.logs, "system", `Prelude効果: ${prelude.effectText}`);
     if (prelude.effect?.freePlayDiscount || prelude.effect?.freePlayIgnoreGlobal) {
       const freePlay = applyPreludeFreePlay(nextState, prelude.effect, logs);
       nextState = freePlay.state;
@@ -3156,6 +3189,13 @@ export function getMilestoneStatus(state, milestoneId, playerId) {
   const threshold = getMilestoneThreshold(milestone, state);
   const description = getMilestoneDescription(milestone, state);
   const score = milestone.getScore(milestoneContext(state, player));
+
+  // The solo game is a mission against the planet: there is nobody to beat to a
+  // milestone, and the official variant leaves them out entirely.
+  if (state.mode === "solo") {
+    return { claimable: false, reason: "ソロプレイではマイルストーンを使用しません。", score, threshold, description };
+  }
+
   const claimed = (state.claimedMilestones ?? []).find(entry => entry.milestoneId === milestoneId);
 
   if (claimed) {
@@ -3206,6 +3246,11 @@ export function getAwardStatus(state, awardId, playerId) {
   if (!player) return { fundable: false, reason: "プレイヤーが見つかりません。" };
 
   const cost = getNextAwardCost(state);
+  // Awards rank players against each other, which the solo variant has no use
+  // for; the official rules leave them out along with the milestones.
+  if (state.mode === "solo") {
+    return { fundable: false, reason: "ソロプレイでは表彰を使用しません。", cost };
+  }
   if ((state.fundedAwards ?? []).some(entry => entry.awardId === awardId)) {
     return { fundable: false, reason: "この表彰はすでに設立されています。", cost };
   }
@@ -3673,6 +3718,14 @@ export function isGameOverCheck(temp, oxy, oce) {
   return temp >= 8 && oxy >= 14 && oce >= 9;
 }
 
+// The three Mars tracks end the game in every mode. The Venus solo variant adds
+// one more condition for WINNING it: 30% Venus. It is deliberately not part of
+// isGameOverCheck, because in a multiplayer game Venus never ends anything.
+export function isSoloMissionComplete(state) {
+  if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans)) return false;
+  return state.venusEnabled ? (state.venus ?? 0) >= 30 : true;
+}
+
 // Scoring lives in scoring.js so that a card paying someone other than its
 // owner can be expressed. This keeps the single-player entry point every
 // caller already uses.
@@ -3698,8 +3751,16 @@ export function getCardDiscount(card, state) {
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
   const totalDiscount = corporationDiscount + ongoingDiscount;
-  const maxSteel = card.tags.includes("Building") ? Math.min(state.steel, Math.floor(Math.max(0, card.cost - totalDiscount) / getSteelValue(state))) : 0;
-  const maxTitanium = card.tags.includes("Space") ? Math.min(state.titanium, Math.floor(Math.max(0, card.cost - totalDiscount) / getTitaniumValue(state))) : 0;
+  // No change is given, so a player may overpay by one unit rather than top up
+  // the last few M€ in cash. Flooring the cap forbade that entirely: with 1 M€
+  // left to cover, a steel worth 2 could not be spent at all.
+  const net = Math.max(0, card.cost - totalDiscount);
+  const maxSteel = card.tags.includes("Building")
+    ? Math.min(state.steel, Math.ceil(net / getSteelValue(state)))
+    : 0;
+  const maxTitanium = card.tags.includes("Space")
+    ? Math.min(state.titanium, Math.ceil(net / getTitaniumValue(state)))
+    : 0;
   return { maxSteel, maxTitanium };
 }
 
@@ -3961,7 +4022,15 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       if (!meets) return { playable: false, reason: `酸素${requirement.oxygen}%条件を満たしていません。` };
     }
     if (requirement.oceans !== undefined && state.oceans < requirement.oceans) return { playable: false, reason: `海洋が${requirement.oceans}枚以上必要です。` };
-    if (requirement.venus !== undefined && (state.venus ?? 0) < requirement.venus) return { playable: false, reason: `金星率${requirement.venus}%条件を満たしていません。` };
+    if (requirement.venus !== undefined) {
+      // Inventrix, Special Design and Adaptation Technology relax the Venus
+      // scale exactly as they relax temperature and oxygen; only these two got
+      // the buffer, so Venus requirements ignored every relaxation card.
+      const meets = requirement.max
+        ? (state.venus ?? 0) <= requirement.venus + buffer * 2
+        : (state.venus ?? 0) >= requirement.venus - buffer * 2;
+      if (!meets) return { playable: false, reason: `金星率${requirement.venus}%条件を満たしていません。` };
+    }
     if (requirement.production) {
       const value = state[`${SOURCE_RESOURCE_MAP[requirement.production] ?? requirement.production}Prod`] ?? 0;
       if (value < count) return { playable: false, reason: `${requirement.production}生産量が不足しています。` };
@@ -3972,8 +4041,15 @@ function getGeneratedRequirementStatus(card, state, buffer) {
     if (requirement.party !== undefined) {
       if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
       const wanted = normalizePartyId(requirement.party);
-      if (state.turmoil.rulingParty !== wanted) {
-        return { playable: false, reason: `${getParty(wanted)?.name ?? wanted}が与党である必要があります。` };
+      // "Requires that X is ruling OR that you have 2 delegates there." Only
+      // the first half was checked, so the alternative half of every party
+      // requirement in Turmoil was unreachable.
+      const ownDelegates = countDelegates(state.turmoil, wanted, state.currentPlayerId);
+      if (state.turmoil.rulingParty !== wanted && ownDelegates < PARTY_REQUIREMENT_DELEGATES) {
+        return {
+          playable: false,
+          reason: `${getParty(wanted)?.name ?? wanted}が与党であるか、そこに代表者が${PARTY_REQUIREMENT_DELEGATES}人必要です。`
+        };
       }
       continue;
     }
@@ -4033,7 +4109,10 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   }
 
   const requirements = card.requires ?? {};
-  const buffer = (corporation?.effects?.requirementBuffer ?? 0) + (state.globalRequirementBuffer ?? 0);
+  const buffer =
+    (corporation?.effects?.requirementBuffer ?? 0) +
+    (state.globalRequirementBuffer ?? 0) +
+    (state.oneShotRequirementBuffer ?? 0);
   const generatedRequirements = getGeneratedRequirementStatus(card, state, buffer);
   if (!generatedRequirements.playable) return generatedRequirements;
   if (requirements.oceans !== undefined && state.oceans < requirements.oceans) {
@@ -4395,7 +4474,10 @@ export function triggerProduction(state, logAcc) {
       heat: player.heat + energyToHeat + player.heatProd,
       passed: false,
       // "このプレイヤー・マーカーは、産出フェイズに除去します"
-      usedCardActions: []
+      usedCardActions: [],
+      // Special Design lasts "this generation" at most, so an unspent
+      // relaxation must not carry into the next one.
+      oneShotRequirementBuffer: 0
     };
     const who = nextState.players.length > 1 ? `${player.name}: ` : "生産フェーズ完了: ";
     localLog = addLog(

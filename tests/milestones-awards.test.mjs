@@ -62,7 +62,9 @@ test("A milestone cannot be claimed below its threshold", () => {
 });
 
 test("Claiming a milestone costs 8 MC and is recorded once", () => {
-  const state = getInitialState();
+  // Milestones are a multiplayer race; the solo variant leaves them out, so
+  // this has to be a table with opponents to exercise the cost at all.
+  const state = getInitialState({ playerCount: 2 });
   state.players[0].tr = 35;
 
   const before = state.players[0].mc;
@@ -172,13 +174,34 @@ test("A two-player game pays no second place", () => {
   assert.equal(trioResult.vp.player2, 2);
 });
 
-test("An award nobody scores on pays nothing", () => {
+// The rule is "most", with no minimum: a funded award always pays out. When
+// every seat sits at zero they are all tied for first, so they all collect --
+// and second place is skipped because first is shared.
+test("An award everybody ties at zero on still pays first place", () => {
   const state = getInitialState({ playerCount: 2 });
   state.players[0].mcProd = 0;
   state.players[1].mcProd = 0;
 
   const result = scoreAward(getAward("banker"), state, { cards: [], corporations: [] });
-  assert.deepEqual(result.vp, {}, "a zero score never wins an award");
+  assert.deepEqual(
+    result.vp,
+    { [state.players[0].id]: 5, [state.players[1].id]: 5 },
+    "a tie at zero is still a tie for most"
+  );
+});
+
+// A negative leader still leads: Banker counts M€ production, which can go below
+// zero, and the award is funded either way.
+test("An award pays the least-negative player when all scores are below zero", () => {
+  const state = getInitialState({ playerCount: 3 });
+  state.players[0].mcProd = -1;
+  state.players[1].mcProd = -3;
+  state.players[2].mcProd = -3;
+
+  const result = scoreAward(getAward("banker"), state, { cards: [], corporations: [] });
+  assert.equal(result.vp[state.players[0].id], 5, "the highest score wins even when negative");
+  assert.equal(result.vp[state.players[1].id], 2, "the tied runners-up split second");
+  assert.equal(result.vp[state.players[2].id], 2);
 });
 
 test("Milestone and award victory points reach the final score", () => {
@@ -355,4 +378,28 @@ test("every dynamic victory point card shows a number, not a question mark", asy
       spec.oceans !== undefined;
     assert.ok(counted, `${card.name} counts something the scorer recognises`);
   }
+});
+
+// The solo variant plays without milestones or awards: there is no opponent to
+// race or to outrank. Both were purchasable, which handed a solo player 5 VP
+// per milestone for nothing.
+test("Milestones and awards are unavailable in a solo game", async () => {
+  const { getMilestoneStatus, getAwardStatus, getPlayer } = await import("../app/game-logic.js");
+
+  const solo = getInitialState({ playerCount: 1 });
+  solo.phase = "action";
+  const soloSeat = getPlayer(solo, "player");
+  soloSeat.mc = 100;
+  soloSeat.tr = 40;
+  assert.equal(getMilestoneStatus(solo, "terraformer", "player").claimable, false);
+  assert.equal(getAwardStatus(solo, "banker", "player").fundable, false);
+
+  // With opponents both are available again.
+  const table = getInitialState({ playerCount: 2 });
+  table.phase = "action";
+  const seat = getPlayer(table, table.players[0].id);
+  seat.mc = 100;
+  seat.tr = 40;
+  assert.equal(getMilestoneStatus(table, "terraformer", seat.id).claimable, true);
+  assert.equal(getAwardStatus(table, "banker", seat.id).fundable, true);
 });

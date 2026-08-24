@@ -176,11 +176,13 @@ export function scoreAward(award, state, context) {
   const ordered = [...scores].sort((a, b) => b.score - a.score);
 
   const first = ordered[0]?.score ?? 0;
-  const winners = ordered.filter(entry => entry.score === first && entry.score > 0);
+  // The rule is "most", not "most and at least one": with Banker every seat can
+  // sit at zero or below and the award still pays its 5 VP.
+  const winners = ordered.filter(entry => entry.score === first);
 
   const runnerUpScore = ordered.find(entry => entry.score < first)?.score;
   const runnersUp =
-    runnerUpScore === undefined || runnerUpScore <= 0
+    runnerUpScore === undefined
       ? []
       : ordered.filter(entry => entry.score === runnerUpScore);
 

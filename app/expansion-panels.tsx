@@ -264,12 +264,96 @@ interface PartyView {
   leaderName?: string;
   isRuling: boolean;
   isDominant: boolean;
+  delegateCount?: number;
+}
+
+// The ruling policy is in force for every action taken this generation, and the
+// dominant party becomes the next government, so both belong on screen rather
+// than behind a drawer button. Without them a player picks cards blind to the
+// rules currently in effect.
+export function TurmoilGlance({
+  parties,
+  chairmanName,
+  influence,
+  rulingPolicyText,
+  events,
+  hasFreeLobbyDelegate,
+  onOpen
+}: {
+  parties: PartyView[];
+  chairmanName: string;
+  influence: number;
+  rulingPolicyText: string;
+  events: { slot: string; label: string; name: string }[];
+  hasFreeLobbyDelegate: boolean;
+  onOpen: () => void;
+}) {
+  const ruling = parties.find(party => party.isRuling);
+  const dominant = parties.find(party => party.isDominant);
+  const counts = [...parties].sort(
+    (a, b) => (b.delegateCount ?? 0) - (a.delegateCount ?? 0)
+  );
+  // How safe the next government is: the gap to whoever is second.
+  const margin =
+    counts.length > 1 ? (counts[0].delegateCount ?? 0) - (counts[1].delegateCount ?? 0) : 0;
+  const current = events.find(event => event.slot === "current");
+  const coming = events.find(event => event.slot === "coming");
+
+  return (
+    <section className="glance-card glance-card--turmoil">
+      <button type="button" className="glance-title" onClick={onOpen}>
+        <span>動乱</span>
+        <span className="glance-title-note">議長 {chairmanName} ・ 影響力 {influence}</span>
+      </button>
+
+      <div
+        className="glance-row"
+        style={{ ["--party-color" as string]: PARTY_COLORS[ruling?.id ?? ""] ?? "var(--color-rust)" }}
+      >
+        <span className="glance-label">現与党</span>
+        <span className="glance-party">{ruling?.name ?? "—"}</span>
+        <span className="glance-policy" title={rulingPolicyText}>
+          {rulingPolicyText || "—"}
+        </span>
+      </div>
+
+      <div
+        className="glance-row"
+        style={{ ["--party-color" as string]: PARTY_COLORS[dominant?.id ?? ""] ?? "var(--color-rust)" }}
+      >
+        <span className="glance-label">次期</span>
+        <span className="glance-party">{dominant?.name ?? "—"}</span>
+        <span className="glance-policy">
+          {margin > 0 ? `${margin}人差` : "同数"}
+          {dominant?.leaderName ? ` ・党首 ${dominant.leaderName}` : ""}
+        </span>
+      </div>
+
+      <div className="glance-footer">
+        {/* Generation 1 genuinely has no current event; saying so beats an
+            em dash, which reads as missing data rather than as the rule. */}
+        <span
+          className="glance-event"
+          title={
+            current && current.name !== "—"
+              ? `世代末に解決: ${current.name}`
+              : "第1世代には現行イベントがありません"
+          }
+        >
+          {current && current.name !== "—" ? `世代末 ${current.name}` : "世代末 なし"}
+        </span>
+        <span className="glance-event-next">次 {coming?.name ?? "—"}</span>
+        {hasFreeLobbyDelegate && <span className="glance-flag">無料派遣 1</span>}
+      </div>
+    </section>
+  );
 }
 
 export function TurmoilPanel({
   parties,
   chairmanName,
   influence,
+  influenceParts = [],
   events,
   canSendDelegate,
   onSendDelegate
@@ -277,6 +361,7 @@ export function TurmoilPanel({
   parties: PartyView[];
   chairmanName: string;
   influence: number;
+  influenceParts?: { label: string; amount: number }[];
   events: { slot: string; label: string; name: string }[];
   canSendDelegate: boolean;
   onSendDelegate: (partyId: string) => void;
@@ -289,6 +374,23 @@ export function TurmoilPanel({
           議長 {chairmanName} ・ 影響力 {influence}
         </span>
       </div>
+      {/* Influence softens every global event, so where it comes from is the
+          part a player actually needs in order to plan around one. */}
+      <ul className="influence-breakdown">
+        {influenceParts.length > 0 ? (
+          influenceParts.map(part => (
+            <li key={part.label}>
+              <span>{part.label}</span>
+              <span>+{part.amount}</span>
+            </li>
+          ))
+        ) : (
+          <li>
+            <span>影響力の供給元なし</span>
+            <span>0</span>
+          </li>
+        )}
+      </ul>
       <div className="turmoil-parties">
         {parties.map(party => (
           <div
@@ -300,7 +402,11 @@ export function TurmoilPanel({
             <div>
               <div className="party-name">
                 {party.name}
-                {party.isRuling ? " ・与党" : party.isDominant ? " ・優勢" : ""}
+                {party.isRuling
+                  ? " ・現与党（政策が有効）"
+                  : party.isDominant
+                    ? " ・優勢党（世代末に与党へ）"
+                    : ""}
               </div>
               <div className="party-meta">
                 代表者 {party.delegates.length}
@@ -321,9 +427,10 @@ export function TurmoilPanel({
                 type="button"
                 className="claim-button"
                 disabled={!canSendDelegate}
+                title={canSendDelegate ? "ロビーの代表者を無料で送る" : "ロビーに代表者がいません（予備からは5 MC）"}
                 onClick={() => onSendDelegate(party.id)}
               >
-                送る
+                {canSendDelegate ? "無料で送る" : "送る"}
               </button>
             </div>
           </div>
@@ -352,6 +459,49 @@ interface ColonyView {
   buildReason: string;
   canTrade: boolean;
   tradeReason: string;
+  currentIncome?: string;
+  colonyCount?: number;
+}
+
+// Each colony accepts one trade ship per generation and the payout depends on
+// the marker's position, so choosing a trade means comparing every tile at
+// once. Reopening a drawer per tile made that comparison impossible.
+export function ColonyGlance({
+  colonies,
+  fleets,
+  onOpen
+}: {
+  colonies: ColonyView[];
+  fleets: number;
+  onOpen: () => void;
+}) {
+  return (
+    <section className="glance-card glance-card--colonies">
+      <button type="button" className="glance-title" onClick={onOpen}>
+        <span>植民地</span>
+        <span className="glance-title-note">待機船 {fleets}</span>
+      </button>
+      <ul className="colony-glance-list">
+        {colonies.map(colony => (
+          <li
+            key={colony.id}
+            className="colony-glance-row"
+            data-available={colony.canTrade ? "true" : "false"}
+          >
+            <span className="colony-glance-name">{colony.name}</span>
+            <span className="colony-glance-status">
+              {colony.canTrade ? "交易可" : "不可"}
+            </span>
+            <span className="colony-glance-income">{colony.currentIncome ?? "—"}</span>
+            <span className="colony-glance-owners" title={colony.colonies.join(", ")}>
+              {colony.colonies.length > 0 ? colony.colonies.join(",") : "所有者なし"}
+            </span>
+            <span className="colony-glance-slots">{colony.colonyCount ?? 0}/3</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 export function ColonyPanel({

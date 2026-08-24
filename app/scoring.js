@@ -157,8 +157,12 @@ export function buildScoreContributions(state, options = {}) {
       });
     }
 
+    // Red events are set aside rather than kept in the tableau, but their VP
+    // still counts at the end -- and several of them are negative, so leaving
+    // them out made cards like Bribed Committee (-2) free to play.
     const played = [
       ...player.playedProjects.map(id => [id, findCard(id)]),
+      ...(player.playedEvents ?? []).map(id => [id, findCard(id)]),
       ...(player.selectedPreludeIds ?? []).map(id => [id, findPrelude(id)])
     ];
 

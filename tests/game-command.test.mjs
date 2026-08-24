@@ -1109,3 +1109,44 @@ test("playing a card records who played what", () => {
   assert.ok(action.cardName, "the card is named so the panel can print it");
   assert.ok(action.seq > before, "the counter moves so the same play is not reported twice");
 });
+
+// Special Design relaxes the global requirements of the NEXT card only, while
+// Adaptation Technology is permanent. Both wrote to one running total that was
+// never cleared, so a single Special Design loosened every requirement for the
+// rest of the game.
+test("Special Design relaxes only the next card played", () => {
+  const { state, seat } = table();
+  const armed = cloneGameState(state);
+  armed.players = armed.players.map(player =>
+    player.id === seat ? { ...player, hand: ["card-base-special-design"] } : player
+  );
+
+  const played = executeGameCommand(armed, {
+    type: COMMAND.PLAY_CARD, playerId: seat, cardId: "card-base-special-design"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(
+    getPlayer(played.state, seat).oneShotRequirementBuffer, 2,
+    "the relaxation is armed for the next card"
+  );
+  assert.equal(
+    getPlayer(played.state, seat).globalRequirementBuffer ?? 0, 0,
+    "and is not folded into the permanent buffer"
+  );
+
+  // The next card spends it, whatever that card is.
+  const next = cloneGameState(played.state);
+  next.players = next.players.map(player =>
+    player.id === seat
+      ? { ...player, hand: ["card-base-acquired-company"], actionsRemaining: 2 }
+      : player
+  );
+  const after = executeGameCommand(next, {
+    type: COMMAND.PLAY_CARD, playerId: seat, cardId: "card-base-acquired-company"
+  });
+  assert.equal(after.ok, true);
+  assert.equal(
+    getPlayer(after.state, seat).oneShotRequirementBuffer, 0,
+    "the relaxation is spent and does not persist"
+  );
+});

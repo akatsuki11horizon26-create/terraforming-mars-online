@@ -5,6 +5,8 @@ export const DELEGATES_PER_PLAYER = 7;
 export const DELEGATES_FOR_NEUTRAL = 14;
 // Lobbying costs 5 M€ from the Delegate Reserve; the Lobby delegate is free.
 export const DELEGATE_RESERVE_COST = 5;
+// "Requires that <party> is ruling, or that you have 2 delegates there."
+export const PARTY_REQUIREMENT_DELEGATES = 2;
 export const NEUTRAL = "NEUTRAL";
 
 export const PARTIES = [
@@ -255,21 +257,30 @@ function computeDominantParty(turmoil) {
 // Chairman +1; party leader of the dominant party +1 (and +1 more with another
 // delegate there); otherwise +1 for having any delegate in the dominant party.
 export function getInfluence(turmoil, playerId) {
-  let influence = 0;
-  if (turmoil.chairman === playerId) influence += 1;
+  return getInfluenceBreakdown(turmoil, playerId).total;
+}
+
+// The same arithmetic as getInfluence, itemised. Influence decides how hard
+// every global event hits, so a bare "影響力 2" gives a player no way to check
+// whether sending one more delegate would soften the next one.
+export function getInfluenceBreakdown(turmoil, playerId) {
+  const parts = [];
+  if (turmoil.chairman === playerId) parts.push({ label: "議長", amount: 1 });
 
   const dominant = turmoil.parties[turmoil.dominantParty];
   if (dominant) {
     const count = countDelegates(turmoil, turmoil.dominantParty, playerId);
     if (dominant.leader === playerId) {
-      influence += 1;
-      if (count > 1) influence += 1;
+      parts.push({ label: "優勢党の党首", amount: 1 });
+      if (count > 1) parts.push({ label: "優勢党に他の代表者", amount: 1 });
     } else if (count > 0) {
-      influence += 1;
+      parts.push({ label: "優勢党に代表者", amount: 1 });
     }
   }
-  influence += turmoil.playersInfluenceBonus?.[playerId] ?? 0;
-  return influence;
+  const bonus = turmoil.playersInfluenceBonus?.[playerId] ?? 0;
+  if (bonus) parts.push({ label: "カード等のボーナス", amount: bonus });
+
+  return { total: parts.reduce((sum, part) => sum + part.amount, 0), parts };
 }
 
 // Turmoil step 3, New Government (Turmoil rules, Solar phase step 4):

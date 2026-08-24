@@ -39,13 +39,15 @@ export function availableFleets(colonies, playerId) {
   return (colonies.fleets[playerId] ?? 0) - (colonies.usedFleets[playerId] ?? 0);
 }
 
-export function canBuildColony(colonies, tileId, playerId) {
+export function canBuildColony(colonies, tileId, playerId, { allowDuplicates = false } = {}) {
   const tile = getTile(colonies, tileId);
   if (!tile) return { ok: false, reason: "その植民地は場にありません。" };
   if (tile.colonies.length >= MAX_COLONIES_PER_TILE) {
     return { ok: false, reason: "この植民地は満杯です。" };
   }
-  if (tile.colonies.includes(playerId)) {
+  // Research Colony and Space Port Colony say so on the card; everyone else is
+  // limited to one colony per tile.
+  if (!allowDuplicates && tile.colonies.includes(playerId)) {
     return { ok: false, reason: "すでにこの植民地に入植しています。" };
   }
   return { ok: true, reason: "" };
@@ -53,8 +55,10 @@ export function canBuildColony(colonies, tileId, playerId) {
 
 // Building a colony pays the tile's build bonus and pushes the track marker up to
 // the number of colonies present, so a crowded tile never trades below its size.
-export function buildColony(colonies, tileId, playerId) {
-  const check = canBuildColony(colonies, tileId, playerId);
+export function buildColony(colonies, tileId, playerId, options = {}) {
+  // The caller has always passed this; the parameter was simply missing, so the
+  // duplicate-colony cards were rejected by the ordinary one-per-tile rule.
+  const check = canBuildColony(colonies, tileId, playerId, options);
   if (!check.ok) return { colonies, built: false, reason: check.reason, bonus: null };
 
   const next = cloneColonies(colonies);

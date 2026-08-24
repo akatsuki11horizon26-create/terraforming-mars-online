@@ -106,7 +106,15 @@ function checkInvariants(state, where) {
         report("colony-overfull", `${tile.id} has ${tile.colonies.length}`, { where });
       }
       if (new Set(tile.colonies).size !== tile.colonies.length) {
-        report("duplicate-colony", `${tile.id}`, { where });
+        // Research Colony and Space Port Colony explicitly allow a second
+        // colony on a tile you already occupy, so a duplicate is only a bug
+        // when neither of those cards is on the table.
+        const duplicateAllowed = (state.players ?? []).some(player =>
+          (player.playedProjects ?? []).some(id =>
+            id === "card-colonies-research-colony" || id === "card-colonies-space-port-colony"
+          )
+        );
+        if (!duplicateAllowed) report("duplicate-colony", `${tile.id}`, { where });
       }
       if (tile.trackPosition < 0 || tile.trackPosition > 6) {
         report("track-out-of-range", `${tile.id} = ${tile.trackPosition}`, { where });

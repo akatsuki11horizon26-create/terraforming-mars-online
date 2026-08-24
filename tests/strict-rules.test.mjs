@@ -263,3 +263,59 @@ test("Final scoring calculations", () => {
   // TR 18 + own greenery 1 + city adjacent to 1 greenery 1 + card VP 1 = 21
   assert.equal(computeScore(state), 21);
 });
+
+// Red events are set aside instead of staying in the tableau, and scoring only
+// walked the tableau. Every event VP -- including the negative ones that are
+// the whole cost of cards like Bribed Committee -- was silently dropped.
+test("Victory points printed on played events reach the final score", async () => {
+  const { calculateScoreBreakdowns, getPlayer } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 1 });
+  const seat = getPlayer(state, "player");
+  const baseline = calculateScoreBreakdowns(state)["player"].total;
+
+  seat.playedEvents = ["card-base-bribed-committee", "card-base-interstellar-colony-ship"];
+  const scored = calculateScoreBreakdowns(state)["player"];
+
+  assert.equal(scored.cards, 2, "-2 for Bribed Committee and +4 for Interstellar Colony Ship");
+  assert.equal(scored.total, baseline + 2);
+});
+
+// Raising a global parameter pays its threshold bonus however it was raised.
+// Only PLAY_CARD checked, so the same oxygen step skipped the 8% bonus when it
+// came from a blue card's action.
+test("A card action that crosses a threshold collects its bonus", async () => {
+  const { ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const card = ALL_CARDS.find(entry => entry.id === "p-steelworks");
+
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.playedProjects = [card.id];
+  seat.energy = 20;
+  seat.mc = 100;
+  seat.actionsRemaining = 2;
+  state.oxygen = 7;
+  state.temperature = -30;
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: card.id
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.oxygen, 8);
+  assert.equal(result.state.temperature, -28, "8% oxygen raises the temperature 2 steps");
+});
+
+// Venus Next's solo variant adds 30% Venus to the win condition. The three Mars
+// tracks still END the game in every mode -- Venus only decides whether a solo
+// mission was actually accomplished.
+test("A Venus solo game is not won until Venus reaches 30%", async () => {
+  const { isSoloMissionComplete, isGameOverCheck } = await import("../app/game-logic.js");
+  const tracks = { temperature: 8, oxygen: 14, oceans: 9 };
+
+  assert.equal(isGameOverCheck(8, 14, 9), true, "the Mars tracks still end the game");
+  assert.equal(isSoloMissionComplete({ ...tracks, venusEnabled: false }), true);
+  assert.equal(isSoloMissionComplete({ ...tracks, venusEnabled: true, venus: 0 }), false);
+  assert.equal(isSoloMissionComplete({ ...tracks, venusEnabled: true, venus: 30 }), true);
+});

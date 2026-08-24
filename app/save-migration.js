@@ -44,7 +44,8 @@ function migrateV3(parsed) {
     cardDiscounts: isPlainObject(parsed.cardDiscounts)
       ? { all: Number(parsed.cardDiscounts.all ?? 0), tags: { ...(parsed.cardDiscounts.tags ?? {}) } }
       : { all: 0, tags: {} },
-    globalRequirementBuffer: Number(parsed.globalRequirementBuffer ?? 0)
+    globalRequirementBuffer: Number(parsed.globalRequirementBuffer ?? 0),
+    oneShotRequirementBuffer: Number(parsed.oneShotRequirementBuffer ?? 0)
   });
 
   const board = isPlainObject(parsed.board) ? parsed.board : {};
