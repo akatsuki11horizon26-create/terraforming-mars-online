@@ -701,3 +701,33 @@ test("Standard Technology refunds 3 M€ on standard projects only", async () =>
   assert.equal(colony(false), 17);
   assert.equal(colony(true), 14, "building a colony is a standard project too");
 });
+
+// The solo game is played against a neutral opponent, so "remove 3 plants from
+// any player" and "decrease any production" have a target. Both guards fell
+// through when there was only one player in state.players, and the decrement
+// landed on the player who played the card -- Asteroid ate its owner's plants.
+test("A solo attack hits the neutral opponent, not the player", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+
+  const asteroid = ALL_CARDS.find(card => card.id === "p-asteroid");
+  const solo = getInitialState({ playerCount: 1 });
+  solo.phase = "action";
+  solo.currentPlayerId = "player";
+  const seat = getPlayer(solo, "player");
+  seat.mc = 100;
+  seat.plants = 10;
+
+  const played = applyCardEffect(solo, asteroid, solo.logs);
+  assert.equal(getPlayer(played.state, "player").plants, 10, "own plants are untouched");
+  assert.equal(played.state.pendingChoice, null, "and nothing is asked");
+  assert.equal(played.state.temperature > solo.temperature, true, "the rest of the card still applies");
+
+  // With an opponent the attack is a real choice again.
+  const table = getInitialState({ playerCount: 2 });
+  table.phase = "action";
+  table.currentPlayerId = "player";
+  getPlayer(table, "player").mc = 100;
+  for (const player of table.players) player.plants = 10;
+  const asked = applyCardEffect(table, asteroid, table.logs);
+  assert.equal(asked.state.pendingChoice?.kind, "resource-attack");
+});

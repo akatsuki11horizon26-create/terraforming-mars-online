@@ -496,10 +496,15 @@ test("attacking production lets the player pick the victim", async () => {
     "only the chosen player loses production"
   );
 
-  // Solo has nobody else to hit, so it applies without asking.
+  // Solo plays against a neutral opponent, so the attack has a target -- it is
+  // just not one held in state.players. It used to fall through onto the player
+  // who played the card, which turned Birds into a card that attacks its owner.
   const solo = applyCardEffect(table(1), birds, []);
-  assert.equal(solo.state.pendingChoice, null);
-  assert.equal(solo.state.players[0].plantsProd, 3);
+  assert.equal(solo.state.pendingChoice, null, "nobody to choose between");
+  assert.equal(
+    solo.state.players[0].plantsProd, 5,
+    "and the neutral opponent takes the hit, not the player"
+  );
 });
 
 test("card text states every effect the engine applies", async () => {

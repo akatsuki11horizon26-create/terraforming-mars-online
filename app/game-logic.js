@@ -1255,11 +1255,17 @@ export function applyCardEffect(state, card, logs, options = {}) {
     Boolean(effect.removePlants) &&
     (nextState.players ?? []).length > 1;
 
+  // Solo plays against a neutral opponent, so an attack has a target -- just not
+  // one held in state.players. Both guards above fall through when there is only
+  // one player, and the decrement then landed on the player who played the card.
+  // Skipping it is the neutral opponent absorbing the hit.
+  const soloAttackTarget = (nextState.players ?? []).length === 1;
+
   const result = applyEffect(nextState, effect, nextLogs, {
     ...options,
     skipTile: options.skipTile || willChooseTile,
-    skipProductionAttack: options.skipProductionAttack || willChooseVictim,
-    skipResourceAttack: options.skipResourceAttack || willChooseResourceVictim
+    skipProductionAttack: options.skipProductionAttack || willChooseVictim || soloAttackTarget,
+    skipResourceAttack: options.skipResourceAttack || willChooseResourceVictim || soloAttackTarget
   });
   nextLogs = addLog(result.logs, "system", `効果適用: ${card.effectText}`);
 
