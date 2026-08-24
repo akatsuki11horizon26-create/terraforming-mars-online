@@ -141,13 +141,16 @@ const STEAL_SPECS = Object.freeze({
     prompt: "建材2またはMC3を奪う対象を選んでください。"
   },
   "card-base-sabotage": {
-    steal: true,
+    // "Remove up to 3 titanium, 4 steel or 7 M€ from any player." Removing is
+    // not taking: the resources go back to the supply and the player who
+    // sabotaged gains nothing.
+    steal: false,
     resources: [
       { resource: "titanium", count: 3 },
       { resource: "steel", count: 4 },
       { resource: "mc", count: 7 }
     ],
-    prompt: "チタン3、建材4、またはMC7を奪う対象を選んでください。"
+    prompt: "チタン3、建材4、またはMC7を取り除く対象を選んでください。"
   },
   "card-base-virus": {
     // "任意のカードから動物2個、または任意のプレイヤーから植物5個を取り除く".

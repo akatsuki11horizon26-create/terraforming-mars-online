@@ -836,3 +836,46 @@ test("A tile policy does not fire for final greenery or the World Government", a
   assert.equal(lay({ finalGreenery: true }), 0);
   assert.equal(lay({ worldGovernment: true }), 0);
 });
+
+// The solo game has a neutral opponent that "has whatever resources are
+// needed", and what is taken from it comes out of the general supply. Removal
+// effects get no neutral target: removing a resource it does not really hold
+// would achieve nothing.
+test("Solo steals take from the neutral opponent; removals do not", async () => {
+  const { applyCardEffect, resolvePendingChoice, ALL_CARDS, getPlayer } =
+    await import("../app/game-logic.js");
+
+  const play = id => {
+    const card = ALL_CARDS.find(entry => entry.id === id);
+    const state = getInitialState({ playerCount: 1, colonies: true, venus: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.steel = 0;
+    seat.cardResources = { [id]: 5 };
+    const before = { mc: seat.mc, steel: seat.steel };
+    const played = applyCardEffect(state, card, state.logs).state;
+    return { before, state: played, options: played.pendingChoice?.options ?? [] };
+  };
+
+  const raiders = play("card-base-hired-raiders");
+  assert.equal(raiders.options.length, 2, "steel or megacredits, from the neutral opponent");
+  const took = resolvePendingChoice(
+    raiders.state, raiders.options[0].id, raiders.state.logs, "player"
+  ).state;
+  assert.equal(
+    getPlayer(took, "player").steel - raiders.before.steel, 2,
+    "and the attacker actually gains it"
+  );
+
+  const airRaid = play("card-colonies-air-raid");
+  assert.equal(airRaid.options.length, 1);
+  const raided = resolvePendingChoice(
+    airRaid.state, airRaid.options[0].id, airRaid.state.logs, "player"
+  ).state;
+  assert.equal(getPlayer(raided, "player").mc - airRaid.before.mc, 5);
+
+  // Sabotage removes rather than takes, so solo leaves it with nothing to do.
+  assert.equal(play("card-base-sabotage").options.length, 0);
+});

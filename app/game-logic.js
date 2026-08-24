@@ -45,6 +45,7 @@ import {
   buildProductionAttackChoice,
   buildResourceAttackChoice,
   buildResourceStealChoice,
+  SOLO_NEUTRAL_TARGET_ID,
   buildLawSuitChoice,
   buildCathedralChoice,
   buildColonyChoice,
@@ -115,11 +116,12 @@ import {
   advanceColonyProduction,
   countColonies,
   createColoniesState,
+  selectSoloColonies,
   getColonyTile,
   trade as tradeWithColony
 } from "./colonies.js";
 
-export { COLONY_TILES, availableFleets, canBuildColony, canTrade, countColonies, getColonyTile };
+export { COLONY_TILES, availableFleets, canBuildColony, canTrade, countColonies, getColonyTile, selectSoloColonies };
 export { buildScoreContributions, countOwnedCities, countCathedrals, formatSignedVp, SCORE_CATEGORIES };
 
 export { createPlayer, getCurrentPlayer, getPlayer, updatePlayer, withLegacyPlayerAccessors };
@@ -1683,6 +1685,25 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     }
     case "resource-steal": {
       const attackerId = choice.ownerPlayerId;
+
+      // The neutral opponent holds nothing to take from -- what is stolen comes
+      // out of the general supply, so the attacker simply gains it. Nothing is
+      // recorded in the attack ledger either: there is no player to sue.
+      if (option.targetPlayerId === SOLO_NEUTRAL_TARGET_ID) {
+        const gained = option.count ?? 0;
+        next.players = next.players.map(player =>
+          player.id === attackerId
+            ? { ...player, [option.resource]: (player[option.resource] ?? 0) + gained }
+            : player
+        );
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `中立相手から ${option.resource} ${gained} を獲得しました。`
+        );
+        break;
+      }
+
       const victim = getPlayer(next, option.targetPlayerId);
 
       // Virus's animal half takes the resource off a card rather than out of a
@@ -2909,7 +2930,9 @@ export function getInitialState(options = {}) {
       )
     : null;
   const colonies = options.colonies
-    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)))
+    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)), {
+        soloDraft: mode === "solo"
+      })
     : null;
   const introText =
     mode === "solo"

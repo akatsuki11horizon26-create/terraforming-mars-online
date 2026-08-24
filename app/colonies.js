@@ -44,7 +44,32 @@ export function activateResourceColonies(colonies, resourceTypes) {
   return next;
 }
 
-export function createColoniesState(playerIds, shuffledTileIds) {
+// The solo variant deals four tiles and lets the player keep three, alongside
+// choosing a corporation -- so the choice can be made against what the
+// corporation and opening hand want.
+export const SOLO_COLONY_OFFER = 4;
+export const SOLO_COLONY_KEEP = 3;
+
+export function createColoniesState(playerIds, shuffledTileIds, options = {}) {
+  if (options.soloDraft) {
+    const offered = shuffledTileIds.slice(0, SOLO_COLONY_OFFER);
+    const fleets = {};
+    const usedFleets = {};
+    for (const playerId of playerIds) {
+      fleets[playerId] = STARTING_FLEET_SIZE;
+      usedFleets[playerId] = 0;
+    }
+    return {
+      // Nothing is in play until the player has chosen; the rest of the deck is
+      // kept because Aridor may later pull from the tiles nobody took.
+      tilesInPlay: [],
+      offeredTileIds: offered,
+      unusedTileIds: shuffledTileIds.slice(SOLO_COLONY_OFFER),
+      tiles: {},
+      fleets,
+      usedFleets
+    };
+  }
   const count = TILES_IN_PLAY[playerIds.length] ?? 5;
   const inPlay = shuffledTileIds.slice(0, count);
 
@@ -62,6 +87,37 @@ export function createColoniesState(playerIds, shuffledTileIds) {
   }
 
   return { tilesInPlay: inPlay, tiles, fleets, usedFleets };
+}
+
+// Turns the solo offer into the tiles actually in play. The tiles nobody took
+// stay in unusedTileIds rather than being discarded, because Aridor may draw
+// one of them later.
+export function selectSoloColonies(colonies, selectedTileIds) {
+  const offered = colonies?.offeredTileIds ?? [];
+  const chosen = [...new Set(selectedTileIds ?? [])];
+  if (chosen.length !== SOLO_COLONY_KEEP) {
+    return { colonies, ok: false, reason: `植民地タイルを${SOLO_COLONY_KEEP}枚選んでください。` };
+  }
+  if (chosen.some(id => !offered.includes(id))) {
+    return { colonies, ok: false, reason: "提示されていない植民地タイルは選べません。" };
+  }
+
+  const tiles = {};
+  for (const id of chosen) {
+    const active = REQUIRED_RESOURCE_BY_COLONY[id] === undefined;
+    tiles[id] = { id, trackPosition: active ? 1 : 0, colonies: [], active };
+  }
+  return {
+    ok: true,
+    reason: "",
+    colonies: {
+      ...colonies,
+      tilesInPlay: chosen,
+      tiles,
+      offeredTileIds: [],
+      unusedTileIds: [...(colonies.unusedTileIds ?? []), ...offered.filter(id => !chosen.includes(id))]
+    }
+  };
 }
 
 export function getTile(colonies, tileId) {

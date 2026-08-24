@@ -40,6 +40,7 @@ import {
   refreshColonyActivation,
   getRulingPolicy,
   drawCards,
+  selectSoloColonies,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   applyCorporationTriggers,
@@ -69,6 +70,7 @@ export const COMMAND = {
   STANDARD_PROJECT: "STANDARD_PROJECT",
   CORPORATION_ACTION: "CORPORATION_ACTION",
   USE_RULING_POLICY: "USE_RULING_POLICY",
+  SELECT_SOLO_COLONIES: "SELECT_SOLO_COLONIES",
   CONVERT_FINAL_GREENERY: "CONVERT_FINAL_GREENERY",
   FINISH_FINAL_GREENERY: "FINISH_FINAL_GREENERY"
 };
@@ -861,6 +863,27 @@ const HANDLERS = {
   // Scientists and Kelvinists put an action on the table while they govern.
   // Every other policy is passive or fires on a trigger, so this is the whole
   // of the "policy you can use" surface.
+  // The solo variant deals four colony tiles and keeps three, chosen alongside
+  // the corporation so the pick can answer what the corporation wants.
+  [COMMAND.SELECT_SOLO_COLONIES](state, command) {
+    if (!state.colonies) return fail(state, ERROR.ACTION_REFUSED, "Coloniesは有効ではありません。");
+    if ((state.colonies.offeredTileIds ?? []).length === 0) {
+      return fail(state, ERROR.ACTION_REFUSED, "植民地タイルの選択は済んでいます。");
+    }
+    const chosen = selectSoloColonies(state.colonies, command.selectedTileIds ?? []);
+    if (!chosen.ok) return fail(state, ERROR.ACTION_REFUSED, chosen.reason);
+
+    const next = cloneGameState(state);
+    next.colonies = chosen.colonies;
+    next.logs = addLog(
+      next.logs,
+      "player",
+      `植民地タイル【${chosen.colonies.tilesInPlay.join("】【")}】を選択しました。`,
+      getPlayer(next, command.playerId)?.name
+    );
+    return { ok: true, state: next, events: [] };
+  },
+
   [COMMAND.USE_RULING_POLICY](state, command) {
     if (!state.turmoil) return fail(state, ERROR.ACTION_REFUSED, "Turmoilは有効ではありません。");
     const policy = getRulingPolicy(state.turmoil);

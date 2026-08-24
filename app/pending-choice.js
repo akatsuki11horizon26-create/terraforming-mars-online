@@ -504,10 +504,32 @@ export function buildLawSuitChoice(state, targets, context) {
 //
 // `eligible` narrows who may be hit -- Comet for Venus only reaches players
 // holding a Venus tag, Flooding only the owners of tiles beside the new ocean.
+// The solo game plays against a neutral opponent that "has whatever resources
+// are needed"; what is stolen from it comes out of the general supply. Kept as
+// a virtual target rather than a player, because a real entry in state.players
+// would leak into turn order, awards, production and scoring.
+export const SOLO_NEUTRAL_TARGET_ID = "@solo-neutral";
+
 export function buildResourceStealChoice(state, spec, context) {
   const attackerId = state.currentPlayerId;
   const eligible = spec.eligible ?? (() => true);
   const options = [];
+
+  // Only taking is possible against the neutral opponent: removing a resource
+  // it does not really hold would achieve nothing, so Sabotage and Virus offer
+  // it no target.
+  if (spec.steal && (state.players ?? []).length === 1) {
+    for (const choice of spec.resources ?? []) {
+      const label = PRODUCTION_LABELS[choice.resource] ?? choice.resource;
+      options.push({
+        id: `${SOLO_NEUTRAL_TARGET_ID}:${choice.resource}`,
+        targetPlayerId: SOLO_NEUTRAL_TARGET_ID,
+        resource: choice.resource,
+        count: choice.count,
+        label: `中立相手から ${label} ${choice.count}`
+      });
+    }
+  }
 
   for (const player of state.players ?? []) {
     // Stealing from yourself is legal in the printed rules but pointless, and

@@ -806,9 +806,13 @@ test("every category of the breakdown adds up to the total shown", () => {
 // Card effects: the three promos, and the seven attacks that feed Law Suit.
 // ---------------------------------------------------------------------------
 
+// The last column is whether the attacker GAINS what the victim loses. Sabotage
+// says "Remove up to 3 titanium from any player, or 4 steel, or 7 M€" -- the
+// resources go back to the supply, the same as Virus, and the saboteur takes
+// nothing. It was listed as a theft.
 const STEAL_CARDS = [
   ["card-base-hired-raiders", "steel", 2, true],
-  ["card-base-sabotage", "titanium", 3, true],
+  ["card-base-sabotage", "titanium", 3, false],
   ["card-base-virus", "plants", 5, false],
   ["card-colonies-air-raid", "mc", 5, true]
   // Special Permit needs the Greens ruling, which is a Turmoil precondition

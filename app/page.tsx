@@ -330,7 +330,11 @@ interface GameState {
   } | null;
   colonies?: {
     tilesInPlay: string[];
-    tiles: Record<string, { id: string; trackPosition: number; colonies: string[] }>;
+    // Solo deals four tiles and keeps three, so between setup and that choice
+    // there are tiles on offer and none in play.
+    offeredTileIds?: string[];
+    unusedTileIds?: string[];
+    tiles: Record<string, { id: string; trackPosition: number; colonies: string[]; active?: boolean }>;
     fleets: Record<string, number>;
     usedFleets: Record<string, number>;
   } | null;
@@ -505,6 +509,7 @@ export default function Home() {
   // Reference panels (tag tally, tile legend, mission log) sit behind one menu
   // so the action buttons are not lost among them.
   const [infoMenuOpen, setInfoMenuOpen] = useState(false);
+  const [selectedColonyIds, setSelectedColonyIds] = useState<string[]>([]);
   const openFromMenu = useCallback(
     (drawer: "tags" | "legend" | "log") => {
       setInfoMenuOpen(false);
@@ -1044,6 +1049,18 @@ export default function Home() {
         };
       })
     : [];
+
+  const handleSelectSoloColonies = (selectedTileIds: string[]) => {
+    if (isOnline) return void online.sendAction("selectSoloColonies", { selectedTileIds });
+    const result = executeGameCommand(activeState as never, {
+      type: COMMAND.SELECT_SOLO_COLONIES,
+      playerId: currentPlayerId,
+      selectedTileIds
+    }) as { ok: boolean; state: GameState };
+    if (!result.ok) return;
+    setSelectedColonyIds([]);
+    saveState(result.state);
+  };
 
   const handleClaimMilestone = (milestoneId: string) => {
     if (isOnline) return void online.sendAction("claimMilestone", { milestoneId });
@@ -1961,6 +1978,52 @@ export default function Home() {
               <ResourceGrid player={(players.find(p => p.id === currentPlayerId) ?? players[0]) as never} />
             </div>
           </div>
+
+          {/* Solo Colonies deals four tiles and keeps three, chosen alongside the
+              corporation so the pick can answer what the corporation wants. */}
+          {activeState.phase === "setup" && (activeState.colonies?.offeredTileIds?.length ?? 0) > 0 && (
+            <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
+                <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>植民地タイルの選択</h2>
+              </div>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>
+                  4枚から3枚を選択。選ばなかった1枚はこのゲームでは使用しない。
+                </p>
+                {(activeState.colonies?.offeredTileIds ?? []).map((id: string) => {
+                  const tile = jsGetColonyTile(id) as { name?: string; trade?: { description?: string } };
+                  const picked = selectedColonyIds.includes(id);
+                  return (
+                    <button
+                      key={id}
+                      onClick={() =>
+                        setSelectedColonyIds(current =>
+                          current.includes(id)
+                            ? current.filter(entry => entry !== id)
+                            : current.length >= 3
+                              ? current
+                              : [...current, id]
+                        )
+                      }
+                      style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: picked ? "rgba(114,217,208,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${picked ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}
+                    >
+                      <div style={{ fontWeight: 700 }}>{tile?.name ?? id}</div>
+                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>
+                        {colonyDescriptionJP(tile?.trade?.description ?? "")}
+                      </div>
+                    </button>
+                  );
+                })}
+                <button
+                  className="btn-primary"
+                  disabled={selectedColonyIds.length !== 3}
+                  onClick={() => handleSelectSoloColonies(selectedColonyIds)}
+                >
+                  この3枚で開始（{selectedColonyIds.length}/3）
+                </button>
+              </div>
+            </div>
+          )}
 
           {activeState.phase === "setup" && activeState.setupStep === "corporation" && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-gold)" }}>

@@ -31,7 +31,8 @@ import {
   MILESTONES,
   AWARDS,
   PARTIES,
-  ALL_CARDS
+  ALL_CARDS,
+  selectSoloColonies
 } from "../app/game-logic.js";
 
 const args = Object.fromEntries(
@@ -227,6 +228,20 @@ function playGame(seed) {
     if (!seat) {
       report("setup-lost-seat", `${state.currentPlayerId} is not a player`, { where });
       break;
+    }
+    // Solo Colonies deals four tiles and keeps three; without answering this
+    // the game would run with no colonies at all.
+    if ((state.colonies?.offeredTileIds ?? []).length > 0) {
+      const offered = [...state.colonies.offeredTileIds];
+      const keep = [];
+      while (keep.length < 3 && offered.length > 0) {
+        keep.push(offered.splice(Math.floor(rng() * offered.length), 1)[0]);
+      }
+      const chosen = selectSoloColonies(state.colonies, keep);
+      state = cloneGameState(state);
+      state.colonies = chosen.colonies;
+      checkInvariants(state, `${where}/solo-colonies`);
+      continue;
     }
     if (seat.corporationOptions.length > 0) {
       const corporationId = pick(seat.corporationOptions, rng);

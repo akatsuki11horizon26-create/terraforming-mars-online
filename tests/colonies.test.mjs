@@ -519,3 +519,51 @@ test("A trade can name which resource pays for it", async () => {
   const refused = tradeWith(state, activeTile(state.colonies), [], "player", { payWith: "plants" });
   assert.equal(refused.traded, false);
 });
+
+// The solo variant deals four colony tiles and keeps three, chosen alongside
+// the corporation so the pick can answer what the corporation wants. The tiles
+// nobody took are kept rather than discarded, because Aridor may draw one later.
+test("Solo Colonies deals four tiles and keeps three", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const solo = getInitialState({ playerCount: 1, colonies: true });
+  assert.equal(solo.colonies.offeredTileIds.length, 4, "four are offered");
+  assert.equal(solo.colonies.tilesInPlay.length, 0, "and none is in play until chosen");
+
+  const table = getInitialState({ playerCount: 2, colonies: true });
+  assert.equal(table.colonies.tilesInPlay.length, 5, "a normal table is dealt outright");
+  assert.equal(table.colonies.offeredTileIds, undefined, "and is never offered a choice");
+
+  const offered = solo.colonies.offeredTileIds;
+  const refuse = selection =>
+    executeGameCommand(solo, {
+      type: COMMAND.SELECT_SOLO_COLONIES, playerId: "player", selectedTileIds: selection
+    }).ok;
+
+  assert.equal(refuse(offered.slice(0, 2)), false, "two is not three");
+  assert.equal(refuse([offered[0], offered[0], offered[1]]), false, "and nor is three with a duplicate");
+  assert.equal(
+    refuse(["luna", "pluto", "titan"].filter(id => !offered.includes(id)).slice(0, 3)),
+    false,
+    "a tile that was not offered cannot be taken"
+  );
+
+  const chosen = executeGameCommand(solo, {
+    type: COMMAND.SELECT_SOLO_COLONIES, playerId: "player", selectedTileIds: offered.slice(0, 3)
+  });
+  assert.equal(chosen.ok, true);
+  assert.deepEqual(chosen.state.colonies.tilesInPlay, offered.slice(0, 3));
+  assert.equal(chosen.state.colonies.offeredTileIds.length, 0, "the offer is spent");
+  assert.ok(
+    chosen.state.colonies.unusedTileIds.includes(offered[3]),
+    "the tile nobody took is kept for Aridor"
+  );
+
+  assert.equal(
+    executeGameCommand(chosen.state, {
+      type: COMMAND.SELECT_SOLO_COLONIES, playerId: "player", selectedTileIds: offered.slice(0, 3)
+    }).ok,
+    false,
+    "and it cannot be chosen twice"
+  );
+});
