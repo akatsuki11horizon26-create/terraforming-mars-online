@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { nextThreshold, nextThresholdLabel } from "./parameter-thresholds.js";
 
 // The three terraforming tracks, shown together the way the digital edition
 // does: they are the game's win condition, so their distance from target has to
@@ -27,7 +28,7 @@ export function GlobalParameters({
       progress: ((temperature + 30) / 38) * 100,
       done: temperature >= 8,
       color: "var(--accent-ember)",
-      note: ""
+      note: nextThresholdLabel("temperature", temperature)
     },
     {
       key: "oxygen",
@@ -37,7 +38,7 @@ export function GlobalParameters({
       progress: (oxygen / 14) * 100,
       done: oxygen >= 14,
       color: "var(--accent-green)",
-      note: ""
+      note: nextThresholdLabel("oxygen", oxygen)
     },
     {
       key: "oceans",
@@ -60,7 +61,7 @@ export function GlobalParameters({
       progress: (venus / 30) * 100,
       done: venus >= 30,
       color: "var(--accent-violet)",
-      note: venus < 8 ? "次: 8%でカード1枚" : venus < 16 ? "次: 16%でTR+1" : venus < 30 ? "閾値ボーナス済み" : "最大"
+      note: nextThresholdLabel("venus", venus)
     });
   }
 
@@ -98,44 +99,73 @@ export function GlobalParametersCompact({
   oxygen,
   oceans,
   venus,
-  showVenus
+  showVenus,
+  onOpen
 }: {
   temperature: number;
   oxygen: number;
   oceans: number;
   venus: number;
   showVenus: boolean;
+  onOpen?: () => void;
 }) {
+  // A track that is one step from paying out changes what is worth doing THIS
+  // turn, so the chip carries the distance rather than hiding it in a tooltip.
+  const near = (key: "temperature" | "oxygen" | "venus", value: number) => {
+    const upcoming = nextThreshold(key, value);
+    if (!upcoming || upcoming.reward.startsWith("上限")) return null;
+    return upcoming;
+  };
+  const suffix = (key: "temperature" | "oxygen" | "venus", value: number) => {
+    const upcoming = near(key, value);
+    return upcoming ? `+${upcoming.steps}` : "";
+  };
+
   const chips = [
-    { key: "temperature", icon: "🌡", value: `${temperature > 0 ? "+" : ""}${temperature}°`, done: temperature >= 8, color: "var(--accent-ember)", title: `気温 ${temperature}°C / 目標 +8°C` },
-    { key: "oxygen", icon: "O₂", value: `${oxygen}%`, done: oxygen >= 14, color: "var(--accent-green)", title: `酸素 ${oxygen}% / 目標 14%` },
-    { key: "oceans", icon: "🌊", value: `${oceans}/9`, done: oceans >= 9, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 9枚` }
+    { key: "temperature", icon: "🌡", value: `${temperature > 0 ? "+" : ""}${temperature}°`, hint: suffix("temperature", temperature), imminent: near("temperature", temperature)?.steps === 1, done: temperature >= 8, color: "var(--accent-ember)", title: `気温 ${temperature}°C / 目標 +8°C ・ 1段階=2℃
+${nextThresholdLabel("temperature", temperature) || "閾値ボーナスはすべて獲得済み"}` },
+    { key: "oxygen", icon: "O₂", value: `${oxygen}%`, hint: suffix("oxygen", oxygen), imminent: near("oxygen", oxygen)?.steps === 1, done: oxygen >= 14, color: "var(--accent-green)", title: `酸素 ${oxygen}% / 目標 14% ・ 1段階=1%
+${nextThresholdLabel("oxygen", oxygen) || "閾値ボーナスはすべて獲得済み"}` },
+    { key: "oceans", icon: "🌊", value: `${oceans}/9`, hint: "", imminent: false, done: oceans >= 9, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 9枚 ・ 1枚ごとにTR+1` }
   ];
   if (showVenus) {
-    // The raw percentage never said what the next step buys. 8% draws a card and
-    // 16% gives an extra TR, and in a multiplayer game Venus is not an ending
-    // condition at all — all of which change whether raising it is worth doing.
-    const nextVenusReward =
-      venus < 8 ? "8%でカード1枚" : venus < 16 ? "16%でTR+1" : venus < 30 ? "報酬なし" : "最大";
     chips.push({
       key: "venus",
       icon: "♀",
       value: `${venus}%`,
+      hint: suffix("venus", venus),
+      imminent: near("venus", venus)?.steps === 1,
       done: venus >= 30,
       color: "var(--accent-violet)",
-      title: `金星 ${venus}% / 目標 30% ・ 次: ${nextVenusReward} ・ 2%ごとにTR+1`
+      title: `金星 ${venus}% / 目標 30% ・ 1段階=2%でTR+1
+${nextThresholdLabel("venus", venus) || "閾値ボーナスはすべて獲得済み"}`
     });
   }
 
+  // The readout is its own entry point to the planet drawer, which also gets
+  // the detail out of title attributes -- a tooltip is unreachable on a touch
+  // screen, and the threshold distances are the part worth reading.
   return (
-    <div className="param-compact">
+    <button
+      type="button"
+      className="param-compact"
+      onClick={onOpen}
+      aria-label="惑星データを開く"
+    >
       {chips.map(c => (
-        <span key={c.key} className="param-chip" data-done={c.done ? "true" : "false"} title={c.title}>
+        <span
+          key={c.key}
+          className="param-chip"
+          data-done={c.done ? "true" : "false"}
+          data-imminent={c.imminent ? "true" : "false"}
+          title={c.title}
+        >
           <span className="param-chip-icon" style={{ color: c.color }}>{c.icon}</span>
           <span className="param-chip-value">{c.value}</span>
+          {c.hint ? <span className="param-chip-hint">{c.hint}</span> : null}
         </span>
       ))}
-    </div>
+    </button>
   );
 }
 
@@ -287,7 +317,7 @@ export function Standings({
   turnHolderId,
   scores
 }: {
-  players: { id: string; name: string; tr: number; passed?: boolean }[];
+  players: { id: string; name: string; tr: number; mc?: number; passed?: boolean }[];
   selfId: string;
   turnHolderId: string;
   scores: Record<string, number>;
@@ -313,6 +343,9 @@ export function Standings({
           </span>
           <span className="standings-tr" title="テラフォーミングレーティング">
             TR {player.tr}
+          </span>
+          <span className="standings-mc" title="所持MC">
+            {player.mc ?? 0} MC
           </span>
           <span className="standings-vp" title="現在の勝利点（暫定）">
             {scores[player.id] ?? 0} 点

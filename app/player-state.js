@@ -16,6 +16,7 @@ export const PLAYER_SCALAR_FIELDS = [
   "generationStartTr",
   "globalRequirementBuffer",
   "oneShotRequirementBuffer",
+  "oneShotCardDiscount",
   "corporationId",
   "setupStep",
   "turnStep",
@@ -90,6 +91,7 @@ export function createPlayer(id, name, overrides = {}) {
     usedCardActions: [],
     globalRequirementBuffer: 0,
     oneShotRequirementBuffer: 0,
+    oneShotCardDiscount: 0,
     passed: false,
     ...overrides
   };

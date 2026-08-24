@@ -60,12 +60,21 @@ test("The default view keeps the on-demand panels shut", async () => {
   assert.equal(title.includes("log-container"), false, "the mission log is not rendered up front");
 
   const source = await pageSource();
-  for (const label of ["惑星データ", "標準プロジェクト", "マイルストーン / 表彰", "タイル凡例", "ミッションログ"]) {
+  // The HUD carries three controls now: the move you make most often, the
+  // commitment, and one menu for reference panels. The planet readout, the
+  // Turmoil card and the Colonies card are their own entry points.
+  for (const label of ["基本アクション", "称号・表彰"]) {
+    assert.ok(source.includes(label), `${label} is reachable from the HUD`);
+  }
+  for (const [label, drawer] of [["シンボル集計", "tags"], ["タイル凡例", "legend"], ["ミッションログ", "log"]]) {
+    assert.ok(source.includes(label), `${label} is still named in the UI`);
     assert.ok(
-      source.includes(`>${label}</button>`),
-      `${label} has an opener button`
+      source.includes(`openFromMenu("${drawer}")`),
+      `${label} opens its drawer from the info menu`
     );
   }
+  assert.ok(source.includes('aria-haspopup="menu"'), "the reference panels sit behind one menu");
+  assert.ok(source.includes('onOpen={() => setOpenDrawer("planet")}'), "the planet readout opens its drawer");
   // Each drawer renders only while it is the open one.
   assert.ok(source.includes('openDrawer === "log"'));
   assert.ok(source.includes('openDrawer === "milestones"'));

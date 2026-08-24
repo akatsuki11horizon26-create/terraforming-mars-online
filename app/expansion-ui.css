@@ -640,7 +640,7 @@
   border: 1px solid var(--line-soft);
   border-left: 3px solid var(--accent-cyan);
   background-color: var(--surface-2);
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -655,10 +655,11 @@
 .glance-title {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 5px 8px;
+  min-height: 40px;
+  padding: 6px 8px;
   border: 0;
   border-bottom: 1px solid var(--line-soft);
   background: transparent;
@@ -741,10 +742,10 @@
 
 .colony-glance-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 38px minmax(0, 52px) minmax(0, 1fr) 28px;
+  grid-template-columns: minmax(0, 1fr) 44px minmax(0, 56px) minmax(0, 1fr) 30px;
   align-items: baseline;
   gap: 6px;
-  padding: 3px 8px;
+  padding: 5px 8px;
 }
 
 .colony-glance-row + .colony-glance-row {
@@ -794,9 +795,10 @@
 }
 
 .param-note {
-  margin-top: 2px;
-  color: var(--text-low);
-  font-size: 10px;
+  margin-top: 3px;
+  color: var(--text-mid);
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .standings {
@@ -806,13 +808,14 @@
 
 .standings-row {
   display: grid;
-  grid-template-columns: 18px 1fr auto auto;
+  grid-template-columns: 18px 1fr auto auto auto;
   align-items: center;
   gap: 8px;
-  padding: 5px 8px;
+  min-height: 32px;
+  padding: 6px 8px;
   background-color: var(--surface-2);
   border-left: 2px solid var(--line-hard);
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -845,6 +848,12 @@
   color: var(--accent-cyan);
 }
 
+.standings-mc {
+  color: var(--accent-amber);
+  min-width: 52px;
+  text-align: right;
+}
+
 .standings-vp {
   font-weight: 700;
   color: var(--text-hi);
@@ -862,10 +871,12 @@
   align-self: start;
   height: auto;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
   gap: 6px;
   padding: 4px 10px;
-  font-size: 11px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -898,6 +909,10 @@
 
 .hud-standing-tr {
   color: var(--accent-cyan);
+}
+
+.hud-standing-mc {
+  color: var(--accent-amber);
 }
 
 .hud-standing-vp {

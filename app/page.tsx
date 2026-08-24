@@ -31,7 +31,6 @@ import {
   ColonyPanel,
   MilestonePanel,
   PendingChoiceDialog,
-  PlayerBar,
   TurmoilGlance,
   TurmoilPanel
 } from "./expansion-panels";
@@ -503,6 +502,16 @@ export default function Home() {
     null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies" | "tags"
   >(null);
   const closeDrawer = useCallback(() => setOpenDrawer(null), []);
+  // Reference panels (tag tally, tile legend, mission log) sit behind one menu
+  // so the action buttons are not lost among them.
+  const [infoMenuOpen, setInfoMenuOpen] = useState(false);
+  const openFromMenu = useCallback(
+    (drawer: "tags" | "legend" | "log") => {
+      setInfoMenuOpen(false);
+      setOpenDrawer(drawer);
+    },
+    []
+  );
 
   const [hoveredCell, setHoveredCell] = useState<{ key: string; text: string } | null>(null);
 
@@ -1682,14 +1691,16 @@ export default function Home() {
         </div>
       </header>
 
-      {players.length > 1 && (
+      {/* The old PlayerBar printed each seat's name, TR and MC, which the
+          standings row under the HUD now covers -- and its chips were buttons
+          with no handler attached, so they looked clickable and did nothing.
+          With the HUD also showing the viewer's own TR, the number appeared
+          three times on one screen. */}
+      {players.length > 1 && isOnline && !isMyTurn && (
         <div style={{ padding: "10px 16px 0" }}>
-          <PlayerBar players={playerSummaries} currentPlayerId={turnHolderId} />
-          {isOnline && !isMyTurn && (
-            <p style={{ marginTop: "6px", fontSize: "0.75rem", color: "var(--color-cyan)" }}>
-              {players.find(p => p.id === turnHolderId)?.name ?? "他のプレイヤー"} の手番です。お待ちください。
-            </p>
-          )}
+          <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>
+            {players.find(p => p.id === turnHolderId)?.name ?? "他のプレイヤー"} の手番です。お待ちください。
+          </p>
         </div>
       )}
 
@@ -1727,23 +1738,56 @@ export default function Home() {
               oceans={activeState.oceans}
               venus={activeState.venus ?? 0}
               showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
+              onOpen={() => setOpenDrawer("planet")}
             />
           </div>
 
-          <div className="hud-buttons">
-            <button className="hud-btn" onClick={() => setOpenDrawer("planet")}>惑星データ</button>
-            <button className="hud-btn" onClick={() => setOpenDrawer("standard")}>標準プロジェクト</button>
-            <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>マイルストーン / 表彰</button>
-            {turmoilView && (
-              <button className="hud-btn" onClick={() => setOpenDrawer("turmoil")}>動乱</button>
-            )}
-            {colonyViews.length > 0 && (
-              <button className="hud-btn" onClick={() => setOpenDrawer("colonies")}>植民地</button>
-            )}
-            <button className="hud-btn" onClick={() => setOpenDrawer("tags")}>シンボル集計</button>
-            <button className="hud-btn" onClick={() => setOpenDrawer("legend")}>タイル凡例</button>
-            <button className="hud-btn" onClick={() => setOpenDrawer("log")}>ミッションログ</button>
-          </div>
+          {/* Eight equally-weighted buttons gave no clue which ones were moves
+              and which were reference material. The planet readout, the Turmoil
+              card and the Colonies card are all their own entry points now, so
+              what remains is: act, commit, look something up. */}
+          <nav className="hud-buttons" aria-label="ゲーム操作">
+            <button
+              className="hud-btn hud-btn--primary"
+              onClick={() => setOpenDrawer("standard")}
+            >
+              基本アクション
+            </button>
+            <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>
+              称号・表彰
+            </button>
+            <div className="hud-menu">
+              <button
+                className="hud-btn"
+                aria-haspopup="menu"
+                aria-expanded={infoMenuOpen}
+                onClick={() => setInfoMenuOpen(open => !open)}
+              >
+                情報 ▾
+              </button>
+              {infoMenuOpen && (
+                <>
+                  <button
+                    type="button"
+                    className="hud-menu-scrim"
+                    aria-label="メニューを閉じる"
+                    onClick={() => setInfoMenuOpen(false)}
+                  />
+                  <div className="hud-menu-list" role="menu">
+                    <button role="menuitem" className="hud-menu-item" onClick={() => openFromMenu("tags")}>
+                      シンボル集計
+                    </button>
+                    <button role="menuitem" className="hud-menu-item" onClick={() => openFromMenu("legend")}>
+                      タイル凡例
+                    </button>
+                    <button role="menuitem" className="hud-menu-item" onClick={() => openFromMenu("log")}>
+                      ミッションログ
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </nav>
         </div>
 
         {players.length > 1 && (
@@ -1760,6 +1804,9 @@ export default function Home() {
                 >
                   <span className="hud-standing-name">{player.name}</span>
                   <span className="hud-standing-tr">TR {player.tr}</span>
+                  {/* MC used to live in the PlayerBar, which is gone; without it
+                      here the row would drop information rather than dedupe it. */}
+                  <span className="hud-standing-mc">{player.mc ?? 0} MC</span>
                   <span className="hud-standing-vp">{scoresByPlayer[player.id] ?? 0}点</span>
                 </span>
               ))}

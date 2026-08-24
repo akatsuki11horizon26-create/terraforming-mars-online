@@ -15,6 +15,11 @@ const project = (id, name, cost, tags, type, effectText, effect, extra = {}) => 
 });
 
 const CURATED_PROJECT_OVERRIDES = [
+  // Both ship with an empty effectSpec in the generated catalog, so they did
+  // nothing at all. The discount applies to the next card played only, which
+  // the engine models with oneShotCardDiscount.
+  project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
+  project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("p-asteroid", "Asteroid", 14, ["Space"], "event", "気温を1段階上げ、チタン2。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, titanium: 2, removePlants: 3 }),
   project("p-comet", "Comet", 21, ["Space"], "event", "気温を1段階上げ、海洋1。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, tile: "ocean", removePlants: 3 }, { placementType: "ocean" }),
   project("p-titanium-mine", "Titanium Mine", 7, ["Building"], "automated", "チタン生産量+1。", { production: { titanium: 1 } }),
@@ -47,7 +52,7 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-ic", "Interplanetary Cinematics", ["Building"], { mc: 30, steel: 20 }, "イベントをプレイするたびMC2。", { eventBonus: 2 }),
   corporation("corp-inventrix", "Inventrix", ["Science"], { mc: 45 }, "最初のアクションでカード3枚を引く。条件の数値条件を±2緩和。", { requirementBuffer: 2, firstActionDraw: 3 }),
   corporation("corp-mining-guild", "Mining Guild", ["Building", "Building"], { mc: 30, steel: 5, production: { steel: 1 } }, "建材またはチタンの配置ボーナスに置くたび建材生産量+1。", { miningBonus: true }),
-  corporation("corp-phobolog", "PhoboLog", ["Space"], { mc: 23, titanium: 10 }, "チタン1個の価値がMC3。", { titaniumValue: 3 }),
+  corporation("corp-phobolog", "PhoboLog", ["Space"], { mc: 23, titanium: 10 }, "チタン1個の価値がMC4。", { titaniumValue: 4 }),
   corporation("corp-saturn", "Saturn Systems", ["Jovian"], { mc: 42, production: { titanium: 1 } }, "ジョビアンタグが場に出るたびMC生産量+1。", { jovianProduction: 1 }),
   corporation("corp-teractor", "Teractor", ["Earth"], { mc: 60 }, "地球タグのカードコスト-3。", { earthDiscount: 3 }),
   corporation("corp-tharsis", "Tharsis Republic", ["Building"], { mc: 40 }, "最初のアクションで都市1枚。都市が置かれるたびMC生産量+1、自分が都市を置くとMC3。", { firstCity: true, cityProduction: 1, ownCityBonus: 3 }),

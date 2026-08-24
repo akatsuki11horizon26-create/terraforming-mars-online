@@ -319,3 +319,123 @@ test("A Venus solo game is not won until Venus reaches 30%", async () => {
   assert.equal(isSoloMissionComplete({ ...tracks, venusEnabled: true, venus: 0 }), false);
   assert.equal(isSoloMissionComplete({ ...tracks, venusEnabled: true, venus: 30 }), true);
 });
+
+// The UI advertises "2 steps to heat production +1". If the table it reads from
+// drifts from what checkParameterThresholds actually pays, the game lies to the
+// player about what a move buys -- so the claims are checked against the engine.
+test("Every advertised threshold bonus is one the engine actually pays", async () => {
+  const { checkParameterThresholds, cloneGameState, getPlayer } = await import("../app/game-logic.js");
+  const { PARAMETER_THRESHOLDS, nextThreshold } = await import("../app/parameter-thresholds.js");
+
+  for (const entry of PARAMETER_THRESHOLDS.temperature) {
+    if (entry.at === 8) continue; // the cap is a stop, not a payout
+    const before = entry.at - 2;
+    const state = getInitialState({ playerCount: 1 });
+    state.currentPlayerId = "player";
+    const heatBefore = getPlayer(state, "player").heatProd;
+    const crossed = checkParameterThresholds(
+      before, entry.at, 0, 0, { ...cloneGameState(state), temperature: entry.at }, state.logs
+    );
+    const paid =
+      getPlayer(crossed.state, "player").heatProd > heatBefore ||
+      Boolean(crossed.state.pendingChoice);
+    assert.ok(paid, `crossing ${entry.at}C must pay "${entry.reward}"`);
+  }
+
+  // Oxygen 8% is advertised as "+2C", so the engine must move the temperature.
+  const state = getInitialState({ playerCount: 1 });
+  state.currentPlayerId = "player";
+  const crossed = checkParameterThresholds(
+    -30, -30, 7, 8, { ...cloneGameState(state), oxygen: 8 }, state.logs
+  );
+  assert.equal(crossed.state.temperature, -28, "8% oxygen pays the +2C it advertises");
+
+  // And the distance itself counts in steps, not raw units: temperature moves
+  // 2C at a time, so -26 is ONE step from -24, not two.
+  assert.equal(nextThreshold("temperature", -26).steps, 1);
+  assert.equal(nextThreshold("oxygen", 7).steps, 1);
+  assert.equal(nextThreshold("temperature", 8), null, "nothing left once the track is capped");
+});
+
+// Four follow-ups to the previous round's fixes: each fix covered the path it
+// was found on and left a sibling path behind.
+test("Venus solo does not end the game while Venus is short", async () => {
+  const { triggerProduction } = await import("../app/game-logic.js");
+  for (const [venus, expected] of [[0, "action"], [30, "final_greenery"]]) {
+    const state = getInitialState({ playerCount: 1, venus: true });
+    state.venusEnabled = true;
+    state.temperature = 8;
+    state.oxygen = 14;
+    state.oceans = 9;
+    state.venus = venus;
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    state.generation = 5;
+    const produced = triggerProduction(state, state.logs);
+    assert.equal(
+      (produced.state ?? produced).phase, expected,
+      `Mars complete with Venus at ${venus}% must ${expected === "action" ? "keep playing" : "end"}`
+    );
+  }
+});
+
+test("A requirement buffer relaxes ocean counts too", async () => {
+  const { ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(
+    entry => (entry.requirements ?? []).some(item => item.oceans !== undefined && !item.max)
+  );
+  const need = card.requirements.find(item => item.oceans !== undefined).oceans;
+
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  state.oceans = need - 1;
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.hand = [card.id];
+
+  assert.equal(getCardPlayableStatus(card, state).playable, false, "one ocean short");
+  seat.oneShotRequirementBuffer = 2;
+  assert.equal(getCardPlayableStatus(card, state).playable, true, "the buffer covers it");
+});
+
+test("A card allowing duplicate colonies still cannot use a full tile", async () => {
+  const { buildColony, canBuildColony } = await import("../app/colonies.js");
+  const state = getInitialState({ playerCount: 4, colonies: true });
+  let colonies = state.colonies;
+  const tile = colonies.tilesInPlay[0];
+  for (const id of ["player", "player2", "player3"]) {
+    colonies = buildColony(colonies, tile, id).colonies;
+  }
+  assert.equal(colonies.tiles[tile].colonies.length, 3, "the tile is full");
+  assert.equal(
+    canBuildColony(colonies, tile, "player", { allowDuplicates: true }).ok,
+    false,
+    "allowDuplicates lifts the one-per-tile rule, not the three-per-tile cap"
+  );
+});
+
+test("A branch chosen inside a card action still pays threshold bonuses", async () => {
+  const { ALL_CARDS, getPlayer, applyCardAction, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(entry => entry.id === "card-base-regolith-eaters");
+
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.playedProjects = [card.id];
+  seat.mc = 100;
+  seat.cardResources = { [card.id]: 5 };
+  state.oxygen = 7;
+  state.temperature = -30;
+
+  const acted = applyCardAction(state, card, state.logs);
+  let settled = acted.state;
+  assert.ok(settled.pendingChoice, "the card asks which branch to take");
+  const raising = settled.pendingChoice.options.find(option => /oxygen/i.test(option.label));
+  settled = resolvePendingChoice(settled, raising.id, settled.logs, "player").state;
+
+  assert.equal(settled.oxygen, 8);
+  assert.equal(settled.temperature, -28, "8% oxygen pays +2C from a branch too");
+});

@@ -887,7 +887,15 @@ function applyEffect(state, effect, logs, options = {}) {
     }
   }
   if (effect.cardDiscount?.amount && !effect.cardDiscount.per) {
-    if (effect.cardDiscount.tag) {
+    if (effect.cardDiscount.nextCardOnly) {
+      // Indentured Workers and Conscription discount the NEXT card only, the
+      // same shape as Special Design. Folding them into the running total would
+      // discount every card for the rest of the game.
+      nextState.oneShotCardDiscount = Math.max(
+        nextState.oneShotCardDiscount ?? 0,
+        effect.cardDiscount.amount
+      );
+    } else if (effect.cardDiscount.tag) {
       const tag = String(effect.cardDiscount.tag).toLowerCase();
       nextState.cardDiscounts.tags[tag] = (nextState.cardDiscounts.tags[tag] ?? 0) + effect.cardDiscount.amount;
     } else {
@@ -1343,7 +1351,14 @@ function queuePendingChoices(state, card, context) {
   if (raw.colonies?.buildColony && !done.includes("colony-placement")) {
     const spec = raw.colonies.buildColony;
     const legal = Object.values(state.colonies?.tiles ?? {})
-      .filter(tile => canBuildColony(state.colonies, tile.id, state.currentPlayerId).ok || spec.allowDuplicates)
+      // `|| spec.allowDuplicates` waved through every refusal, not just the
+      // one-per-tile rule, so a card that permits a duplicate also offered
+      // tiles that were already full. Pass the flag in instead.
+      .filter(tile =>
+        canBuildColony(state.colonies, tile.id, state.currentPlayerId, {
+          allowDuplicates: Boolean(spec.allowDuplicates)
+        }).ok
+      )
       .map(tile => ({ id: tile.id, name: getColonyTile(tile.id)?.name }));
     const built = buildColonyChoice(state, spec, context, legal);
     if (built) return built;
@@ -1704,10 +1719,27 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       const branch = branches?.[Number(option.id)];
       if (branch) {
         const branchEffect = normalizeBehavior(branch, {}, []);
+        // Regolith Eaters and GHG Producing Bacteria raise oxygen from inside a
+        // branch. Fixing PLAY_CARD and USE_CARD_ACTION left this path behind,
+        // so the same oxygen step paid its threshold bonus only when it did not
+        // come from a choice.
+        const branchBeforeTemp = next.temperature;
+        const branchBeforeOxygen = next.oxygen;
         const applied = applyEffect(next, { ...branchEffect, cardId: card.id }, nextLogs);
-        nextLogs = addLog(applied.logs, "system", `選択: ${option.label}`);
-        if (fromAction && !(applied.state.usedCardActions ?? []).includes(card.id)) {
-          applied.state.usedCardActions = [...(applied.state.usedCardActions ?? []), card.id];
+        const crossed = checkParameterThresholds(
+          branchBeforeTemp,
+          applied.state.temperature,
+          branchBeforeOxygen,
+          applied.state.oxygen,
+          applied.state,
+          applied.logs
+        );
+        // `next` is const and the surrounding cases mutate it in place, so the
+        // settled values are copied back rather than rebinding.
+        Object.assign(next, crossed.state);
+        nextLogs = addLog(crossed.logs, "system", `選択: ${option.label}`);
+        if (fromAction && !(next.usedCardActions ?? []).includes(card.id)) {
+          next.usedCardActions = [...(next.usedCardActions ?? []), card.id];
         }
       }
       break;
@@ -3749,7 +3781,7 @@ export function computeScore(state, playerId) {
 export function getCardDiscount(card, state) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
+  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0) + (state.oneShotCardDiscount ?? 0);
   const totalDiscount = corporationDiscount + ongoingDiscount;
   // No change is given, so a player may overpay by one unit rather than top up
   // the last few M€ in cash. Flooring the cap forbade that entirely: with 1 M€
@@ -3767,7 +3799,7 @@ export function getCardDiscount(card, state) {
 export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0);
+  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0) + (state.oneShotCardDiscount ?? 0);
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * getSteelValue(state) - titaniumUsed * getTitaniumValue(state));
 }
 
@@ -4021,7 +4053,15 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       const meets = requirement.max ? state.oxygen <= requirement.oxygen + buffer : state.oxygen >= requirement.oxygen - buffer;
       if (!meets) return { playable: false, reason: `酸素${requirement.oxygen}%条件を満たしていません。` };
     }
-    if (requirement.oceans !== undefined && state.oceans < requirement.oceans) return { playable: false, reason: `海洋が${requirement.oceans}枚以上必要です。` };
+    if (requirement.oceans !== undefined) {
+      // One ocean is one step, so the same relaxation that moves temperature by
+      // two degrees moves this by one tile. Temperature, oxygen and Venus all
+      // honour the buffer; oceans were the last raw comparison left.
+      const meets = requirement.max
+        ? state.oceans <= requirement.oceans + buffer
+        : state.oceans >= requirement.oceans - buffer;
+      if (!meets) return { playable: false, reason: `海洋が${requirement.oceans}枚以上必要です。` };
+    }
     if (requirement.venus !== undefined) {
       // Inventrix, Special Design and Adaptation Technology relax the Venus
       // scale exactly as they relax temperature and oxygen; only these two got
@@ -4115,7 +4155,7 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     (state.oneShotRequirementBuffer ?? 0);
   const generatedRequirements = getGeneratedRequirementStatus(card, state, buffer);
   if (!generatedRequirements.playable) return generatedRequirements;
-  if (requirements.oceans !== undefined && state.oceans < requirements.oceans) {
+  if (requirements.oceans !== undefined && state.oceans < requirements.oceans - buffer) {
     return { playable: false, reason: `海洋が${requirements.oceans}枚以上必要です。` };
   }
   if (requirements.plants !== undefined && state.plants < requirements.plants) {
@@ -4476,8 +4516,10 @@ export function triggerProduction(state, logAcc) {
       // "このプレイヤー・マーカーは、産出フェイズに除去します"
       usedCardActions: [],
       // Special Design lasts "this generation" at most, so an unspent
-      // relaxation must not carry into the next one.
-      oneShotRequirementBuffer: 0
+      // relaxation must not carry into the next one. Same for the one-shot
+      // discounts (Indentured Workers, Conscription).
+      oneShotRequirementBuffer: 0,
+      oneShotCardDiscount: 0
     };
     const who = nextState.players.length > 1 ? `${player.name}: ` : "生産フェーズ完了: ";
     localLog = addLog(
@@ -4494,7 +4536,14 @@ export function triggerProduction(state, logAcc) {
   const soloGenerationLimit = nextState.preludeEnabled ? 12 : 14;
   const generationLimitReached =
     nextState.mode === "solo" && nextState.generation >= soloGenerationLimit;
-  if (generationLimitReached || isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans)) {
+  // A Venus solo game is not finished when Mars is: 30% Venus is part of the
+  // mission, so ending here would drop the player into final greenery with the
+  // Venus track short and no generations left to raise it.
+  const parametersComplete =
+    nextState.mode === "solo"
+      ? isSoloMissionComplete(nextState)
+      : isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);
+  if (generationLimitReached || parametersComplete) {
     nextState.phase = "final_greenery";
     nextState.currentPlayerId = nextState.firstPlayerId ?? nextState.turnOrder[0];
     const reason = generationLimitReached ? `第${soloGenerationLimit}世代の生産` : "全パラメータ達成";

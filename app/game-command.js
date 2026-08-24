@@ -494,7 +494,9 @@ const HANDLERS = {
     // A one-shot requirement relaxation (Special Design) is spent by the next
     // card played, which is this one. Clear it before the effect runs so the
     // card that grants it can re-arm it in the same breath if it ever does.
-    const hadOneShot = (getPlayer(state, command.playerId)?.oneShotRequirementBuffer ?? 0) > 0;
+    const seatBeforePlay = getPlayer(state, command.playerId);
+    const hadOneShot = (seatBeforePlay?.oneShotRequirementBuffer ?? 0) > 0;
+    const hadOneShotDiscount = (seatBeforePlay?.oneShotCardDiscount ?? 0) > 0;
     paid.players = paid.players.map(player =>
       player.id === command.playerId
         ? {
@@ -505,6 +507,7 @@ const HANDLERS = {
             titanium: (player.titanium ?? 0) - titaniumUsed,
             hand: player.hand.filter(id => id !== card.id),
             ...(hadOneShot ? { oneShotRequirementBuffer: 0 } : {}),
+            ...(hadOneShotDiscount ? { oneShotCardDiscount: 0 } : {}),
             // A red event is resolved and set aside; keeping it in
             // playedProjects made its tags count for the rest of the game.
             // Law Suit is the exception: it goes to the player who was sued,

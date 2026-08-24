@@ -99,13 +99,16 @@ test("The page mounts every new panel and gates them on real state", async () =>
   assert.match(page, /<PendingChoiceDialog/);
   assert.match(page, /<MilestonePanel/);
   assert.match(page, /<AwardPanel/);
-  assert.match(page, /<PlayerBar/);
+  // PlayerBar is deliberately gone: the standings row under the HUD carries the
+  // same per-seat figures, and PlayerBar's chips were buttons with no handler.
+  assert.doesNotMatch(page, /<PlayerBar/, "the duplicated player bar stays removed");
+  assert.match(page, /<Standings/, "the standings row replaces it");
 
   // Expansion boards only appear when that expansion is switched on, so a plain
   // solo game looks unchanged.
   assert.match(page, /\{turmoilView && \(/, "the Turmoil board is conditional");
   assert.match(page, /colonyViews\.length > 0 && \(/, "the Colonies board is conditional");
-  assert.match(page, /players\.length > 1 && \(/, "the player bar is conditional");
+  assert.match(page, /players\.length > 1 && \(/, "per-seat rows are conditional");
 });
 
 test("Panel actions are wired to the engine, not to local state", async () => {
