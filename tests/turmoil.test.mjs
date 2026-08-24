@@ -1950,3 +1950,32 @@ test("A party requirement is met by two delegates, not only by ruling", async ()
   state.turmoil = sendDelegate(state.turmoil, "player", wanted, {}).turmoil;
   assert.equal(getCardPlayableStatus(card, state).playable, true, "two delegates satisfy it");
 });
+
+// Only Unity's titanium price was ever wired up, so five of the six policies a
+// game can reach did nothing -- and with them most of the reason to care who
+// governs. Mars First pays on any tile, Greens only on a greenery.
+test("The ruling party's tile policy pays out when a tile is laid", async () => {
+  const { placeTileAt, legalCellsFor, getPlayer } = await import("../app/game-logic.js");
+
+  const lay = (party, tileType, field) => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = party;
+    state.turmoil.rulingPolicyId = null;
+    state.currentPlayerId = "player";
+    // Strip the spaces' own bonuses so only the policy is measured.
+    for (const cell of Object.values(state.board)) {
+      cell.bonusType = "none";
+      cell.bonusAmount = 0;
+      cell.bonus = null;
+    }
+    const before = getPlayer(state, "player")[field] ?? 0;
+    placeTileAt(state, legalCellsFor(state, tileType, "player")[0], tileType, "player");
+    return getPlayer(state, "player")[field] - before;
+  };
+
+  assert.equal(lay("mars", "forest", "steel"), 1, "Mars First pays on any tile");
+  assert.equal(lay("mars", "city", "steel"), 1);
+  assert.equal(lay("greens", "forest", "mc"), 4, "Greens pay for a greenery");
+  assert.equal(lay("greens", "city", "mc"), 0, "and only for a greenery");
+  assert.equal(lay("unity", "forest", "steel"), 0, "a party without a tile policy pays nothing");
+});

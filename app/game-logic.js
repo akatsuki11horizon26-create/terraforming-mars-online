@@ -515,6 +515,7 @@ export function cloneGameState(state) {
     board: Object.fromEntries(Object.entries(state.board).map(([key, cell]) => [key, { ...cell }])),
     logs: [...state.logs],
     claimedMilestones: [...(state.claimedMilestones ?? [])],
+    offBoardCities: (state.offBoardCities ?? []).map(entry => ({ ...entry })),
     fundedAwards: [...(state.fundedAwards ?? [])],
     // Absent from saves written before these cards existed, hence the ?? [].
     scoreModifiers: (state.scoreModifiers ?? []).map(item => ({ ...item })),
@@ -683,6 +684,11 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.tile = "city";
     effect.tileCount = raw.city.count ?? 1;
     if (raw.city.on) effect.tilePlacementRule = raw.city.on;
+    // A named space is one of the reserved slots off the map -- Ganymede,
+    // Phobos, the Venus cities, Stanford Torus. They are cities you own, but
+    // they are not ON Mars, so they must not take a board space, ask the player
+    // where to put them, or count for anything that reads the board.
+    if (raw.city.space !== undefined) effect.offBoardCity = String(raw.city.space);
   }
   if (raw.greenery !== undefined) {
     effect.tile = "forest";
@@ -976,7 +982,18 @@ function applyEffect(state, effect, logs, options = {}) {
     nextState.oxygen = Math.min(14, nextState.oxygen + effect.oxygenSteps);
     nextState.tr += Math.max(0, nextState.oxygen - before);
   }
-  if (!skipTile && effect.tile) {
+  if (effect.offBoardCity) {
+    // Kept off state.board on purpose: everything that counts cities, checks
+    // adjacency or looks for a free space reads the board, and none of that
+    // should see Ganymede or Stratopolis. Ownership is recorded so the card can
+    // still be scored and counted as a city the player owns.
+    const owner = nextState.currentPlayerId;
+    nextState.offBoardCities = [
+      ...(nextState.offBoardCities ?? []).filter(entry => entry.space !== effect.offBoardCity),
+      { space: effect.offBoardCity, ownerId: owner, cardId: effect.cardId }
+    ];
+    nextLogs = addLog(nextLogs, "system", "盤外の都市を建設しました。");
+  } else if (!skipTile && effect.tile) {
     const count = effect.tileCount ?? 1;
     const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule);
     nextLogs = addLog(nextLogs, "system", `${effect.tile}タイルを${placed}枚配置しました。`);
@@ -1239,6 +1256,7 @@ export function applyCardEffect(state, card, logs, options = {}) {
   const willChooseTile =
     !options.skipTile &&
     Boolean(effect.tile) &&
+    !effect.offBoardCity &&
     legalCellsFor(nextState, effect.tile, undefined, effect.tilePlacementRule).length > 1;
 
   // The victim is picked after the fact, so the decrement must not also run
@@ -1332,7 +1350,7 @@ function queuePendingChoices(state, card, context) {
   }
   // Where a tile goes is the player's decision, not the first legal space.
   const effect = getCardEffect(card);
-  if (effect.tile && !done.includes("tile-placement")) {
+  if (effect.tile && !effect.offBoardCity && !done.includes("tile-placement")) {
     const legal = legalCellsFor(state, effect.tile, undefined, effect.tilePlacementRule);
     if (legal.length > 1) {
       return buildTileChoice(
@@ -2066,6 +2084,7 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
       }
 
       grantPlacementCorporationEffects(state, cell, tileType, ownerId);
+      grantRulingPolicyTileEffects(state, tileType, ownerId);
     }
     // Cards that watch for a tile being laid fire either way.
     grantCityPlacementCardEffects(state, tileType);
@@ -2091,6 +2110,29 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
 // Corporation effects that fire on a tile being laid, wherever the tile came
 // from. They lived in the UI, so a city built through a card or by the bot paid
 // Tharsis nothing, and the standard project paid it only when clicked.
+// The ruling party's policy pays out on every tile laid while it is in power.
+// Only Unity's titanium price was ever wired up, so five of the six policies a
+// game can actually reach did nothing -- and with them, most of the reason to
+// care who governs.
+function grantRulingPolicyTileEffects(state, tileType, ownerId) {
+  const policy = getRulingPolicy(state.turmoil);
+  if (policy?.trigger !== "onTilePlaced") return;
+  if (policy.tileType && policy.tileType !== tileType) return;
+
+  if (policy.resource && policy.amount) {
+    state.players = state.players.map(player =>
+      player.id === ownerId
+        ? { ...player, [policy.resource]: (player[policy.resource] ?? 0) + policy.amount }
+        : player
+    );
+    state.logs = addLog(
+      state.logs,
+      "system",
+      `${getParty(state.turmoil.rulingParty)?.name ?? ""}政策: ${policy.description}`
+    );
+  }
+}
+
 function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
   const owner = getPlayer(state, ownerId);
   const ownerCorp = CORPORATIONS.find(item => item.id === owner?.corporationId);

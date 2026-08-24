@@ -731,3 +731,41 @@ test("A solo attack hits the neutral opponent, not the player", async () => {
   const asked = applyCardEffect(table, asteroid, table.logs);
   assert.equal(asked.state.pendingChoice?.kind, "resource-attack");
 });
+
+// Ganymede Colony, Phobos Space Haven, Stanford Torus and the four Venus cities
+// occupy reserved slots off the map. They were being turned into ordinary Mars
+// cities: the player was asked where to put them, they took a board space, and
+// they counted for everything that reads the board.
+test("Cities on reserved off-board slots never reach the map", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+
+  const play = id => {
+    const card = ALL_CARDS.find(entry => entry.id === id);
+    const state = getInitialState({ playerCount: 1, venus: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    state.oceans = 9;
+    state.venus = 20;
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.energyProd = 5;
+    const marsCitiesBefore = Object.values(state.board).filter(c => c.tileType === "city").length;
+    const played = applyCardEffect(state, card, state.logs).state;
+    return {
+      marsCitiesBefore,
+      marsCitiesAfter: Object.values(played.board).filter(c => c.tileType === "city").length,
+      offBoard: (played.offBoardCities ?? []).map(entry => entry.space),
+      asked: Boolean(played.pendingChoice)
+    };
+  };
+
+  for (const id of ["card-base-ganymede-colony", "card-venus-stratopolis"]) {
+    const result = play(id);
+    assert.equal(result.marsCitiesAfter, result.marsCitiesBefore, `${id} adds no Mars city`);
+    assert.equal(result.offBoard.length, 1, `${id} is recorded off the board`);
+    assert.equal(result.asked, false, `${id} does not ask where to go`);
+  }
+
+  // A city that really is on Mars still asks.
+  assert.equal(play("p-capital").asked, true, "Capital still picks a space");
+});

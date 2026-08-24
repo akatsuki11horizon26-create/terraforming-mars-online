@@ -519,21 +519,25 @@ test("a card that asks a question still fires its corporation trigger", () => {
           corporationId: saturn.id,
           mc: 200,
           titanium: 20,
-          hand: ["card-base-ganymede-colony"]
+          // The launch pad puts its floaters on a Jovian card already in play,
+          // so there has to be one for it to ask about.
+          playedProjects: ["card-colonies-jovian-lanterns"],
+          hand: ["card-colonies-titan-floating-launch-pad"]
         }
       : player
   );
   const before = getPlayer(armed, seat);
 
-  // Ganymede Colony carries a Jovian tag and asks where its city goes. The
-  // trigger used to be skipped entirely, so Saturn Systems earned nothing.
+  // Titan Floating Launch-Pad carries a Jovian tag and asks which card its
+  // floater goes on. The trigger used to be skipped entirely for any card that
+  // asked something, so Saturn Systems earned nothing.
   const asked = executeGameCommand(armed, {
     type: COMMAND.PLAY_CARD,
     playerId: seat,
-    cardId: "card-base-ganymede-colony"
+    cardId: "card-colonies-titan-floating-launch-pad"
   });
   assert.equal(asked.ok, true);
-  assert.ok(asked.state.pendingChoice, "the colony asks where it goes");
+  assert.ok(asked.state.pendingChoice, "the card asks where its floater goes");
   assert.equal(
     getPlayer(asked.state, seat).mcProd,
     before.mcProd,
