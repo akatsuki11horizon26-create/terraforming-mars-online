@@ -1,0 +1,802 @@
+[
+ {
+  "cardId": "card-base-advanced-ecosystems",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "super にはタグ・コスト・要件・VPしかなく、実行用メソッドや効果renderDataがない。runtimeも要件判定とVP表示だけを汎用処理すれば足りる。"
+ },
+ {
+  "cardId": "card-base-ants",
+  "classification": "declarative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionとrenderDataのb.actionで、微生物除去と自カードへの追加を宣言している。curatedカタログのeffectSpecは空で、runtimeのaction入口に渡る効果がないため、実行効果が欠落している。"
+ },
+ {
+  "cardId": "card-base-aquifer-pumping",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionとrenderDataのb.actionで、MC8（建材可）支払いと海洋配置を宣言している。official-contentには同内容のp-aquifer-pumpingはあるが要求IDは存在せず、ID対応まで含めると部分カバレッジになる。"
+ },
+ {
+  "cardId": "card-base-asteroid-mining-consortium",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlayとbespokePlayが対象プレイヤーのチタン生産量を下げ、自分を上げる処理を命令的に実装している。official-content側のeffectSpecは空なので、汎用applyCardEffectだけではこの交換効果を再現できない。"
+ },
+ {
+  "cardId": "card-base-breathing-filters",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "カード固有の実行効果はなく、constructorは酸素要件と固定VPだけを定義している。runtimeの汎用要件判定とVP処理で完全に表現できる。"
+ },
+ {
+  "cardId": "card-base-colonizer-training-camp",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "constructorは酸素の上限要件と固定VPだけを持ち、実行用メソッドや効果renderDataがない。runtimeの要件判定とVP処理で完全に表現できる。"
+ },
+ {
+  "cardId": "card-base-decomposers",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayedとonNonCardTagAddedで、動物・植物・微生物タグに反応して資源を置く命令的フックを実装している。runtimeのcurated effectSpecにはこのトリガーがなく、資源蓄積は欠落するがVP条件は残る。"
+ },
+ {
+  "cardId": "card-base-dust-seals",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "constructorは海洋枚数の上限要件と固定VPだけを定義し、カード固有の実行効果を持たない。runtimeのmax要件判定とVP処理で完全に表現できる。"
+ },
+ {
+  "cardId": "card-base-ecological-zone",
+  "classification": "imperative",
+  "activation": "onPlay+trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで緑地隣接配置を行い、onCardPlayed系フックで動物を蓄積する。runtimeには一般的なタイル配置・VP処理はあるが、このカード固有の配置条件とトリガーは接続されていない。"
+ },
+ {
+  "cardId": "card-base-energy-tapping",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayが対象の電力生産を下げ、自分の電力生産を上げる順序とソロ時の例外を実装している。official-contentのカード効果が空なので、汎用runtimeにはこの処理がない。"
+ },
+ {
+  "cardId": "card-base-extreme-cold-fungus",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "public canAct/actionで、植物1獲得と他カードへの微生物2個追加の選択を実装している。runtimeにはこのカードのaction定義がなく、要件とカード登録だけが部分的に機能する。"
+ },
+ {
+  "cardId": "card-base-great-escarpment-consortium",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayが任意の建材生産を下げ、自分の建材生産を上げる処理を実装している。official-contentのeffectSpecは空で、汎用runtimeには交換効果がない。"
+ },
+ {
+  "cardId": "card-base-hired-raiders",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "ソースはbespokePlayで奪う資源と対象を選ぶ命令的実装だが、official-contentがstealFromPlayerへcurated化している。runtimeのpending-choice経路がその選択と奪取を処理するため、現行IDで完全に接続されている。"
+ },
+ {
+  "cardId": "card-base-immigrant-city",
+  "classification": "imperative",
+  "activation": "onPlay+trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで電力・MC生産を下げて都市を置き、onTilePlacedで都市配置時のMC生産上昇を実装している。runtimeの一般都市配置はあるが、このカード固有の生産変更とトリガーはない。"
+ },
+ {
+  "cardId": "card-base-indentured-workers",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "ソースはgetCardDiscountで次のカードだけを8軽減する命令的実装を持つ。official-contentのcurated effectとruntimeのoneShotCardDiscount処理が同じ世代限定効果を再現している。"
+ },
+ {
+  "cardId": "card-base-insulation",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで熱生産を任意量下げ、その量だけMC生産を上げる選択を実装している。official-contentに対応する効果定義がなく、汎用runtimeではこの交換が発生しない。"
+ },
+ {
+  "cardId": "card-base-interstellar-colony-ship",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "constructorは科学タグ要件と固定VPだけを持ち、プレイ時の追加処理を定義していない。runtimeのタグ要件判定とVP処理で完全に表現できる。"
+ },
+ {
+  "cardId": "card-base-land-claim",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで非予約土地を選び、プレイヤーマーカーを置く処理を実装している。runtimeの通常タイル配置は存在するが、土地請求マーカー用のカード効果は接続されていない。"
+ },
+ {
+  "cardId": "card-base-local-heat-trapping",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canPlay/playを上書きし、熱5を支払って植物4または他カードへの動物2を選ぶ処理を実装している。official-contentのeffectSpecとruntimeの汎用効果にはこのカード固有の選択がない。"
+ },
+ {
+  "cardId": "card-base-mars-university",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayed/onNonCardTagAddedで科学タグ時の捨て札・ドローを実装している。runtimeには同内容のp-mars-universityと専用トリガーがあるが、要求IDのcard-base版は存在しないためID対応込みでは部分的である。"
+ },
+ {
+  "cardId": "card-base-media-archives",
+  "classification": "declarative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのbehaviorで全プレイヤーのイベントプレイ数に応じたMC獲得を宣言している。生成カタログのeffectSpecは空で、対応するcurated定義もないため効果が接続されていない。"
+ },
+ {
+  "cardId": "card-base-media-group",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayedでイベントカードをプレイした後にMC3を得る処理を命令的に実装している。生成カタログのeffectSpecは空で、curated側にもこのカードのトリガー定義がない。"
+ },
+ {
+  "cardId": "card-base-mining-area",
+  "classification": "inherited-effect",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "MiningCardを継承し、子クラスでは隣接条件だけを追加しているため、タイル配置と生産量上昇の本体は親クラス由来である。生成カタログのeffectSpecにこのカードの効果がなく、curated定義もない。"
+ },
+ {
+  "cardId": "card-base-mining-rights",
+  "classification": "inherited-effect",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "MiningCardを継承しており、子クラスはカード名・コスト・表示だけを渡して配置と生産量上昇を親実装に委譲している。生成カタログのeffectSpecにこのカードの効果がなく、curated定義もない。"
+ },
+ {
+  "cardId": "card-base-olympus-conference",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "科学タグの追加をonCardPlayed/onNonCardTagAddedで検知し、資源追加またはドローの選択を実装している。生成カタログのeffectSpecは空で、curated側にもこのトリガー定義がない。"
+ },
+ {
+  "cardId": "card-base-optimal-aerobraking",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayedで宇宙イベントを検知し、MC3と熱3を直接加算している。生成カタログのeffectSpecは空で、curated側にもこのトリガー定義がない。"
+ },
+ {
+  "cardId": "card-base-power-infrastructure",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "public canAct/actionで電力の支払い量を選択し、同量のMCへ変換している。renderDataにはアクション表示があるが、生成カタログのeffectSpecは空でcurated定義もない。"
+ },
+ {
+  "cardId": "card-base-power-supply-consortium",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで任意プレイヤーの電力生産を1下げ、自分の電力生産を1上げる順序と例外を実装している。生成カタログのeffectSpecは空で、curated側にもこの交換効果がない。"
+ },
+ {
+  "cardId": "card-base-predators",
+  "classification": "declarative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionで任意カードから動物資源を移し、このカードへ1個追加する処理を宣言している。生成カタログのeffectSpecは空で、curated側にもこのアクション定義がない。"
+ },
+ {
+  "cardId": "card-base-protected-habitats",
+  "classification": "passive-effect-without-method",
+  "activation": "ongoing",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "renderDataだけで、相手が自分の植物・動物・微生物資源を除去できないという常在効果を表現している。publicメソッドやcurated effectSpecがなく、runtimeに保護判定が接続されていない。"
+ },
+ {
+  "cardId": "card-base-robotic-workforce",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで建物カードを選び、その生産欄をコピーする選択を実装している。生成カタログのeffectSpecは空で、curated側にもこの選択効果がない。"
+ },
+ {
+  "cardId": "card-base-rover-construction",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onTilePlacedで都市タイルの配置を検知し、所有者へMC2を与えるトリガーを実装している。生成カタログのeffectSpecは空で、curated側にもこのトリガー定義がない。"
+ },
+ {
+  "cardId": "card-base-sabotage",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "bespokePlayで対象プレイヤーとチタン・建材・MCの選択を命令的に実装している。official-content.jsのSTEAL_SPECSが同じIDへ除去効果を付与し、pending-choice.jsが対象選択を処理する。"
+ },
+ {
+  "cardId": "card-base-search-for-life",
+  "classification": "imperative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "public canAct/actionでMC1を支払い、山札の微生物タグを検査して科学資源を置く処理を実装している。curated定義はカード名マージ後にp-search-for-lifeへIDを置換するため、元のcard-base IDとの対応は部分的である。"
+ },
+ {
+  "cardId": "card-base-standard-technology",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "onStandardProjectで特許売却以外の標準プロジェクト後にMC3を得る処理を実装している。curated effectのstandardProjectRebateとruntimeの標準プロジェクト還元処理が同じカードIDに接続している。"
+ },
+ {
+  "cardId": "card-base-terraforming-ganymede",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "computeTrとbespokePlayで自分のジョビアンタグ数に応じたTR上昇を命令的に実装している。生成カタログのeffectSpecは空で、curated側にもこのプレイ時効果がない。"
+ },
+ {
+  "cardId": "card-base-trans-neptune-probe",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "constructorはタグ・コスト・固定VP・カード番号だけを定義し、behavior/actionや効果renderData、publicメソッドを持たない。したがってカード固有の実行効果はなく、汎用的なプレイとVP処理だけで足りる。"
+ },
+ {
+  "cardId": "card-base-viral-enhancers",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayed/onNonCardTagAddedで植物・微生物・動物タグに反応し、植物獲得または対象カードへの資源追加を選ばせる。生成カタログのeffectSpecは空で、curated側にもこのトリガー定義がない。"
+ },
+ {
+  "cardId": "card-base-virus",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "bespokePlayで動物資源または植物を除去する対象選択を命令的に実装している。official-content.jsの同じIDのSTEAL_SPECSとpending-choice.jsのカード資源・プレイヤー資源選択が効果を接続している。"
+ },
+ {
+  "cardId": "card-base-water-import-from-europa",
+  "classification": "declarative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionでMC12（チタン可）の支払いと海洋配置を宣言している。生成カタログのeffectSpecは空で、curated側にもこのカードのアクション定義がない。"
+ },
+ {
+  "cardId": "card-colonies-air-raid",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayでフローター消費とMC5の奪取を命令的に実装している。runtimeはcuratedなstealFromPlayer経路でMC5を処理するが、フローター消費とそのプレイ条件は未接続である。"
+ },
+ {
+  "cardId": "card-colonies-community-services",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで無タグカード数+1に応じたMC生産量を命令的に加算している。curated効果定義はなく、runtimeのeffectSpec正規化経路だけでは無タグ枚数の動的効果を適用できない。"
+ },
+ {
+  "cardId": "card-colonies-conscription",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "getCardDiscountで次にプレイするカードだけ16 MC軽減する命令的実装を持つ。official-contentのcurated cardDiscountとruntimeのoneShotCardDiscount処理が同じ世代限定効果を再現している。"
+ },
+ {
+  "cardId": "card-colonies-jupiter-floating-station",
+  "classification": "imperative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionでジョビアンカードへのフローター追加または自身のフローター数に応じたMC獲得を命令的に実装している。catalogのeffectSpecにアクション定義がなく、runtimeのカードアクション入口から実行できない。"
+ },
+ {
+  "cardId": "card-colonies-market-manipulation",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで増加対象と減少対象の植民地トラックを選び、各1段階を変更する。runtimeには植民地選択の汎用経路はあるが、このカードのeffectSpecまたは個別処理が接続されていない。"
+ },
+ {
+  "cardId": "card-colonies-martian-zoo",
+  "classification": "imperative",
+  "activation": "trigger+action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayedでEarthタグごとに動物を置き、canAct/actionで動物数分のMCを得る。runtimeにはこのカード固有のトリガー・アクション定義がなく、要件判定とVPなどの汎用部分だけが残る。"
+ },
+ {
+  "cardId": "card-colonies-minority-refuge",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで植民地を選ばせ、MC生産量を2下げる処理を命令的に実装している。runtimeにこのIDの植民地配置・生産低下specはなく、カード登録と一般要件処理にとどまる。"
+ },
+ {
+  "cardId": "card-colonies-pioneer-settlement",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで植民地数上限を確認し、植民地配置とMC生産量-2を命令的に処理している。runtimeにこのカードの配置specや生産変更はなく、一般的な要件・VP処理だけがカバーされる。"
+ },
+ {
+  "cardId": "card-colonies-productive-outpost",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで全植民地のボーナスを順序付きで獲得する処理を命令的に実装している。runtimeにはこのIDを起点に植民地ボーナスを発火するeffectSpecまたは個別処理がない。"
+ },
+ {
+  "cardId": "card-colonies-quantum-communications",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで場の全プレイヤーの植民地数を数え、その数だけMC生産量を上げる。runtimeに動的なcolony-count生産のカード効果定義がなく、VPと要件などの汎用処理だけが残る。"
+ },
+ {
+  "cardId": "card-colonies-titan-air-scrapping",
+  "classification": "declarative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのaction.orで、チタン支払いでフローター追加、またはフローター2個消費でTR+1を宣言している。runtimeのcatalog effectSpecが空で、汎用アクション入口はあるもののこの宣言を受け取れない。"
+ },
+ {
+  "cardId": "card-colonies-titan-shuttles",
+  "classification": "imperative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionでジョビアンカードへのフローター追加、または任意数のフローターをチタンへ変換する選択を命令的に実装している。runtimeにこのカードのaction定義がなく、一般的なカードアクション判定だけでは実行できない。"
+ },
+ {
+  "cardId": "card-prelude-eccentric-sponsor",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "getCardDiscount() と bespokePlay() で次カードの25 MC割引とカード選択を直接実装している。JS側にも25 MC割引のキュレーションはあるが、手札から最初の候補を自動選択するため、プレイヤー選択を含む完全一致ではない。"
+ },
+ {
+  "cardId": "card-prelude-research-coordination",
+  "classification": "passive-effect-without-method",
+  "activation": "ongoing+trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "メソッドはなく、metadata.descriptionだけに「アクション時、ワイルドタグを任意タグとして扱う」という常時効果が書かれている。runtimeのタグ集計は通常タグを数えるだけで、このワイルドタグの置換効果を扱わない。"
+ },
+ {
+  "cardId": "card-prelude2-floating-trade-hub",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "canAct() と action() で任意カードへのフローター追加、またはフローターから標準資源への変換を直接実装している。JS側のofficial-content登録はVenus依存だけで、効果本体はない。"
+ },
+ {
+  "cardId": "card-prelude2-frontier-town",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayでエネルギー生産低下、都市配置、印刷配置ボーナス2回追加を命令的に実装している。runtimeには一般都市配置はあるが、このカード固有の生産低下・ボーナス追加・Turmoil条件以外の処理は接続されていない。"
+ },
+ {
+  "cardId": "card-prelude2-microgravity-nutrition",
+  "classification": "declarative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのbehavior.productionで、自分が持つ植民地数に応じたMC生産量増加を宣言している。runtimeの動的production正規化は存在するが、現行カードデータにこのbehavior定義が接続されていない。"
+ },
+ {
+  "cardId": "card-prelude2-special-permit",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで植物4の奪取対象を選ぶ命令的実装を持つ。official-contentのstealFromPlayer定義とruntimeのpending resource-steal経路が、対象選択と奪取を現行IDで接続している。"
+ },
+ {
+  "cardId": "card-prelude2-terraforming-deal",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "onIncreaseTerraformRatingByAnyPlayer() で所有者のTR上昇ごとに2 MCを付与するトリガーを直接実装している。JS側のプレリュード適用は宣言された即時効果を処理するだけで、このTR監視はない。"
+ },
+ {
+  "cardId": "card-prelude2-venus-orbital-survey",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionで山札上2枚を公開し、Venusカードを無料取得、それ以外を購入または捨てる処理を命令的に実装している。runtimeにはVenus依存の登録はあるが、このカードのaction定義と選択処理がない。"
+ },
+ {
+  "cardId": "card-prelude2-venus-trade-hub",
+  "classification": "passive-effect-without-method",
+  "activation": "ongoing+trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "メソッドはなく、renderDataのb.effectだけに「交易時にMC3」と常時効果が記載されている。runtimeの交易処理は植民地ボーナスを適用するが、このカード由来のMC3を参照する定義がない。"
+ },
+ {
+  "cardId": "card-prelude2-wg-project",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayでプレリュード3枚を引き、1枚をプレイして残りを捨てる処理を命令的に実装している。runtimeには議長要件とカード登録はあるが、このカード固有の3枚選択・プレイ処理が接続されていない。"
+ },
+ {
+  "cardId": "card-promo-advertising",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayedで基本コスト20以上のカードを出したときMC生産量を1上げる命令的トリガーを実装している。runtimeのカード後処理には企業効果などの固定トリガーはあるが、AdvertisingのIDまたは同等specはない。"
+ },
+ {
+  "cardId": "card-promo-astra-mechanica",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayでイベントカードを手札に戻す処理を命令的に実装している。カタログのeffectSpecは空で、runtimeから固有処理へ接続されていない。"
+ },
+ {
+  "cardId": "card-promo-bio-printing-facility",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionでエネルギー支払いと植物または動物資源の獲得を宣言している。元定義のactionはカタログへ出力されず、runtimeのaction経路に存在しない。"
+ },
+ {
+  "cardId": "card-promo-carbon-nanosystems",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayed/onNonCardTagAddedで科学タグ・宇宙タグ・都市タグに応じた資源処理を実装している。カタログのeffectSpecが空で、トリガーとグラフェン処理はruntimeに接続されていない。"
+ },
+ {
+  "cardId": "card-promo-comet-aiming",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionで小惑星資源の追加または海洋配置を宣言している。カタログのeffectSpecが空のため、runtimeの汎用アクション処理へ渡る効果がない。"
+ },
+ {
+  "cardId": "card-promo-crash-site-cleanup",
+  "classification": "imperative",
+  "activation": "onPlay+trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayとresourceHookで資源獲得の選択と他プレイヤーの植物除去条件を実装している。plantsRemoved要件はruntimeで未対応で、固有のプレイ効果も接続されていない。"
+ },
+ {
+  "cardId": "card-promo-cutting-edge-technology",
+  "classification": "imperative",
+  "activation": "ongoing+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "getCardDiscountで要件付きカードのコストを恒久的に2減らす処理を実装している。カタログのeffectSpecが空で、runtimeの割引状態には反映されない。"
+ },
+ {
+  "cardId": "card-promo-directed-impactors",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionでMCまたはチタンによる小惑星追加と、資源消費による気温上昇を宣言している。カタログのeffectSpecが空で、runtimeのアクション処理へ接続されていない。"
+ },
+ {
+  "cardId": "card-promo-double-down",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "bespokeCanPlay() と bespokePlay() で他のプレリュード選択、二重実行状態、fizzleを直接制御している。JS側のプレリュード適用にこのコピー処理の分岐はない。"
+ },
+ {
+  "cardId": "card-promo-energy-market",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionでMCとエネルギーの交換またはエネルギー生産量低下によるMC獲得を実装している。カタログのeffectSpecが空で、runtimeの汎用アクションから呼び出されない。"
+ },
+ {
+  "cardId": "card-promo-floyd-continuum",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionで完了済みのテラフォーミング指標数に応じたMC獲得を実装している。カタログのeffectSpecが空で、runtimeのアクション処理には存在しない。"
+ },
+ {
+  "cardId": "card-promo-hi-tech-lab",
+  "classification": "imperative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionでエネルギーを支払い、カードを引いて1枚を残す処理を実装している。カタログのeffectSpecが空で、runtimeのアクション処理へ接続されていない。"
+ },
+ {
+  "cardId": "card-promo-icy-impactors",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructorのactionで小惑星追加または資源消費による海洋配置を宣言している。カタログのeffectSpecが空で、runtimeのアクション処理へ渡る定義がない。"
+ },
+ {
+  "cardId": "card-promo-interplanetary-trade",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで場の異なるタグ数に応じたMC生産量上昇を実装している。カタログのeffectSpecが空で、runtimeにはこの動的生産効果がない。"
+ },
+ {
+  "cardId": "card-promo-law-suit",
+  "classification": "imperative",
+  "activation": "onPlay+trigger+scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayとresourceHookで攻撃対象の選択・MC強奪・敗訴VPを実装している。runtimeにも攻撃台帳、対象選択、解決、特殊VP表示が接続されている。"
+ },
+ {
+  "cardId": "card-promo-mars-nomads",
+  "classification": "imperative",
+  "activation": "onPlay+action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayとcanAct/actionでノマドの初期配置・移動・配置ボーナス取得を実装している。カタログのeffectSpecが空で、runtimeにノマド専用処理はない。"
+ },
+ {
+  "cardId": "card-promo-meat-industry",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onResourceAddedで任意カードへの動物資源追加を検知し、MCを獲得する処理を実装している。カタログのeffectSpecが空で、runtimeに資源追加トリガーがない。"
+ },
+ {
+  "cardId": "card-promo-merger",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "bespokePlay() で法人4枚の提示・1枚のプレイ・残りの破棄・42 MC支払いを直接実装している。JS側のプレリュード処理に法人デッキ選択や合併支払いの実装はない。"
+ },
+ {
+  "cardId": "card-promo-neptunian-power-consultants",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onTilePlacedで海洋配置時の支払い・エネルギー生産量上昇・資源追加を実装し、資源数による動的VPも定義している。カタログのeffectSpecが空で、runtimeには効果も動的VPも接続されていない。"
+ },
+ {
+  "cardId": "card-promo-project-inspection",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokeCanPlay/bespokePlayで、この世代に使用済みのカードアクションを検索して再実行する処理を実装している。カタログのeffectSpecが空で、runtimeの通常効果経路には存在しない。"
+ },
+ {
+  "cardId": "card-promo-public-plans",
+  "classification": "imperative",
+  "activation": "onPlay+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlayで手札の公開枚数を選択し、その枚数分のMCを獲得する処理を実装している。カタログのeffectSpecが空で、runtimeの公開選択と報酬処理は未接続である。"
+ },
+ {
+  "cardId": "card-promo-red-ships",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionで海洋に隣接する都市・特殊タイル数に応じたMC獲得を命令的に実装している。酸素要件は汎用処理されるが、カードアクション本体はカタログの空effectSpecにより未接続である。"
+ },
+ {
+  "cardId": "card-promo-self-replicating-robots",
+  "classification": "imperative",
+  "activation": "action+ongoing",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct/actionでカードへの資源配置・倍化を実装し、getCardDiscountで配置資源数に応じた恒久的コスト軽減を実装している。要件判定は汎用処理されるが、固有アクションと割引は未接続である。"
+ },
+ {
+  "cardId": "card-promo-soil-enrichment",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "bespokeCanPlay() と play() で、任意カードの微生物消費と植物5の処理を直接実装している。JS側の公式カタログ補完にはこのカードの効果登録がない。"
+ },
+ {
+  "cardId": "card-promo-st-joseph-of-cupertino-mission",
+  "classification": "imperative",
+  "activation": "action+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct() と action() で支払い・都市選択・大聖堂配置を実装し、getVictoryPoints() も持つ。JS側はアクションと大聖堂VPを補完済みだが、都市所有者が2 MCでカードを引く選択は再現していない。"
+ },
+ {
+  "cardId": "card-turmoil-banned-delegate",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlay() が党ごとの非リーダー代表を選択して除去する処理を直接実装している。議長要件はJS側で判定されるが、代表除去処理のカード効果登録はない。"
+ },
+ {
+  "cardId": "card-turmoil-gmo-contract",
+  "classification": "imperative",
+  "activation": "trigger",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onNonCardTagAdded() と onCardPlayed() で植物・動物・微生物タグに反応するMC獲得を直接実装している。Greens要件はJS側にあるが、カード固有のタグトリガーはデータ効果として接続されていない。"
+ },
+ {
+  "cardId": "card-turmoil-public-celebrations",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "ソース上の直接効果はなく、議長要件と固定2 VPだけを持つ。JS側の要件判定とスコア計算でこの内容は完結している。"
+ },
+ {
+  "cardId": "card-turmoil-recruitment",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "bespokeCanPlay() と bespokePlay() が中立非リーダー代表の除去と自分の代表派遣を直接処理している。JS側にこの代表交換の効果登録や解決処理はない。"
+ },
+ {
+  "cardId": "card-turmoil-red-tourism-wave",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlay() が自分のタイルに隣接する空きエリア数を計算してMCを付与する。Reds要件はJS側で判定されるが、隣接空きエリアの獲得処理は未接続である。"
+ },
+ {
+  "cardId": "card-venus-forced-precipitation",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "constructor の action.or.behaviors に、MC支払いでフローター追加またはフローター消費でVenus上昇を宣言している。JS側のアクション解決器は存在するが、このカード固有の効果データが公式カタログから供給されていない。"
+ },
+ {
+  "cardId": "card-venus-io-sulphur-research",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlay() がVenusタグ数に応じて1枚または3枚引く処理を直接実装し、固定2 VPも持つ。JS側は固定VPと一般的なドロー処理は持つが、この条件付きドロー効果は登録されていない。"
+ },
+ {
+  "cardId": "card-venus-jet-stream-microscrappers",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "none",
+  "confidence": "high",
+  "reason": "constructor の action.or.behaviors に、チタンでフローター追加またはフローター消費でVenus上昇を宣言している。JS側のアクション解決器にこのカードの効果データは渡されていない。"
+ },
+ {
+  "cardId": "card-venus-luxury-foods",
+  "classification": "no-direct-effect",
+  "activation": "scoring",
+  "coverage": "full",
+  "confidence": "high",
+  "reason": "ソース上の直接効果はなく、Venus・Earth・Jovianタグ要件と固定2 VPだけを持つ。JS側のタグ要件判定と固定VP処理で完結している。"
+ },
+ {
+  "cardId": "card-venus-rotator-impacts",
+  "classification": "declarative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "constructor の action.or.behaviors に、MCまたはチタンで小惑星追加、または小惑星消費でVenus上昇を宣言している。Venus上限要件はJS側で判定されるが、アクション効果は未接続である。"
+ },
+ {
+  "cardId": "card-venus-sponsored-academies",
+  "classification": "imperative",
+  "activation": "onPlay",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "bespokePlay() が手札1枚の捨て、本人3枚のドロー、全対戦相手1枚のドローを直接実装し、固定1 VPも持つ。JS側に固定VPはあるが、この複合的な手札・対戦相手処理は接続されていない。"
+ },
+ {
+  "cardId": "card-venus-sulphur-eating-bacteria",
+  "classification": "imperative",
+  "activation": "action",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "canAct() と action() で微生物追加または任意数消費による3倍MC獲得を直接実装している。Venus 6%要件はJS側で処理されるが、カードアクションの登録はない。"
+ },
+ {
+  "cardId": "card-venus-venusian-animals",
+  "classification": "imperative",
+  "activation": "trigger+scoring",
+  "coverage": "partial",
+  "confidence": "high",
+  "reason": "onCardPlayed() と onNonCardTagAdded() で科学タグごとの動物追加を直接実装し、動物数VPも定義している。JS側はVP仕様を扱えるが、科学タグから動物を増やすトリガーが未接続である。"
+ }
+]
