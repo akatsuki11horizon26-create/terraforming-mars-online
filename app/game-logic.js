@@ -2545,6 +2545,28 @@ function applyPreludeFreePlay(state, effect, logs) {
   return { state: triggerResult.state, logs: triggerResult.logs };
 }
 
+// Whether a player can pay for one branch of an OR action. Only resourcesHere
+// was ever checked, so a branch costing plants, steel, titanium, energy or
+// megacredits was offered to anyone -- Electro Catapult handed 7 M€ to a player
+// holding neither a plant nor a steel.
+function canAffordBranch(state, card, behavior) {
+  const spend = behavior?.spend;
+  if (!spend) return true;
+  const player = getCurrentPlayer(state);
+  for (const [source, amount] of Object.entries(spend)) {
+    if (!amount) continue;
+    if (source === "resourcesHere") {
+      if ((player?.cardResources?.[card.id] ?? 0) < amount) return false;
+      continue;
+    }
+    const resource = SOURCE_RESOURCE_MAP[source];
+    // An unrecognised cost is not silently treated as free.
+    if (!resource) return false;
+    if ((player?.[resource] ?? 0) < amount) return false;
+  }
+  return true;
+}
+
 export function getCardActionStatus(state, card) {
   if (getCurrentPlayer(state)?.passed) {
     return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
@@ -2562,11 +2584,7 @@ export function getCardActionStatus(state, card) {
   // could only gain by using it.
   const branches = card.effectSpec?.action?.or?.behaviors;
   if (Array.isArray(branches) && branches.length > 0) {
-    const held = getCurrentPlayer(state)?.cardResources?.[card.id] ?? 0;
-    const usable = branches.some(behavior => {
-      const need = behavior.spend?.resourcesHere;
-      return !need || held >= need;
-    });
+    const usable = branches.some(behavior => canAffordBranch(state, card, behavior));
     return usable
       ? { playable: true, reason: "" }
       : { playable: false, reason: "このカードの資源が不足しています。" };
@@ -2610,10 +2628,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
   if (branches) {
     const affordable = branches
       .map((behavior, index) => ({ behavior, index }))
-      .filter(({ behavior }) => {
-        const need = behavior.spend?.resourcesHere;
-        return !need || (state.cardResources?.[card.id] ?? 0) >= need;
-      });
+      .filter(({ behavior }) => canAffordBranch(state, card, behavior));
     if (affordable.length === 0) return { state, logs, playable: false };
     const chosen =
       branchIndex !== undefined
@@ -2625,7 +2640,10 @@ export function applyCardAction(state, card, logs, branchIndex) {
       // Choosing which half of the action to take is part of taking it, so
       // answering spends the turn. Marked false, the action was free: Vermin
       // could add an animal every turn without ever using an action.
-      const choice = buildBranchChoice(nextState, branches, {
+      // Only the affordable branches are offered; the original index travels
+      // with each so resolution still selects the right behaviour.
+      const choice = buildBranchChoice(nextState, affordable.map(entry => entry.behavior), {
+        branchIndexes: affordable.map(entry => entry.index),
         sourceKind: "card-action",
         sourceId: card.id,
         consumedAction: true,

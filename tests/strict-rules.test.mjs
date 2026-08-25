@@ -951,3 +951,42 @@ test("A per-N divisor divides the count and rounds down", async () => {
     "seven Building tags is three pairs, not seven"
   );
 });
+
+// Branch actions were filtered on `resourcesHere` alone, so a branch costing
+// plants, steel, titanium, energy or megacredits was offered to anybody:
+// Electro Catapult handed 7 M€ to a player holding neither a plant nor a steel.
+test("A branch action only offers branches the player can pay for", async () => {
+  const { applyCardAction, resolvePendingChoice, getCardActionStatus, ALL_CARDS, getPlayer } =
+    await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(entry => entry.id === "card-base-electro-catapult");
+
+  const seat = (plants, steel) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.playedProjects = [card.id];
+    player.plants = plants;
+    player.steel = steel;
+    player.mc = 0;
+    return state;
+  };
+
+  // Neither cost is payable, so the action is not available at all.
+  assert.equal(getCardActionStatus(seat(0, 0), card).playable, false);
+
+  // Exactly one is payable: it resolves without asking which.
+  const onlyPlant = applyCardAction(seat(1, 0), card, []);
+  assert.equal(onlyPlant.state.pendingChoice, null, "no question when only one branch is open");
+  assert.equal(getPlayer(onlyPlant.state, "player").plants, 0, "and the plant is spent");
+  assert.equal(getPlayer(onlyPlant.state, "player").mc, 7);
+
+  // Both payable: a real choice, and the branch ids still address the card's
+  // own behaviours rather than positions in a filtered list.
+  const both = applyCardAction(seat(1, 1), card, []);
+  assert.equal(both.state.pendingChoice.options.length, 2);
+  const steelOption = both.state.pendingChoice.options.find(option => /steel|建材/.test(option.label));
+  const settled = resolvePendingChoice(both.state, steelOption.id, both.state.logs, "player").state;
+  assert.equal(getPlayer(settled, "player").steel, 0, "the chosen branch is the one that is paid");
+  assert.equal(getPlayer(settled, "player").plants, 1, "and the other resource is untouched");
+});

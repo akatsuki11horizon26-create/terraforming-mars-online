@@ -158,9 +158,13 @@ export function buildStandardResourceChoice(state, spec, context) {
 }
 
 export function buildBranchChoice(state, behaviors, context) {
-  const options = behaviors.map((behavior, index) => ({
-    id: String(index),
-    label: behavior.title ?? `選択肢 ${index + 1}`
+  // The caller may pass only the branches the player can pay for. Each option
+  // keeps the index it had in the CARD, because that is what resolution looks
+  // the behaviour up by.
+  const indexes = context.branchIndexes;
+  const options = behaviors.map((behavior, position) => ({
+    id: String(indexes ? indexes[position] : position),
+    label: behavior.title ?? `選択肢 ${(indexes ? indexes[position] : position) + 1}`
   }));
 
   return {
