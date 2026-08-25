@@ -801,7 +801,13 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
 }
 
 export function getCardEffect(card) {
-  if (card.effect) return { ...card.effect, cardId: card.id };
+  // An empty object is truthy, so a curated card written with `{}` as its
+  // effect short-circuited here and its effectSpec was never read -- the card
+  // looked implemented and did nothing. Only a non-empty hand-written effect
+  // takes precedence.
+  if (card.effect && Object.keys(card.effect).length > 0) {
+    return { ...card.effect, cardId: card.id };
+  }
   if (effectCache.has(card)) return { ...effectCache.get(card), cardId: card.id };
   const unsupported = [];
   const effect = normalizeBehavior(card.effectSpec?.behavior, {}, unsupported);

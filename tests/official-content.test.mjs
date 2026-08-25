@@ -227,3 +227,28 @@ test("cards that raise the value of steel or titanium actually raise it", () => 
   assert.equal(getCardPaymentCost(building, mercurian, 1, 0), steelBefore, "Mercurian Alloys leaves steel alone");
   assert.equal(getCardPaymentCost(space, mercurian, 0, 1), titaniumBefore - 1, "Mercurian Alloys raises titanium");
 });
+
+// Curated overrides are matched onto the generated catalog BY NAME, so a name
+// that differs by a hyphen merges into nothing: the card keeps the catalog's
+// empty spec and looks implemented while doing nothing. "Titan Air Scrapping"
+// against the catalog's "Titan Air-scrapping" cost exactly that.
+test("every curated override matches a catalog entry by name", async () => {
+  const { FULL_PROJECTS, FULL_CORPORATIONS, FULL_PRELUDES } =
+    await import("../app/full-card-catalog.js");
+  const { ALL_CARDS, CORPORATIONS, PRELUDES } = await import("../app/game-logic.js");
+
+  const catalogIds = new Set(
+    [...FULL_PROJECTS, ...FULL_CORPORATIONS, ...FULL_PRELUDES].map(card => card.id)
+  );
+
+  // A card that exists in the catalog but reaches the game with an id the
+  // catalog does not know means an override was added as a NEW card instead of
+  // merging onto the existing one.
+  const orphans = [...ALL_CARDS, ...CORPORATIONS, ...PRELUDES]
+    .filter(card => !catalogIds.has(card.id))
+    // Several id prefixes are deliberate hand-written cards rather than merges.
+    .filter(card => !/^(p-|corp-|prelude-|c\d)/.test(card.id))
+    .map(card => card.id);
+
+  assert.deepEqual(orphans, [], "overrides that failed to merge onto their catalog entry");
+});
