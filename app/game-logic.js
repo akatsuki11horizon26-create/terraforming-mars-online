@@ -595,18 +595,21 @@ function addNormalizedStock(effect, stock, unsupported = []) {
 // depends on Colonies state is deferred until that expansion exists.
 function normalizeCountedAmount(amount) {
   const each = amount.each ?? 1;
+  // "1 M€ per 2 Building tags", "1 M€ per 3 floaters" -- `per` divides the count
+  // and rounds down. Ignoring it paid Medical Lab per tag instead of per pair.
+  const per = amount.per ?? 1;
 
-  if (amount.colonies) return { kind: "colonies", each, allPlayers: amount.all === true };
+  if (amount.colonies) return { kind: "colonies", each, per, allPlayers: amount.all === true };
   if (amount.tag) {
     // Tags count only the player's own unless `all` is set (reference Counter).
     const tags = Array.isArray(amount.tag) ? amount.tag : [amount.tag];
-    return { kind: "tag", tags, each, allPlayers: amount.all === true };
+    return { kind: "tag", tags, each, per, allPlayers: amount.all === true };
   }
   // Board counts include every player's tiles unless `all` is explicitly false.
-  if (amount.cities) return { kind: "cities", each, allPlayers: amount.all !== false };
-  if (amount.greeneries) return { kind: "greeneries", each, allPlayers: amount.all !== false };
+  if (amount.cities) return { kind: "cities", each, per, allPlayers: amount.all !== false };
+  if (amount.greeneries) return { kind: "greeneries", each, per, allPlayers: amount.all !== false };
   // Floaters are always counted on the active player's own cards.
-  if (amount.floaters) return { kind: "floaters", each, allPlayers: false };
+  if (amount.floaters) return { kind: "floaters", each, per, allPlayers: false };
   return null;
 }
 
@@ -646,7 +649,7 @@ function evaluateCountedGain(state, gain, ownerId) {
     default:
       return 0;
   }
-  return units * (gain.each ?? 1);
+  return Math.floor(units / (gain.per ?? 1)) * (gain.each ?? 1);
 }
 
 function normalizeBehavior(raw, effect = {}, unsupported = []) {
@@ -655,7 +658,27 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.production = { ...(effect.production ?? {}) };
     Object.entries(raw.production).forEach(([source, amount]) => {
       const resource = SOURCE_RESOURCE_MAP[source];
-      if (resource && typeof amount === "number") effect.production[resource] = (effect.production[resource] ?? 0) + amount;
+      if (!resource) return;
+      if (typeof amount === "number") {
+        effect.production[resource] = (effect.production[resource] ?? 0) + amount;
+        return;
+      }
+      // "Increase your M€ production 1 step for each Earth tag you have" and
+      // its siblings. The stock side already resolved counted amounts against
+      // live state; production silently dropped anything that was not a plain
+      // number, which is why Cartel, Power Grid, Energy Saving and a dozen
+      // others were played for their cost and did nothing.
+      if (amount && typeof amount === "object") {
+        const counted = normalizeCountedAmount(amount);
+        if (counted) {
+          effect.countedProduction = [
+            ...(effect.countedProduction ?? []),
+            { resource, ...counted, others: amount.others === true }
+          ];
+          return;
+        }
+      }
+      unsupported.push("dynamic-production");
     });
   }
   if (raw.stock) addNormalizedStock(effect, raw.stock, unsupported);
@@ -859,6 +882,24 @@ function applyEffect(state, effect, logs, options = {}) {
       if (amount > 0) {
         addResource(nextState, gain.resource, amount);
         nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} を ${amount} 獲得しました。`);
+      }
+    }
+  }
+
+  if (effect.countedProduction?.length) {
+    for (const gain of effect.countedProduction) {
+      // Toll Station counts what the OTHER players hold, not the owner's own.
+      const counted = gain.others
+        ? evaluateCountedGain(nextState, { ...gain, allPlayers: true }, nextState.currentPlayerId)
+          - evaluateCountedGain(nextState, { ...gain, allPlayers: false }, nextState.currentPlayerId)
+        : evaluateCountedGain(nextState, gain, nextState.currentPlayerId);
+      if (counted > 0) {
+        const field = `${gain.resource}Prod`;
+        const owner = nextState.currentPlayerId;
+        nextState.players = nextState.players.map(player =>
+          player.id === owner ? { ...player, [field]: (player[field] ?? 0) + counted } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} 生産量が ${counted} 上がりました。`);
       }
     }
   }

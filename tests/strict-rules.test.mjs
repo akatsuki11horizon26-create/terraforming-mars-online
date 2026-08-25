@@ -879,3 +879,75 @@ test("Solo steals take from the neutral opponent; removals do not", async () => 
   // Sabotage removes rather than takes, so solo leaves it with nothing to do.
   assert.equal(play("card-base-sabotage").options.length, 0);
 });
+
+// "Increase your M€ production 1 step for each Earth tag you have" and its
+// eighteen siblings. The stock path already resolved counted amounts against
+// live state; the production path accepted only a plain number and dropped
+// anything else on the floor, so these cards were bought and did nothing.
+test("Production that scales with the tableau is counted", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer, getCardEffect } = await import("../app/game-logic.js");
+
+  const counted = ALL_CARDS.filter(card => (getCardEffect(card).countedProduction ?? []).length > 0);
+  assert.ok(counted.length >= 18, "the catalog has scaling production cards");
+
+  const play = (cardId, prepare) => {
+    const state = getInitialState({ playerCount: 2, colonies: true, venus: true });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    prepare(state, seat);
+    const before = { ...seat };
+    const played = applyCardEffect(state, ALL_CARDS.find(c => c.id === cardId), state.logs).state;
+    const after = getPlayer(played, "player");
+    return { before, after };
+  };
+
+  // Per tag.
+  const cartel = play("card-base-cartel", (state, seat) => {
+    seat.playedProjects = ALL_CARDS.filter(c => c.tags.includes("Earth")).slice(0, 3).map(c => c.id);
+  });
+  assert.equal(cartel.after.mcProd - cartel.before.mcProd, 3, "one step per Earth tag");
+
+  // Per tile on the board.
+  const saving = play("card-base-energy-saving", state => {
+    let placed = 0;
+    for (const cell of Object.values(state.board)) {
+      if (placed < 4 && cell.tileType === "empty" && !cell.isOceanOnly) {
+        cell.tileType = "city";
+        cell.placedBy = "player";
+        placed += 1;
+      }
+    }
+  });
+  assert.equal(saving.after.energyProd - saving.before.energyProd, 4, "one step per city");
+
+  // Counting the OPPONENTS' tags, not your own.
+  const toll = play("card-base-toll-station", (state, seat) => {
+    seat.playedProjects = [];
+    getPlayer(state, "player2").playedProjects =
+      ALL_CARDS.filter(c => c.tags.includes("Space")).slice(0, 4).map(c => c.id);
+  });
+  assert.equal(toll.after.mcProd - toll.before.mcProd, 4, "one step per opponent Space tag");
+});
+
+// "1 M€ per 2 Building tags" divides and rounds down. The divisor was ignored
+// entirely, so Medical Lab paid per tag rather than per pair -- and it was
+// ignored on the stock side too, which is why Solar Probe over-drew.
+test("A per-N divisor divides the count and rounds down", async () => {
+  const { applyCardEffect, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 2 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.playedProjects = ALL_CARDS.filter(c => c.tags.includes("Building")).slice(0, 7).map(c => c.id);
+
+  const before = seat.mcProd;
+  const played = applyCardEffect(state, ALL_CARDS.find(c => c.id === "card-base-medical-lab"), state.logs).state;
+  assert.equal(
+    getPlayer(played, "player").mcProd - before, 3,
+    "seven Building tags is three pairs, not seven"
+  );
+});
