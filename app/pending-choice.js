@@ -426,7 +426,7 @@ export function buildProductionAttackChoice(state, resource, count, context) {
     prompt: `${label}生産量を${count}下げる対象を選んでください。`,
     optional: false,
     options,
-    payload: { resource, count },
+    payload: { resource, count, stealing: context.stealing === true },
     continuation: {
       sourceKind: context.sourceKind,
       sourceId: context.sourceId,

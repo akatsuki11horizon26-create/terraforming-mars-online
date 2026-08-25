@@ -23,6 +23,14 @@ const CURATED_PROJECT_OVERRIDES = [
   // The generated catalog ships this with an empty effectSpec, so the card was
   // a 6 M€ science tag and nothing else.
   project("card-base-standard-technology", "Standard Technology", 6, ["Science"], "active", "標準プロジェクトの代金を支払った後、MC3を得る（特許の売却を除く）。", { standardProjectRebate: 3 }, { victoryPoints: 0 }),
+  // "Decrease any X production 1 step and increase your own 1 step." The
+  // generated catalog carries no spec for these four, and the taking half was
+  // the only half the engine modelled, so they cost their money and only hurt
+  // someone. `stealing` moves the step to the player instead of destroying it.
+  project("card-base-energy-tapping", "Energy Tapping", 3, ["Power"], "automated", "任意のプレイヤーの電力生産量-1、自分の電力生産量+1。", {}, { victoryPoints: -1, effectSpec: { behavior: { decreaseAnyProduction: { type: "energy", count: 1, stealing: true } } } }),
+  project("card-base-power-supply-consortium", "Power Supply Consortium", 5, ["Power"], "automated", "電力タグ2枚以上。任意のプレイヤーの電力生産量-1、自分の電力生産量+1。", {}, { requires: { tags: { Power: 2 } }, reqText: "電力タグ2枚以上", effectSpec: { behavior: { decreaseAnyProduction: { type: "energy", count: 1, stealing: true } } } }),
+  project("card-base-great-escarpment-consortium", "Great Escarpment Consortium", 6, [], "automated", "自分の建材生産量が必要。任意のプレイヤーの建材生産量-1、自分の建材生産量+1。", {}, { requires: { production: "steel" }, reqText: "自分の建材生産量1以上", effectSpec: { behavior: { decreaseAnyProduction: { type: "steel", count: 1, stealing: true } } } }),
+  project("card-base-asteroid-mining-consortium", "Asteroid Mining Consortium", 13, ["Jovian"], "automated", "自分のチタン生産量が必要。任意のプレイヤーのチタン生産量-1、自分のチタン生産量+1。", {}, { requires: { production: "titanium" }, victoryPoints: 1, reqText: "自分のチタン生産量1以上", effectSpec: { behavior: { decreaseAnyProduction: { type: "titanium", count: 1, stealing: true } } } }),
   project("p-asteroid", "Asteroid", 14, ["Space"], "event", "気温を1段階上げ、チタン2。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, titanium: 2, removePlants: 3 }),
   project("p-comet", "Comet", 21, ["Space"], "event", "気温を1段階上げ、海洋1。任意のプレイヤーの植物最大3を除去。", { temperatureSteps: 1, tile: "ocean", removePlants: 3 }, { placementType: "ocean" }),
   project("p-titanium-mine", "Titanium Mine", 7, ["Building"], "automated", "チタン生産量+1。", { production: { titanium: 1 } }),

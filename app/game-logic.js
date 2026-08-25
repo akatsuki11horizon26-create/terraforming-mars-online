@@ -745,7 +745,14 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     });
   }
   if (raw.decreaseAnyProduction?.type && typeof raw.decreaseAnyProduction.count === "number") {
-    effect.productionDecrease = { resource: SOURCE_RESOURCE_MAP[raw.decreaseAnyProduction.type] ?? raw.decreaseAnyProduction.type, count: raw.decreaseAnyProduction.count };
+    effect.productionDecrease = {
+      resource: SOURCE_RESOURCE_MAP[raw.decreaseAnyProduction.type] ?? raw.decreaseAnyProduction.type,
+      count: raw.decreaseAnyProduction.count,
+      // "Decrease any energy production 1 step and increase your own 1 step."
+      // The taking half was modelled and the gaining half was not, so four
+      // cards cost their money and only hurt someone.
+      stealing: raw.decreaseAnyProduction.stealing === true
+    };
   }
   if (raw.standardResource) unsupported.push("standard-resource-choice");
   // Handled by queuePendingChoices, which asks which card receives them and
@@ -1418,7 +1425,10 @@ function queuePendingChoices(state, card, context) {
   ) {
     const spec = raw.decreaseAnyProduction;
     const resource = SOURCE_RESOURCE_MAP[spec.type] ?? spec.type;
-    const built = buildProductionAttackChoice(state, resource, spec.count, context);
+    const built = buildProductionAttackChoice(state, resource, spec.count, {
+      ...context,
+      stealing: spec.stealing === true
+    });
     if (built) return built;
   }
 
@@ -1695,6 +1705,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         });
       }
       nextLogs = addLog(nextLogs, "system", `${victim?.name ?? option.targetPlayerId} の生産量を ${count} 下げました。`);
+
+      // A steal moves the step rather than destroying it. The attacker gains
+      // what the victim actually lost, which is less than `count` when the
+      // victim was already near the floor.
+      if (choice.payload?.stealing) {
+        const moved = beforeProd - afterProd;
+        if (moved > 0) {
+          const thief = choice.ownerPlayerId;
+          next.players = next.players.map(player =>
+            player.id === thief ? { ...player, [key]: (player[key] ?? 0) + moved } : player
+          );
+          nextLogs = addLog(nextLogs, "system", `奪った生産量 ${moved} を獲得しました。`);
+        }
+      }
       break;
     }
     case "cathedral-placement": {

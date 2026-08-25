@@ -990,3 +990,53 @@ test("A branch action only offers branches the player can pay for", async () => 
   assert.equal(getPlayer(settled, "player").steel, 0, "the chosen branch is the one that is paid");
   assert.equal(getPlayer(settled, "player").plants, 1, "and the other resource is untouched");
 });
+
+// "Decrease any energy production 1 step and increase your own 1 step." The
+// taking half was modelled and the gaining half was not, so four cards cost
+// their money and only hurt somebody. A steal MOVES the step.
+test("Production-stealing cards move the step to the player", async () => {
+  const { applyCardEffect, resolvePendingChoice, ALL_CARDS, getPlayer } =
+    await import("../app/game-logic.js");
+
+  const cards = [
+    ["card-base-energy-tapping", "energyProd"],
+    ["card-base-power-supply-consortium", "energyProd"],
+    ["card-base-great-escarpment-consortium", "steelProd"],
+    ["card-base-asteroid-mining-consortium", "titaniumProd"]
+  ];
+
+  for (const [cardId, field] of cards) {
+    const state = getInitialState({ playerCount: 2 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const mine = getPlayer(state, "player");
+    const theirs = getPlayer(state, "player2");
+    mine.mc = 200;
+    theirs.energyProd = 4;
+    theirs.steelProd = 4;
+    theirs.titaniumProd = 4;
+    mine.energyProd = 1;
+    mine.steelProd = 1;
+    mine.titaniumProd = 1;
+
+    const played = applyCardEffect(state, ALL_CARDS.find(c => c.id === cardId), state.logs).state;
+    assert.equal(played.pendingChoice?.kind, "production-attack", `${cardId} asks who to take from`);
+
+    const victim = played.pendingChoice.options.find(option => option.targetPlayerId === "player2");
+    const settled = resolvePendingChoice(played, victim.id, played.logs, "player").state;
+
+    assert.equal(getPlayer(settled, "player2")[field], 3, `${cardId} takes a step`);
+    assert.equal(getPlayer(settled, "player")[field], 2, `${cardId} gives that step to the player`);
+  }
+
+  // Nothing to take means nothing to gain: the step moves, it is not created.
+  const empty = getInitialState({ playerCount: 2 });
+  empty.phase = "action";
+  empty.currentPlayerId = "player";
+  getPlayer(empty, "player").mc = 200;
+  getPlayer(empty, "player").energyProd = 2;
+  getPlayer(empty, "player2").energyProd = 0;
+  const asked = applyCardEffect(empty, ALL_CARDS.find(c => c.id === "card-base-energy-tapping"), empty.logs).state;
+  const onlySelf = resolvePendingChoice(asked, asked.pendingChoice.options[0].id, asked.logs, "player").state;
+  assert.equal(getPlayer(onlySelf, "player").energyProd, 2, "taking from yourself nets zero");
+});
