@@ -67,6 +67,44 @@ export function resolveCount(spec, context) {
   return 1;
 }
 
+// Ants eat a microbe off any card; Predators eat an animal. The adding
+// direction was built and the removing one was not, so those actions had
+// nothing to spend and the cards did nothing. Only cards that actually hold the
+// resource are targets -- `source: 'all'` means anyone's card, not just yours.
+export function buildResourceRemovalChoice(state, spec, context) {
+  const count = typeof spec === "object" ? spec.count ?? 1 : 1;
+  const resourceType = typeof spec === "object" ? spec.type : undefined;
+  const options = collectResourceTargets(state, resourceType, context.cards, {
+    mustHaveResources: true,
+    // `source: 'all'` means any player's card; without it only your own.
+    ownCardsOnly: spec?.source !== "all",
+    getResourceType: context.getResourceType
+  });
+
+  if (options.length === 0) return null;
+  if (options.length === 1) return { autoTarget: options[0], count };
+
+  return {
+    id: makeChoiceId("any-card-resource-removal", context.sourceId, state.currentPlayerId),
+    kind: "any-card-resource-removal",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: resourceType
+      ? `${resourceType}資源を${count}個取り除くカードを選んでください。`
+      : `資源を${count}個取り除くカードを選んでください。`,
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "any-card-resource-removal",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      remaining: count,
+      payload: { resourceType: resourceType ?? null }
+    }
+  };
+}
+
 export function buildResourceChoice(state, spec, context) {
   const count = resolveCount(spec, context);
   const resourceType = typeof spec === "object" ? spec.type : undefined;

@@ -50,6 +50,7 @@ import {
   buildCathedralChoice,
   buildColonyChoice,
   buildResourceChoice,
+  buildResourceRemovalChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
   buildCorrosiveRainChoice,
@@ -758,6 +759,9 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
   // Handled by queuePendingChoices, which asks which card receives them and
   // places them directly when only one card can. Not a gap.
   if (raw.addResourcesToAnyCard) effect.addResourcesToAnyCard = raw.addResourcesToAnyCard;
+  // Ants eat a microbe off any card, Predators an animal. The adding direction
+  // existed and the removing one did not, so those actions had nothing to spend.
+  if (raw.removeResourcesFromAnyCard) effect.removeResourcesFromAnyCard = raw.removeResourcesFromAnyCard;
   // Recorded separately so each is only reported when its expansion is off.
   if (raw.colonies) {
     // These need no decision from the player, so they apply directly instead of
@@ -1490,6 +1494,23 @@ function queuePendingChoices(state, card, context) {
   if (raw.standardResource && !done.includes("standard-resource")) {
     return buildStandardResourceChoice(state, raw.standardResource, context);
   }
+  if (raw.removeResourcesFromAnyCard && !done.includes("any-card-resource-removal")) {
+    const spec = raw.removeResourcesFromAnyCard;
+    const built = buildResourceRemovalChoice(state, spec, {
+      ...context,
+      cards: ALL_CARDS,
+      getResourceType: getCardResourceType
+    });
+    if (built) {
+      if (built.autoTarget) {
+        applyResourceToCard(state, built.autoTarget, -built.count);
+        markChoiceResolved(state, context.sourceId, "any-card-resource-removal");
+      } else {
+        return built;
+      }
+    }
+  }
+
   if (raw.addResourcesToAnyCard && !done.includes("any-card-resource")) {
     const specs = Array.isArray(raw.addResourcesToAnyCard)
       ? raw.addResourcesToAnyCard
@@ -1524,7 +1545,11 @@ function applyResourceToCard(state, target, amount) {
   state.players = state.players.map(player => {
     if (player.id !== target.targetPlayerId) return player;
     const cardResources = { ...player.cardResources };
-    cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + delta;
+    // Removal passes a negative delta; a card cannot hold fewer than none.
+    cardResources[target.targetCardId] = Math.max(
+      0,
+      (cardResources[target.targetCardId] ?? 0) + delta
+    );
     return { ...player, cardResources };
   });
   return state;
@@ -1648,6 +1673,12 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "any-card-resource": {
       applyResourceToCard(next, option, choice.continuation.remaining ?? 1);
       nextLogs = addLog(nextLogs, "system", `${option.label}に資源を${choice.continuation.remaining ?? 1}個置きました。`);
+      break;
+    }
+    case "any-card-resource-removal": {
+      const taken = choice.continuation.remaining ?? 1;
+      applyResourceToCard(next, option, -taken);
+      nextLogs = addLog(nextLogs, "system", `${option.label}から資源を${taken}個取り除きました。`);
       break;
     }
     case "standard-resource": {
@@ -2747,6 +2778,33 @@ export function applyCardAction(state, card, logs, branchIndex) {
     nextState.pendingChoice = choice;
     nextState.logs = nextLogs;
     return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
+  }
+
+  // An action that spends a card resource has to take it before it grants
+  // anything. Card actions run their own chain rather than going through
+  // queuePendingChoices, so the removal is asked for here.
+  const removalSpec = action.removeResourcesFromAnyCard ?? card.effectSpec?.action?.removeResourcesFromAnyCard;
+  if (removalSpec) {
+    const removal = buildResourceRemovalChoice(nextState, removalSpec, {
+      cards: ALL_CARDS,
+      getResourceType: getCardResourceType,
+      sourceKind: "card-action",
+      sourceId: card.id,
+      consumedAction: true,
+      paid: true
+    });
+    if (!removal) {
+      // Nothing holds the resource, so the action cannot be taken at all.
+      return { state, logs, playable: false };
+    }
+    if (removal.autoTarget) {
+      applyResourceToCard(nextState, removal.autoTarget, -removal.count);
+      nextLogs = addLog(nextLogs, "system", `${removal.autoTarget.label}から資源を${removal.count}個取り除きました。`);
+    } else {
+      nextState.pendingChoice = removal;
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
+    }
   }
 
   const result = applyEffect(nextState, effect, nextLogs);

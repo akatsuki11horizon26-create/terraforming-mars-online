@@ -1040,3 +1040,47 @@ test("Production-stealing cards move the step to the player", async () => {
   const onlySelf = resolvePendingChoice(asked, asked.pendingChoice.options[0].id, asked.logs, "player").state;
   assert.equal(getPlayer(onlySelf, "player").energyProd, 2, "taking from yourself nets zero");
 });
+
+// Ants eat a microbe off any card to feed themselves; Predators eat an animal.
+// The adding direction was built and the removing one was not, so those actions
+// had nothing to spend. `source: 'all'` means anyone's card, not just yours.
+test("An action can remove a resource from any card to feed its own", async () => {
+  const { applyCardAction, resolvePendingChoice, ALL_CARDS, getPlayer } =
+    await import("../app/game-logic.js");
+
+  // Exercised through a spec shaped exactly as the reference declares it.
+  const base = ALL_CARDS.find(entry => entry.id === "card-base-ants");
+  const card = {
+    ...base,
+    effectSpec: {
+      action: { removeResourcesFromAnyCard: { type: "Microbe", source: "all" }, addResources: 1 }
+    }
+  };
+
+  const table = opponentMicrobes => {
+    const state = getInitialState({ playerCount: 2 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const host = ALL_CARDS.find(entry => entry.id === "card-base-tardigrades");
+    const mine = getPlayer(state, "player");
+    const theirs = getPlayer(state, "player2");
+    mine.playedProjects = [card.id];
+    mine.cardResources = { [card.id]: 0 };
+    theirs.playedProjects = [host.id];
+    theirs.cardResources = { [host.id]: opponentMicrobes };
+    return { state, hostId: host.id };
+  };
+
+  const { state, hostId } = table(3);
+  const acted = applyCardAction(state, card, state.logs);
+  let settled = acted.state;
+  if (settled.pendingChoice) {
+    settled = resolvePendingChoice(settled, settled.pendingChoice.options[0].id, settled.logs, "player").state;
+  }
+  assert.equal(getPlayer(settled, "player2").cardResources[hostId], 2, "the microbe is taken");
+  assert.equal(getPlayer(settled, "player").cardResources[card.id], 1, "and fed to this card");
+
+  // Nothing holds the resource, so there is nothing to spend and no action.
+  const empty = table(0);
+  assert.equal(applyCardAction(empty.state, card, empty.state.logs).playable, false);
+});
