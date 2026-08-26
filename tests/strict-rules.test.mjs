@@ -732,6 +732,71 @@ test("A solo attack hits the neutral opponent, not the player", async () => {
   assert.equal(asked.state.pendingChoice?.kind, "resource-attack");
 });
 
+test("Soil Enrichment lets PLAY_CARD choose an own microbe card", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.hand = ["card-promo-soil-enrichment"];
+  seat.playedProjects = ["card-base-ants", "card-base-decomposers"];
+  seat.cardResources = {
+    "card-base-ants": 2,
+    "card-base-decomposers": 1
+  };
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: "player",
+    cardId: "card-promo-soil-enrichment"
+  });
+
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "any-card-resource-removal");
+  assert.equal(getPlayer(played.state, "player").plants, 0);
+  const invalid = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: "not-a-card"
+  });
+  assert.equal(invalid.ok, true);
+  assert.equal(invalid.state.pendingChoice?.kind, "any-card-resource-removal");
+  const chosen = played.state.pendingChoice.options.find(
+    option => option.targetCardId === "card-base-decomposers"
+  );
+  assert.ok(chosen);
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: chosen.id
+  });
+  const result = getPlayer(settled.state, "player");
+  assert.equal(settled.ok, true);
+  assert.equal(result.cardResources["card-base-ants"], 2);
+  assert.equal(result.cardResources["card-base-decomposers"], 0);
+  assert.equal(result.plants, 5);
+});
+
+test("Soil Enrichment is not playable without an own microbe", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = state.players[0];
+  seat.mc = 100;
+  seat.hand = ["card-promo-soil-enrichment"];
+  const result = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: "player",
+    cardId: "card-promo-soil-enrichment"
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, "CARD_NOT_PLAYABLE");
+});
+
 // Ganymede Colony, Phobos Space Haven, Stanford Torus and the four Venus cities
 // occupy reserved slots off the map. They were being turned into ordinary Mars
 // cities: the player was asked where to put them, they took a board space, and

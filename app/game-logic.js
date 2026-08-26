@@ -540,6 +540,8 @@ function addResource(state, resource, amount) {
   if (resource in state) state[resource] += amount;
 }
 
+const SOIL_ENRICHMENT_ID = "card-promo-soil-enrichment";
+
 export function applyProduction(state, production) {
   const keys = {
     mc: "mcProd",
@@ -1531,6 +1533,7 @@ function queuePendingChoices(state, card, context) {
     if (built) {
       if (built.autoTarget) {
         applyResourceToCard(state, built.autoTarget, -built.count);
+        if (card.id === SOIL_ENRICHMENT_ID) addResource(state, "plants", 5);
         markChoiceResolved(state, context.sourceId, "any-card-resource-removal");
       } else {
         return built;
@@ -1705,6 +1708,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "any-card-resource-removal": {
       const taken = choice.continuation.remaining ?? 1;
       applyResourceToCard(next, option, -taken);
+      if (choice.continuation.sourceId === SOIL_ENRICHMENT_ID) addResource(next, "plants", 5);
       nextLogs = addLog(nextLogs, "system", `${option.label}から資源を${taken}個取り除きました。`);
       break;
     }
@@ -4547,6 +4551,17 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
       playable: false,
       reason: "この世代に自分を攻撃したプレイヤーがいません。"
     };
+  }
+
+  if (
+    card.id === "card-promo-soil-enrichment" &&
+    !collectResourceTargets(state, "Microbe", ALL_CARDS, {
+      ownCardsOnly: true,
+      mustHaveResources: true,
+      getResourceType: getCardResourceType
+    }).length
+  ) {
+    return { playable: false, reason: "微生物を持つ自分のカードが必要です。" };
   }
 
   const corporation = getCorporation(state);
