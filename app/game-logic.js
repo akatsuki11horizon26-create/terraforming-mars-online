@@ -554,7 +554,21 @@ function roboticWorkforceBuildingCards(state) {
   return (player?.playedProjects ?? [])
     .map(id => ALL_CARDS.find(card => card.id === id))
     .filter(card => card?.tags.includes("Building"))
-    .filter(card => Object.keys(getCardEffect(card).production ?? {}).length > 0);
+    .filter(card => Object.keys(getCardEffect(card).production ?? {}).length > 0)
+    // Copying a production box is subject to the same rule as printing one: a
+    // decrease you cannot pay is not a legal copy. Without this, duplicating
+    // 地下都市 at one energy production drove the track below zero, and the
+    // production phase assigns energy from it directly.
+    .filter(card => canAffordProductionDecrease(state, getCardEffect(card).production));
+}
+
+function canAffordProductionDecrease(state, production) {
+  for (const [resource, amount] of Object.entries(production ?? {})) {
+    if (typeof amount !== "number" || amount >= 0 || resource === "mc") continue;
+    const key = PRODUCTION_KEYS[resource];
+    if (key && (state[key] ?? 0) < Math.abs(amount)) return false;
+  }
+  return true;
 }
 
 function buildRoboticWorkforceChoice(state, context) {
@@ -581,17 +595,18 @@ function buildRoboticWorkforceChoice(state, context) {
   };
 }
 
+const PRODUCTION_KEYS = {
+  mc: "mcProd",
+  steel: "steelProd",
+  titanium: "titaniumProd",
+  plants: "plantsProd",
+  energy: "energyProd",
+  heat: "heatProd",
+};
+
 export function applyProduction(state, production) {
-  const keys = {
-    mc: "mcProd",
-    steel: "steelProd",
-    titanium: "titaniumProd",
-    plants: "plantsProd",
-    energy: "energyProd",
-    heat: "heatProd",
-  };
   Object.entries(production ?? {}).forEach(([resource, amount]) => {
-    const key = keys[resource];
+    const key = PRODUCTION_KEYS[resource];
     // Only MC production may go negative, and only to -5. Every other track
     // floors at zero, so a card that reduces production can never push a player
     // into producing a negative amount.
@@ -4940,6 +4955,14 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   const effect = getCardEffect(card);
   if (effect.plants < 0 && state.plants < Math.abs(effect.plants)) {
     return { playable: false, reason: "植物が不足しています。" };
+  }
+  // "生産量を下げる場合、下げるだけの生産量がなければ、そのカードはプレイできません"
+  // Only the MC track may sit below zero (to -5); every other one has to have
+  // the steps available. applyProduction floors the result, so without this a
+  // card like 地下都市 could be played at zero energy production and simply
+  // waive its own cost.
+  if (!canAffordProductionDecrease(state, effect.production)) {
+    return { playable: false, reason: "生産量が不足しています。" };
   }
   for (const [resource, amount] of Object.entries(effect.payment ?? {})) {
     if (resource === "canUseSteel" || resource === "canUseTitanium") continue;

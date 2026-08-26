@@ -1416,3 +1416,82 @@ test("A card action that adds a resource to any card asks which card", async () 
   assert.equal(after[target.targetCardId], 1, "the chosen card receives it");
   assert.equal(after[card.id], 0, "and the acting card does not");
 });
+
+// "生産量を下げる場合、下げるだけの生産量がなければ、そのカードはプレイできません"
+// applyProduction floors every track but MC at zero, so without this check the
+// cost was simply waived: 地下都市 could be played at zero energy production
+// and pay nothing. 29 cards had the hole.
+test("A card that lowers production needs the production to lower", async () => {
+  const { getCardPlayableStatus, getPlayer } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS, PRELUDES } = await import("../app/official-content.js");
+
+  const seat = (card, key, value) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 999;
+    if (key) player[key] = value;
+    player.hand = [card.id];
+    return state;
+  };
+
+  // Underground City spends two energy production for a city and two steel.
+  const city = OFFICIAL_PROJECTS.find(item => item.id === "card-base-underground-city");
+  assert.equal(getCardPlayableStatus(city, seat(city, "energyProd", 1)).playable, false,
+    "one step is not the two the card spends");
+  assert.equal(getCardPlayableStatus(city, seat(city, "energyProd", 2)).playable, true,
+    "exactly enough is enough");
+
+  // The MC track is the one exception: it may be driven to -5.
+  const mcCard = OFFICIAL_PROJECTS.find(item => item.effectSpec?.behavior?.production?.megacredits < 0);
+  assert.equal(getCardPlayableStatus(mcCard, seat(mcCard, "mcProd", 0)).playable, true,
+    "MC production is allowed below zero");
+
+  // No card anywhere should be able to waive a production cost.
+  const holes = [];
+  for (const card of [...OFFICIAL_PROJECTS, ...PRELUDES]) {
+    for (const [resource, amount] of Object.entries(card.effectSpec?.behavior?.production ?? {})) {
+      if (typeof amount !== "number" || amount >= 0 || resource === "megacredits") continue;
+      const key = { energy: "energyProd", heat: "heatProd", plants: "plantsProd", steel: "steelProd", titanium: "titaniumProd" }[resource];
+      if (!key) continue;
+      if (getCardPlayableStatus(card, seat(card, key, 0)).playable) holes.push(`${card.id} (${resource} ${amount})`);
+    }
+  }
+  assert.deepEqual(holes, [], "every production cost must be checked before the card is playable");
+});
+
+// Copying a production box is subject to the same rule as printing one, so a
+// building whose decrease the player cannot pay is not a legal target. The
+// production phase assigns energy straight from energyProd, so duplicating
+// 地下都市 at one energy production put the player on -1 energy every turn.
+test("Robotic Workforce cannot copy a production box the player cannot pay", async () => {
+  const { applyCardEffect, getPlayer } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  const workforce = OFFICIAL_PROJECTS.find(item => item.id === "card-base-robotic-workforce");
+  // Underground City is a Building whose box spends two energy production.
+  const city = OFFICIAL_PROJECTS.find(item => item.id === "card-base-underground-city");
+
+  const seat = energyProd => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 999;
+    player.energyProd = energyProd;
+    player.playedProjects = [city.id];
+    return state;
+  };
+
+  const poor = applyCardEffect(seat(1), workforce, []);
+  assert.ok(!poor.state.pendingChoice, "with no affordable target there is nothing to choose");
+  assert.ok((getPlayer(poor.state, "player").energyProd ?? 0) >= 0,
+    "and energy production never goes below zero");
+
+  const rich = applyCardEffect(seat(2), workforce, []);
+  const offered = rich.state.pendingChoice;
+  assert.equal(offered?.kind, "building-production");
+  assert.deepEqual(offered.options.map(option => option.cardId), [city.id],
+    "an affordable box is still offered");
+});
