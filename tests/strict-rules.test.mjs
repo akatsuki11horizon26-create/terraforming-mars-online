@@ -797,6 +797,66 @@ test("Soil Enrichment is not playable without an own microbe", async () => {
   assert.equal(result.error.code, "CARD_NOT_PLAYABLE");
 });
 
+test("Air Raid pays an own floater before choosing the stolen MC", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  const victim = getPlayer(state, "player2");
+  seat.mc = 20;
+  seat.hand = ["card-colonies-air-raid"];
+  seat.playedProjects = ["card-colonies-atmo-collectors", "card-colonies-jovian-lanterns"];
+  seat.cardResources = {
+    "card-colonies-atmo-collectors": 1,
+    "card-colonies-jovian-lanterns": 1
+  };
+  victim.mc = 3;
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-air-raid"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "any-card-resource-removal");
+  assert.equal(played.state.pendingChoice.options.length, 2);
+  assert.equal(getPlayer(played.state, "player").mc, 20);
+  assert.equal(getPlayer(played.state, "player2").mc, 3);
+
+  const paid = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: played.state.pendingChoice.options[1].id
+  });
+  assert.equal(paid.state.pendingChoice?.kind, "resource-steal");
+  assert.equal(getPlayer(paid.state, "player").cardResources["card-colonies-atmo-collectors"], 1);
+  assert.equal(getPlayer(paid.state, "player").cardResources["card-colonies-jovian-lanterns"], 0);
+  assert.equal(getPlayer(paid.state, "player").mc, 20);
+  assert.equal(getPlayer(paid.state, "player2").mc, 3);
+
+  const settled = executeGameCommand(paid.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: paid.state.pendingChoice.options[0].id
+  });
+  assert.equal(getPlayer(settled.state, "player2").mc, 0);
+  assert.equal(getPlayer(settled.state, "player").mc, 23);
+  assert.equal(getPlayer(settled.state, "player").actionsRemaining, 1);
+
+  const unavailable = getInitialState({ playerCount: 2, colonies: true });
+  unavailable.phase = "action";
+  unavailable.currentPlayerId = "player";
+  const emptySeat = getPlayer(unavailable, "player");
+  emptySeat.mc = 20;
+  emptySeat.hand = ["card-colonies-air-raid"];
+  getPlayer(unavailable, "player2").mc = 10;
+  const refused = executeGameCommand(unavailable, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-air-raid"
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, "CARD_NOT_PLAYABLE");
+});
+
 // Ganymede Colony, Phobos Space Haven, Stanford Torus and the four Venus cities
 // occupy reserved slots off the map. They were being turned into ordinary Mars
 // cities: the player was asked where to put them, they took a board space, and
@@ -919,6 +979,13 @@ test("Solo steals take from the neutral opponent; removals do not", async () => 
     seat.mc = 100;
     seat.steel = 0;
     seat.cardResources = { [id]: 5 };
+    if (id === "card-colonies-air-raid") {
+      seat.playedProjects = ["card-colonies-atmo-collectors", "card-colonies-jovian-lanterns"];
+      seat.cardResources = {
+        "card-colonies-atmo-collectors": 1,
+        "card-colonies-jovian-lanterns": 1
+      };
+    }
     const before = { mc: seat.mc, steel: seat.steel };
     const played = applyCardEffect(state, card, state.logs).state;
     return { before, state: played, options: played.pendingChoice?.options ?? [] };
@@ -935,9 +1002,13 @@ test("Solo steals take from the neutral opponent; removals do not", async () => 
   );
 
   const airRaid = play("card-colonies-air-raid");
-  assert.equal(airRaid.options.length, 1);
-  const raided = resolvePendingChoice(
+  assert.equal(airRaid.state.pendingChoice?.kind, "any-card-resource-removal");
+  const afterFloater = resolvePendingChoice(
     airRaid.state, airRaid.options[0].id, airRaid.state.logs, "player"
+  ).state;
+  assert.equal(afterFloater.pendingChoice?.kind, "resource-steal");
+  const raided = resolvePendingChoice(
+    afterFloater, afterFloater.pendingChoice.options[0].id, afterFloater.logs, "player"
   ).state;
   assert.equal(getPlayer(raided, "player").mc - airRaid.before.mc, 5);
 

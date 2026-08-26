@@ -834,6 +834,17 @@ function attackTable(cardId, overrides = {}) {
     hand: player.id === me ? [cardId] : []
   }));
   state.currentPlayerId = me;
+  if (cardId === "card-colonies-air-raid") {
+    state.players = state.players.map(player =>
+      player.id === me
+        ? {
+            ...player,
+            playedProjects: [...player.playedProjects, "card-colonies-atmo-collectors"],
+            cardResources: { ...player.cardResources, "card-colonies-atmo-collectors": 1 }
+          }
+        : player
+    );
+  }
   return [state, me, state.players[1].id];
 }
 
@@ -845,7 +856,19 @@ for (const [cardId, resource, amount, steals] of STEAL_CARDS) {
     const [state, me, them] = attackTable(cardId);
     const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: me, cardId });
     assert.equal(played.ok, true, `${cardId} is playable`);
-    assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+    if (cardId === "card-colonies-air-raid") {
+      if (played.state.pendingChoice?.kind === "any-card-resource-removal") {
+        const floater = executeGameCommand(played.state, {
+          type: COMMAND.RESOLVE_PENDING, playerId: me,
+          optionId: played.state.pendingChoice.options[0].id
+        });
+        assert.equal(floater.ok, true);
+        played.state = floater.state;
+      }
+      assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+    } else {
+      assert.equal(played.state.pendingChoice?.kind, "resource-steal");
+    }
 
     const option = played.state.pendingChoice.options.find(
       entry => entry.targetPlayerId === them && entry.resource === resource

@@ -1452,6 +1452,26 @@ function queuePendingChoices(state, card, context) {
   // legal target must still produce a choice or the attack silently does
   // nothing -- which is what `options.length > 1` used to cause.
   if (
+    card.id === "card-colonies-air-raid" &&
+    raw.removeResourcesFromAnyCard &&
+    !done.includes("any-card-resource-removal")
+  ) {
+    const removal = buildResourceRemovalChoice(state, raw.removeResourcesFromAnyCard, {
+      ...context,
+      cards: ALL_CARDS,
+      getResourceType: getCardResourceType
+    });
+    if (removal) {
+      if (removal.autoTarget) {
+        applyResourceToCard(state, removal.autoTarget, -removal.count);
+        markChoiceResolved(state, context.sourceId, "any-card-resource-removal");
+      } else {
+        return removal;
+      }
+    }
+  }
+
+  if (
     raw.decreaseAnyProduction?.type &&
     !done.includes("production-attack") &&
     (state.players ?? []).length > 1
@@ -4562,6 +4582,17 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     }).length
   ) {
     return { playable: false, reason: "微生物を持つ自分のカードが必要です。" };
+  }
+
+  if (
+    card.id === "card-colonies-air-raid" &&
+    !collectResourceTargets(state, "floater", ALL_CARDS, {
+      ownCardsOnly: true,
+      mustHaveResources: true,
+      getResourceType: getCardResourceType
+    }).length
+  ) {
+    return { playable: false, reason: "フローターを持つ自分のカードが必要です。" };
   }
 
   const corporation = getCorporation(state);

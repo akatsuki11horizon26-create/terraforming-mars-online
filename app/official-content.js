@@ -189,7 +189,8 @@ const STEAL_SPECS = Object.freeze({
   "card-colonies-air-raid": {
     steal: true,
     resources: [{ resource: "mc", count: 5 }],
-    prompt: "MC5を奪う対象を選んでください。"
+    prompt: "MC5を奪う対象を選んでください。",
+    removeResourcesFromAnyCard: { type: "floater", count: 1, source: "self" }
   },
   "card-prelude2-special-permit": {
     steal: true,
@@ -229,7 +230,13 @@ const withStealSpecs = cards =>
             behavior: {
               ...(card.effectSpec?.behavior ?? {}),
               ...(STEAL_SPECS[card.id].alsoPlacesTile === "ocean" ? { ocean: {} } : {}),
-              stealFromPlayer: STEAL_SPECS[card.id]
+              stealFromPlayer: (() => {
+                const { removeResourcesFromAnyCard, ...steal } = STEAL_SPECS[card.id];
+                return steal;
+              })(),
+              ...(STEAL_SPECS[card.id].removeResourcesFromAnyCard
+                ? { removeResourcesFromAnyCard: STEAL_SPECS[card.id].removeResourcesFromAnyCard }
+                : {})
             }
           }
         }
