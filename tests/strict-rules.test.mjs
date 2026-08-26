@@ -1084,3 +1084,53 @@ test("An action can remove a resource from any card to feed its own", async () =
   const empty = table(0);
   assert.equal(applyCardAction(empty.state, card, empty.state.logs).playable, false);
 });
+
+// "Spend 8 M€ ... STEEL MAY BE USED as if you were playing a building card."
+// The flags sit beside the amount in `spend` and were dropped in
+// normalisation, so four cards that let a megacredit cost be paid in steel or
+// titanium had no way to do it.
+test("A card cost can be paid with steel or titanium when the card says so", async () => {
+  const { applyCardEffect, getCardPlayableStatus, getPlayer } = await import("../app/game-logic.js");
+
+  // Shaped exactly as the reference declares Aquifer Pumping's action.
+  const card = {
+    id: "test-alternate-payment",
+    name: "Test Alternate Payment",
+    cost: 0,
+    type: "automated",
+    tags: [],
+    requirements: [],
+    effectSpec: { behavior: { spend: { megacredits: 8, canUseSteel: true }, ocean: {} } }
+  };
+
+  const seat = (mc, steel) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = mc;
+    player.steel = steel;
+    player.hand = [card.id];
+    return state;
+  };
+
+  // Steel is worth 2, so eight megacredits is four steel.
+  const cash = getPlayer(applyCardEffect(seat(50, 0), card, []).state, "player");
+  assert.equal(cash.mc, 42, "megacredits alone pay the whole cost");
+  assert.equal(cash.steel, 0, "and no steel is taken");
+
+  const ore = getPlayer(applyCardEffect(seat(0, 5), card, []).state, "player");
+  assert.equal(ore.steel, 1, "four steel covers it");
+  assert.equal(ore.mc, 0);
+
+  const mixed = getPlayer(applyCardEffect(seat(4, 3), card, []).state, "player");
+  assert.equal(mixed.steel, 0, "three steel is six, and the rest is cash");
+  assert.equal(mixed.mc, 2);
+
+  // Affordability counts the combined worth, not megacredits alone.
+  assert.equal(getCardPlayableStatus(card, seat(8, 0)).playable, true);
+  assert.equal(getCardPlayableStatus(card, seat(0, 4)).playable, true);
+  assert.equal(getCardPlayableStatus(card, seat(2, 3)).playable, true);
+  assert.equal(getCardPlayableStatus(card, seat(0, 3)).playable, false, "three steel is only six");
+  assert.equal(getCardPlayableStatus(card, seat(0, 0)).playable, false);
+});

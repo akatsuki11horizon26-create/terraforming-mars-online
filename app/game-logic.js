@@ -744,6 +744,11 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
       if (source === "resourcesHere") effect.payment.cardResources = amount;
       else if (SOURCE_RESOURCE_MAP[source] && typeof amount === "number") effect.payment[SOURCE_RESOURCE_MAP[source]] = amount;
     });
+    // "Spend 8 M€ ... STEEL MAY BE USED as if you were playing a building
+    // card." The flags sit beside the amount and were dropped, so four cards
+    // that let you pay a megacredit cost in steel or titanium had no way to.
+    if (raw.spend.canUseSteel === true) effect.payment.canUseSteel = true;
+    if (raw.spend.canUseTitanium === true) effect.payment.canUseTitanium = true;
   }
   if (raw.decreaseAnyProduction?.type && typeof raw.decreaseAnyProduction.count === "number") {
     effect.productionDecrease = {
@@ -986,9 +991,25 @@ function applyEffect(state, effect, logs, options = {}) {
   }
 
   if (effect.payment) {
+    // A megacredit cost the card lets you cover with steel or titanium: spend
+    // as much of the named resource as the cost can absorb, then the rest in
+    // megacredits. No change is given, so a part-unit is still a whole unit.
+    let mcOwed = Number(effect.payment.mc ?? 0);
+    if (mcOwed > 0 && (effect.payment.canUseSteel || effect.payment.canUseTitanium)) {
+      const source = effect.payment.canUseTitanium ? "titanium" : "steel";
+      const worth = source === "titanium" ? getTitaniumValue(nextState) : getSteelValue(nextState);
+      const spent = Math.min(nextState[source] ?? 0, Math.ceil(mcOwed / worth));
+      nextState[source] = (nextState[source] ?? 0) - spent;
+      mcOwed = Math.max(0, mcOwed - spent * worth);
+    }
+
     Object.entries(effect.payment).forEach(([resource, amount]) => {
+      // The two flags describe HOW to pay, not something to pay with.
+      if (resource === "canUseSteel" || resource === "canUseTitanium") return;
       if (resource === "cardResources") {
         if (effect.cardId) nextState.cardResources[effect.cardId] = Math.max(0, (nextState.cardResources[effect.cardId] ?? 0) - Number(amount));
+      } else if (resource === "mc") {
+        nextState.mc = Math.max(0, nextState.mc - mcOwed);
       } else if (resource in nextState) {
         nextState[resource] = Math.max(0, nextState[resource] - Number(amount));
       }
@@ -4574,6 +4595,16 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     return { playable: false, reason: "植物が不足しています。" };
   }
   for (const [resource, amount] of Object.entries(effect.payment ?? {})) {
+    if (resource === "canUseSteel" || resource === "canUseTitanium") continue;
+    if (resource === "mc" && (effect.payment.canUseSteel || effect.payment.canUseTitanium)) {
+      // The cost may be met with a mix, so afford it against the combined worth.
+      const source = effect.payment.canUseTitanium ? "titanium" : "steel";
+      const worth = source === "titanium" ? getTitaniumValue(state) : getSteelValue(state);
+      if ((state.mc ?? 0) + (state[source] ?? 0) * worth < amount) {
+        return { playable: false, reason: "資源（MC）が不足しています。" };
+      }
+      continue;
+    }
     if (resource !== "cardResources" && resource in state && state[resource] < amount) return { playable: false, reason: `${resource}が不足しています。` };
     if (resource === "cardResources" && (state.cardResources[card.id] ?? 0) < amount) return { playable: false, reason: "カード資源が不足しています。" };
   }
