@@ -510,6 +510,10 @@ export function cloneGameState(state) {
         all: player.cardDiscounts?.all ?? 0,
         tags: { ...(player.cardDiscounts?.tags ?? {}) }
       },
+      copiedProductions: (player.copiedProductions ?? []).map(entry => ({
+        sourceCardId: entry.sourceCardId,
+        production: { ...(entry.production ?? {}) }
+      })),
       usedCardActions: [...(player.usedCardActions ?? [])],
       usedPolicyActions: [...(player.usedPolicyActions ?? [])]
     })),
@@ -543,6 +547,39 @@ function addResource(state, resource, amount) {
 const SOIL_ENRICHMENT_ID = "card-promo-soil-enrichment";
 const LOCAL_HEAT_TRAPPING_ID = "card-base-local-heat-trapping";
 const STORMCRAFT_INCORPORATED_ID = "card-colonies-stormcraft-incorporated";
+const ROBOTIC_WORKFORCE_ID = "card-base-robotic-workforce";
+
+function roboticWorkforceBuildingCards(state) {
+  const player = getCurrentPlayer(state);
+  return (player?.playedProjects ?? [])
+    .map(id => ALL_CARDS.find(card => card.id === id))
+    .filter(card => card?.tags.includes("Building"))
+    .filter(card => Object.keys(getCardEffect(card).production ?? {}).length > 0);
+}
+
+function buildRoboticWorkforceChoice(state, context) {
+  const options = roboticWorkforceBuildingCards(state).map(card => ({
+    id: card.id,
+    cardId: card.id,
+    label: card.name
+  }));
+  if (options.length === 0) return null;
+  return {
+    id: `building-production:${context.sourceId}:${state.currentPlayerId}`,
+    kind: "building-production",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: "生産ボックスをコピーする建物カードを選んでください。",
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "building-production",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true
+    }
+  };
+}
 
 export function applyProduction(state, production) {
   const keys = {
@@ -1516,6 +1553,10 @@ function queuePendingChoices(state, card, context) {
     }
   }
 
+  if (card.id === ROBOTIC_WORKFORCE_ID && !done.includes("building-production")) {
+    return buildRoboticWorkforceChoice(state, context);
+  }
+
   const raw = card.effectSpec?.behavior;
   if (!raw) return null;
 
@@ -1831,6 +1872,35 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   const card = ALL_CARDS.find(item => item.id === choice.continuation.sourceId);
 
   switch (choice.kind) {
+    case "building-production": {
+      const sourceId = option.cardId;
+      const source = ALL_CARDS.find(item => item.id === sourceId);
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      const production = source ? getCardEffect(source).production ?? {} : {};
+      const valid = source?.tags.includes("Building") &&
+        (owner?.playedProjects ?? []).includes(sourceId) &&
+        Object.keys(production).length > 0;
+      if (!valid) {
+        next.pendingChoice = choice;
+        next.logs = addLog(nextLogs, "system", "その建物カードは生産ボックスをコピーできません。");
+        return { status: "pending", state: next, logs: next.logs, pendingChoice: choice };
+      }
+      next.players = next.players.map(player => {
+        if (player.id !== choice.ownerPlayerId) return player;
+        const copiedProductions = [
+          ...(player.copiedProductions ?? []),
+          { sourceCardId: sourceId, production: { ...production } }
+        ];
+        const updated = { ...player, copiedProductions };
+        for (const [resource, amount] of Object.entries(production)) {
+          const field = `${resource}Prod`;
+          if (field in updated) updated[field] += amount;
+        }
+        return updated;
+      });
+      nextLogs = addLog(nextLogs, "system", `${source.name} の生産ボックスを恒久的にコピーしました。`);
+      break;
+    }
     case "prelude-project": {
       const project = ALL_CARDS.find(item => item.id === option.cardId);
       const owner = getPlayer(next, choice.ownerPlayerId);
@@ -4776,6 +4846,10 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     }).length
   ) {
     return { playable: false, reason: "フローターを持つ自分のカードが必要です。" };
+  }
+
+  if (card.id === ROBOTIC_WORKFORCE_ID && roboticWorkforceBuildingCards(state).length === 0) {
+    return { playable: false, reason: "生産ボックスを持つ自分の建物カードが必要です。" };
   }
 
   const corporation = getCorporation(state);
