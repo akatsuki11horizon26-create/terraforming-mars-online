@@ -2631,22 +2631,29 @@ function applyPreludeFreePlay(state, effect, logs) {
 // was ever checked, so a branch costing plants, steel, titanium, energy or
 // megacredits was offered to anyone -- Electro Catapult handed 7 M€ to a player
 // holding neither a plant nor a steel.
-function canAffordBranch(state, card, behavior) {
-  const spend = behavior?.spend;
-  if (!spend) return true;
+function canAffordActionPayment(state, card, payment = {}) {
   const player = getCurrentPlayer(state);
-  for (const [source, amount] of Object.entries(spend)) {
+  for (const [resource, amount] of Object.entries(payment)) {
     if (!amount) continue;
-    if (source === "resourcesHere") {
+    if (resource === "canUseSteel" || resource === "canUseTitanium") continue;
+    if (resource === "cardResources") {
       if ((player?.cardResources?.[card.id] ?? 0) < amount) return false;
       continue;
     }
-    const resource = SOURCE_RESOURCE_MAP[source];
-    // An unrecognised cost is not silently treated as free.
-    if (!resource) return false;
+    if (resource === "mc" && (payment.canUseSteel || payment.canUseTitanium)) {
+      const source = payment.canUseTitanium ? "titanium" : "steel";
+      const worth = source === "titanium" ? getTitaniumValue(state) : getSteelValue(state);
+      if ((player?.mc ?? 0) + (player?.[source] ?? 0) * worth < amount) return false;
+      continue;
+    }
     if ((player?.[resource] ?? 0) < amount) return false;
   }
   return true;
+}
+
+function canAffordBranch(state, card, behavior) {
+  const normalized = normalizeBehavior(behavior, {}, []);
+  return canAffordActionPayment(state, card, normalized.payment);
 }
 
 export function getCardActionStatus(state, card) {
@@ -2686,13 +2693,7 @@ export function getCardActionStatus(state, card) {
     return { playable: false, reason: "大聖堂を建設できる都市がありません。" };
   }
   if (action.unsupported?.length) return { playable: false, reason: "このカードの選択式アクションは準備中です。" };
-  for (const [resource, amount] of Object.entries(action.payment ?? {})) {
-    if (resource === "cardResources") continue;
-    if (resource in state && state[resource] < amount) return { playable: false, reason: `${resource}が不足しています。` };
-  }
-  if (action.payment?.cardResources && (state.cardResources[card.id] ?? 0) < action.payment.cardResources) {
-    return { playable: false, reason: "このカードの資源が不足しています。" };
-  }
+  if (!canAffordActionPayment(state, card, action.payment)) return { playable: false, reason: "支払い資源が不足しています。" };
   return { playable: true, reason: "" };
 }
 

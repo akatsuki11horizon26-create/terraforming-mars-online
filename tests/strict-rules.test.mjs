@@ -1134,3 +1134,35 @@ test("A card cost can be paid with steel or titanium when the card says so", asy
   assert.equal(getCardPlayableStatus(card, seat(0, 3)).playable, false, "three steel is only six");
   assert.equal(getCardPlayableStatus(card, seat(0, 0)).playable, false);
 });
+
+test("Official alternate-payment card actions accept the named resource", async () => {
+  const { applyCardAction, getCardActionStatus, getPlayer } = await import("../app/game-logic.js");
+
+  const cases = [
+    ["card-base-aquifer-pumping", "steel", 4],
+    ["card-base-water-import-from-europa", "titanium", 4],
+    ["card-promo-directed-impactors", "titanium", 2],
+    ["card-venus-rotator-impacts", "titanium", 2]
+  ];
+
+  for (const [cardId, resource, amount] of cases) {
+    const card = ALL_CARDS.find(entry => entry.id === cardId);
+    assert.ok(card?.effectSpec?.action, `${cardId} carries its extracted action`);
+
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 0;
+    player.steel = 0;
+    player.titanium = 0;
+    player[resource] = amount;
+    player.playedProjects = [card.id];
+    player.cardResources = { [card.id]: 0 };
+
+    assert.equal(getCardActionStatus(state, card).playable, true, `${cardId} is payable`);
+    const result = applyCardAction(state, card, state.logs);
+    assert.equal(result.playable, true, `${cardId} can execute`);
+    assert.equal(getPlayer(result.state, "player")[resource], 0, `${cardId} spends ${resource}`);
+  }
+});
