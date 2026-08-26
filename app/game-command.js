@@ -29,6 +29,7 @@ import {
   getCardPlayableStatus,
   getCardDiscount,
   getCardPaymentCost,
+  resumePreludeResolution,
   getCardActionStatus,
   draftPick,
   advanceSetupTurn,
@@ -771,6 +772,11 @@ const HANDLERS = {
         settled = thresholds.state;
         settledLogs = thresholds.logs;
       }
+    }
+
+    if (afterPlay?.preludeResume && settled && !settled.pendingChoice) {
+      settled = resumePreludeResolution(settled, afterPlay.preludeResume, settledLogs ?? settled.logs);
+      settledLogs = settled.logs ?? settledLogs;
     }
 
     // A card that asks for a target still costs one action, charged when the

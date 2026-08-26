@@ -1224,6 +1224,106 @@ export function getPreludeCost(prelude) {
   return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
+const ECCENTRIC_SPONSOR_ID = "prelude-eccentric-sponsor";
+const ECCENTRIC_SPONSOR_DISCOUNT = 25;
+
+function eccentricSponsorOptions(state) {
+  const player = getCurrentPlayer(state);
+  return (player?.hand ?? [])
+    .map(id => ALL_CARDS.find(card => card.id === id))
+    .filter(Boolean)
+    .filter(card => {
+      const discounted = { ...card, cost: Math.max(0, card.cost - ECCENTRIC_SPONSOR_DISCOUNT) };
+      return getCardPlayableStatus(discounted, state).playable;
+    })
+    .map(card => ({ id: card.id, cardId: card.id, label: card.name }));
+}
+
+function finishPreludeSetup(state, logs, seatBefore) {
+  const initialAction = applyCorporationInitialAction(state, logs);
+  const nextState = initialAction.state;
+  nextState.logs = initialAction.logs;
+  nextState.currentPlayerId = seatBefore;
+  return advanceSetupTurn(nextState);
+}
+
+function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
+  let nextState = state;
+  let nextLogs = logs;
+  for (let index = startIndex; index < selected.length; index++) {
+    const prelude = selected[index];
+    const effect = getCardEffect(prelude);
+    const preludeBeforeTemp = nextState.temperature;
+    const preludeBeforeOxygen = nextState.oxygen;
+    const result = applyEffect(nextState, effect, nextLogs);
+    nextState = result.state;
+    nextLogs = result.logs;
+    const crossed = checkParameterThresholds(
+      preludeBeforeTemp,
+      nextState.temperature,
+      preludeBeforeOxygen,
+      nextState.oxygen,
+      nextState,
+      nextLogs
+    );
+    nextState = crossed.state;
+    nextLogs = addLog(crossed.logs, "system", `Prelude効果: ${prelude.effectText}`);
+
+    if (prelude.id === ECCENTRIC_SPONSOR_ID) {
+      const options = eccentricSponsorOptions(nextState);
+      if (options.length > 0) {
+        const choice = {
+          id: `${prelude.id}:${nextState.generation}`,
+          kind: "prelude-project",
+          ownerPlayerId: nextState.currentPlayerId,
+          prompt: "25 MC軽減でプレイする手札カードを選んでください。",
+          optional: false,
+          options,
+          continuation: {
+            stage: "prelude-eccentric-sponsor",
+            sourceKind: "prelude",
+            sourceId: prelude.id,
+            consumedAction: false,
+            paid: true,
+            preludeResume: {
+              selectedIds: selected.map(item => item.id),
+              nextIndex: index + 1,
+              seatBefore
+            }
+          }
+        };
+        nextState.pendingChoice = choice;
+        nextLogs = addLog(nextLogs, "system", choice.prompt);
+        nextState.logs = nextLogs;
+        return { state: nextState, logs: nextLogs, pending: true };
+      }
+      nextLogs = addLog(nextLogs, "system", "Prelude効果: プレイ可能な手札カードがありません。");
+      continue;
+    }
+
+    if (effect.freePlayDiscount || effect.freePlayIgnoreGlobal) {
+      const freePlay = applyPreludeFreePlay(nextState, effect, nextLogs);
+      nextState = freePlay.state;
+      nextLogs = freePlay.logs;
+    }
+  }
+  return { state: finishPreludeSetup(nextState, nextLogs, seatBefore), logs: nextState.logs, pending: false };
+}
+
+export function resumePreludeResolution(state, continuation, logs) {
+  const selected = (continuation?.selectedIds ?? [])
+    .map(id => PRELUDES.find(prelude => prelude.id === id))
+    .filter(Boolean);
+  if (selected.length === 0) return state;
+  return resolvePreludeEffects(
+    state,
+    selected,
+    continuation.nextIndex ?? selected.length,
+    logs,
+    continuation.seatBefore ?? state.currentPlayerId
+  ).state;
+}
+
 export function applyPreludes(state, preludeIds, playerId) {
   const actorId = playerId ?? state.currentPlayerId;
   const actor = getPlayer(state, actorId);
@@ -1249,39 +1349,9 @@ export function applyPreludes(state, preludeIds, playerId) {
     `Prelude【${selected.map(prelude => prelude.name).join("】【")}】を解決しました。`,
     actor.name
   );
-  selected.forEach(prelude => {
-    const effect = getCardEffect(prelude);
-    // A prelude raises global parameters like anything else, so the threshold
-    // bonuses owed for crossing -24C, -20C, 0C or 8% are owed here too. Huge
-    // Asteroid takes the temperature up three steps and used to collect none.
-    const preludeBeforeTemp = nextState.temperature;
-    const preludeBeforeOxygen = nextState.oxygen;
-    const result = applyEffect(nextState, effect, logs);
-    nextState = result.state;
-    logs = result.logs;
-    const crossed = checkParameterThresholds(
-      preludeBeforeTemp,
-      nextState.temperature,
-      preludeBeforeOxygen,
-      nextState.oxygen,
-      nextState,
-      logs
-    );
-    nextState = crossed.state;
-    logs = addLog(crossed.logs, "system", `Prelude効果: ${prelude.effectText}`);
-    if (prelude.effect?.freePlayDiscount || prelude.effect?.freePlayIgnoreGlobal) {
-      const freePlay = applyPreludeFreePlay(nextState, prelude.effect, logs);
-      nextState = freePlay.state;
-      logs = freePlay.logs;
-    }
-  });
-  const initialAction = applyCorporationInitialAction(nextState, logs);
-  nextState = initialAction.state;
-  logs = initialAction.logs;
-  nextState.logs = logs;
-  nextState.currentPlayerId = seatBefore;
-  // Hand the seat on; the game only starts once every player has set up.
-  return advanceSetupTurn(nextState);
+  const resolved = resolvePreludeEffects(nextState, selected, 0, logs, seatBefore);
+  if (resolved.pending) return resolved.state;
+  return resolved.state;
 }
 
 // The starting hand is bought during setup; once a player confirms, the seat
@@ -1385,7 +1455,9 @@ export function applyCardEffect(state, card, logs, options = {}) {
     sourceKind: options.sourceKind ?? "card",
     sourceId: card.id,
     consumedAction: options.consumedAction ?? true,
-    paid: true
+    paid: true,
+    preludeResume: options.preludeResume,
+    afterPlay: options.afterPlay
   });
   if (pending) {
     result.state.pendingChoice = pending;
@@ -1728,6 +1800,63 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   const card = ALL_CARDS.find(item => item.id === choice.continuation.sourceId);
 
   switch (choice.kind) {
+    case "prelude-project": {
+      const project = ALL_CARDS.find(item => item.id === option.cardId);
+      const owner = getPlayer(next, choice.ownerPlayerId);
+      const discounted = project
+        ? { ...project, cost: Math.max(0, project.cost - ECCENTRIC_SPONSOR_DISCOUNT) }
+        : null;
+      if (!project || !(owner?.hand ?? []).includes(project.id) || !getCardPlayableStatus(discounted, next).playable) {
+        next.pendingChoice = choice;
+        next.logs = addLog(nextLogs, "system", "そのカードはもうプレイできません。");
+        return { status: "pending", state: next, logs: next.logs, pendingChoice: choice };
+      }
+      const payment = getCardPaymentCost(discounted, next);
+      const destination = project.type === "event" ? "playedEvents" : "playedProjects";
+      next.players = next.players.map(player =>
+        player.id === choice.ownerPlayerId
+          ? {
+              ...player,
+              mc: player.mc - payment,
+              hand: player.hand.filter(id => id !== project.id),
+              [destination]: [...(player[destination] ?? []), project.id]
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `Prelude効果で【${project.name}】をプレイしました（支払MC ${payment}）。`);
+      const beforeTemp = next.temperature;
+      const beforeOxygen = next.oxygen;
+      const played = applyCardEffect(next, project, nextLogs, {
+        sourceKind: "prelude",
+        consumedAction: false,
+        preludeResume: choice.continuation.preludeResume,
+        afterPlay: {
+          cardId: project.id,
+          temperature: beforeTemp,
+          oxygen: beforeOxygen,
+          preludeResume: choice.continuation.preludeResume
+        }
+      });
+      if (played.status === "pending") {
+        next.logs = played.logs;
+        return { status: "pending", state: played.state, logs: played.logs, pendingChoice: played.pendingChoice };
+      }
+      const triggered = applyCorporationTriggers(played.state, project, played.logs);
+      const thresholds = checkParameterThresholds(
+        beforeTemp,
+        triggered.state.temperature,
+        beforeOxygen,
+        triggered.state.oxygen,
+        triggered.state,
+        triggered.logs
+      );
+      const resumed = resumePreludeResolution(
+        thresholds.state,
+        choice.continuation.preludeResume,
+        thresholds.logs
+      );
+      return { status: "resolved", state: resumed, logs: resumed.logs ?? thresholds.logs };
+    }
     case "any-card-resource": {
       applyResourceToCard(next, option, choice.continuation.remaining ?? 1);
       nextLogs = addLog(nextLogs, "system", `${option.label}に資源を${choice.continuation.remaining ?? 1}個置きました。`);

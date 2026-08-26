@@ -41,6 +41,134 @@ function table(options = {}) {
   return { state, seat, other: state.players.find(p => p.id !== seat).id };
 }
 
+function preludeSetup(hand, mc = 80, secondPrelude = "prelude-power-generation") {
+  let state = getInitialState({ playerCount: 2, prelude: true });
+  for (const player of state.players) {
+    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+  }
+  const seat = state.currentPlayerId;
+  state = cloneGameState(state);
+  state.phase = "setup";
+  state.currentPlayerId = seat;
+  state.players = state.players.map(player =>
+    player.id === seat
+      ? {
+          ...player,
+          setupStep: "prelude",
+          mc,
+          hand,
+          preludeOptions: ["prelude-eccentric-sponsor", secondPrelude]
+        }
+      : player
+  );
+  return { state, seat };
+}
+
+test("Eccentric Sponsor asks which of multiple eligible projects to play", () => {
+  const { state, seat } = preludeSetup([
+    "card-base-acquired-company",
+    "card-base-lunar-beam"
+  ]);
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  assert.equal(selected.ok, true);
+  assert.deepEqual(
+    selected.state.pendingChoice.options.map(option => option.cardId),
+    ["card-base-acquired-company", "card-base-lunar-beam"]
+  );
+
+  const played = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-lunar-beam"
+  });
+  const actor = getPlayer(played.state, seat);
+  assert.equal(played.ok, true);
+  assert.deepEqual(actor.hand, ["card-base-acquired-company"]);
+  assert.ok(actor.playedProjects.includes("card-base-lunar-beam"));
+  assert.equal(actor.actionsRemaining, 2, "setup play does not spend an action");
+});
+
+test("Eccentric Sponsor charges the remainder above its 25 MC discount", () => {
+  const { state, seat } = preludeSetup(["card-base-asteroid-mining"], 10);
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  const played = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-asteroid-mining"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, seat).mc, 5);
+  assert.ok(getPlayer(played.state, seat).playedProjects.includes("card-base-asteroid-mining"));
+});
+
+test("Eccentric Sponsor can play an event and files it as an event", () => {
+  const { state, seat } = preludeSetup(["card-base-bribed-committee"]);
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  assert.equal(selected.state.pendingChoice.options[0].cardId, "card-base-bribed-committee");
+
+  const played = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-bribed-committee"
+  });
+  const actor = getPlayer(played.state, seat);
+  assert.deepEqual(actor.playedEvents, ["card-base-bribed-committee"]);
+  assert.equal(actor.playedProjects.includes("card-base-bribed-committee"), false);
+});
+
+test("Eccentric Sponsor resumes Prelude setup after a project's nested choice", () => {
+  const { state, seat } = preludeSetup(["card-base-commercial-district"]);
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-power-generation", "prelude-eccentric-sponsor"]
+  });
+  const project = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-commercial-district"
+  });
+  assert.equal(project.state.pendingChoice?.kind, "tile-placement");
+
+  const placed = executeGameCommand(project.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: project.state.pendingChoice.options[0].id
+  });
+  const actor = getPlayer(placed.state, seat);
+  assert.equal(placed.ok, true);
+  assert.equal(placed.state.pendingChoice, null);
+  assert.ok(actor.playedProjects.includes("card-base-commercial-district"));
+  assert.equal(actor.energyProd, 2);
+  assert.equal(actor.actionsRemaining, 2);
+});
+
+test("Eccentric Sponsor fizzles without a target and leaves no discount", () => {
+  const { state, seat } = preludeSetup([], 0);
+  const result = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  const actor = getPlayer(result.state, seat);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.pendingChoice, null);
+  assert.equal(actor.oneShotCardDiscount ?? 0, 0);
+  assert.equal(result.state.oneShotCardDiscount ?? 0, 0);
+});
+
 test("a command from the wrong seat is refused", () => {
   const { state, other } = table();
   const result = executeGameCommand(state, {

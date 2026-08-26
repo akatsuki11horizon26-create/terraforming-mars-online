@@ -99,7 +99,12 @@ test("Prelude free-play effects resolve a card from the starting hand", () => {
   corporationState.setupStep = "prelude";
   corporationState.preludeOptions = ["prelude-eccentric-sponsor", "prelude-donation"];
   corporationState.hand = ["p-power-plant"];
-  const nextState = applyPreludes(corporationState, ["prelude-eccentric-sponsor", "prelude-donation"]);
+  const pending = applyPreludes(corporationState, ["prelude-eccentric-sponsor", "prelude-donation"]);
+  const nextState = resolvePendingChoice(
+    pending,
+    pending.pendingChoice.options[0].id,
+    pending.logs
+  ).state;
   assert.deepEqual(nextState.hand, []);
   assert.deepEqual(nextState.playedProjects, ["p-power-plant"]);
   assert.equal(nextState.energyProd, 1);
