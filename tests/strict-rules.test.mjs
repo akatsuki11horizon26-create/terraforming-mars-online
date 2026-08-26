@@ -1543,3 +1543,53 @@ test("Robotic Workforce rejects an unaffordable target it never offered", async 
   assert.equal(rich.status, "resolved");
   assert.equal(getPlayer(rich.state, "player").energyProd, 0, "exactly enough pays exactly");
 });
+
+// The deck shuffled itself with Math.random, so a playtest seed only drove the
+// move picker: the same command produced different games and a CI failure could
+// not be replayed. The shuffle is now a pure function of the seed and how many
+// shuffles have happened, both carried on state.
+test("A seeded game deals reproducibly and keeps dealing reproducibly", async () => {
+  const { getInitialState, drawCards } = await import("../app/game-logic.js");
+  const { serializeSavedState, loadSavedState } = await import("../app/save-migration.js");
+
+  const deal = state => JSON.stringify({
+    deck: state.deck.slice(0, 10),
+    corporations: state.players.map(player => player.corporationOptions),
+    hands: state.players.map(player => player.researchCards)
+  });
+
+  const options = { playerCount: 2, prelude: true, turmoil: true, colonies: true, venus: true };
+  assert.equal(deal(getInitialState({ ...options, seed: 12345 })),
+               deal(getInitialState({ ...options, seed: 12345 })),
+               "the same seed deals the same game");
+  assert.notEqual(deal(getInitialState({ ...options, seed: 12345 })),
+                  deal(getInitialState({ ...options, seed: 999 })),
+                  "a different seed deals a different game");
+  // Callers that pass no seed must still get a fresh game each time.
+  assert.notEqual(deal(getInitialState(options)), deal(getInitialState(options)),
+                  "an unseeded game is still random");
+
+  // A reshuffle mid-game has to continue the sequence rather than start a new
+  // one, including after the game has been saved and loaded.
+  const exhausted = () => {
+    const state = getInitialState({ playerCount: 1, seed: 42 });
+    state.discardPile = [...state.deck];
+    state.deck = [];
+    return state;
+  };
+  const fresh = exhausted();
+  const reloaded = loadSavedState(serializeSavedState(exhausted()));
+  assert.equal(reloaded.rngSeed, 42, "the seed survives a save");
+  assert.deepEqual(drawCards(reloaded, 5), drawCards(fresh, 5),
+    "a reloaded game reshuffles into the same order");
+
+  // A save written before the deck was seeded has no sequence to resume, so it
+  // must be given one; leaving it undefined would silently re-randomise.
+  const legacy = JSON.parse(serializeSavedState(exhausted()));
+  delete legacy.rngSeed;
+  delete legacy.rngDraws;
+  legacy.rulesVersion = 4;
+  const migrated = loadSavedState(JSON.stringify(legacy));
+  assert.equal(typeof migrated.rngSeed, "number", "a legacy save is given a seed");
+  assert.equal(migrated.rngDraws, 0);
+});

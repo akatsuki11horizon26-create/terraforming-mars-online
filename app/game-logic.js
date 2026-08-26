@@ -423,10 +423,33 @@ export function addLog(logsList, sender, text, playerName) {
   return [entry, ...logsList];
 }
 
-export function shuffle(array) {
+// mulberry32: one multiply-xorshift round over a 32-bit counter. Small, and
+// good enough for dealing cards -- the requirement here is reproducibility, not
+// cryptographic quality.
+function randomFromSeed(seed) {
+  let a = (seed >>> 0) + 0x6d2b79f5;
+  a = Math.imul(a ^ (a >>> 15), a | 1);
+  a ^= a + Math.imul(a ^ (a >>> 7), a | 61);
+  return ((a ^ (a >>> 14)) >>> 0) / 4294967296;
+}
+
+export function createSeed() {
+  return Math.floor(Math.random() * 0xffffffff) >>> 0;
+}
+
+// A shuffle is reproducible when it is a pure function of the game's seed and
+// how many shuffles have already happened, so the draw counter lives in state
+// and advances with each call. Passing no state falls back to a fresh seed,
+// which keeps the standalone callers (tests, tooling) working.
+export function shuffle(array, state) {
   const copy = [...array];
+  const seed = state?.rngSeed;
+  const draws = seed === undefined ? undefined : (state.rngDraws ?? 0);
+  if (draws !== undefined) state.rngDraws = draws + 1;
+  let counter = seed === undefined ? createSeed() : Math.imul(seed ^ (draws + 1), 0x9e3779b1) >>> 0;
   for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    counter = (counter + 1) >>> 0;
+    const j = Math.floor(randomFromSeed(counter) * (i + 1));
     [copy[i], copy[j]] = [copy[j], copy[i]];
   }
   return copy;
@@ -896,7 +919,7 @@ export function drawCards(state, count, tag) {
   while (drawn.length < count && inspected < available) {
     if (deck.length === 0) {
       if (discard.length === 0) break;
-      deck = shuffle(discard);
+      deck = shuffle(discard, state);
       discard = [];
     }
     const [cardId, ...rest] = deck;
@@ -2891,7 +2914,7 @@ function drawFromDeck(state, count) {
   for (let i = 0; i < count; i++) {
     if (deck.length === 0) {
       if (discard.length === 0) break;
-      deck = shuffle(discard);
+      deck = shuffle(discard, state);
       discard = [];
     }
     const [id, ...rest] = deck;
@@ -3050,7 +3073,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
     let deck = [...nextState.deck];
     let discard = [...nextState.discardPile];
     if (deck.length === 0 && discard.length > 0) {
-      deck = shuffle(discard);
+      deck = shuffle(discard, nextState);
       discard = [];
     }
     const [revealed, ...rest] = deck;
@@ -3372,8 +3395,12 @@ export function getInitialState(options = {}) {
   });
 
   const allowed = enabledExpansions(options);
+  // Setup shuffles run before the state object exists, so they draw from a
+  // stand-in carrying the same two fields. Passing a seed makes the whole deal
+  // -- deck, corporations, preludes, events, colonies -- reproducible.
+  const dealer = { rngSeed: options.seed ?? createSeed(), rngDraws: 0 };
   const allCardIds = poolFor(ALL_CARDS, allowed).map(c => c.id);
-  let shuffledDeck = shuffle(allCardIds);
+  let shuffledDeck = shuffle(allCardIds, dealer);
 
   // Official solo rules seed the board with two neutral cities, each with an
   // adjacent neutral greenery. The reference implementation discards a card per
@@ -3381,10 +3408,10 @@ export function getInitialState(options = {}) {
   if (mode === "solo") {
     shuffledDeck = placeNeutralTiles(board, shuffledDeck);
   }
-  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed).map(corporation => corporation.id));
+  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed).map(corporation => corporation.id), dealer);
   // Preludes are their own expansion: no prelude, no prelude options dealt.
   const preludePool = options.prelude
-    ? shuffle(poolFor(PRELUDES, allowed).map(prelude => prelude.id))
+    ? shuffle(poolFor(PRELUDES, allowed).map(prelude => prelude.id), dealer)
     : [];
 
   const players = [];
@@ -3417,12 +3444,12 @@ export function getInitialState(options = {}) {
   const turmoil = options.turmoil
     ? createTurmoilState(
         turnOrder,
-        options.globalEventOrder ?? shuffle(eventPool.map(event => event.id)),
+        options.globalEventOrder ?? shuffle(eventPool.map(event => event.id), dealer),
         findGlobalEvent
       )
     : null;
   const colonies = options.colonies
-    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id)), {
+    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id), dealer), {
         soloDraft: mode === "solo"
       })
     : null;
@@ -3484,7 +3511,11 @@ export function getInitialState(options = {}) {
     standings: null,
     lastAction: null,
     winnerPlayerIds: null,
-    onboarded: false
+    onboarded: false,
+    // Carried so a reshuffle mid-game continues the same sequence, and so a
+    // saved game resumes drawing exactly where it left off.
+    rngSeed: dealer.rngSeed,
+    rngDraws: dealer.rngDraws
   });
 
   // The opening ten cards are drafted too when the option is on.
@@ -5415,7 +5446,7 @@ export function finishSolarPhase(state, logAcc) {
       for (let i = 0; i < drawCount; i++) {
         if (deck.length === 0) {
           if (discard.length > 0) {
-            deck = shuffle(discard);
+            deck = shuffle(discard, nextState);
             discard = [];
             localLog = addLog(localLog, "system", "山札が空になったため、捨て札をシャッフルして再構成しました。");
           } else {

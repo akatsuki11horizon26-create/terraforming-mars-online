@@ -1,5 +1,5 @@
 import { createPlayer, withLegacyPlayerAccessors } from "./player-state.js";
-import { isCellPlacementValid } from "./game-logic.js";
+import { createSeed, isCellPlacementValid } from "./game-logic.js";
 import { buildTileChoice } from "./pending-choice.js";
 
 export const SAVE_KEY = "mars_frontier_game";
@@ -176,6 +176,11 @@ function migrateV4ToV5(parsed) {
     scoreModifiers: parsed.scoreModifiers ?? [],
     boardMarkers: parsed.boardMarkers ?? [],
     generationAttackLedger: parsed.generationAttackLedger ?? [],
+    // A save from before the deck was seeded has no sequence to resume, so it
+    // gets one now. Without a seed every later reshuffle would fall back to a
+    // fresh one and the game would stop being reproducible after loading.
+    rngSeed: parsed.rngSeed ?? createSeed(),
+    rngDraws: parsed.rngDraws ?? 0,
     players: parsed.players.map(player => ({
       ...player,
       playedEvents: player.playedEvents ?? [],

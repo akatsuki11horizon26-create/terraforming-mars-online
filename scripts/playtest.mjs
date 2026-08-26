@@ -210,7 +210,10 @@ function playGame(seed) {
   let state = getInitialState({
     playerCount: PLAYERS,
     board: BOARD,
-      turmoil: USE_TURMOIL,
+    // Without this the deck shuffled itself and the seed only drove the move
+    // picker, so a failing run could not be replayed from the seed it printed.
+    seed,
+    turmoil: USE_TURMOIL,
     colonies: USE_COLONIES,
     prelude: USE_PRELUDE,
     venus: USE_VENUS,
@@ -479,5 +482,24 @@ for (const [kind, list] of [...grouped].sort((a, b) => b[1].length - a[1].length
   }
 }
 if (real.length === 0) console.log("問題なし。");
+
+// The seed now drives the deal as well as the move picker, so a failing game is
+// replayable on its own. Print the command rather than making the reader work
+// out which offset produced it.
+if (real.length > 0) {
+  const flags = [
+    `--players=${PLAYERS}`,
+    USE_PRELUDE ? "--prelude" : "",
+    USE_VENUS ? "--venus" : "",
+    USE_COLONIES ? "--colonies" : "",
+    USE_TURMOIL ? "--turmoil" : "",
+    USE_PROMO ? "--promo" : ""
+  ].filter(Boolean).join(" ");
+  const seeds = [...new Set(real.map(issue => String(issue.where ?? "").match(/seed:(\d+)/)?.[1]).filter(Boolean))];
+  console.log("\n=== 再現方法 ===");
+  for (const seed of seeds.slice(0, 5)) {
+    console.log(`  node scripts/playtest.mjs --games=1 ${flags} --seed=${seed}`);
+  }
+}
 
 process.exitCode = real.length > 0 ? 1 : 0;
