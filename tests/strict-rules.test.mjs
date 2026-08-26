@@ -13,6 +13,7 @@ import {
   ALL_CARDS,
   INITIAL_CELLS
 } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND } from "../app/game-command.js";
 
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
@@ -730,6 +731,75 @@ test("A solo attack hits the neutral opponent, not the player", async () => {
   for (const player of table.players) player.plants = 10;
   const asked = applyCardEffect(table, asteroid, table.logs);
   assert.equal(asked.state.pendingChoice?.kind, "resource-attack");
+});
+
+test("Local Heat Trapping follows card-cost reserves and effect choices", () => {
+  const makeState = ({ mc = 0, heat = 5, floaters = 0, animals = [] } = {}) => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = state.players[0];
+    player.mc = mc;
+    player.heat = heat;
+    player.hand = ["card-base-local-heat-trapping"];
+    player.playedProjects = animals;
+    player.cardResources = {
+      "card-colonies-stormcraft-incorporated": floaters,
+      ...Object.fromEntries(animals.map(id => [id, 0]))
+    };
+    return state;
+  };
+
+  const mcPaid = executeGameCommand(makeState({ mc: 1 }), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
+  });
+  assert.equal(mcPaid.ok, true);
+  assert.equal(mcPaid.state.players[0].mc, 0);
+  assert.equal(mcPaid.state.players[0].heat, 0);
+  assert.equal(mcPaid.state.players[0].plants, 4);
+  assert.equal(mcPaid.state.players[0].actionsRemaining, 1);
+
+  const heatPaid = executeGameCommand(makeState({ heat: 6 }), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
+  });
+  assert.equal(heatPaid.ok, true);
+  assert.equal(heatPaid.state.players[0].heat, 0);
+
+  const floaterPaid = executeGameCommand(makeState({ heat: 5, floaters: 1 }), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
+  });
+  assert.equal(floaterPaid.ok, true);
+  assert.equal(floaterPaid.state.players[0].cardResources["card-colonies-stormcraft-incorporated"], 0);
+  assert.equal(floaterPaid.state.players[0].plants, 4);
+
+  const effectFloaterPaid = executeGameCommand(makeState({ mc: 1, heat: 3, floaters: 1 }), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
+  });
+  assert.equal(effectFloaterPaid.ok, true);
+  assert.equal(effectFloaterPaid.state.players[0].heat, 0);
+  assert.equal(effectFloaterPaid.state.players[0].cardResources["card-colonies-stormcraft-incorporated"], 0);
+  assert.equal(effectFloaterPaid.state.players[0].plants, 4);
+
+  const unavailable = makeState({ heat: 1, floaters: 1 });
+  assert.equal(getCardPlayableStatus(ALL_CARDS.find(card => card.id === "card-base-local-heat-trapping"), unavailable).playable, false);
+  const effectUnavailable = makeState({ mc: 1, heat: 2, floaters: 1 });
+  assert.equal(getCardPlayableStatus(ALL_CARDS.find(card => card.id === "card-base-local-heat-trapping"), effectUnavailable).playable, false);
+
+  const selected = executeGameCommand(makeState({ mc: 1, animals: ["card-base-birds", "card-base-fish"] }), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
+  });
+  assert.equal(selected.state.pendingChoice.kind, "effect-branch");
+  const animalBranch = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "1"
+  });
+  assert.equal(animalBranch.state.pendingChoice.kind, "any-card-resource");
+  assert.equal(animalBranch.state.pendingChoice.options.some(option => option.targetCardId === "card-base-local-heat-trapping"), false);
+  const target = animalBranch.state.pendingChoice.options.find(option => option.targetCardId === "card-base-fish");
+  const resolved = executeGameCommand(animalBranch.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: target.id
+  });
+  assert.equal(resolved.state.players[0].cardResources["card-base-fish"], 2);
+  assert.equal(resolved.state.players[0].actionsRemaining, 1);
 });
 
 test("Soil Enrichment lets PLAY_CARD choose an own microbe card", async () => {

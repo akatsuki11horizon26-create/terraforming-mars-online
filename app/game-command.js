@@ -516,12 +516,22 @@ const HANDLERS = {
     const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
     // Helion decides how much heat to burn; without an explicit amount the heat
     // only covers what the megacredits cannot.
-    const heatAvailable = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+    const localHeatTrapping = card.id === "card-base-local-heat-trapping";
+    const stormcraftId = "card-colonies-stormcraft-incorporated";
+    const stormcraftFloaters = localHeatTrapping
+      ? actor.cardResources?.[stormcraftId] ?? 0
+      : 0;
+    const heatAvailable = localHeatTrapping
+      ? actor.heat ?? 0
+      : corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
     const heatPaid =
       command.payment?.heat === undefined
         ? Math.max(0, Math.min(heatAvailable, cost - (actor.mc ?? 0)))
         : Math.min(heatAvailable, Math.max(0, Math.trunc(command.payment.heat)), cost);
-    if ((actor.mc ?? 0) + heatPaid < cost) {
+    const floaterPaid = localHeatTrapping
+      ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heatPaid))
+      : 0;
+    if ((actor.mc ?? 0) + heatPaid + floaterPaid < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "支払いできません。");
     }
 
@@ -536,8 +546,11 @@ const HANDLERS = {
       player.id === command.playerId
         ? {
             ...player,
-            mc: player.mc - (cost - heatPaid),
+            mc: player.mc - (cost - heatPaid - floaterPaid),
             heat: (player.heat ?? 0) - heatPaid,
+            ...(localHeatTrapping && floaterPaid > 0
+              ? { cardResources: { ...player.cardResources, [stormcraftId]: (player.cardResources?.[stormcraftId] ?? 0) - floaterPaid } }
+              : {}),
             steel: (player.steel ?? 0) - steelUsed,
             titanium: (player.titanium ?? 0) - titaniumUsed,
             hand: player.hand.filter(id => id !== card.id),

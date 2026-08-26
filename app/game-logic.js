@@ -541,6 +541,8 @@ function addResource(state, resource, amount) {
 }
 
 const SOIL_ENRICHMENT_ID = "card-promo-soil-enrichment";
+const LOCAL_HEAT_TRAPPING_ID = "card-base-local-heat-trapping";
+const STORMCRAFT_INCORPORATED_ID = "card-colonies-stormcraft-incorporated";
 
 export function applyProduction(state, production) {
   const keys = {
@@ -1015,6 +1017,14 @@ function applyEffect(state, effect, logs, options = {}) {
         if (effect.cardId) nextState.cardResources[effect.cardId] = Math.max(0, (nextState.cardResources[effect.cardId] ?? 0) - Number(amount));
       } else if (resource === "mc") {
         nextState.mc = Math.max(0, nextState.mc - mcOwed);
+      } else if (resource === "heat" && effect.cardId === LOCAL_HEAT_TRAPPING_ID) {
+        const heatSpent = Math.min(nextState.heat, Number(amount));
+        const floaterSpent = Math.ceil((Number(amount) - heatSpent) / 2);
+        nextState.heat -= heatSpent;
+        nextState.cardResources[STORMCRAFT_INCORPORATED_ID] = Math.max(
+          0,
+          (nextState.cardResources[STORMCRAFT_INCORPORATED_ID] ?? 0) - floaterSpent
+        );
       } else if (resource in nextState) {
         nextState[resource] = Math.max(0, nextState[resource] - Number(amount));
       }
@@ -1509,7 +1519,21 @@ function queuePendingChoices(state, card, context) {
   const raw = card.effectSpec?.behavior;
   if (!raw) return null;
 
-  if (raw.or && !raw.or.autoSelect && Array.isArray(raw.or.behaviors) && !done.includes("effect-branch")) {
+  if (card.id === LOCAL_HEAT_TRAPPING_ID && !done.includes("effect-branch") && localHeatTrappingAnimalTargets(state).length === 0) {
+    const branch = raw.or?.behaviors?.[0];
+    if (branch) {
+      const applied = applyEffect(state, { ...normalizeBehavior(branch, {}, []), cardId: card.id }, state.logs);
+      Object.assign(state, applied.state);
+      markChoiceResolved(state, context.sourceId, "effect-branch");
+    }
+  }
+  if (
+    raw.or &&
+    !raw.or.autoSelect &&
+    Array.isArray(raw.or.behaviors) &&
+    !done.includes("effect-branch") &&
+    (card.id !== LOCAL_HEAT_TRAPPING_ID || localHeatTrappingAnimalTargets(state).length > 0)
+  ) {
     return buildBranchChoice(state, raw.or.behaviors, context);
   }
   // Where a tile goes is the player's decision, not the first legal space.
@@ -1689,6 +1713,13 @@ function markChoiceResolved(state, sourceId, stage) {
   const resolved = { ...(state.resolvedChoices ?? {}) };
   resolved[sourceId] = [...(resolved[sourceId] ?? []), stage];
   state.resolvedChoices = resolved;
+}
+
+function localHeatTrappingAnimalTargets(state) {
+  return collectResourceTargets(state, "Animal", ALL_CARDS, {
+    ownCardsOnly: true,
+    getResourceType: getCardResourceType
+  });
 }
 
 // A global event asks several players in turn, so the engine keeps a queue
@@ -2113,6 +2144,21 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         // settled values are copied back rather than rebinding.
         Object.assign(next, crossed.state);
         nextLogs = addLog(crossed.logs, "system", `選択: ${option.label}`);
+        if (card.id === LOCAL_HEAT_TRAPPING_ID && Number(option.id) === 1) {
+          const target = buildResourceChoice(next, { type: "Animal", count: 2 }, {
+            ...choice.continuation,
+            cards: ALL_CARDS,
+            getResourceType: getCardResourceType
+          });
+          if (target?.autoTarget) {
+            applyResourceToCard(next, target.autoTarget, target.count);
+            nextLogs = addLog(nextLogs, "system", `${target.autoTarget.label}に動物を${target.count}個置きました。`);
+          } else if (target) {
+            next.pendingChoice = target;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: target };
+          }
+        }
         if (fromAction && !(next.usedCardActions ?? []).includes(card.id)) {
           next.usedCardActions = [...(next.usedCardActions ?? []), card.id];
         }
@@ -4736,8 +4782,24 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   const costAfterDiscount = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
 
   const heatAsMoney = corporation?.effects?.heatAsMoney ? state.heat : 0;
-  if (state.mc + heatAsMoney < costAfterDiscount) {
+  const localHeatTrapping = card.id === LOCAL_HEAT_TRAPPING_ID;
+  const stormcraftFloaters = localHeatTrapping
+    ? state.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0
+    : 0;
+  const costResources = localHeatTrapping
+    ? state.mc + state.heat + stormcraftFloaters
+    : state.mc + heatAsMoney;
+  if (costResources < costAfterDiscount) {
     return { playable: false, reason: "資源（MC）が不足しています。" };
+  }
+  if (localHeatTrapping) {
+    let remainingCost = Math.max(0, costAfterDiscount - state.mc);
+    const heatAfterCost = Math.max(0, state.heat - remainingCost);
+    remainingCost = Math.max(0, remainingCost - state.heat);
+    const floatersAfterCost = Math.max(0, stormcraftFloaters - remainingCost);
+    if (heatAfterCost + floatersAfterCost * 2 < 5) {
+      return { playable: false, reason: "カードコスト支払い後の熱相当資源が不足しています。" };
+    }
   }
 
   // "You may not raise your TR unless you can pay." The levy is not a debt the
