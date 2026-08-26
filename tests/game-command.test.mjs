@@ -1189,3 +1189,37 @@ test("Helion chooses how much heat to spend as money", async () => {
     "a corporation without the ability cannot spend heat whatever it asks for"
   );
 });
+
+test("Io Sulphur Research draws according to the player's active Venus tags", () => {
+  const { state, seat } = table();
+  const research = "card-venus-io-sulphur-research";
+  const venusCards = [
+    "card-venus-aerial-mappers",
+    "card-venus-atalanta-planitia-lab",
+    "card-venus-ishtar-mining"
+  ];
+  const base = cloneGameState(state);
+  base.deck = ["card-base-acquired-company", "card-base-birds", "card-base-mining-expedition"];
+  base.discardPile = [];
+  base.players = base.players.map(player => player.id === seat
+    ? { ...player, corporationId: null, mc: 80, hand: [research], playedProjects: venusCards.slice(0, 2), selectedPreludeIds: [] }
+    : player);
+
+  const low = executeGameCommand(base, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: research });
+  assert.equal(low.ok, true);
+  assert.equal(getPlayer(low.state, seat).hand.length, 1);
+  assert.equal(getPlayer(low.state, seat).mc, 63);
+  assert.equal(getPlayer(low.state, seat).actionsRemaining, 1);
+
+  const highState = cloneGameState(state);
+  highState.deck = ["card-base-acquired-company", "card-base-birds", "card-base-mining-expedition"];
+  highState.discardPile = [];
+  highState.players = highState.players.map(player => player.id === seat
+    ? { ...player, corporationId: null, mc: 80, hand: [research], playedProjects: venusCards, selectedPreludeIds: [] }
+    : player);
+  const high = executeGameCommand(highState, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: research });
+  assert.equal(high.ok, true);
+  assert.equal(getPlayer(high.state, seat).hand.length, 3);
+  assert.equal(getPlayer(high.state, seat).mc, 63);
+  assert.equal(getPlayer(high.state, seat).actionsRemaining, 1);
+});

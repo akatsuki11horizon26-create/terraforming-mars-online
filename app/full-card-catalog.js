@@ -9975,7 +9975,16 @@ export const FULL_PROJECTS = [
     "reqText": "なし",
     "effectText": "Draw 1 card, or draw 3 if you have at least 3 Venus tags.",
     "victoryPoints": 2,
-    "effectSpec": {}
+    "effectSpec": {
+      "behavior": {
+        "drawCardByTagCount": {
+          "tag": "venus",
+          "atLeast": 3,
+          "lowCount": 1,
+          "highCount": 3
+        }
+      }
+    }
   },
   {
     "id": "card-venus-ishtar-mining",

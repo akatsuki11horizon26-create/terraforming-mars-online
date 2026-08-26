@@ -699,6 +699,9 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
       effect.drawTag = tag[0]?.toUpperCase() + tag.slice(1);
     }
   }
+  if (raw.drawCardByTagCount) {
+    effect.drawByTagCount = raw.drawCardByTagCount;
+  }
   if (typeof raw.removeAnyPlants === "number") effect.removePlants = (effect.removePlants ?? 0) + raw.removeAnyPlants;
   // `on` says where the card overrides the ordinary placement rule for its tile
   // type -- Artificial Lake puts an ocean on land, Mangrove puts a greenery on
@@ -1082,8 +1085,13 @@ function applyEffect(state, effect, logs, options = {}) {
     const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule);
     nextLogs = addLog(nextLogs, "system", `${effect.tile}タイルを${placed}枚配置しました。`);
   }
-  if (effect.draw) {
-    const drawn = drawCards(nextState, effect.draw, effect.drawTag);
+  const drawCount = effect.drawByTagCount
+    ? (countTagsFor(nextState, effect.drawByTagCount.tag, getPlayer(nextState, nextState.currentPlayerId)) >= effect.drawByTagCount.atLeast
+      ? effect.drawByTagCount.highCount
+      : effect.drawByTagCount.lowCount)
+    : effect.draw;
+  if (drawCount) {
+    const drawn = drawCards(nextState, drawCount, effect.drawTag);
     if (effect.drawKeep !== undefined && drawn.length > effect.drawKeep) {
       const kept = new Set(drawn.slice(0, effect.drawKeep));
       const discard = drawn.filter(cardId => !kept.has(cardId));
