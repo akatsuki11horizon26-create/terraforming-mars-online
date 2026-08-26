@@ -1892,9 +1892,13 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       const source = ALL_CARDS.find(item => item.id === sourceId);
       const owner = getPlayer(next, choice.ownerPlayerId);
       const production = source ? getCardEffect(source).production ?? {} : {};
+      // Affordability is re-checked here rather than trusted from the offered
+      // options: the engine is authoritative for online play, so a submitted
+      // card id has to stand on its own.
       const valid = source?.tags.includes("Building") &&
         (owner?.playedProjects ?? []).includes(sourceId) &&
-        Object.keys(production).length > 0;
+        Object.keys(production).length > 0 &&
+        canAffordProductionDecrease(owner, production);
       if (!valid) {
         next.pendingChoice = choice;
         next.logs = addLog(nextLogs, "system", "その建物カードは生産ボックスをコピーできません。");

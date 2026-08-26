@@ -1495,3 +1495,51 @@ test("Robotic Workforce cannot copy a production box the player cannot pay", asy
   assert.deepEqual(offered.options.map(option => option.cardId), [city.id],
     "an affordable box is still offered");
 });
+
+// The offered options are a convenience, not the rule. Online play resolves
+// choices through the engine, so a submitted card id has to be validated on its
+// own: forging one the engine never offered copied a production box the player
+// could not pay for and drove the track below zero.
+test("Robotic Workforce rejects an unaffordable target it never offered", async () => {
+  const { applyCardEffect, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  const workforce = OFFICIAL_PROJECTS.find(item => item.id === "card-base-robotic-workforce");
+  const city = OFFICIAL_PROJECTS.find(item => item.id === "card-base-underground-city");
+
+  const seat = energyProd => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 999;
+    player.energyProd = energyProd;
+    player.playedProjects = [city.id];
+    return state;
+  };
+
+  const forge = state => ({
+    ...state,
+    pendingChoice: {
+      id: "building-production:forged:player",
+      kind: "building-production",
+      ownerPlayerId: "player",
+      options: [{ id: city.id, cardId: city.id, label: city.name }],
+      continuation: {
+        sourceKind: "card",
+        sourceId: workforce.id,
+        stage: "building-production",
+        consumedAction: true,
+        paid: true
+      }
+    }
+  });
+
+  const poor = resolvePendingChoice(forge(applyCardEffect(seat(1), workforce, []).state), city.id, []);
+  assert.equal(poor.status, "pending", "an unaffordable box is refused");
+  assert.equal(getPlayer(poor.state, "player").energyProd, 1, "and production is untouched");
+
+  const rich = resolvePendingChoice(forge(applyCardEffect(seat(2), workforce, []).state), city.id, []);
+  assert.equal(rich.status, "resolved");
+  assert.equal(getPlayer(rich.state, "player").energyProd, 0, "exactly enough pays exactly");
+});

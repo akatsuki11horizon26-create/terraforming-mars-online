@@ -178,7 +178,8 @@ function migrateV4ToV5(parsed) {
     generationAttackLedger: parsed.generationAttackLedger ?? [],
     players: parsed.players.map(player => ({
       ...player,
-      playedEvents: player.playedEvents ?? []
+      playedEvents: player.playedEvents ?? [],
+      copiedProductions: player.copiedProductions ?? []
     }))
   };
 }
