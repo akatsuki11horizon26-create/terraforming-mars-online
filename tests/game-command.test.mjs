@@ -43,8 +43,12 @@ function table(options = {}) {
 
 function preludeSetup(hand, mc = 80, secondPrelude = "prelude-power-generation") {
   let state = getInitialState({ playerCount: 2, prelude: true });
+  // Corporation options are shuffled and four of them grant energy production,
+  // so taking whichever landed first made the energyProd assertions below read
+  // 3 instead of 2 on roughly a third of runs. CrediCor changes no production.
+  const neutral = CORPORATIONS.find(item => item.id === "corp-credicor");
   for (const player of state.players) {
-    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+    state = applyCorporation(state, neutral, player.id);
   }
   const seat = state.currentPlayerId;
   state = cloneGameState(state);

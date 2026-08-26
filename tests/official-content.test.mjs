@@ -16,6 +16,7 @@ import {
   getInitialState,
   resolvePendingChoice,
 } from "../app/game-logic.js";
+import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
 import {
   FULL_CATALOG_COUNTS,
   FULL_GLOBAL_EVENTS,
@@ -39,6 +40,42 @@ test("official project, corporation, and Prelude catalogs are stable", () => {
   const catalog = [...ALL_CARDS, ...FULL_STANDARD_PROJECTS, ...FULL_STANDARD_ACTIONS, ...CORPORATIONS, ...PRELUDES, ...FULL_GLOBAL_EVENTS];
   assert.ok(catalog.every(card => card.effectText && card.expansion && card.source));
   assert.ok(catalog.every(card => !card.effectText.includes("アイコン表記")));
+});
+
+test("Robotic Workforce requires a playable building production box", () => {
+  const state = getInitialState();
+  const card = ALL_CARDS.find(item => item.id === "card-base-robotic-workforce");
+
+  assert.equal(getCardPlayableStatus(card, state).playable, false);
+  state.playedProjects = ["p-mars-university"];
+  assert.equal(getCardPlayableStatus(card, state).playable, false);
+  state.playedProjects = ["p-mine"];
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+});
+
+test("Robotic Workforce copies the selected building production persistently", () => {
+  const state = getInitialState();
+  const card = ALL_CARDS.find(item => item.id === "card-base-robotic-workforce");
+  state.playedProjects = [card.id, "p-power-plant", "p-mine"];
+  const started = applyCardEffect(state, card, state.logs);
+
+  assert.equal(started.status, "pending");
+  assert.deepEqual(started.pendingChoice.options.map(option => option.cardId), ["p-power-plant", "p-mine"]);
+
+  const pendingReload = loadSavedState(serializeSavedState(started.state));
+  assert.equal(pendingReload.pendingChoice.kind, "building-production");
+  assert.equal(Object.values(pendingReload.pendingChoice).some(value => typeof value === "function"), false);
+
+  const resolved = resolvePendingChoice(pendingReload, "p-mine", started.logs, "player");
+  assert.equal(resolved.status, "resolved");
+  assert.equal(resolved.state.players[0].steelProd, 1);
+  assert.deepEqual(resolved.state.players[0].copiedProductions, [
+    { sourceCardId: "p-mine", production: { steel: 1 } }
+  ]);
+
+  const reloaded = loadSavedState(serializeSavedState(resolved.state));
+  assert.deepEqual(reloaded.players[0].copiedProductions, resolved.state.players[0].copiedProductions);
+  assert.equal(reloaded.players[0].steelProd, 1);
 });
 
 test("corporation setup applies official starting values", () => {

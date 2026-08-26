@@ -3112,6 +3112,33 @@ export function applyCardAction(state, card, logs, branchIndex) {
     }
   }
 
+  // The same detour as the removal above, in the granting direction: Directed
+  // Impactors buys an asteroid for "ANY CARD", and with the choice never asked
+  // the titanium was spent and no resource ever arrived.
+  const additionSpec = action.addResourcesToAnyCard ?? card.effectSpec?.action?.addResourcesToAnyCard;
+  if (additionSpec) {
+    const specs = Array.isArray(additionSpec) ? additionSpec : [additionSpec];
+    for (const spec of specs) {
+      const addition = buildResourceChoice(nextState, spec, {
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType,
+        sourceKind: "card-action",
+        sourceId: card.id,
+        consumedAction: true,
+        paid: true
+      });
+      if (!addition) continue;
+      if (addition.autoTarget) {
+        applyResourceToCard(nextState, addition.autoTarget, addition.count);
+        nextLogs = addLog(nextLogs, "system", `${addition.autoTarget.label}に資源を${addition.count}個置きました。`);
+        continue;
+      }
+      nextState.pendingChoice = addition;
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
+    }
+  }
+
   const result = applyEffect(nextState, effect, nextLogs);
   nextLogs = addLog(result.logs, "system", `アクション効果: ${card.effectText}`);
   return { state: result.state, logs: nextLogs, playable: true };

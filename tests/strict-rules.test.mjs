@@ -1372,3 +1372,47 @@ test("Official alternate-payment card actions accept the named resource", async 
     assert.equal(getPlayer(result.state, "player")[resource], 0, `${cardId} spends ${resource}`);
   }
 });
+
+// "Spend 6 M€ to add 1 asteroid to ANY CARD." Card actions run their own chain
+// instead of going through queuePendingChoices, and only the removing
+// direction had been given that detour, so the action charged the titanium and
+// the asteroid never arrived anywhere.
+test("A card action that adds a resource to any card asks which card", async () => {
+  const { applyCardAction, resolvePendingChoice, getPlayer, getCardResourceType } =
+    await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  const card = OFFICIAL_PROJECTS.find(item => item.id === "card-promo-directed-impactors");
+  const others = OFFICIAL_PROJECTS
+    .filter(item => item.id !== card.id && getCardResourceType(item.id) === "asteroid")
+    .slice(0, 2);
+  assert.ok(others.length === 2, "the board needs rival asteroid cards for a choice to exist");
+
+  const seat = extra => {
+    const state = getInitialState({ playerCount: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.titanium = 2;
+    player.playedProjects = [card.id, ...extra.map(item => item.id)];
+    player.cardResources = Object.fromEntries([card, ...extra].map(item => [item.id, 0]));
+    return state;
+  };
+
+  // Branch 1 is the paying half; titanium covers the six megacredits.
+  const alone = applyCardAction(seat([]), card, [], 1);
+  assert.ok(!alone.state.pendingChoice, "a sole target is not a decision");
+  assert.equal(getPlayer(alone.state, "player").cardResources[card.id], 1,
+    "the asteroid lands on the only card that can hold it");
+
+  const contested = applyCardAction(seat(others), card, [], 1);
+  const choice = contested.state.pendingChoice;
+  assert.equal(choice?.kind, "any-card-resource");
+  assert.equal(choice.options.length, 3, "every asteroid card in play is offered");
+
+  const target = choice.options[2];
+  const resolved = resolvePendingChoice(contested.state, target.id, contested.logs ?? []);
+  const after = getPlayer(resolved.state ?? resolved, "player").cardResources;
+  assert.equal(after[target.targetCardId], 1, "the chosen card receives it");
+  assert.equal(after[card.id], 0, "and the acting card does not");
+});
