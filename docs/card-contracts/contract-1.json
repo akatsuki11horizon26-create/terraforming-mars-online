@@ -1,0 +1,332 @@
+[
+  {
+    "cardId": "card-base-asteroid-mining-consortium",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayは常にtrueを返す。ただし複数プレイヤーで、自分だけがチタン生産を持つ場合はselfTarget警告を出す",
+      "通常のカード要件として自分のチタン生産量1以上"
+    ],
+    "reads": [
+      "全プレイヤー一覧",
+      "各プレイヤーのチタン生産量",
+      "自分のプレイヤー状態"
+    ],
+    "writes": [
+      "選択したプレイヤーのチタン生産量を1減らす（下限0）",
+      "自分のチタン生産量を1増やす"
+    ],
+    "choices": [
+      "チタン生産量を1減らす対象プレイヤーを選ぶ",
+      "自分を対象にすることも実装上は可能"
+    ],
+    "payments": [
+      "メソッド本体内の追加支払いなし"
+    ],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "titanium",
+          "count": 1,
+          "stealing": true
+        }
+      }
+    },
+    "requiresEngineCapability": [
+      "productionDecreaseの1段階を対象から減らすだけでなく、同じ1段階を発動プレイヤーの同種生産へ移す共通処理"
+    ],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "official-content.jsにdecreaseAnyProductionは存在し、normalizeBehaviorとapplyEffectが対象選択・減少を実装しているが、自分への生産移転は未実装",
+    "testCases": [
+      {
+        "given": "自分のチタン生産1、相手のチタン生産2",
+        "when": "カードをプレイして相手を対象にする",
+        "then": "相手のチタン生産1、自分のチタン生産2になる"
+      },
+      {
+        "given": "複数プレイヤーだが自分だけチタン生産を持つ",
+        "when": "カードをプレイ可能判定する",
+        "then": "プレイ可能だがselfTarget警告が記録される"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-asteroid-mining-consortium.ts",
+        "line": 36,
+        "method": "bespokeCanPlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-asteroid-mining-consortium.ts",
+        "line": 46,
+        "method": "bespokePlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 753,
+        "method": "normalizeBehavior"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 1045,
+        "method": "applyEffect"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\pending-choice.js",
+        "line": 447,
+        "method": "buildProductionAttackChoice"
+      }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-energy-tapping",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayを持たず、メソッド内の追加条件確認はない"
+    ],
+    "reads": [
+      "全プレイヤーの電力生産量",
+      "自分のプレイヤー状態"
+    ],
+    "writes": [
+      "任意の対象プレイヤーの電力生産量を1減らす（下限0）",
+      "自分の電力生産量を1増やす"
+    ],
+    "choices": [
+      "複数プレイヤー時は電力生産量を減らす対象プレイヤーを選ぶ",
+      "全プレイヤーの電力生産量が0なら、先に自分へ+1してから自分を-1する内部フォールバック"
+    ],
+    "payments": [
+      "メソッド本体内の追加支払いなし"
+    ],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "energy",
+          "count": 1,
+          "stealing": true
+        }
+      }
+    },
+    "requiresEngineCapability": [
+      "productionDecreaseの減少分を自分の電力生産へ移す処理",
+      "全プレイヤーの対象生産が0の場合に、増加後に減少する順序を保持する処理"
+    ],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "official-content.jsにdecreaseAnyProductionは存在し、normalizeBehaviorとapplyEffectが対象選択・減少を実装しているが、GainProduction相当の自分への移転は未実装",
+    "testCases": [
+      {
+        "given": "自分の電力生産1、相手の電力生産1",
+        "when": "カードをプレイして相手を対象にする",
+        "then": "相手の電力生産0、自分の電力生産2になる"
+      },
+      {
+        "given": "全プレイヤーの電力生産0",
+        "when": "カードをプレイする",
+        "then": "自分への+1後に自分への-1が実行され、自分の最終電力生産は0になる"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-energy-tapping.ts",
+        "line": 35,
+        "method": "bespokePlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 753,
+        "method": "normalizeBehavior"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 1045,
+        "method": "applyEffect"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\pending-choice.js",
+        "line": 447,
+        "method": "buildProductionAttackChoice"
+      }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-great-escarpment-consortium",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayを持たず、メソッド内の追加条件確認はない",
+      "通常のカード要件として自分の建材生産量1以上"
+    ],
+    "reads": [
+      "全プレイヤー一覧",
+      "各プレイヤーの建材生産量",
+      "自分のプレイヤー状態"
+    ],
+    "writes": [
+      "選択したプレイヤーの建材生産量を1減らす（下限0）",
+      "自分の建材生産量を1増やす"
+    ],
+    "choices": [
+      "建材生産量を1減らす対象プレイヤーを選ぶ",
+      "自分を対象にすることも実装上は可能"
+    ],
+    "payments": [
+      "メソッド本体内の追加支払いなし"
+    ],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "steel",
+          "count": 1,
+          "stealing": true
+        }
+      }
+    },
+    "requiresEngineCapability": [
+      "productionDecreaseの1段階を対象から減らすだけでなく、同じ1段階を発動プレイヤーの建材生産へ移す共通処理"
+    ],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "official-content.jsにdecreaseAnyProductionは存在し、normalizeBehaviorとapplyEffectが対象選択・減少を実装しているが、自分への生産移転は未実装",
+    "testCases": [
+      {
+        "given": "自分の建材生産1、相手の建材生産2",
+        "when": "カードをプレイして相手を対象にする",
+        "then": "相手の建材生産1、自分の建材生産2になる"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-great-escarpment-consortium.ts",
+        "line": 33,
+        "method": "bespokePlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 753,
+        "method": "normalizeBehavior"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js",
+        "line": 1045,
+        "method": "applyEffect"
+      },
+      {
+        "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\pending-choice.js",
+        "line": 447,
+        "method": "buildProductionAttackChoice"
+      }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-insulation",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayは自分の熱生産量が1以上であることを確認する"
+    ],
+    "reads": [
+      "自分の熱生産量"
+    ],
+    "writes": [
+      "自分の熱生産量を選択量だけ減らす",
+      "自分のMC生産量を同じ選択量だけ増やす"
+    ],
+    "choices": [
+      "熱生産量を1以上、自分の現在熱生産量以下の任意量で選ぶ",
+      "OR分岐なし"
+    ],
+    "payments": [
+      "メソッド本体内の追加支払いなし"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "SelectAmountに相当する、1から現在値までの任意量選択",
+      "選択した量を同時に2種類の自分の生産トラックへ反映するカード固有または共通の継続処理"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "自分の熱生産3、MC生産1",
+        "when": "断熱材で2を選ぶ",
+        "then": "熱生産1、MC生産3になる"
+      },
+      {
+        "given": "自分の熱生産0",
+        "when": "プレイ可能判定する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-insulation.ts",
+        "line": 29,
+        "method": "bespokeCanPlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-insulation.ts",
+        "line": 33,
+        "method": "bespokePlay"
+      }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-land-claim",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayは盤面上の非予約陸地スペースが1つ以上あることを確認する"
+    ],
+    "reads": [
+      "盤面の非予約陸地スペース一覧",
+      "自分のプレイヤー状態"
+    ],
+    "writes": [
+      "選択したスペースのplayerを自分に設定する",
+      "そのスペースを他プレイヤーがタイル配置できない予約状態として扱う"
+    ],
+    "choices": [
+      "非予約陸地スペースから1つ選ぶ",
+      "OR分岐なし"
+    ],
+    "payments": [
+      "メソッド本体内の追加支払いなし"
+    ],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "SelectSpaceに相当する非予約陸地スペース選択",
+      "盤面スペースに所有者または予約者を記録し、以後の他プレイヤーのタイル配置を拒否する土地権利状態"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "非予約陸地スペースが2つある",
+        "when": "1つを選んでプレイする",
+        "then": "選択スペースのplayerが自分になり、そのスペースは他プレイヤーの配置対象にならない"
+      },
+      {
+        "given": "非予約陸地スペースが0つ",
+        "when": "プレイ可能判定する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-land-claim.ts",
+        "line": 27,
+        "method": "bespokeCanPlay"
+      },
+      {
+        "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-base-land-claim.ts",
+        "line": 30,
+        "method": "bespokePlay"
+      }
+    ],
+    "confidence": "high"
+  }
+]

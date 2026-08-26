@@ -1,0 +1,157 @@
+[
+  {
+    "cardId": "card-base-local-heat-trapping",
+    "activation": "onPlay",
+    "guards": [
+      "カードコスト計算後、MCでコストを払えない場合は熱1、なお不足ならStormcraft Incorporated上のフローター1をコストに充てられること",
+      "コスト処理後の熱とフローターを熱換算した量が5以上であること"
+    ],
+    "reads": [
+      "自分のカードコスト",
+      "自分の熱",
+      "Stormcraft Incorporated上のフローター",
+      "自分の動物資源を持てるカード一覧"
+    ],
+    "writes": [
+      "熱を5消費",
+      "植物を4獲得、または選んだカードに動物を2個追加"
+    ],
+    "choices": [
+      "動物を追加する対象カードを選ぶ",
+      "植物獲得と動物追加のOR分岐を選ぶ"
+    ],
+    "payments": [
+      "熱5",
+      "通常カードコスト1（MC、またはcanPlay内の熱／Stormcraftフローター代替）"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "or": {
+          "autoSelect": false,
+          "behaviors": [
+            { "spend": { "heat": 5 }, "stock": { "plants": 4 } },
+            { "spend": { "heat": 5 }, "addResourcesToAnyCard": { "type": "Animal", "count": 2 } }
+          ]
+        }
+      }
+    },
+    "requiresEngineCapability": [
+      "reserveUnitsとStormcraftフローターを含むカードコスト代替をeffectSpecで再現する機構",
+      "addResourcesToAnyCardの対象を『別のカード』に限定する機構"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      { "given": "動物を置ける別カードがなく、熱が5以上ある", "when": "プレイする", "then": "選択を出さず熱5を払い植物4を得る" },
+      { "given": "動物を置ける別カードがあり、熱が5以上ある", "when": "プレイして動物追加を選ぶ", "then": "熱5を払い選択カードの動物が2増える" },
+      { "given": "コスト代替後の利用可能熱が5未満", "when": "プレイ可能性を判定する", "then": "falseになる" }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-local-heat-trapping.ts", "line": 43, "method": "canPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-local-heat-trapping.ts", "line": 69, "method": "play" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 741, "method": "normalizeBehavior" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-power-supply-consortium",
+    "activation": "onPlay",
+    "guards": ["Powerタグを2枚以上持つこと（bespokeCanPlayは定義されず、カード要件として適用）"],
+    "reads": ["全プレイヤーのエネルギー生産量", "自分のPowerタグ数"],
+    "writes": ["任意のプレイヤーのエネルギー生産量を1減少", "自分のエネルギー生産量を1増加"],
+    "choices": ["複数の対象プレイヤーがいれば、エネルギー生産量を下げるプレイヤーを選ぶ"],
+    "payments": [],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": { "behavior": { "decreaseAnyProduction": { "type": "energy", "count": 1, "stealing": true } } },
+    "requiresEngineCapability": [],
+    "recommendedImplementation": "existing-effectSpec",
+    "existingImplementation": "official-content.js:45-46 のeffectSpec、およびgame-logic.js:753-761のnormalizeBehaviorと:1452-1463の対象選択で実装済み。選択解決時のstealingによる自分の生産量増加も既存フローで処理される。",
+    "testCases": [
+      { "given": "Powerタグ2枚以上、他プレイヤーのエネルギー生産量が1以上", "when": "プレイする", "then": "対象の生産量-1、自分の生産量+1" },
+      { "given": "Powerタグが1枚以下", "when": "プレイ可能性を判定する", "then": "プレイ不可" },
+      { "given": "誰のエネルギー生産量も正でない", "when": "プレイする", "then": "自分を一時的に+1してから対象選択で-1し、自分の最終増減を正しく解決する" }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-power-supply-consortium.ts", "line": 21, "method": "constructor" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-power-supply-consortium.ts", "line": 35, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/official-content.js", "line": 46, "method": "CURATED_PROJECT_OVERRIDES" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-base-robotic-workforce",
+    "activation": "onPlay",
+    "guards": ["自分の建物カードのうち、RoboticWorkforceBase.getPlayableBuildingCardsが返すカードが1枚以上あること"],
+    "reads": ["自分のタブロー", "自分の建物カードの生産ボックスがコピー可能かどうか"],
+    "writes": ["選んだ自分の建物カードの生産ボックスを、このカードの恒久効果として複製"],
+    "choices": ["コピーする自分の建物カードを1枚選ぶ"],
+    "payments": [],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["任意の建物カードを選び、その生産ボックスを恒久的にコピーする機構", "コピー対象カードの種類ごとの生産効果を保持する恒久状態"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      { "given": "コピー可能な自分の建物カードが1枚ある", "when": "プレイする", "then": "そのカードを選ぶ選択が発生する" },
+      { "given": "コピー可能な自分の建物カードがない", "when": "プレイ可能性を判定する", "then": "falseになる" },
+      { "given": "建物カードの生産ボックスを選ぶ", "when": "選択を確定する", "then": "その生産内容だけが恒久的に追加される" }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-robotic-workforce.ts", "line": 29, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-base-robotic-workforce.ts", "line": 33, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 656, "method": "normalizeBehavior" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-colonies-air-raid",
+    "activation": "onPlay",
+    "guards": ["自分のフローターが1個以上あること", "ソロでなければ、5MC以上を持つ対象プレイヤーが存在すること"],
+    "reads": ["自分のフローター資源", "他プレイヤーのMC", "ソロモードかどうか"],
+    "writes": ["自分のフローターを1個減少", "対象プレイヤーのMCを最大5減少", "奪ったMCを自分に加算"],
+    "choices": ["MC5を奪う対象プレイヤーを選ぶ（ソロでは中立対象）"],
+    "payments": ["フローター1個"],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": { "behavior": { "stealFromPlayer": { "steal": true, "resources": [{ "resource": "mc", "count": 5 }] } } },
+    "requiresEngineCapability": ["必須の自分のカード資源支払い（フローター1）をstealFromPlayerと同じカードSpecに結び付ける機構"],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "official-content.js:188-191のSTEAL_SPECSと:218-233のwithStealSpecsでMC窃取と対象選択は実装済み。参照実装のフローター消費はofficial-content.js側のSpecには未接続。",
+    "testCases": [
+      { "given": "フローターがなくてもMC5を持つ相手がいる", "when": "プレイ可能性を判定する", "then": "プレイ不可" },
+      { "given": "フローターが1個あり、相手がMC3しか持たない", "when": "相手を選ぶ", "then": "フローター1を失いMC3だけを奪う" },
+      { "given": "ソロでフローターが1個ある", "when": "プレイする", "then": "中立相手からMC5を得てフローター1を失う" }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-air-raid.ts", "line": 31, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-air-raid.ts", "line": 41, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/official-content.js", "line": 188, "method": "STEAL_SPECS" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-colonies-market-manipulation",
+    "activation": "onPlay",
+    "guards": ["アクティブでトラック位置が6未満の植民地タイルが1つ以上あること", "アクティブでトラック位置が入植者数を超える植民地タイルが1つ以上あること", "増加対象と減少対象を同一タイルにしかできない状態ではないこと"],
+    "reads": ["全植民地タイルのtrackPosition", "各植民地の入植者数", "各植民地のisActive"],
+    "writes": ["選んだ植民地タイルのトラックを1上げる", "別に選んだ植民地タイルのトラックを1下げる"],
+    "choices": ["増加させる植民地タイルを選ぶ", "その後、別の減少させる植民地タイルを選ぶ"],
+    "payments": [],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["植民地タイルのトラック増減をeffectSpecで表し、2段階の依存選択を解決する機構", "増加後の選択肢から同一タイルを除外する動的なcolonies choice"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      { "given": "増加可能タイルAと減少可能タイルBがある", "when": "プレイしてA、次にBを選ぶ", "then": "Aが+1、Bが-1" },
+      { "given": "増加可能集合も減少可能集合も空でないが、共通する1タイルしかない", "when": "プレイ可能性を判定する", "then": "falseになる" },
+      { "given": "減少可能タイルが1つだけで、それが増加可能でもある", "when": "プレイする", "then": "そのタイルを増加候補から除外する" }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-market-manipulation.ts", "line": 32, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-market-manipulation.ts", "line": 53, "method": "getIncreasableColonies" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-market-manipulation.ts", "line": 66, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  }
+]

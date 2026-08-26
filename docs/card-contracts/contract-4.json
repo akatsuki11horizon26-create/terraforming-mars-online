@@ -1,0 +1,250 @@
+[
+  {
+    "cardId": "card-promo-astra-mechanica",
+    "activation": "onPlay",
+    "guards": [
+      "自分のプレイ済みカードに、イベントであり、禁止された3カード名でなく、特殊タイルを配置していないカードが1枚以上ある"
+    ],
+    "reads": [
+      "自分のplayedCards.projects()",
+      "各カードのtype、name、tilesBuilt"
+    ],
+    "writes": [
+      "選択したイベントカードを自分のプレイ済みカードから最大2枚取り除く",
+      "選択したカードを自分の手札へ移す",
+      "移したカードのonDiscardを呼ぶ"
+    ],
+    "choices": [
+      "対象イベントカードを0枚から最大2枚選ぶ（任意選択）"
+    ],
+    "payments": [],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "自分のプレイ済みイベントカードを条件付きで複数枚選び、タブローから手札へ戻す処理",
+      "0枚を許す上限付きカード選択と、カードごとのonDiscard実行"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "条件を満たすイベントカードが3枚あり、うち1枚が特殊タイルを配置済み",
+        "when": "Astra Mechanicaをプレイして2枚選ぶ",
+        "then": "選択した2枚だけが手札へ戻り、特殊タイルのカードは選択肢に出ない"
+      },
+      {
+        "given": "条件を満たすイベントカードがない",
+        "when": "プレイ可能性を確認する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-astra-mechanica.ts", "line": 35, "method": "getCards" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-astra-mechanica.ts", "line": 54, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-astra-mechanica.ts", "line": 61, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-promo-double-down",
+    "activation": "onPlay",
+    "guards": [
+      "自分のプレイ済みpreludeのうち、このカード自身でなく、現在プレイ可能なものが1枚以上ある",
+      "直前にNew Partnerをプレイした場合は、手札のNew Partnerも候補に追加する"
+    ],
+    "reads": [
+      "自分のplayedCards.preludes()",
+      "候補preludeごとのcanPlay(player)",
+      "lastCardPlayed",
+      "preludeCardsInHand"
+    ],
+    "writes": [
+      "game.inDoubleDownをtrueにする",
+      "game.doubleDownPreludeをundefinedにする",
+      "選択したpreludeのdirect effectを実行する"
+    ],
+    "choices": [
+      "コピーして実行するpreludeを1枚選ぶ"
+    ],
+    "payments": [],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "自分のプレイ済みpreludeから実行可能なカードを動的に列挙する処理",
+      "選択した任意preludeのdirect effectをDouble Down経由で再実行する処理",
+      "New Partnerの直前プレイ時に手札カードを候補へ追加する特殊ルール"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "プレイ済みpreludeが2枚あり、そのうち1枚だけcanPlayがtrue",
+        "when": "Double Downをプレイする",
+        "then": "その1枚だけが候補になり、そのdirect effectが実行される"
+      },
+      {
+        "given": "候補preludeがない",
+        "when": "プレイ可能性を確認する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-double-down.ts", "line": 24, "method": "cloneablePreludes" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-double-down.ts", "line": 38, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-double-down.ts", "line": 42, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-promo-merger",
+    "activation": "onPlay",
+    "guards": [
+      "bespokeCanPlayの上書きはなく、bespokePlay内で配られた法人カードのうち、Mergerの42 MCからその法人の利用可能MCを引いた額を支払えるものが1枚以上必要"
+    ],
+    "reads": [
+      "法人カードデッキから4枚",
+      "各法人のstartingMegaCredits、behavior.stock、behavior.production",
+      "自分のManutech、Luna Trade Federation、チタン量、チタン価値",
+      "自分が42 MCの不足分を支払えるか"
+    ],
+    "writes": [
+      "法人デッキから4枚引く",
+      "選択した法人を自分の法人としてプレイする",
+      "未選択の3法人を法人捨て札へ送る",
+      "42 MCの支払いをSelectPaymentDeferredへ登録する",
+      "法人デッキ不足時は引けたカードを捨て札にする"
+    ],
+    "choices": [
+      "4枚の法人カードから、支払い可能な1枚を選ぶ",
+      "42 MCの支払い方法を選ぶ"
+    ],
+    "payments": [
+      "42 MC。SelectPaymentDeferredにより支払い方法を選ぶ"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "法人デッキから4枚を公開し、各候補の支払い可能性を動的に評価する処理",
+      "選択した法人をプレイし、残りを捨てる法人カード選択",
+      "法人プレイ後に42 MCの遅延支払いを行う処理"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "4法人のうち2法人だけが、法人由来の利用可能MCを考慮して42 MCを支払える",
+        "when": "Mergerをプレイする",
+        "then": "その2法人だけが選択可能になり、選択後に残り3枚が捨てられ、42 MCの支払いが発生する"
+      },
+      {
+        "given": "4法人すべてについて不足分を支払えない",
+        "when": "Mergerを解決する",
+        "then": "fizzleし、4枚とも法人捨て札へ送られる"
+      }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-merger.ts", "line": 32, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-merger.ts", "line": 34, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-merger.ts", "line": 82, "method": "spendableMegacredits" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-promo-project-inspection",
+    "activation": "onPlay",
+    "guards": [
+      "自分のタブローに、このカード自身でなく、アクションカードで、世代中に既に使われ、checkLoopsが2未満で、現在canActできるカードが1枚以上ある"
+    ],
+    "reads": [
+      "自分のtableau",
+      "各カードがIActionCardかどうか",
+      "各カードのgetCheckLoops()",
+      "actionsThisGeneration",
+      "各カードのcanAct(player)"
+    ],
+    "writes": [
+      "選択した既存アクションカードのaction(player)を実行する",
+      "実行されたアクションが行う資源、タブロー、生成量などの変更"
+    ],
+    "choices": [
+      "再実行するアクションカードを1枚選ぶ"
+    ],
+    "payments": [],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "自分のタブローから条件を満たす任意のアクションカードを動的に列挙する処理",
+      "選択したカード固有のaction(player)をProject Inspectionの解決として再実行する処理"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "世代中に使用済みでcanAct可能なアクションカードが1枚ある",
+        "when": "Project Inspectionをプレイしてそのカードを選ぶ",
+        "then": "選択したカードのactionがもう一度実行される"
+      },
+      {
+        "given": "使用済みでもcheckLoopsが2以上のカードしかない",
+        "when": "プレイ可能性を確認する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-project-inspection.ts", "line": 28, "method": "getActionCards" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-project-inspection.ts", "line": 49, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-project-inspection.ts", "line": 53, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-promo-soil-enrichment",
+    "activation": "onPlay",
+    "guards": [
+      "自分のカードのうち、微生物資源を持つカードが1枚以上ある"
+    ],
+    "reads": [
+      "自分のgetCardsWithResources(CardResource.MICROBE)の結果"
+    ],
+    "writes": [
+      "選択したカードから微生物を1個取り除く",
+      "自分の植物を5個増やす"
+    ],
+    "choices": [
+      "微生物を1個取り除くカードを自分の候補から1枚選ぶ。候補が1枚なら自動選択"
+    ],
+    "payments": [
+      "自分のカード上の微生物1個"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "stock": { "plants": 5 },
+        "removeResourcesFromAnyCard": { "type": "Microbe" }
+      }
+    },
+    "requiresEngineCapability": [],
+    "recommendedImplementation": "existing-effectSpec",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "自分の微生物カードが2枚あり、それぞれ微生物を1個以上持つ",
+        "when": "Soil Enrichmentをプレイして1枚選ぶ",
+        "then": "選択カードの微生物が1個減り、自分の植物が5個増える"
+      },
+      {
+        "given": "自分のカードに微生物がない",
+        "when": "プレイ可能性を確認する",
+        "then": "プレイ不可になる"
+      }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-soil-enrichment.ts", "line": 31, "method": "eligibleCards" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-soil-enrichment.ts", "line": 35, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-promo-soil-enrichment.ts", "line": 39, "method": "play" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 1524, "method": "queuePendingChoices" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 685, "method": "normalizeBehavior" }
+    ],
+    "confidence": "high"
+  }
+]

@@ -1,0 +1,125 @@
+[
+  {
+    "cardId": "card-turmoil-banned-delegate",
+    "activation": "onPlay",
+    "guards": ["Turmoilが有効であること", "自分が議長であること（card definitionのchairman要件）"],
+    "reads": ["Turmoilの各政党の代表者集合", "各政党の党首代表者", "中立代表者を含む代表者の所有者"],
+    "writes": ["選択した政党から党首ではない代表者を1人除去"],
+    "choices": ["非党首代表者を除去する政党と代表者を選ぶ", "候補が複数政党ならOR選択になる"],
+    "payments": ["カードコスト0MC（追加支払いなし）"],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["Turmoilの政党ごとの非党首代表者を列挙し、所有者または中立を選択して除去するカード効果", "代表者除去後のTurmoil状態更新"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": "card-turmoil-banned-delegate.tsのbespokePlayが候補生成、政党選択、代表者除去を直接実装。game-logic.jsにはchairman要件の一般判定はあるが、この効果のeffectSpec接続はない。",
+    "testCases": [
+      { "given": "自分が議長で、ある政党に党首以外の自分の代表者が1人いる", "when": "カードをプレイしてその政党を選ぶ", "then": "選択した代表者がその政党から除去される" },
+      { "given": "自分が議長だが、全政党に党首以外の代表者がいない", "when": "カードをプレイする", "then": "bespokePlayは選択肢を返さず、除去は起きない" },
+      { "given": "自分が議長ではない", "when": "カードをプレイしようとする", "then": "chairman要件でプレイ不可" }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-banned-delegate.ts", "line": 21, "method": "constructor" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-banned-delegate.ts", "line": 32, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 4493, "method": "checkCardRequirements" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-turmoil-recruitment",
+    "activation": "onPlay",
+    "guards": ["自分の代表者が予備に1人以上残っている", "いずれかの政党に中立の非党首代表者が存在する"],
+    "reads": ["自分の代表者予備", "各政党の中立代表者数", "各政党の党首代表者"],
+    "writes": ["選択した政党から中立の非党首代表者を1人除去", "自分の予備から自分の代表者を1人その政党へ送る"],
+    "choices": ["交換対象となる中立の非党首代表者（政党）を選ぶ", "任意量の選択なし", "OR分岐なし"],
+    "payments": ["カードコスト2MC"],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["中立の非党首代表者を候補化して選択する仕組み", "選択政党への自分の代表者派遣と中立代表者除去を同一の交換として解決する仕組み"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": "bespokeCanPlayが予備と中立非党首代表者を検査し、bespokePlayがSendDelegateToArea(..., {replace: 'NEUTRAL'})を遅延登録する。カード固有effectSpecはない。",
+    "testCases": [
+      { "given": "予備に自分の代表者がなく、中立の非党首代表者がいる", "when": "プレイ可否を判定する", "then": "プレイ不可" },
+      { "given": "予備に自分の代表者があり、中立の党首ではない代表者がいる", "when": "カードをプレイする", "then": "選択した中立代表者と自分の代表者が交換される" },
+      { "given": "中立代表者がいない、または各中立代表者が党首", "when": "プレイ可否を判定する", "then": "プレイ不可" }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-recruitment.ts", "line": 28, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-recruitment.ts", "line": 40, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-turmoil-red-tourism-wave",
+    "activation": "onPlay",
+    "guards": ["Redsが与党、または自分がRedsに2人以上の代表者を持つこと（party要件）", "Turmoilが有効であること"],
+    "reads": ["盤面の各スペースの種類", "各スペースが実タイルで占有されているか", "各スペースに隣接するスペース", "隣接する実タイルの所有者"],
+    "writes": ["自分のMCを、条件を満たす空きエリア1つにつき1増加"],
+    "choices": [],
+    "payments": ["カードコスト3MC"],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["自分の実タイルに隣接する空きエリア数を盤面から動的に数えてstock.mcへ反映する効果"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": "game-logic.jsのparty要件判定はRedsの与党または自分の代表者2人を処理する。bespokePlayのgetAdjacentEmptySpacesCountとMC付与は参照ソース側にのみ実装され、カードeffectSpecには接続されていない。",
+    "testCases": [
+      { "given": "自分の実タイルに隣接する通常の空きエリアが3つある", "when": "カードをプレイする", "then": "自分は3MCを得る" },
+      { "given": "隣接スペースがCOLONY、RESTRICTED、または実タイルで占有されている", "when": "カードをプレイする", "then": "それらは獲得数に数えない" },
+      { "given": "自分のタイルに隣接しない空きエリアがある", "when": "カードをプレイする", "then": "その空きエリアからはMCを得ない" }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-red-tourism-wave.ts", "line": 33, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-turmoil-red-tourism-wave.ts", "line": 40, "method": "getAdjacentEmptySpacesCount" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 4478, "method": "checkCardRequirements" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-venus-io-sulphur-research",
+    "activation": "onPlay",
+    "guards": [],
+    "reads": ["自分のVenusタグ数"],
+    "writes": ["自分の手札を1枚、またはVenusタグ3個以上なら3枚増やす", "山札・捨て札のドロー状態"],
+    "choices": [],
+    "payments": ["カードコスト17MC"],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["自分のVenusタグ数を評価し、ドロー枚数を1枚から3枚へ条件分岐するonPlay効果"],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "game-logic.jsには固定枚数のdrawCard正規化とdrawCards実装があるが、Venusタグ数に応じた枚数分岐のカード登録はない。bespokePlayが条件判定とドローを直接実装している。",
+    "testCases": [
+      { "given": "自分のVenusタグが2個以下", "when": "カードをプレイする", "then": "1枚引く" },
+      { "given": "自分のVenusタグが3個以上", "when": "カードをプレイする", "then": "3枚引く" }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-venus-io-sulphur-research.ts", "line": 32, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 692, "method": "normalizeBehavior" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\game-logic.js", "line": 831, "method": "drawCards" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-venus-sponsored-academies",
+    "activation": "onPlay",
+    "guards": ["自分の手札が2枚以上"],
+    "reads": ["自分の手札枚数と手札カード", "自分の対戦相手一覧", "山札・捨て札のドロー状態"],
+    "writes": ["自分の手札から選んだ1枚を捨て札へ移動", "自分の手札を3枚増やす", "各対戦相手の手札を1枚増やす"],
+    "choices": ["自分の手札から捨てるカードを1枚選ぶ", "任意量の選択なし", "OR分岐なし", "捨てる処理が完了してから自分が3枚引く"],
+    "payments": ["カードコスト9MC"],
+    "affectsOpponents": true,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": ["自分の手札から1枚を選んで捨てる選択", "捨てる処理を先に完了させてから自分が3枚引く順序制御", "自分以外の全プレイヤーへ1枚ずつドローさせる効果"],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": "bespokeCanPlayが手札2枚以上を確認し、bespokePlayがDiscardCards、本人3枚のDrawCards、各対戦相手1枚のDrawCardsを遅延登録する。pending-choiceにはdiscard-cardの一般選択はあるが、このカードの順序付き複合効果としてのeffectSpec接続はない。",
+    "testCases": [
+      { "given": "自分の手札が1枚", "when": "プレイ可否を判定する", "then": "プレイ不可" },
+      { "given": "自分の手札が2枚以上で、対戦相手が2人いる", "when": "カードをプレイして1枚選ぶ", "then": "選択カードを捨て、自分が3枚、各対戦相手が1枚引く" },
+      { "given": "自分の手札が2枚以上で、山札と捨て札から3枚引けない", "when": "カードを解決する", "then": "利用可能なカードだけを引き、対戦相手のドローは各自について試行される" }
+    ],
+    "evidence": [
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-venus-sponsored-academies.ts", "line": 33, "method": "bespokeCanPlay" },
+      { "file": "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-card-sources\\card-venus-sponsored-academies.ts", "line": 37, "method": "bespokePlay" },
+      { "file": "C:\\Users\\takkun\\Documents\\mars-frontier\\app\\pending-choice.js", "line": 149, "method": "buildDiscardChoice" }
+    ],
+    "confidence": "high"
+  }
+]

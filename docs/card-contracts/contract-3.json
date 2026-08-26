@@ -1,0 +1,266 @@
+[
+  {
+    "cardId": "card-colonies-minority-refuge",
+    "activation": "onPlay",
+    "guards": [
+      "player.colonies.getPlayableColonies() が空でない",
+      "自分のMC生産量が-4以下の場合、Lunaに空きがあり自分がLuna植民地を未保有である。ただしMC生産量が-4かつPoseidonをタブローに持つ場合はLuna条件を免除"
+    ],
+    "reads": [
+      "自分の植民地でプレイ可能な植民地一覧",
+      "自分のMC生産量",
+      "自分のタブローのPoseidon保有状況",
+      "全植民地のLunaの満員状態と自分の入植状況"
+    ],
+    "writes": [
+      "選択した植民地に自分の植民地を1つ建設",
+      "自分のMC生産量を2段階減少"
+    ],
+    "choices": [
+      "建設する植民地を選択"
+    ],
+    "payments": [
+      "カードコスト5 MC",
+      "植民地建設そのものの通常17 MCは支払わない"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "production": { "mc": -2 },
+        "colonies": { "buildColony": {} }
+      }
+    },
+    "requiresEngineCapability": [
+      "bespokeCanPlay相当のプレイ可能植民地・MC生産量・Poseidon・Luna条件の組み合わせ判定"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "プレイ可能な植民地があり、MC生産量が-3",
+        "when": "カードをプレイして植民地Aを選ぶ",
+        "then": "植民地Aを建設し、MC生産量が-2される"
+      },
+      {
+        "given": "MC生産量が-4、Poseidonなし、Lunaが満員または自分がLuna保有",
+        "when": "プレイ可否を判定する",
+        "then": "プレイ不可"
+      }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-minority-refuge.ts", "line": 30, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-minority-refuge.ts", "line": 53, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 1503, "method": "queuePendingChoices" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-colonies-productive-outpost",
+    "activation": "onPlay",
+    "guards": [],
+    "reads": [
+      "全植民地一覧",
+      "各植民地の自分の入植状況",
+      "各植民地のボーナス定義",
+      "自分のプレイヤー状態"
+    ],
+    "writes": [
+      "自分が入植している全植民地のボーナスを付与",
+      "ボーナスはTitania、全植民地、Leavittの順で遅延実行"
+    ],
+    "choices": [],
+    "payments": [
+      "カードコスト0 MC"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "自分が保有する全植民地を走査して各植民地固有のボーナスを一括発火する共通効果",
+      "Titania→全植民地→Leavittという発火順序の表現"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "自分がTitaniaとLeavittに入植している",
+        "when": "カードをプレイする",
+        "then": "Titaniaのボーナス、他の植民地ボーナス、Leavittのボーナスを指定順で付与する"
+      },
+      {
+        "given": "自分がどの植民地にも入植していない",
+        "when": "カードをプレイする",
+        "then": "植民地ボーナスは発生しない"
+      }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-productive-outpost.ts", "line": 35, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-colonies-productive-outpost.ts", "line": 45, "method": "bespokePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-prelude-eccentric-sponsor",
+    "activation": "onPlay",
+    "guards": [
+      "Preludeカードとして通常のプレイ条件を満たす"
+    ],
+    "reads": [
+      "自分の手札",
+      "手札カードのコストとプレイ可能性",
+      "自分のMC残高",
+      "プレイ対象カードの効果"
+    ],
+    "writes": [
+      "選択した手札カードを手札から除去してプレイ済みにする",
+      "選択カードのコストを25 MC軽減して残額をMCから支払う",
+      "選択カードのプレイ効果を適用",
+      "対象がない場合はPreludeをfizzleし、割引状態を解除"
+    ],
+    "choices": [
+      "25 MC軽減でプレイする手札カードを1枚選択"
+    ],
+    "payments": [
+      "Prelude自体の通常コスト",
+      "選択カードのmax(0, コスト-25) MC"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "effectSpecのnormalizeBehaviorにはfreePlayDiscountキーがない",
+      "既存のPrelude無料プレイ経路が手札から最初の支払可能カードを自動選択し、プレイヤー選択を表現しない"
+    ],
+    "recommendedImplementation": "extend-common-hook",
+    "existingImplementation": "official-content.js:128 の prelude.effect.freePlayDiscount=25 と game-logic.js:2610-2627 の applyPreludeFreePlay。ただし対象カード選択は自動選択"
+    ,"testCases": [
+      {
+        "given": "25 MC以下のプレイ可能カードが手札に複数ある",
+        "when": "Preludeをプレイして対象を選ぶ",
+        "then": "選んだカードだけがプレイされ、追加MC支払いは0"
+      },
+      {
+        "given": "25 MC軽減後も支払えない、またはプレイ可能な手札カードがない",
+        "when": "Preludeをプレイする",
+        "then": "Preludeがfizzleし、次カードへの割引を残さない"
+      }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude-eccentric-sponsor.ts", "line": 27, "method": "getCardDiscount" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude-eccentric-sponsor.ts", "line": 34, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/official-content.js", "line": 128, "method": "prelude catalog entry" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 2610, "method": "applyPreludeFreePlay" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-prelude2-frontier-town",
+    "activation": "onPlay",
+    "guards": [
+      "カードコスト支払い後に、都市を置ける候補マスが1つ以上ある",
+      "その候補のいずれかがMarsBoard.hasEnergyCoverageを満たす",
+      "Mars Firstが統治中、または自分がMars Firstに2代表者を持つというカード要件"
+    ],
+    "reads": [
+      "盤面の都市配置可能マス",
+      "都市配置コストを含む候補判定",
+      "自分のエネルギー被覆状態",
+      "TurmoilのMars First統治・代表者状態"
+    ],
+    "writes": [
+      "エネルギー被覆された候補から都市マスを1つ配置",
+      "自分のエネルギー生産量を1減少",
+      "配置ボーナスを通常の3倍相当、すなわち追加で2回付与"
+    ],
+    "choices": [
+      "都市を配置するマスを選択"
+    ],
+    "payments": [
+      "カードコスト11 MC"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {
+      "behavior": {
+        "production": { "energy": -1 },
+        "city": {}
+      }
+    },
+    "requiresEngineCapability": [
+      "bespokeCanPlayのエネルギー被覆付き候補判定",
+      "都市配置時のbonusMultiplier:3（配置ボーナスを追加2回）"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "エネルギー被覆を満たす都市候補が複数ある",
+        "when": "カードをプレイして1マスを選ぶ",
+        "then": "そのマスに都市を置き、エネルギー生産量-1、配置ボーナスを3回分得る"
+      },
+      {
+        "given": "都市候補がない、または候補の全てがエネルギー被覆外",
+        "when": "プレイ可否を判定する",
+        "then": "プレイ不可"
+      }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude2-frontier-town.ts", "line": 36, "method": "availableSpaces" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude2-frontier-town.ts", "line": 41, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude2-frontier-town.ts", "line": 49, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 1078, "method": "applyEffect" }
+    ],
+    "confidence": "high"
+  },
+  {
+    "cardId": "card-prelude2-wg-project",
+    "activation": "onPlay",
+    "guards": [
+      "自分が議長であるというカード要件",
+      "Preludeデッキから3枚引ける"
+    ],
+    "reads": [
+      "Turmoilの議長状態",
+      "Preludeデッキの残枚数と上位3枚",
+      "選択したPreludeの効果"
+    ],
+    "writes": [
+      "Preludeデッキから3枚を取り出す",
+      "選んだ1枚をプレイ",
+      "選ばなかった2枚を捨て札に置く"
+    ],
+    "choices": [
+      "3枚のPreludeからプレイする1枚を選択",
+      "残り2枚は自動的に捨てる"
+    ],
+    "payments": [
+      "カードコスト9 MC",
+      "選択したPrelude自体の通常コストは、この効果によるプレイでは支払わない"
+    ],
+    "affectsOpponents": false,
+    "expressibleAsEffectSpec": {},
+    "requiresEngineCapability": [
+      "Prelude専用デッキから3枚を引く処理",
+      "引いた3枚だけを選択肢として提示する処理",
+      "選択したPreludeをプレイし、残り2枚をPrelude捨て札へ送る処理"
+    ],
+    "recommendedImplementation": "explicit-card-handler",
+    "existingImplementation": null,
+    "testCases": [
+      {
+        "given": "Preludeデッキに3枚以上あり、自分が議長",
+        "when": "カードをプレイして3枚から1枚選ぶ",
+        "then": "選択カードをPreludeとしてプレイし、他の2枚を捨てる"
+      },
+      {
+        "given": "Preludeデッキが2枚以下",
+        "when": "プレイ可否を判定する",
+        "then": "プレイ不可"
+      }
+    ],
+    "evidence": [
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude2-wg-project.ts", "line": 29, "method": "bespokeCanPlay" },
+      { "file": "C:/Users/takkun/AppData/Local/Temp/tm-card-sources/card-prelude2-wg-project.ts", "line": 33, "method": "bespokePlay" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 1083, "method": "applyEffect" },
+      { "file": "C:/Users/takkun/Documents/mars-frontier/app/game-logic.js", "line": 4493, "method": "generic chairman requirement" }
+    ],
+    "confidence": "high"
+  }
+]
