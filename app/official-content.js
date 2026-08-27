@@ -93,6 +93,9 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-robinson", "Robinson Industries", [], { mc: 47 }, "アクション: MC4で任意の生産量+1。", { productionActionCost: 4 }),
   corporation("corp-valley-trust", "Valley Trust", ["Earth"], { mc: 37 }, "最初のアクションでプレリュードを3枚見て1枚プレイする。科学タグのカードコスト-2。", { firstPrelude: true, scienceDiscount: 2 }),
   corporation("corp-vitor", "Vitor", ["Earth"], { mc: 45 }, "最初のアクションで賞を無料で設立する。VP付きカードを出すとMC3。", { firstAward: true, vpBonus: 3 }),
+  // Merged by name onto the generated Venus entry, which keeps its tags, cost
+  // and floater action; only the missing initial draw is added here.
+  corporation("card-venus-celestic", "Celestic", ["Venus"], { mc: 42 }, "最初のアクションでフローターのカードを2枚引く。アクション: フローターを1個置く。フローター3個ごとに1VP。", { firstFloaterDraw: 2 }),
 ];
 
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });

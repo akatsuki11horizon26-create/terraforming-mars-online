@@ -939,7 +939,9 @@ export function getCardEffect(card) {
   return { ...effect, cardId: card.id };
 }
 
-export function drawCards(state, count, tag) {
+// `tag` keeps the common "draw a card with this tag" case terse; Celestic needs
+// to filter on the resource a card holds instead, which no tag expresses.
+export function drawCards(state, count, tag, accepts) {
   let deck = [...state.deck];
   let discard = [...state.discardPile];
   const drawn = [];
@@ -955,7 +957,8 @@ export function drawCards(state, count, tag) {
     deck = rest;
     inspected += 1;
     const card = ALL_CARDS.find(item => item.id === cardId);
-    if (!tag || card?.tags.includes(tag)) drawn.push(cardId);
+    const wanted = accepts ? accepts(card, cardId) : !tag || card?.tags.includes(tag);
+    if (wanted) drawn.push(cardId);
     else discard.push(cardId);
   }
   state.deck = deck;
@@ -1240,8 +1243,13 @@ export function applyCorporation(state, corporationId, playerId) {
   ["steel", "titanium", "plants", "energy", "heat"].forEach(resource => {
     nextState[resource] = corporation.starting[resource] ?? 0;
   });
+  // The generated catalogue spells megacredits out; the curated entries and the
+  // engine use "mc". Four corporations were written with the long name and lost
+  // their whole starting production because nothing read that key.
+  const startingProduction = corporation.starting.production ?? {};
   ["mc", "steel", "titanium", "plants", "energy", "heat"].forEach(resource => {
-    nextState[`${resource}Prod`] = corporation.starting.production?.[resource] ?? 0;
+    const printed = resource === "mc" ? startingProduction.megacredits : undefined;
+    nextState[`${resource}Prod`] = startingProduction[resource] ?? printed ?? 0;
   });
   // Colonies' solo variant opens at -2 M€ production, which balances the extra
   // income the colonies themselves provide. Production is written here, so the
@@ -1307,6 +1315,28 @@ export function advanceSetupTurn(state) {
     return next;
   }
 
+  // Corporation initial actions used to run only from finishPreludeSetup, so
+  // Tharsis Republic's free city and Inventrix's draw simply never happened in a
+  // game without the Prelude expansion. Everyone has a corporation and nobody
+  // owes a prelude by this point, which is the same moment in both variants.
+  const owedInitialAction = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && player.corporationId && !player.initialActionDone;
+  });
+  if (owedInitialAction) {
+    const seatBefore = next.currentPlayerId;
+    next.currentPlayerId = owedInitialAction;
+    const performed = applyCorporationInitialAction(next, next.logs);
+    const advanced = performed.state;
+    advanced.logs = performed.logs;
+    if (advanced.pendingChoice) {
+      advanced.setupContinuation = { stage: "prelude-setup", seatBefore };
+      return advanced;
+    }
+    advanced.currentPlayerId = seatBefore;
+    return advanceSetupTurn(advanced);
+  }
+
   // "配られた 10 枚のプロジェクト・カードのうち、手札として残したいものを、
   // １枚につき３Ｍ€で開始時の手札として購入します" — the starting hand is bought
   // before the first action phase, so this step cannot be skipped.
@@ -1353,6 +1383,9 @@ function eccentricSponsorOptions(state) {
     .map(card => ({ id: card.id, cardId: card.id, label: card.name }));
 }
 
+// Preludes resolve before the corporation's first action, so this player's is
+// owed now. advanceSetupTurn performs whatever is still owed for everyone else,
+// and the flag it reads is what stops this one running twice.
 function finishPreludeSetup(state, logs, seatBefore) {
   const initialAction = applyCorporationInitialAction(state, logs);
   const nextState = initialAction.state;
@@ -1512,10 +1545,32 @@ export function applyCorporationInitialAction(state, logs) {
   const nextState = cloneGameState(state);
   const corporation = getCorporation(nextState);
   if (!corporation) return { state: nextState, logs };
+  // Both the prelude path and advanceSetupTurn reach this point for the same
+  // player, so the flag is what keeps a first action from running twice.
+  const ownerId = nextState.currentPlayerId;
+  if (getPlayer(nextState, ownerId)?.initialActionDone) {
+    return { state: nextState, logs };
+  }
+  nextState.players = nextState.players.map(player =>
+    player.id === ownerId ? { ...player, initialActionDone: true } : player
+  );
   let nextLogs = logs;
   if (corporation.effects.firstActionDraw) {
     const drawn = drawCards(nextState, corporation.effects.firstActionDraw);
     nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションでカードを${drawn.length}枚引きました。`);
+  }
+  if (corporation.effects.firstFloaterDraw) {
+    const drawn = drawCards(
+      nextState,
+      corporation.effects.firstFloaterDraw,
+      undefined,
+      (card, cardId) => (card?.resourceType ?? getCardResourceType(cardId)) === "floater"
+    );
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${corporation.name}: 初期アクションでフローターのカードを${drawn.length}枚引きました。`
+    );
   }
   if (corporation.effects.firstPrelude) {
     // Three fresh preludes off the deck, one of which is played for free; the

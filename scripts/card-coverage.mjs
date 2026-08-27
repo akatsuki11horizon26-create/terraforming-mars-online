@@ -7,7 +7,7 @@
 //
 // Usage:
 //   node scripts/card-coverage.mjs [--verbose]
-import { getInitialState, getPlayer, getCardPlayableStatus, getCardResourceType, applyPreludes, applyCorporation } from "../app/game-logic.js";
+import { getInitialState, getPlayer, getCardPlayableStatus, getCardResourceType, applyPreludes, applyCorporation, advanceSetupTurn } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { PRELUDES, CORPORATIONS, OFFICIAL_PROJECTS } from "../app/official-content.js";
 
@@ -80,16 +80,28 @@ RIGS.push({ oceans: 9, oxygen: 14, temperature: 8, venus: 30, party: "greens" })
 RIGS.push({ oceans: 0, oxygen: 14, temperature: 8, venus: 0, party: "greens" });
 RIGS.push({ oceans: 9, oxygen: 0, temperature: -30, venus: 30, party: "greens" });
 
-const snap = st => { const q = getPlayer(st, "player"); return JSON.stringify([
+// `mc` moves whenever a card is paid for, and the corporation setup always
+// writes a corporation id and a setup step. Counting those as "the card did
+// something" is what let four corporations lose their whole starting
+// production, and Vitor and Valley Trust skip their abilities, while this
+// script still reported 547/547. `omit` drops the fields that move for reasons
+// that have nothing to do with the card's own text.
+const snap = (st, omit = {}) => { const q = getPlayer(st, "player"); return JSON.stringify([
   st.oceans, st.oxygen, st.temperature, st.venus,
-  q.mc, q.steel, q.titanium, q.plants, q.energy, q.heat, q.tr,
+  omit.mc ? null : q.mc, q.steel, q.titanium, q.plants, q.energy, q.heat, q.tr,
   q.mcProd, q.steelProd, q.titaniumProd, q.plantsProd, q.energyProd, q.heatProd,
   Object.values(st.board).filter(c => c.tileType !== "empty").length,
-  JSON.stringify(q.cardResources ?? {}), (q.hand ?? []).length, Boolean(st.pendingChoice),
+  // The rig plays the only card in hand, so "draw one card" lands back at a
+  // hand of one and looked like nothing. Track which cards are held, not how
+  // many, and the draw is visible again.
+  JSON.stringify(q.cardResources ?? {}), JSON.stringify([...(q.hand ?? [])].sort()),
+  Boolean(st.pendingChoice),
   JSON.stringify(st.colonies?.tiles ?? null), JSON.stringify(st.turmoil?.parties ?? null),
   // Corporations are chosen during setup, where what moves is the seat's
   // corporation and setup step rather than any resource.
-  q.corporationId ?? null, q.setupStep ?? null, (q.researchCards ?? []).length]); };
+  omit.seat ? null : q.corporationId ?? null,
+  omit.seat ? null : q.setupStep ?? null,
+  (q.researchCards ?? []).length]); };
 
 const worked = [], nothing = [], gated = [], threw = [];
 for (const card of OFFICIAL_PROJECTS) {
@@ -101,12 +113,12 @@ for (const card of OFFICIAL_PROJECTS) {
     p.hand = [card.id];
     const status = getCardPlayableStatus(card, s);
     if (!status.playable) { lastReason = status.reason; continue; }
-    const before = snap(s);
+    const before = snap(s, { mc: true });
     let r;
     try { r = executeGameCommand(s, { type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id }); }
     catch (e) { verdict = ["threw", e.message.slice(0, 50)]; break; }
     if (!r.ok) { lastReason = "refused: " + (r.message ?? ""); continue; }
-    verdict = before === snap(r.state) ? ["nothing", ""] : ["worked", ""];
+    verdict = before === snap(r.state, { mc: true }) ? ["nothing", ""] : ["worked", ""];
     if (verdict[0] === "worked") break;
   }
   if (!verdict) gated.push([card, lastReason]);
@@ -116,9 +128,19 @@ for (const card of OFFICIAL_PROJECTS) {
 }
 // Preludes resolve two at a time during setup, corporations through their own
 // entry point, so neither goes through PLAY_CARD.
+// A prelude with no declared behaviour cannot mask its partner's inaction.
+const isInert = card => {
+  const behavior = card.effectSpec?.behavior;
+  return !behavior || Object.keys(behavior).length === 0;
+};
+
 const preludeResults = { worked: 0, bad: [] };
 for (const prelude of PRELUDES) {
-  const partner = PRELUDES.find(item => item.id !== prelude.id);
+  // The partner's own effect used to be enough to call the pair "worked", so a
+  // prelude that did nothing passed as long as it was dealt alongside one that
+  // did. Pair every card with the same inert partner and the change that shows
+  // up is the card's own.
+  const partner = PRELUDES.find(item => item.id !== prelude.id && isInert(item));
   const s2 = getInitialState({ playerCount: 2, prelude: true, venus: true, colonies: true, turmoil: true, promo: true, seed: 1 });
   s2.phase = "setup";
   s2.currentPlayerId = "player";
@@ -137,15 +159,23 @@ for (const prelude of PRELUDES) {
 
 const corpResults = { worked: 0, bad: [] };
 for (const corporation of CORPORATIONS) {
-  const s2 = getInitialState({ playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 1 });
+  // One seat, so choosing this corporation is the last thing setup is waiting
+  // for and its first action actually runs.
+  const s2 = getInitialState({ playerCount: 1, venus: true, colonies: true, turmoil: true, promo: true, seed: 1 });
   s2.phase = "setup";
   s2.currentPlayerId = "player";
   getPlayer(s2, "player").corporationOptions = [corporation.id];
-  const before = snap(s2);
+  const before = snap(s2, { seat: true });
   let after;
-  try { after = applyCorporation(s2, corporation.id, "player"); }
+  // Several corporations do all their work in the first action -- Celestic draws
+  // its floater cards there, Tharsis Republic places its city -- so choosing the
+  // corporation alone is not the whole card.
+  try {
+    const chosen = applyCorporation(s2, corporation.id, "player");
+    after = chosen.pendingChoice ? chosen : advanceSetupTurn(chosen);
+  }
   catch (e) { corpResults.bad.push([corporation.id, "threw " + e.message.slice(0, 40)]); continue; }
-  if (before === snap(after)) corpResults.bad.push([corporation.id, "nothing happened"]);
+  if (before === snap(after, { seat: true })) corpResults.bad.push([corporation.id, "nothing happened"]);
   else corpResults.worked++;
 }
 

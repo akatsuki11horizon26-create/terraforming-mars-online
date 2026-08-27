@@ -571,7 +571,11 @@ test("Tharsis Republic collects for the solo neutral cities", async () => {
     seat.corporationOptions = ["corp-tharsis"];
     return getPlayer(applyCorporation(state, "corp-tharsis", seat.id), seat.id).mcProd;
   };
-  assert.equal(take({ playerCount: 1 }), 2, "two neutral cities are already standing");
+  // Two neutral cities are already standing, and Tharsis' own first action
+  // places a third: "when any city tile is placed ON MARS" pays for all of them.
+  assert.equal(take({ playerCount: 1 }), 3, "two neutral cities plus its own");
+  // At a full table nothing is on the board yet, and the initial action waits
+  // until every player has chosen a corporation.
   assert.equal(take({ playerCount: 2 }), 0, "a normal table starts empty");
 });
 
@@ -1820,4 +1824,116 @@ test("Valley Trust draws three preludes and plays one for free", async () => {
     "the chosen prelude is played on top of the usual two"
   );
   assert.equal(settled.state.pendingChoice, null, "setup is no longer blocked");
+});
+
+test("every corporation's printed starting production reaches the player", async () => {
+  const { applyCorporation, getPlayer } = await import("../app/game-logic.js");
+  const { CORPORATIONS } = await import("../app/official-content.js");
+
+  // "megacredits" and "mc" name the same production box. Four corporations were
+  // written with the long name, and the setup read only the short one, so they
+  // opened with nothing.
+  const canonical = { megacredits: "mc", mc: "mc", steel: "steel", titanium: "titanium",
+    plants: "plants", energy: "energy", heat: "heat" };
+
+  for (const corporation of CORPORATIONS) {
+    const printed = corporation.starting?.production ?? {};
+    if (Object.keys(printed).length === 0) continue;
+
+    let state = getInitialState({
+      mode: "multi", playerCount: 2, colonies: true, venus: true, prelude: true, seed: 3
+    });
+    state.players = state.players.map(player =>
+      player.id === "player"
+        ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), corporation.id] }
+        : player
+    );
+    state.currentPlayerId = "player";
+    state = applyCorporation(state, corporation.id, "player");
+    const seat = getPlayer(state, "player");
+
+    for (const [key, amount] of Object.entries(printed)) {
+      const box = canonical[key];
+      assert.ok(box, `${corporation.name}: unknown production key ${key}`);
+      assert.equal(
+        seat[`${box}Prod`],
+        amount,
+        `${corporation.name} should open with ${amount} ${box} production`
+      );
+    }
+  }
+});
+
+test("corporation initial actions do not depend on the Prelude expansion", async () => {
+  const { applyCorporation, applyPreludes, advanceSetupTurn, getPlayer } =
+    await import("../app/game-logic.js");
+
+  // The initial action used to run only from the prelude path, so Tharsis
+  // Republic's free city never appeared in a game without that expansion.
+  const cities = (prelude, first) => {
+    let state = getInitialState({ mode: "multi", playerCount: 2, prelude, seed: 5 });
+    const ids = state.players.map(player => player.id);
+    state.players = state.players.map(player =>
+      player.id === ids[0]
+        ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), first] }
+        : player
+    );
+    for (const id of ids) {
+      state.currentPlayerId = id;
+      const corporation = id === ids[0] ? first : getPlayer(state, id).corporationOptions[0];
+      state = applyCorporation(state, corporation, id);
+    }
+    state = advanceSetupTurn(state);
+    for (const id of ids) {
+      const seat = getPlayer(state, id);
+      if (seat.setupStep !== "prelude") continue;
+      state.currentPlayerId = id;
+      state = applyPreludes(state, seat.preludeOptions.slice(0, 2), id);
+    }
+    return Object.values(state.board).filter(cell => cell.tileType === "city").length;
+  };
+
+  // The preludes this seed deals build cities of their own, so the corporation's
+  // contribution is the difference against a corporation that places none.
+  for (const prelude of [false, true]) {
+    const withTharsis = cities(prelude, "corp-tharsis");
+    const without = cities(prelude, "corp-credicor");
+    assert.equal(
+      withTharsis - without,
+      1,
+      `Tharsis places exactly one city (prelude=${prelude})`
+    );
+  }
+});
+
+test("Celestic opens by drawing two floater cards", async () => {
+  const { applyCorporation, advanceSetupTurn, getPlayer, ALL_CARDS } =
+    await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+
+  let state = getInitialState({ mode: "multi", playerCount: 2, venus: true, colonies: true, promo: true, seed: 5 });
+  const ids = state.players.map(player => player.id);
+  state.players = state.players.map(player =>
+    player.id === ids[0]
+      ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), "card-venus-celestic"] }
+      : player
+  );
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    const corporation =
+      id === ids[0] ? "card-venus-celestic" : getPlayer(state, id).corporationOptions[0];
+    state = applyCorporation(state, corporation, id);
+  }
+  state = advanceSetupTurn(state);
+
+  const hand = getPlayer(state, ids[0]).hand ?? [];
+  assert.equal(hand.length, 2, "two cards are drawn");
+  for (const id of hand) {
+    const card = ALL_CARDS.find(item => item.id === id);
+    assert.equal(
+      card?.resourceType ?? getCardResourceType(id),
+      "floater",
+      `${card?.name ?? id} should hold floaters`
+    );
+  }
 });

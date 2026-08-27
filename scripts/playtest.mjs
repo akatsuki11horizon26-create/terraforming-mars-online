@@ -232,6 +232,25 @@ function playGame(seed) {
   // drive whoever it says is up rather than looping over the roster ourselves.
   let setupGuard = 0;
   while (state.phase === "setup" && setupGuard++ < 40) {
+    // Preludes and corporation first actions can ask a question during setup --
+    // Eccentric Sponsor and Valley Trust both do. Leaving it unanswered stalls
+    // the whole setup, which read as "nothing left to choose".
+    if (state.pendingChoice) {
+      const choice = state.pendingChoice;
+      const option = choice.options?.[Math.floor(rng() * choice.options.length)];
+      if (!option) {
+        report("setup-choice-empty", `${choice.kind} offered nothing`, { where });
+        break;
+      }
+      const answered = resolvePendingChoice(state, option.id, state.logs, choice.ownerPlayerId);
+      if (answered.state.pendingChoice === choice) {
+        report("setup-choice-refused", `${choice.kind} would not resolve`, { where });
+        break;
+      }
+      state = answered.state;
+      checkInvariants(state, `${where}/setup-choice:${choice.kind}`);
+      continue;
+    }
     const seat = state.players.find(p => p.id === state.currentPlayerId);
     if (!seat) {
       report("setup-lost-seat", `${state.currentPlayerId} is not a player`, { where });

@@ -144,10 +144,19 @@ test("a tile placed through a command shows up in the opponent's view", () => {
 
   // The opponent's view is what their client renders; a tile missing from it
   // is a tile they never see.
+  // Tharsis Republic opens by placing a city of its own, so count what this
+  // command added rather than everything standing.
+  const before = new Set(
+    Object.entries(played.state.board)
+      .filter(([, cell]) => cell.tileType === "city")
+      .map(([key]) => key)
+  );
   const view = viewForPlayer(placed.state, other);
-  const cities = Object.values(view.board).filter(cell => cell.tileType === "city");
+  const cities = Object.entries(view.board).filter(
+    ([key, cell]) => cell.tileType === "city" && !before.has(key)
+  );
   assert.equal(cities.length, 1, "the city is in the opponent's view");
-  assert.equal(cities[0].placedBy, seat, "credited to the player who placed it");
+  assert.equal(cities[0][1].placedBy, seat, "credited to the player who placed it");
 });
 
 test("a card needing a target costs one action across the whole exchange", () => {

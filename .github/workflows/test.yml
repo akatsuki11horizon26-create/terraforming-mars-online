@@ -55,6 +55,12 @@ jobs:
           # is a different setup path and was never exercised here.
           node scripts/playtest.mjs --games=10 --players=3 --draft --prelude --venus --colonies --turmoil --promo
 
+      - name: Unread card flags
+        # A curated `effects` key with no reader in app/ is a rule the cards
+        # promise and the engine never performs. Vitor's free award and Valley
+        # Trust's free prelude both sat there unnoticed while every test passed.
+        run: node scripts/audit-unread-flags.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.
