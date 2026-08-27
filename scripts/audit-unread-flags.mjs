@@ -12,9 +12,10 @@
 // Usage: node scripts/audit-unread-flags.mjs
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { CORPORATIONS, PRELUDES, OFFICIAL_PROJECTS } from "../app/official-content.js";
 
-const APP = new URL("../app/", import.meta.url).pathname.replace(/^\//, "");
+const APP = fileURLToPath(new URL("../app/", import.meta.url));
 const code = readdirSync(APP)
   .filter(name => /\.(js|tsx?)$/.test(name) && name !== "official-content.js" && name !== "full-card-catalog.js")
   .map(name => readFileSync(join(APP, name), "utf8"))
