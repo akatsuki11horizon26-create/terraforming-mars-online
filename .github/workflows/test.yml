@@ -51,6 +51,9 @@ jobs:
         run: |
           node scripts/playtest.mjs --games=20 --players=1
           node scripts/playtest.mjs --games=20 --players=2 --prelude --venus --colonies --turmoil --promo
+          # Drafting replaces the dealt hand with a pass-and-pick round, so it
+          # is a different setup path and was never exercised here.
+          node scripts/playtest.mjs --games=10 --players=3 --draft --prelude --venus --colonies --turmoil --promo
 
       - name: Playtest every map
         run: |

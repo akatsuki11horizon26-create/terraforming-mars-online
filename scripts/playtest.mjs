@@ -3,10 +3,11 @@
 // crash or rule violation here is a real bug, not a harness artefact.
 //
 // Usage:
-//   node scripts/playtest.mjs [--games=20] [--players=1] [--turmoil] [--colonies] [--seed=N]
+//   node scripts/playtest.mjs [--games=20] [--players=1] [--turmoil] [--colonies] [--draft] [--seed=N]
 import {
   getInitialState,
   applyCorporation,
+  draftPick,
   applyPreludes,
   completeSetupPurchase,
   cloneGameState,
@@ -49,6 +50,9 @@ const USE_COLONIES = Boolean(args.colonies);
 const USE_PRELUDE = Boolean(args.prelude);
 const USE_VENUS = Boolean(args.venus);
 const USE_PROMO = Boolean(args.promo);
+// Drafting replaces the dealt hand with a pass-and-pick round, so setup takes a
+// different path entirely. It needs more than one player to mean anything.
+const USE_DRAFT = Boolean(args.draft);
 const BOARD = args.board ? String(args.board) : undefined;
 const MAX_STEPS = 4000;
 
@@ -217,7 +221,8 @@ function playGame(seed) {
     colonies: USE_COLONIES,
     prelude: USE_PRELUDE,
     venus: USE_VENUS,
-    promo: USE_PROMO
+    promo: USE_PROMO,
+    draft: USE_DRAFT
   });
   let logs = state.logs;
   const where = `seed:${seed}`;
@@ -244,6 +249,26 @@ function playGame(seed) {
       state = cloneGameState(state);
       state.colonies = chosen.colonies;
       checkInvariants(state, `${where}/solo-colonies`);
+      continue;
+    }
+    // With drafting on the opening ten cards are passed around instead of
+    // dealt, so nobody has a hand to buy from until every pick is in.
+    if (state.draft) {
+      let picks = 0;
+      while (state.draft && picks++ < 200) {
+        const holder = state.turnOrder.find(id => (state.draft.queues[id] ?? []).length > 0);
+        if (holder === undefined) break;
+        const queue = state.draft.queues[holder];
+        const cardId = queue[Math.floor(rng() * queue.length)];
+        const after = draftPick(state, cardId, holder);
+        if (after === state) {
+          report("draft-refused", `${holder} could not pick ${cardId}`, { where });
+          break;
+        }
+        state = after;
+        checkInvariants(state, `${where}/draft:${holder}`);
+      }
+      if (state.draft) report("draft-never-finished", `still drafting after ${picks} picks`, { where });
       continue;
     }
     if (seat.corporationOptions.length > 0) {
@@ -445,7 +470,7 @@ for (let i = 0; i < GAMES; i++) {
   }
 }
 
-const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}`;
+const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}${USE_DRAFT ? "+Draft" : ""}`;
 console.log(`=== ${GAMES}ゲーム完走 (${mode}) ===`);
 const gens = summaries.map(s => s.generation);
 console.log(
@@ -493,7 +518,8 @@ if (real.length > 0) {
     USE_VENUS ? "--venus" : "",
     USE_COLONIES ? "--colonies" : "",
     USE_TURMOIL ? "--turmoil" : "",
-    USE_PROMO ? "--promo" : ""
+    USE_PROMO ? "--promo" : "",
+    USE_DRAFT ? "--draft" : ""
   ].filter(Boolean).join(" ");
   const seeds = [...new Set(real.map(issue => String(issue.where ?? "").match(/seed:(\d+)/)?.[1]).filter(Boolean))];
   console.log("\n=== 再現方法 ===");
