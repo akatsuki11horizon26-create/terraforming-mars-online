@@ -342,6 +342,10 @@ export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJE
 // TileType numbers from the reference implementation's enum (src/common/TileType.ts).
 // Special tiles occupy a space like a city or greenery but keep their own name so
 // the board can show what was built there.
+// Two cards pay their owner whenever a city is placed, whoever placed it.
+const IMMIGRANT_CITY_ID = "card-base-immigrant-city";
+const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
+
 const TILE_TYPE_BY_NUMBER = {
   0: { tile: "forest" },
   1: { tile: "ocean" },
@@ -2904,10 +2908,17 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
     const corporation = CORPORATIONS.find(item => item.id === player.corporationId);
     const perCity = corporation?.effects?.cityProduction ?? 0;
     const ownBonus = player.id === ownerId ? corporation?.effects?.ownCityBonus ?? 0 : 0;
-    if (perCity === 0 && ownBonus === 0) continue;
+    // Two cards watch for cities the same way a corporation does, and both say
+    // "when a city is placed", not "when you place one", so anybody's counts.
+    const held = player.playedProjects ?? [];
+    const cardProduction = held.includes(IMMIGRANT_CITY_ID) ? 1 : 0;
+    const cardBonus = held.includes(ROVER_CONSTRUCTION_ID) ? 2 : 0;
+    const production = perCity + cardProduction;
+    const bonus = ownBonus + cardBonus;
+    if (production === 0 && bonus === 0) continue;
     state.players = state.players.map(entry =>
       entry.id === player.id
-        ? { ...entry, mcProd: (entry.mcProd ?? 0) + perCity, mc: entry.mc + ownBonus }
+        ? { ...entry, mcProd: (entry.mcProd ?? 0) + production, mc: entry.mc + bonus }
         : entry
     );
   }

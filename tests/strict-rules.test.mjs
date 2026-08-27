@@ -2221,3 +2221,54 @@ test("the mining cards take a mineral space and pay that mineral", async () => {
   assert.equal(after.titaniumProd, 1, "a titanium space raises titanium production");
   assert.equal(after.steelProd, 0, "and not steel");
 });
+
+test("two cards collect on every city placed, including the opponent's", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.mc = 200;
+      player.mcProd = 5;
+      player.energyProd = 3;
+      player.actionsRemaining = 20;
+    }
+    return state;
+  };
+
+  // Immigrant City pays for its city with production, then collects on it:
+  // 5 - 2 + 1.
+  const own = rig();
+  getPlayer(own, "player").hand = ["card-base-immigrant-city"];
+  const played = executeGameCommand(own, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-immigrant-city"
+  });
+  assert.equal(played.ok, true);
+  const settled = resolvePendingChoice(
+    played.state, played.state.pendingChoice.options[0].id, played.state.logs, "player"
+  );
+  const seat = getPlayer(settled.state, "player");
+  assert.equal(seat.energyProd, 2, "one energy production is spent");
+  assert.equal(seat.mcProd, 4, "two M€ production spent, one paid back by its own city");
+
+  // "When a city tile is placed" -- not "when you place one".
+  const theirs = rig();
+  getPlayer(theirs, "player").playedProjects = ["card-base-rover-construction"];
+  const other = theirs.players.find(player => player.id !== "player");
+  other.hand = ["card-base-immigrant-city"];
+  theirs.currentPlayerId = other.id;
+  const opening = getPlayer(theirs, "player").mc;
+  const byOther = executeGameCommand(theirs, {
+    type: COMMAND.PLAY_CARD, playerId: other.id, cardId: "card-base-immigrant-city"
+  });
+  const done = resolvePendingChoice(
+    byOther.state, byOther.state.pendingChoice.options[0].id, byOther.state.logs, other.id
+  );
+  assert.equal(getPlayer(done.state, "player").mc, opening + 2, "the opponent's city still pays");
+});
