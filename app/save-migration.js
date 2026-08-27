@@ -95,6 +95,8 @@ function migrateV3(parsed) {
     oceans: Number(parsed.oceans ?? 0),
     board,
     deck: Array.isArray(parsed.deck) ? parsed.deck : [],
+    preludeDeck: Array.isArray(parsed.preludeDeck) ? parsed.preludeDeck : [],
+    setupContinuation: parsed.setupContinuation ?? null,
     discardPile: Array.isArray(parsed.discardPile) ? parsed.discardPile : [],
     pendingChoice,
     logs: Array.isArray(parsed.logs) ? parsed.logs : [],

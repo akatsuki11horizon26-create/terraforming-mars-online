@@ -17,6 +17,7 @@ export const PLAYER_SCALAR_FIELDS = [
   "globalRequirementBuffer",
   "oneShotRequirementBuffer",
   "oneShotCardDiscount",
+  "freeAwardUsed",
   "corporationId",
   "setupStep",
   "turnStep",
@@ -67,6 +68,7 @@ export function createPlayer(id, name, overrides = {}) {
     turnStep: "start",
     actionsRemaining: 2,
     generationStartTr: STARTING_TR,
+    freeAwardUsed: false,
     researchCards: [],
     corporationOptions: [],
     corporationId: null,
@@ -216,6 +218,7 @@ export function cloneGameState(state) {
     })),
     turnOrder: [...state.turnOrder],
     deck: [...state.deck],
+    preludeDeck: [...(state.preludeDeck ?? [])],
     discardPile: [...state.discardPile],
     logs: [...state.logs],
     board: Object.fromEntries(
@@ -230,6 +233,7 @@ export function cloneGameState(state) {
     turmoil: cloneChoiceValue(state.turmoil),
     colonies: cloneChoiceValue(state.colonies),
     pendingChoice: clonePendingChoice(state.pendingChoice),
+    setupContinuation: state.setupContinuation ? { ...state.setupContinuation } : null,
     pendingChoiceQueue: (state.pendingChoiceQueue ?? []).map(clonePendingChoice)
   };
   return withLegacyPlayerAccessors(clone);

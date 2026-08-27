@@ -1752,3 +1752,72 @@ test("Robotic Workforce copies the whole production box", async () => {
   const hit = (settled.state ?? settled).players.find(entry => entry.heatProd < 5);
   assert.ok(hit, "somebody's heat production came down");
 });
+
+test("Vitor funds its first award for free, and only the first", async () => {
+  const { applyCorporation, getAwardStatus, fundAward, getPlayer } = await import("../app/game-logic.js");
+
+  let state = getInitialState({ mode: "multi", playerCount: 2, seed: 7 });
+  state.players = state.players.map(player =>
+    player.id === "player"
+      ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), "corp-vitor"] }
+      : player
+  );
+  state.currentPlayerId = "player";
+  state = applyCorporation(state, "corp-vitor", "player");
+  state.phase = "action";
+  state.setupStep = "done";
+
+  const opening = getPlayer(state, "player").mc;
+  assert.equal(getAwardStatus(state, "landlord", "player").cost, 0, "the first award is free");
+  const first = fundAward(state, "landlord", state.logs, "player");
+  assert.ok(first.funded);
+  assert.equal(getPlayer(first.state, "player").mc, opening, "funding it cost nothing");
+
+  // The ladder still advanced, so the next award costs what it would have.
+  const second = getAwardStatus(first.state, "banker", "player");
+  assert.ok(second.cost > 0, "only the first award is comped");
+  const paid = fundAward(first.state, "banker", first.state.logs, "player");
+  assert.equal(getPlayer(paid.state, "player").mc, opening - second.cost);
+});
+
+test("Valley Trust draws three preludes and plays one for free", async () => {
+  const { applyCorporation, applyPreludes, advanceSetupTurn, resolvePendingChoice, getPlayer } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({ mode: "multi", playerCount: 2, prelude: true, seed: 11 });
+  const ids = state.players.map(player => player.id);
+  state.players = state.players.map(player =>
+    player.id === ids[0]
+      ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), "corp-valley-trust"] }
+      : player
+  );
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    const corporation =
+      id === ids[0] ? "corp-valley-trust" : getPlayer(state, id).corporationOptions[0];
+    state = applyCorporation(state, corporation, id);
+  }
+  state = advanceSetupTurn(state);
+
+  const deckBefore = state.preludeDeck.length;
+  state.currentPlayerId = ids[0];
+  state = applyPreludes(state, getPlayer(state, ids[0]).preludeOptions.slice(0, 2), ids[0]);
+
+  const choice = state.pendingChoice;
+  assert.equal(choice?.kind, "valley-trust-prelude");
+  assert.equal(choice.options.length, 3, "three preludes are drawn");
+  assert.equal(state.preludeDeck.length, deckBefore - 3, "all three leave the deck");
+
+  const before = getPlayer(state, ids[0]);
+  const settled = resolvePendingChoice(state, choice.options[0].id, state.logs, ids[0]);
+  const after = getPlayer(settled.state, ids[0]);
+
+  assert.equal(settled.status, "resolved");
+  assert.equal(after.mc, before.mc, "the free prelude is not paid for");
+  assert.equal(
+    after.selectedPreludeIds.length,
+    before.selectedPreludeIds.length + 1,
+    "the chosen prelude is played on top of the usual two"
+  );
+  assert.equal(settled.state.pendingChoice, null, "setup is no longer blocked");
+});

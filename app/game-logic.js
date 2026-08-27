@@ -1357,6 +1357,12 @@ function finishPreludeSetup(state, logs, seatBefore) {
   const initialAction = applyCorporationInitialAction(state, logs);
   const nextState = initialAction.state;
   nextState.logs = initialAction.logs;
+  // Valley Trust asks which prelude to play for free. Advancing the seat now
+  // would hand the turn on with that question still unanswered.
+  if (nextState.pendingChoice) {
+    nextState.setupContinuation = { stage: "prelude-setup", seatBefore };
+    return nextState;
+  }
   nextState.currentPlayerId = seatBefore;
   return advanceSetupTurn(nextState);
 }
@@ -1510,6 +1516,38 @@ export function applyCorporationInitialAction(state, logs) {
   if (corporation.effects.firstActionDraw) {
     const drawn = drawCards(nextState, corporation.effects.firstActionDraw);
     nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションでカードを${drawn.length}枚引きました。`);
+  }
+  if (corporation.effects.firstPrelude) {
+    // Three fresh preludes off the deck, one of which is played for free; the
+    // other two are discarded rather than returned, so the deck shrinks by all
+    // three whether or not the choice is answered later.
+    const drawn = (nextState.preludeDeck ?? []).slice(0, 3);
+    nextState.preludeDeck = (nextState.preludeDeck ?? []).slice(drawn.length);
+    const options = drawn
+      .map(id => PRELUDES.find(prelude => prelude.id === id))
+      .filter(Boolean)
+      .map(prelude => ({ id: prelude.id, preludeId: prelude.id, label: prelude.name }));
+    if (options.length > 0) {
+      const choice = {
+        id: `valley-trust:${nextState.currentPlayerId}`,
+        kind: "valley-trust-prelude",
+        ownerPlayerId: nextState.currentPlayerId,
+        prompt: "初期アクション: 無償でプレイするPreludeを1枚選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          stage: "valley-trust-prelude",
+          sourceKind: "corporation",
+          sourceId: corporation.id,
+          consumedAction: false,
+          paid: true
+        }
+      };
+      nextState.pendingChoice = choice;
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: Preludeを3枚引きました。`);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs };
+    }
   }
   if (corporation.effects.firstCity) {
     // placeTileAt pays the city effects now, so adding them here as well is
@@ -1996,6 +2034,33 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "valley-trust-prelude": {
+      const prelude = PRELUDES.find(item => item.id === option.preludeId);
+      if (!prelude) {
+        next.pendingChoice = null;
+        return { status: "resolved", state: next, logs: nextLogs };
+      }
+      const seat = next.currentPlayerId;
+      next.currentPlayerId = choice.ownerPlayerId;
+      next.selectedPreludeIds = [...(next.selectedPreludeIds ?? []), prelude.id];
+      nextLogs = addLog(nextLogs, "system", `初期アクションでPrelude【${prelude.name}】をプレイしました。`);
+      const resolved = resolvePreludeEffects(next, [prelude], 0, nextLogs, seat);
+      const after = resolved.state;
+      nextLogs = resolved.logs;
+      if (resolved.pending) {
+        return { status: "pending", state: after, logs: nextLogs, pendingChoice: after.pendingChoice };
+      }
+      after.pendingChoice = null;
+      const resume = after.setupContinuation;
+      if (resume?.stage === "prelude-setup") {
+        after.setupContinuation = null;
+        after.currentPlayerId = resume.seatBefore;
+        return { status: "resolved", state: advanceSetupTurn(after), logs: nextLogs };
+      }
+      after.currentPlayerId = seat;
+      return { status: "resolved", state: after, logs: nextLogs };
+    }
+
     case "prelude-project": {
       const project = ALL_CARDS.find(item => item.id === option.cardId);
       const owner = getPlayer(next, choice.ownerPlayerId);
@@ -3374,6 +3439,7 @@ export function getPlaceholderState() {
     boardMarkers: [],
     generationAttackLedger: [],
     pendingChoice: null,
+    setupContinuation: null,
     // Questions waiting behind the live one, and the phase work that resumes
     // when they are all answered.
     pendingChoiceQueue: [],
@@ -3485,6 +3551,10 @@ export function getInitialState(options = {}) {
     );
   }
 
+  // Valley Trust draws three more preludes as its first action, so what the deal
+  // did not hand out has to survive setup for it to draw from.
+  const preludeDeck = preludePool.slice(playerCount * 4);
+
   const turnOrder = players.map(player => player.id);
   // Setup places neutral delegates from the two events it draws, so the starting
   // dominant party depends on the shuffle. Tests pass globalEventOrder to pin it.
@@ -3537,6 +3607,7 @@ export function getInitialState(options = {}) {
     oceans: 0,
     board,
     deck: shuffledDeck,
+    preludeDeck,
     discardPile: [],
     claimedMilestones: [],
     fundedAwards: [],
@@ -4037,6 +4108,14 @@ export function claimMilestone(state, milestoneId, logs, playerId) {
   return { state: next, logs: nextLogs, claimed: true };
 }
 
+// Vitor funds one award for free. The award ladder still advances -- the next
+// award costs what it would have -- because only Vitor's own payment is waived.
+function getAwardCostFor(state, player) {
+  const corporation = CORPORATIONS.find(item => item.id === player?.corporationId);
+  if (corporation?.effects?.firstAward && !player.freeAwardUsed) return 0;
+  return getNextAwardCost(state);
+}
+
 export function getAwardStatus(state, awardId, playerId) {
   const award = getAward(awardId);
   if (!award) return { fundable: false, reason: "不明な表彰です。" };
@@ -4044,7 +4123,7 @@ export function getAwardStatus(state, awardId, playerId) {
   const player = getPlayer(state, playerId);
   if (!player) return { fundable: false, reason: "プレイヤーが見つかりません。" };
 
-  const cost = getNextAwardCost(state);
+  const cost = getAwardCostFor(state, player);
   // Awards rank players against each other, which the solo variant has no use
   // for; the official rules leave them out along with the milestones.
   if (state.mode === "solo") {
@@ -4072,7 +4151,9 @@ export function fundAward(state, awardId, logs, playerId) {
   const award = getAward(awardId);
   const next = cloneGameState(state);
   next.players = next.players.map(player =>
-    player.id === targetId ? { ...player, mc: player.mc - status.cost } : player
+    player.id === targetId
+      ? { ...player, mc: player.mc - status.cost, freeAwardUsed: true }
+      : player
   );
   next.fundedAwards = [...(next.fundedAwards ?? []), { awardId, playerId: targetId }];
 

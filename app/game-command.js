@@ -454,6 +454,12 @@ const RULING_POLICY_ACTIONS = {
   }
 };
 
+// The price of these actions is printed on the card, so it is read from the
+// card rather than repeated here.
+function corporationCost(corporationId, key) {
+  return CORPORATIONS.find(item => item.id === corporationId)?.effects?.[key];
+}
+
 const CORPORATION_ACTIONS = {
   "corp-unmi": {
     label: "UNMI: MC3を支払いTRを1上げました。",
@@ -462,18 +468,25 @@ const CORPORATION_ACTIONS = {
       if ((actor.tr ?? 0) <= (actor.generationStartTr ?? 0)) {
         return "この世代にまだTRが上がっていません。";
       }
-      return (actor.mc ?? 0) < 3 ? "MCが不足しています。" : null;
+      return (actor.mc ?? 0) < corporationCost("corp-unmi", "trActionCost")
+        ? "MCが不足しています。"
+        : null;
     },
     run(state, command) {
       state.players = state.players.map(player =>
-        player.id === command.playerId ? { ...player, mc: player.mc - 3, tr: player.tr + 1 } : player
+        player.id === command.playerId
+          ? { ...player, mc: player.mc - corporationCost("corp-unmi", "trActionCost"), tr: player.tr + 1 }
+          : player
       );
       return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
     }
   },
   "corp-robinson": {
     label: "Robinson Industries: MC4で最も低い生産量を1段階上げました。",
-    blocked: actor => ((actor.mc ?? 0) < 4 ? "MCが不足しています。" : null),
+    blocked: actor =>
+      (actor.mc ?? 0) < corporationCost("corp-robinson", "productionActionCost")
+        ? "MCが不足しています。"
+        : null,
     run(state, command) {
       const resources = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"];
       const actor = getPlayer(state, command.playerId);
@@ -481,7 +494,11 @@ const CORPORATION_ACTIONS = {
       const target = resources.find(resource => (actor[resource] ?? 0) === lowest) ?? "mcProd";
       state.players = state.players.map(player =>
         player.id === command.playerId
-          ? { ...player, mc: player.mc - 4, [target]: (player[target] ?? 0) + 1 }
+          ? {
+              ...player,
+              mc: player.mc - corporationCost("corp-robinson", "productionActionCost"),
+              [target]: (player[target] ?? 0) + 1
+            }
           : player
       );
       return finishAction(state, command, `Robinson Industries: MC4で${target}を1段階上げました。`);
