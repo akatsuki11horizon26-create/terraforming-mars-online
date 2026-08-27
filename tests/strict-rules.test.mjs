@@ -1703,3 +1703,52 @@ test("Crash Site Cleanup pays 1 titanium or 2 steel", async () => {
   });
   assert.deepEqual(takings.sort(), [[0, 2], [1, 0]].sort(), "one titanium, or two steel");
 });
+
+// "Duplicate only the production box of one of your building cards." The copy
+// read only the flat `production` map, so a box expressed as a count was
+// invisible and a box carrying a decrease was copied without it.
+test("Robotic Workforce copies the whole production box", async () => {
+  const { applyCardEffect, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  const workforce = OFFICIAL_PROJECTS.find(item => item.id === "card-base-robotic-workforce");
+  const seat = (played, fillers = 0) => {
+    const state = getInitialState({ playerCount: 2, seed: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 200;
+    player.mcProd = 0;
+    player.energyProd = 5;
+    player.heatProd = 5;
+    const padding = OFFICIAL_PROJECTS
+      .filter(item => item.tags.includes("Building") && !played.includes(item.id))
+      .slice(0, fillers)
+      .map(item => item.id);
+    player.playedProjects = [...played, ...padding];
+    return state;
+  };
+  const copy = (state, cardId) => {
+    const started = applyCardEffect(state, workforce, []);
+    const option = started.state.pendingChoice?.options?.find(entry => entry.cardId === cardId);
+    assert.ok(option, `${cardId} should be offered as a copy target`);
+    return resolvePendingChoice(started.state, option.id, []);
+  };
+
+  // Medical Lab's box is "1 M€ per 2 building tags", which normalises to an
+  // empty production map, so the card could not be copied at all.
+  const lab = copy(seat(["card-base-medical-lab"], 4), "card-base-medical-lab");
+  assert.equal(getPlayer(lab.state, "player").mcProd, 2, "five building tags is two megacredits");
+
+  // Heat Trappers' box is "-2 heat production anywhere, +1 energy". The
+  // decrease is part of the box, so it is copied too and needs a victim.
+  const trappers = copy(seat(["card-base-heat-trappers"]), "card-base-heat-trappers");
+  assert.equal(getPlayer(trappers.state, "player").energyProd, 6);
+  const attack = trappers.state.pendingChoice;
+  assert.equal(attack?.kind, "production-attack", "the copied decrease still asks who loses it");
+
+  const victim = attack.options.find(entry => /player2|プレイヤー2/i.test(entry.label)) ?? attack.options[0];
+  const settled = resolvePendingChoice(trappers.state, victim.id, []);
+  const hit = (settled.state ?? settled).players.find(entry => entry.heatProd < 5);
+  assert.ok(hit, "somebody's heat production came down");
+});

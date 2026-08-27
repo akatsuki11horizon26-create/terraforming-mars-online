@@ -572,17 +572,46 @@ const LOCAL_HEAT_TRAPPING_ID = "card-base-local-heat-trapping";
 const STORMCRAFT_INCORPORATED_ID = "card-colonies-stormcraft-incorporated";
 const ROBOTIC_WORKFORCE_ID = "card-base-robotic-workforce";
 
+// The whole production box, not just its flat part. Medical Lab's box is
+// "1 M€ per 2 building tags" and Heat Trappers' is "-2 heat production
+// anywhere, +1 energy": reading only `production` skipped the first card
+// entirely and copied the second without its decrease.
+function roboticWorkforceProductionBox(state, card, ownerId) {
+  const effect = getCardEffect(card);
+  const box = { ...(effect.production ?? {}) };
+  for (const gain of effect.countedProduction ?? []) {
+    const counted = gain.others
+      ? evaluateCountedGain(state, { ...gain, allPlayers: true }, ownerId)
+        - evaluateCountedGain(state, { ...gain, allPlayers: false }, ownerId)
+      : evaluateCountedGain(state, gain, ownerId);
+    if (counted > 0) box[gain.resource] = (box[gain.resource] ?? 0) + counted;
+  }
+  return box;
+}
+
 function roboticWorkforceBuildingCards(state) {
   const player = getCurrentPlayer(state);
-  return (player?.playedProjects ?? [])
+  const ownerId = player?.id ?? state.currentPlayerId;
+  // Preludes and corporations carry the Building tag too, and a production box
+  // on one of them is as copyable as one on a project.
+  const owned = [
+    ...(player?.playedProjects ?? []),
+    ...(player?.selectedPreludeIds ?? []),
+    ...(player?.corporationId ? [player.corporationId] : [])
+  ];
+  return owned
     .map(id => ALL_CARDS.find(card => card.id === id))
     .filter(card => card?.tags.includes("Building"))
-    .filter(card => Object.keys(getCardEffect(card).production ?? {}).length > 0)
+    .filter(card => {
+      const box = roboticWorkforceProductionBox(state, card, ownerId);
+      const decrease = getCardEffect(card).productionDecrease;
+      return Object.keys(box).length > 0 || Boolean(decrease?.resource);
+    })
     // Copying a production box is subject to the same rule as printing one: a
     // decrease you cannot pay is not a legal copy. Without this, duplicating
     // 地下都市 at one energy production drove the track below zero, and the
     // production phase assigns energy from it directly.
-    .filter(card => canAffordProductionDecrease(state, getCardEffect(card).production));
+    .filter(card => canAffordProductionDecrease(state, roboticWorkforceProductionBox(state, card, ownerId)));
 }
 
 function canAffordProductionDecrease(state, production) {
@@ -1914,13 +1943,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       const sourceId = option.cardId;
       const source = ALL_CARDS.find(item => item.id === sourceId);
       const owner = getPlayer(next, choice.ownerPlayerId);
-      const production = source ? getCardEffect(source).production ?? {} : {};
+      // Counted boxes ("1 M€ per 2 building tags") are resolved against the
+      // board as it stands now, which is when the copy is made.
+      const production = source ? roboticWorkforceProductionBox(next, source, choice.ownerPlayerId) : {};
+      const sourceDecrease = source ? getCardEffect(source).productionDecrease : null;
+      const ownsSource =
+        (owner?.playedProjects ?? []).includes(sourceId) ||
+        (owner?.selectedPreludeIds ?? []).includes(sourceId) ||
+        owner?.corporationId === sourceId;
       // Affordability is re-checked here rather than trusted from the offered
       // options: the engine is authoritative for online play, so a submitted
       // card id has to stand on its own.
       const valid = source?.tags.includes("Building") &&
-        (owner?.playedProjects ?? []).includes(sourceId) &&
-        Object.keys(production).length > 0 &&
+        ownsSource &&
+        (Object.keys(production).length > 0 || Boolean(sourceDecrease?.resource)) &&
         canAffordProductionDecrease(owner, production);
       if (!valid) {
         next.pendingChoice = choice;
@@ -1941,6 +1977,23 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         return updated;
       });
       nextLogs = addLog(nextLogs, "system", `${source.name} の生産ボックスを恒久的にコピーしました。`);
+      // Heat Trappers' box is "-2 heat production anywhere, +1 energy": the
+      // decrease is part of the box and is copied with it, so the player has to
+      // name a victim exactly as they would when printing the card.
+      if (sourceDecrease?.resource) {
+        const attack = buildProductionAttackChoice(next, sourceDecrease.resource, sourceDecrease.count, {
+          sourceKind: "card",
+          sourceId: ROBOTIC_WORKFORCE_ID,
+          consumedAction: false,
+          paid: true,
+          stealing: sourceDecrease.stealing === true
+        });
+        if (attack) {
+          next.pendingChoice = attack;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: attack };
+        }
+      }
       break;
     }
     case "prelude-project": {
