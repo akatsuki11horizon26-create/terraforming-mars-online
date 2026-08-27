@@ -4897,8 +4897,14 @@ function getGeneratedRequirementStatus(card, state, buffer) {
     // "Requires that a player has removed plants this generation." The ledger
     // records landed attacks, so it already knows.
     if (requirement.plantsRemoved) {
+      // "Requires that a player removed ANOTHER PLAYER's plants this
+      // generation." Paying your own plants for a greenery is not a removal
+      // anyone can point at, so the two ends have to be different players.
       const removed = (state.generationAttackLedger ?? []).some(
-        entry => entry.resource === "plants" && entry.generation === state.generation
+        entry =>
+          entry.resource === "plants" &&
+          entry.generation === state.generation &&
+          entry.attackerPlayerId !== entry.victimPlayerId
       );
       if (!removed) {
         return { playable: false, reason: "この世代に植物が取り除かれている必要があります。" };

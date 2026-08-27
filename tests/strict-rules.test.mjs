@@ -1656,8 +1656,50 @@ test("Crash Site Cleanup needs plants removed this generation", async () => {
     "a steel raid is not a plant removal");
   assert.equal(getCardPlayableStatus(card, seat([attack("plants")])).playable, true);
 
+  // "Requires that a player removed ANOTHER PLAYER's plants." Spending your own
+  // plants on a greenery is not something anyone can point at.
+  const ownPlants = seat([]);
+  ownPlants.generationAttackLedger = [
+    { attackerPlayerId: "player", victimPlayerId: "player", resource: "plants", amount: 3, generation: ownPlants.generation }
+  ];
+  assert.equal(getCardPlayableStatus(card, ownPlants).playable, false,
+    "removing your own plants does not satisfy it");
+
   // The requirement is scoped to this generation, not the whole game.
   const stale = seat([attack("plants")]);
   stale.generationAttackLedger = stale.generationAttackLedger.map(entry => ({ ...entry, generation: entry.generation - 1 }));
   assert.equal(getCardPlayableStatus(card, stale).playable, false, "last generation does not count");
+});
+
+
+// "Gain 1 titanium or 2 steel." The generated catalogue carries Crash Site
+// Cleanup's requirement but no reward at all, so the card cost 4 M€ and paid
+// nothing. Coverage did not catch it: the requirement gate alone moved state.
+test("Crash Site Cleanup pays 1 titanium or 2 steel", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  const card = OFFICIAL_PROJECTS.find(item => item.id === "card-promo-crash-site-cleanup");
+  const state = getInitialState({ playerCount: 2, promo: true, seed: 1 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.mc = 100;
+  player.hand = [card.id];
+  state.generationAttackLedger = [
+    { attackerPlayerId: "player2", victimPlayerId: "player", resource: "plants", amount: 3, generation: state.generation }
+  ];
+
+  const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id });
+  assert.equal(played.ok, true);
+  const choice = played.state.pendingChoice;
+  assert.equal(choice?.kind, "effect-branch", "the card offers a choice of payout");
+  assert.equal(choice.options.length, 2);
+
+  const takings = choice.options.map(option => {
+    const after = getPlayer(resolvePendingChoice(played.state, option.id, []).state, "player");
+    return [after.titanium, after.steel];
+  });
+  assert.deepEqual(takings.sort(), [[0, 2], [1, 0]].sort(), "one titanium, or two steel");
 });
