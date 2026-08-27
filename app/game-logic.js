@@ -879,6 +879,10 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
       effect.tile = mapped.tile;
       effect.tileCount = raw.tile.count ?? 1;
       if (mapped.specialName) effect.specialName = mapped.specialName;
+      // Both mining tiles pay production for the bonus on the space they take.
+      if (mapped.specialName === "Mining Area" || mapped.specialName === "Mining Rights") {
+        effect.mineralProduction = true;
+      }
       if (raw.tile.on) effect.tilePlacementRule = raw.tile.on;
     } else {
       unsupported.push(`tile:${raw.tile.type}`);
@@ -1813,7 +1817,12 @@ function queuePendingChoices(state, card, context) {
       return buildTileChoice(
         state,
         effect.tile,
-        { ...context, remaining: effect.tileCount ?? 1, specialName: effect.specialName },
+        {
+          ...context,
+          remaining: effect.tileCount ?? 1,
+          specialName: effect.specialName,
+          mineralProduction: effect.mineralProduction === true
+        },
         legal
       );
     }
@@ -2561,6 +2570,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             : `${option.label} にタイルを配置しました。`
         );
       }
+      // Mining Area and Mining Rights raise production for whichever bonus the
+      // chosen space pays, so the amount is only known once the space is picked.
+      if (cell && choice.continuation.payload?.mineralProduction) {
+        const resource = cell.bonusType === "titanium" ? "titaniumProd" : "steelProd";
+        next.players = next.players.map(player =>
+          player.id === actorId ? { ...player, [resource]: (player[resource] ?? 0) + 1 } : player
+        );
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `${cell.bonusType === "titanium" ? "チタン" : "建材"}生産量 +1`
+        );
+      }
+
       const remaining = (choice.continuation.remaining ?? 1) - 1;
       if (remaining > 0) {
         const followUp = buildTileChoice(next, tileType, { ...choice.continuation, remaining }, legalCellsFor(next, tileType));
@@ -5415,7 +5438,7 @@ export function getLegalOwnedAdjacentSpaces(board, playerId = "player") {
 // rule was stored and never read, so every such card offered the whole board —
 // and Mohole Area, which must go ON an ocean space, was offered only the dry
 // land a special tile is otherwise limited to, so it never had a legal space.
-function satisfiesPlacementRule(cell, rule, board, boardId) {
+function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
   if (!rule) return true;
   // "Hellas has no volcanoes and no Noctis region, so those cards lose their
   // placement restrictions here" — the same is true of Utopia. Enforcing the
@@ -5438,6 +5461,21 @@ function satisfiesPlacementRule(cell, rule, board, boardId) {
       });
     case "away-from-cities":
       return !hasAdjacentCity(cell.q, cell.r, board);
+    // The two mining cards take a space that pays steel or titanium, and keep
+    // paying that resource as production for the rest of the game.
+    case "mineral":
+      return (cell.bonusType === "steel" || cell.bonusType === "titanium") &&
+        (cell.bonusAmount ?? 0) > 0;
+    case "mineral-adjacent":
+      if (!((cell.bonusType === "steel" || cell.bonusType === "titanium") &&
+        (cell.bonusAmount ?? 0) > 0)) return false;
+      // Mining Area also has to touch something the player already owns, and an
+      // ocean does not count as one of their tiles.
+      return getAdjacentCells(cell.q, cell.r).some(pos => {
+        const neighbour = board[`${pos.q},${pos.r}`];
+        return neighbour && neighbour.tileType !== "empty" &&
+          neighbour.tileType !== "ocean" && neighbour.placedBy === playerId;
+      });
     // New Holland upgrades an existing ocean rather than taking a bare space;
     // that is its own placement flow, so it is not a filter over empty spaces.
     default:
@@ -5449,7 +5487,7 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
   if (cell.tileType !== "empty") return false;
   // Noctis City's space is reserved for that card alone.
   if (cell.reservedFor && cell.reservedFor !== type) return false;
-  if (!satisfiesPlacementRule(cell, placementRule, board, boardId)) return false;
+  if (!satisfiesPlacementRule(cell, placementRule, board, boardId, playerId)) return false;
 
   if (type === "ocean") {
     // There are exactly nine ocean tiles. The counter saturated at 9 while the

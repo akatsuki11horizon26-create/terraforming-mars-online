@@ -248,7 +248,13 @@ export function buildTileChoice(state, tileType, context, legalCells) {
       // Work the caller parked until the space is chosen: the triggers a card
       // still owes, and the parameter levels to measure the bonus against.
       ...(context.afterPlay ? { afterPlay: context.afterPlay } : {}),
-      payload: { tileType, specialName: context.specialName ?? null }
+      payload: {
+        tileType,
+        specialName: context.specialName ?? null,
+        // The mining cards pay production for the bonus on whichever space the
+        // player picks, so the resolver has to know to look.
+        ...(context.mineralProduction ? { mineralProduction: true } : {})
+      }
     }
   };
 }

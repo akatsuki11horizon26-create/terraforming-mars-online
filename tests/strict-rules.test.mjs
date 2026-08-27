@@ -2174,3 +2174,50 @@ test("the two colony-placing cards spend production and place a colony", async (
   );
   assert.equal(status.playable, false, "two colonies is over the cap");
 });
+
+test("the mining cards take a mineral space and pay that mineral", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
+    return state;
+  };
+
+  const state = rig();
+  getPlayer(state, "player").hand = ["card-base-mining-rights"];
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-mining-rights"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "tile-placement");
+
+  // Only spaces that actually pay a mineral are offered.
+  for (const option of played.state.pendingChoice.options) {
+    const cell = played.state.board[option.targetCellKey];
+    assert.ok(
+      (cell.bonusType === "steel" || cell.bonusType === "titanium") && cell.bonusAmount > 0,
+      `${option.label} pays a mineral`
+    );
+  }
+
+  // The production follows whichever bonus the chosen space pays.
+  const titanium = played.state.pendingChoice.options.find(
+    option => played.state.board[option.targetCellKey]?.bonusType === "titanium"
+  );
+  assert.ok(titanium, "a titanium space is on offer");
+  const settled = resolvePendingChoice(played.state, titanium.id, played.state.logs, "player");
+  const after = getPlayer(settled.state, "player");
+  assert.equal(after.titaniumProd, 1, "a titanium space raises titanium production");
+  assert.equal(after.steelProd, 0, "and not steel");
+});
