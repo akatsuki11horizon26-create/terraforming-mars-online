@@ -2323,3 +2323,40 @@ test("Insulation converts as much heat production as the player chooses", async 
   assert.equal(seat.heatProd, 1, "three steps of heat production are spent");
   assert.equal(seat.mcProd, 4, "and the same three arrive as M€ production");
 });
+
+test("Power Infrastructure converts as much energy as the player chooses", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 10;
+  seat.energy = 5;
+  seat.actionsRemaining = 20;
+  seat.playedProjects = ["card-base-power-infrastructure"];
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-base-power-infrastructure"
+  });
+  assert.equal(used.ok, true);
+  assert.deepEqual(
+    used.state.pendingChoice.options.map(option => option.amount),
+    [1, 2, 3, 4, 5],
+    "every energy the player holds is on offer"
+  );
+
+  const four = used.state.pendingChoice.options.find(option => option.amount === 4);
+  const settled = resolvePendingChoice(used.state, four.id, used.state.logs, "player");
+  const after = getPlayer(settled.state, "player");
+  assert.equal(after.energy, 1);
+  assert.equal(after.mc, 14);
+  // "Each card action may be used once per generation."
+  assert.ok((after.usedCardActions ?? []).includes("card-base-power-infrastructure"));
+});

@@ -346,6 +346,7 @@ export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJE
 // Two cards pay their owner whenever a city is placed, whoever placed it.
 const IMMIGRANT_CITY_ID = "card-base-immigrant-city";
 const INSULATION_ID = "card-base-insulation";
+const POWER_INFRASTRUCTURE_ID = "card-base-power-infrastructure";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -2186,11 +2187,22 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     }
     case "amount": {
       // Only Insulation uses the amount choice so far; the stage says which.
+      const amount = option.amount ?? 0;
+      const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "power-infrastructure") {
+        next.players = next.players.map(player =>
+          player.id === target
+            ? { ...player, energy: (player.energy ?? 0) - amount, mc: (player.mc ?? 0) + amount }
+            : player
+        );
+        nextLogs = addLog(nextLogs, "system", `Power Infrastructure: エネルギー -${amount}、MC +${amount}`);
+        next.pendingChoice = null;
+        return { status: "resolved", state: next, logs: nextLogs };
+      }
       if (choice.continuation.stage !== "insulation") {
         next.pendingChoice = null;
         return { status: "resolved", state: next, logs: nextLogs };
       }
-      const amount = option.amount ?? 0;
       next.players = next.players.map(player =>
         player.id === (choice.ownerPlayerId ?? actorId)
           ? {
@@ -3306,6 +3318,16 @@ export function getCardActionStatus(state, card) {
     return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
   }
   const action = getCardEffect(card).action;
+  // Power Infrastructure's action is an amount rather than a behaviour block, so
+  // it has nothing for normalizeBehavior to produce.
+  if (card.id === POWER_INFRASTRUCTURE_ID) {
+    if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (getCurrentPlayer(state)?.energy ?? 0) > 0
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "エネルギーがありません。" };
+  }
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   // "これら各アクションのあるカードは、各世代につき１回ずつしか使用できません"
   if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
@@ -3346,6 +3368,26 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  // "Spend any amount of energy to gain that amount of M€." How much is the
+  // player's call, so the amounts are offered as the choice.
+  if (card.id === POWER_INFRASTRUCTURE_ID) {
+    const available = nextState.energy ?? 0;
+    const choice = buildAmountChoice(nextState, {
+      stage: "power-infrastructure",
+      max: available,
+      sourceKind: "card-action",
+      sourceId: card.id,
+      consumedAction: true,
+      paid: false,
+      prompt: "エネルギーをいくつMCに変換しますか。",
+      labelFor: amount => `エネルギー -${amount} / MC +${amount}`
+    });
+    if (!choice) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
 
   // "Remove N resources for X, or add one" is a choice the player makes every
   // turn. Normalising it collapsed the branch to the first entry, so the card
