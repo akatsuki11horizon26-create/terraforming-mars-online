@@ -2064,3 +2064,113 @@ test("Advertising raises production only for cards costing 20 or more", async ()
   check(cost => cost >= 20, 1);
   check(cost => cost > 0 && cost < 20, 0);
 });
+
+test("cards that count something in play pay for what they count", async () => {
+  const { getPlayer, ALL_CARDS } = await import("../app/game-logic.js");
+
+  // All four had an empty effectSpec, so they took the player's money and did
+  // nothing. Each needs a different thing counted.
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 300;
+    seat.actionsRemaining = 20;
+    state.oceans = 5;
+    state.oxygen = 8;
+    state.temperature = -6;
+    state.venus = 12;
+    return state;
+  };
+
+  const play = (state, cardId) => {
+    getPlayer(state, "player").hand = [cardId];
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId
+    });
+    assert.equal(played.ok, true, `${cardId} was refused`);
+    return getPlayer(played.state, "player");
+  };
+
+  // "1 M€ production per card with no tags, including this one."
+  const services = rig();
+  const noTag = ALL_CARDS.filter(c => (c.tags ?? []).length === 0 && c.type !== "event").slice(0, 2);
+  getPlayer(services, "player").playedProjects = noTag.map(c => c.id);
+  assert.equal(play(services, "card-colonies-community-services").mcProd, noTag.length + 1);
+
+  // "1 M€ production per distinct tag in play, including this card's own."
+  const trade = rig();
+  getPlayer(trade, "player").playedProjects = ["card-base-acquired-company"];
+  assert.equal(play(trade, "card-promo-interplanetary-trade").mcProd, 2, "Earth plus its own Space");
+
+  // "1 M€ per event played by ANY player."
+  const archives = rig();
+  getPlayer(archives, "player").playedEvents = ["card-base-asteroid"];
+  archives.players.find(p => p.id !== "player").playedEvents = ["card-base-comet", "card-base-big-asteroid"];
+  const opening = getPlayer(archives, "player").mc;
+  const card = ALL_CARDS.find(c => c.id === "card-base-media-archives");
+  assert.equal(play(archives, card.id).mc, opening - card.cost + 3, "three events across the table");
+
+  // "1 M€ production per colony in play, whoever built it."
+  const quantum = rig();
+  getPlayer(quantum, "player").playedProjects =
+    ALL_CARDS.filter(c => (c.tags ?? []).includes("Science")).slice(0, 4).map(c => c.id);
+  const tiles = Object.values(quantum.colonies?.tiles ?? {});
+  tiles[0].colonies = ["player"];
+  tiles[1].colonies = ["player2", "player"];
+  assert.equal(play(quantum, "card-colonies-quantum-communications").mcProd, 3);
+});
+
+test("the two colony-placing cards spend production and place a colony", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, resolvePendingChoice, countColonies } =
+    await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 300;
+    seat.mcProd = 5;
+    seat.actionsRemaining = 20;
+    return state;
+  };
+
+  for (const id of ["card-colonies-minority-refuge", "card-colonies-pioneer-settlement"]) {
+    const state = rig();
+    getPlayer(state, "player").hand = [id];
+    const played = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: "player", cardId: id });
+    assert.equal(played.ok, true, `${id} was refused`);
+    assert.equal(getPlayer(played.state, "player").mcProd, 3, `${id} spends 2 M€ production`);
+    assert.equal(played.state.pendingChoice?.kind, "colony-placement", `${id} asks where`);
+
+    const settled = resolvePendingChoice(
+      played.state, played.state.pendingChoice.options[0].id, played.state.logs, "player"
+    );
+    assert.equal(countColonies(settled.state.colonies, "player"), 1, `${id} places one colony`);
+  }
+
+  // "Requires that you have no more than 1 colony": `max` was ignored, so the
+  // requirement read as a floor and the card could never be played at all.
+  const blocked = rig();
+  const tiles = Object.values(blocked.colonies.tiles);
+  tiles[0].colonies = ["player"];
+  tiles[1].colonies = ["player"];
+  const status = getCardPlayableStatus(
+    ALL_CARDS.find(card => card.id === "card-colonies-pioneer-settlement"), blocked
+  );
+  assert.equal(status.playable, false, "two colonies is over the cap");
+});

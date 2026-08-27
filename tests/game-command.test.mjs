@@ -23,8 +23,13 @@ function activeTile(colonies) {
 // A seated two-player game with the turn holder holding one cheap card.
 function table(options = {}) {
   let state = getInitialState({ playerCount: 2, ...options });
+  // Corporation options are shuffled, and the first action of whichever lands
+  // first is not neutral: Tharsis Republic opens with a city, which changes
+  // what the board pays for a tile placed beside it. CrediCor does nothing at
+  // setup, the same reason preludeSetup below pins it.
+  const neutral = CORPORATIONS.find(item => item.id === "corp-credicor");
   for (const player of state.players) {
-    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+    state = applyCorporation(state, neutral, player.id);
   }
   let guard = 0;
   while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
@@ -1054,7 +1059,13 @@ test("final greenery resolves in turn order through commands", () => {
   assert.equal(placed.state.oxygen, ending.oxygen);
   assert.equal(getPlayer(placed.state, seat).tr, before.tr);
   if (cell.bonusType === "steel") {
-    assert.equal(getPlayer(placed.state, seat).steel, before.steel + cell.bonusAmount);
+    // The space pays its printed bonus, and an adjacent tile can pay more on
+    // top -- Tharsis Republic opens with a city, so that neighbour exists in
+    // some deals. The printed bonus is a floor, not the whole story.
+    assert.ok(
+      getPlayer(placed.state, seat).steel >= before.steel + cell.bonusAmount,
+      "the space pays at least its printed steel"
+    );
   }
 
   const firstDone = executeGameCommand(placed.state, {

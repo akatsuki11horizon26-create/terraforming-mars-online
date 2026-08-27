@@ -720,6 +720,10 @@ function normalizeCountedAmount(amount) {
   if (amount.greeneries) return { kind: "greeneries", each, per, allPlayers: amount.all !== false };
   // Floaters are always counted on the active player's own cards.
   if (amount.floaters) return { kind: "floaters", each, per, allPlayers: false };
+  if (amount.eventsPlayed) return { kind: "eventsPlayed", each, per, allPlayers: amount.all === true };
+  if (amount.noTags) return { kind: "noTags", each, per, allPlayers: false };
+  if (amount.distinctTags) return { kind: "distinctTags", each, per, allPlayers: false };
+  if (amount.coloniesInPlay) return { kind: "coloniesInPlay", each, per, allPlayers: true };
   return null;
 }
 
@@ -755,6 +759,37 @@ function evaluateCountedGain(state, gain, ownerId) {
     case "colonies":
       if (!state.colonies) return 0;
       for (const player of players) units += countColonies(state.colonies, player.id);
+      break;
+    case "eventsPlayed":
+      for (const player of players) units += (player.playedEvents ?? []).length;
+      break;
+    case "noTags":
+      // "1 M€ production per card with no tags, including this one" -- the card
+      // being played is not in playedProjects yet, so it is counted separately.
+      for (const player of players) {
+        for (const cardId of player.playedProjects ?? []) {
+          const card = ALL_CARDS.find(item => item.id === cardId);
+          if (card && (card.tags ?? []).length === 0) units += 1;
+        }
+      }
+      break;
+    case "distinctTags": {
+      // Distinct tag kinds across everything in play. Wild counts as its own in
+      // the reference's 'default' mode, and events are excluded from the board.
+      const kinds = new Set();
+      for (const player of players) {
+        for (const cardId of [...(player.playedProjects ?? []), ...(player.selectedPreludeIds ?? [])]) {
+          const card = ALL_CARDS.find(item => item.id === cardId);
+          for (const tag of card?.tags ?? []) kinds.add(String(tag).toLowerCase());
+        }
+      }
+      units = kinds.size;
+      break;
+    }
+    case "coloniesInPlay":
+      // Every colony on the board, whoever built it.
+      if (!state.colonies) return 0;
+      for (const player of state.players) units += countColonies(state.colonies, player.id);
       break;
     default:
       return 0;
@@ -5145,8 +5180,16 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       if (!state.colonies) return { playable: false, reason: "Coloniesが有効ではありません。" };
       const owned = countColonies(state.colonies, state.currentPlayerId);
       const needed = requirement.count ?? 1;
-      if (owned < needed) {
-        return { playable: false, reason: `植民地が${needed}個以上必要です。` };
+      // Pioneer Settlement is for players who are behind: "requires that you
+      // have no more than 1 colony". `max` was ignored, so it read as a floor
+      // and the card could never be played.
+      if (requirement.max ? owned > needed : owned < needed) {
+        return {
+          playable: false,
+          reason: requirement.max
+            ? `植民地が${needed}個以下である必要があります。`
+            : `植民地が${needed}個以上必要です。`
+        };
       }
       continue;
     }

@@ -16,7 +16,7 @@ const PARTY_IDS = ["greens", "mars", "kelvinists", "reds", "scientists", "unity"
 // A board rich enough that every requirement in the catalogue can be met by one
 // of the parameter corners: cities and greeneries down, colonies built, floaters
 // and microbes on cards, delegates in every party, chairmanship held.
-function rig({ oceans, oxygen, temperature, venus, party }) {
+function rig({ oceans, oxygen, temperature, venus, party, noColonies }) {
   const s = getInitialState({ playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 1 });
   s.phase = "action";
   s.currentPlayerId = "player";
@@ -44,10 +44,17 @@ function rig({ oceans, oxygen, temperature, venus, party }) {
   p.cardResources = Object.fromEntries(holders.map(id => [id, 5]));
 
   // Colonies: put the player on three tiles so "you have a colony" passes.
+  // Pioneer Settlement wants the opposite -- "no more than 1 colony" -- so one
+  // rig leaves the tiles open and owns none of them.
   if (s.colonies) {
     const tiles = Object.keys(s.colonies.tiles).slice(0, 3);
     for (const id of tiles) {
-      s.colonies.tiles[id] = { ...s.colonies.tiles[id], active: true, trackPosition: 3, colonies: ["player"] };
+      s.colonies.tiles[id] = {
+        ...s.colonies.tiles[id],
+        active: true,
+        trackPosition: 3,
+        colonies: noColonies ? [] : ["player"]
+      };
       if (!s.colonies.tilesInPlay.includes(id)) s.colonies.tilesInPlay = [...s.colonies.tilesInPlay, id];
     }
   }
@@ -79,6 +86,7 @@ RIGS.push({ oceans: 0, oxygen: 0, temperature: -30, venus: 0, party: "greens" })
 RIGS.push({ oceans: 9, oxygen: 14, temperature: 8, venus: 30, party: "greens" });
 RIGS.push({ oceans: 0, oxygen: 14, temperature: 8, venus: 0, party: "greens" });
 RIGS.push({ oceans: 9, oxygen: 0, temperature: -30, venus: 30, party: "greens" });
+RIGS.push({ oceans: 5, oxygen: 7, temperature: -8, venus: 12, party: "greens", noColonies: true });
 
 // `mc` moves whenever a card is paid for, and the corporation setup always
 // writes a corporation id and a setup step. Counting those as "the card did
