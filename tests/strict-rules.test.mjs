@@ -2398,3 +2398,92 @@ test("Floyd Continuum pays 3 M€ per finished global parameter", async () => {
     state.temperature = 8; state.oxygen = 14; state.oceans = 9; state.venus = 30;
   }), 12, "all four, Venus included when the expansion is on");
 });
+
+test("Energy Market offers both halves of its action in one list", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const rig = (mc, energyProd) => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = mc;
+    seat.energy = 0;
+    seat.energyProd = energyProd;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = ["card-promo-energy-market"];
+    return state;
+  };
+
+  const used = executeGameCommand(rig(7, 2), {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-energy-market"
+  });
+  assert.equal(used.ok, true);
+
+  // "Spend 2X M€ to gain X energy": 7 M€ buys at most three.
+  const buying = used.state.pendingChoice.options.filter(option => option.energy);
+  assert.deepEqual(buying.map(option => option.energy), [1, 2, 3]);
+
+  const three = resolvePendingChoice(
+    used.state, buying[2].id, used.state.logs, "player"
+  );
+  assert.equal(getPlayer(three.state, "player").mc, 1);
+  assert.equal(getPlayer(three.state, "player").energy, 3);
+
+  // "Decrease energy production 1 step to gain 8 M€."
+  const selling = used.state.pendingChoice.options.find(option => option.sellProduction);
+  const sold = resolvePendingChoice(used.state, selling.id, used.state.logs, "player");
+  assert.equal(getPlayer(sold.state, "player").energyProd, 1);
+  assert.equal(getPlayer(sold.state, "player").mc, 15);
+
+  // Neither half is affordable, so the action is refused rather than empty.
+  const broke = executeGameCommand(rig(1, 0), {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-energy-market"
+  });
+  assert.equal(broke.ok, false);
+});
+
+test("Hi-Tech Lab draws for energy and keeps exactly one card", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.energy = 4;
+  seat.hand = [];
+  seat.actionsRemaining = 20;
+  seat.playedProjects = ["card-promo-hi-tech-lab"];
+  const discardedBefore = state.discardPile.length;
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-hi-tech-lab"
+  });
+  assert.equal(used.ok, true);
+  assert.deepEqual(used.state.pendingChoice.options.map(option => option.amount), [1, 2, 3, 4]);
+
+  const three = used.state.pendingChoice.options.find(option => option.amount === 3);
+  const drawn = resolvePendingChoice(used.state, three.id, used.state.logs, "player");
+  assert.equal(getPlayer(drawn.state, "player").energy, 1, "three energy is spent");
+  assert.equal(drawn.state.pendingChoice?.options.length, 3, "and three cards are on offer");
+
+  // The pick is the card KEPT, not the card discarded.
+  const keep = drawn.state.pendingChoice.options[0];
+  const settled = resolvePendingChoice(drawn.state, keep.id, drawn.state.logs, "player");
+  const after = getPlayer(settled.state, "player");
+  assert.deepEqual(after.hand, [keep.cardId], "only the chosen card stays in hand");
+  assert.equal(settled.state.discardPile.length, discardedBefore + 2, "the other two are discarded");
+});

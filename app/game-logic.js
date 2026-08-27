@@ -348,6 +348,8 @@ const IMMIGRANT_CITY_ID = "card-base-immigrant-city";
 const INSULATION_ID = "card-base-insulation";
 const POWER_INFRASTRUCTURE_ID = "card-base-power-infrastructure";
 const FLOYD_CONTINUUM_ID = "card-promo-floyd-continuum";
+const ENERGY_MARKET_ID = "card-promo-energy-market";
+const HI_TECH_LAB_ID = "card-promo-hi-tech-lab";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -2190,6 +2192,34 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "hi-tech-lab") {
+        const seat = next.currentPlayerId;
+        next.currentPlayerId = target;
+        next.energy = (next.energy ?? 0) - amount;
+        const drawn = drawCards(next, amount);
+        nextLogs = addLog(nextLogs, "system", `Hi-Tech Lab: エネルギー -${amount}、カードを${drawn.length}枚引きました。`);
+        next.currentPlayerId = seat;
+        next.pendingChoice = null;
+        // One is kept and the rest are discarded, so the question is which to
+        // keep -- with a single card there is nothing to ask.
+        if (drawn.length > 1) {
+          const keep = buildDiscardChoice(next, drawn, {
+            sourceKind: "card-action",
+            sourceId: choice.continuation.sourceId,
+            stage: "hi-tech-lab-keep",
+            prompt: "手札に加えるカードを1枚選んでください（残りは捨てられます）。",
+            optional: false,
+            consumedAction: false
+          }, ALL_CARDS);
+          if (keep) {
+            keep.ownerPlayerId = target;
+            next.pendingChoice = keep;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: keep };
+          }
+        }
+        return { status: "resolved", state: next, logs: nextLogs };
+      }
       if (choice.continuation.stage === "power-infrastructure") {
         next.players = next.players.map(player =>
           player.id === target
@@ -2214,6 +2244,21 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           : player
       );
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
+      next.pendingChoice = null;
+      return { status: "resolved", state: next, logs: nextLogs };
+    }
+
+    case "energy-market": {
+      const target = choice.ownerPlayerId ?? actorId;
+      next.players = next.players.map(player => {
+        if (player.id !== target) return player;
+        if (option.sellProduction) {
+          return { ...player, energyProd: (player.energyProd ?? 0) - 1, mc: (player.mc ?? 0) + 8 };
+        }
+        const amount = option.energy ?? 0;
+        return { ...player, mc: (player.mc ?? 0) - amount * 2, energy: (player.energy ?? 0) + amount };
+      });
+      nextLogs = addLog(nextLogs, "system", `Energy Market: ${option.label}`);
       next.pendingChoice = null;
       return { status: "resolved", state: next, logs: nextLogs };
     }
@@ -2339,6 +2384,26 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      // Hi-Tech Lab reuses the card list to ask the opposite question: the
+      // picked card is the one kept, and everything else offered is discarded.
+      if (choice.continuation.stage === "hi-tech-lab-keep") {
+        const keptId = option.cardId ?? option.id;
+        const offered = choice.options.map(entry => entry.cardId ?? entry.id);
+        const discarded = offered.filter(id => id !== keptId);
+        next.players = next.players.map(player =>
+          player.id === (choice.ownerPlayerId ?? actorId)
+            ? { ...player, hand: [...(player.hand ?? []).filter(id => !discarded.includes(id))] }
+            : player
+        );
+        next.discardPile = [...next.discardPile, ...discarded];
+        const keptCard = ALL_CARDS.find(item => item.id === keptId);
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Hi-Tech Lab: 【${keptCard?.name ?? keptId}】を手札に加え、${discarded.length}枚を捨てました。`
+        );
+        break;
+      }
       const discardedId = option.cardId ?? option.id;
       next.hand = next.hand.filter(id => id !== discardedId);
       next.discardPile = [...next.discardPile, discardedId];
@@ -3336,6 +3401,24 @@ export function getCardActionStatus(state, card) {
       ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
       : { playable: true, reason: "" };
   }
+  if (card.id === HI_TECH_LAB_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (seat?.energy ?? 0) > 0
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "エネルギーがありません。" };
+  }
+  if (card.id === ENERGY_MARKET_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (seat?.mc ?? 0) >= 2 || (seat?.energyProd ?? 0) >= 1
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "2 MCかエネルギー生産量が必要です。" };
+  }
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   // "これら各アクションのあるカードは、各世代につき１回ずつしか使用できません"
   if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
@@ -3394,6 +3477,57 @@ export function applyCardAction(state, card, logs, branchIndex) {
     if (!choice) return { state, logs, playable: false };
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "Spend any amount of energy to draw the same number of cards, take one into
+  // hand and discard the rest." Two questions: how many, then which one to keep.
+  if (card.id === HI_TECH_LAB_ID) {
+    const choice = buildAmountChoice(nextState, {
+      stage: "hi-tech-lab",
+      max: nextState.energy ?? 0,
+      sourceKind: "card-action",
+      sourceId: card.id,
+      consumedAction: true,
+      paid: false,
+      prompt: "エネルギーをいくつ支払って、同じ枚数を引きますか。",
+      labelFor: amount => `エネルギー -${amount} / ${amount}枚引く`
+    });
+    if (!choice) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "Spend 2X M€ to gain X energy, OR decrease energy production 1 step to gain
+  // 8 M€." The first half is an amount and the second is a single option, so
+  // both halves live in one list rather than a branch that asks again.
+  if (card.id === ENERGY_MARKET_ID) {
+    const options = [];
+    const affordable = Math.floor((nextState.mc ?? 0) / 2);
+    for (let amount = 1; amount <= affordable; amount++) {
+      options.push({ id: `energy-${amount}`, label: `MC -${amount * 2} / エネルギー +${amount}`, energy: amount });
+    }
+    if ((nextState.energyProd ?? 0) >= 1) {
+      options.push({ id: "sell-production", label: "エネルギー生産量 -1 / MC +8", sellProduction: true });
+    }
+    if (options.length === 0) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `energy-market:${nextState.currentPlayerId}`,
+      kind: "energy-market",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: "Energy Market: どちらを行いますか。",
+      optional: false,
+      options,
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "energy-market",
+        consumedAction: true,
+        paid: false
+      }
+    };
     return { state: nextState, logs, playable: true, awaitingChoice: true };
   }
 

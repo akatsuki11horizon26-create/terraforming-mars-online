@@ -65,9 +65,9 @@ for (const [kind, list] of [["project", OFFICIAL_PROJECTS], ["prelude", PRELUDES
   }
 }
 
-// A ratchet, not a gate: 27 cards are known inert and fixing them is a body of
+// A ratchet, not a gate: 25 cards are known inert and fixing them is a body of
 // work, but the number must never grow. Lower this as they are implemented.
-const BASELINE = 27;
+const BASELINE = 25;
 
 console.log(`inert cards (text promises an effect, engine has none): ${inert.length} (baseline ${BASELINE})`);
 for (const [kind, card] of inert) {
