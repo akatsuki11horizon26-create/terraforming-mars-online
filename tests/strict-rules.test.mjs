@@ -1937,3 +1937,44 @@ test("Celestic opens by drawing two floater cards", async () => {
     );
   }
 });
+
+test("Media Group and Optimal Aerobraking pay out on events", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus } = await import("../app/game-logic.js");
+
+  // Neither card declares a behaviour -- their whole text is a trigger -- so
+  // both sat in the tableau paying nothing while every test passed.
+  const play = (tableau, pick) => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 2
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      // A corporation discount would move the same M€ this is measuring.
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.playedProjects = [tableau];
+    seat.mc = 100;
+    seat.heat = 0;
+    seat.actionsRemaining = 2;
+    const event = ALL_CARDS.find(
+      card => card.type === "event" && pick(card) && getCardPlayableStatus(card, state).playable
+    );
+    assert.ok(event, "an affordable event to play");
+    seat.hand = [event.id];
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: event.id
+    });
+    assert.equal(played.ok, true);
+    return { after: getPlayer(played.state, "player"), cost: event.cost };
+  };
+
+  const media = play("card-base-media-group", () => true);
+  assert.equal(media.after.mc, 100 - media.cost + 3, "an event pays Media Group 3 M€");
+
+  const braking = play("card-base-optimal-aerobraking", card => card.tags.includes("Space"));
+  assert.equal(braking.after.mc, 100 - braking.cost + 3, "a space event pays 3 M€");
+  assert.equal(braking.after.heat, 3, "and 3 heat");
+});

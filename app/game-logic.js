@@ -3382,6 +3382,22 @@ export function applyCorporationTriggers(state, card, logs) {
       nextLogs = addLog(nextLogs, "system", "Mars University: 科学タグ効果を使用できますが、交換できる手札または山札がありません。");
     }
   }
+  // Both read "when you play ...", so they fire on the owner's own plays only,
+  // which is the card that just resolved for the seated player.
+  if (card.type === "event" && nextState.playedProjects.some(id => id === "card-base-media-group")) {
+    nextState.mc += 3;
+    nextLogs = addLog(nextLogs, "system", "Media Group: MC +3");
+  }
+  if (
+    card.type === "event" &&
+    card.tags.includes("Space") &&
+    nextState.playedProjects.some(id => id === "card-base-optimal-aerobraking")
+  ) {
+    nextState.mc += 3;
+    nextState.heat += 3;
+    nextLogs = addLog(nextLogs, "system", "Optimal Aerobraking: MC +3、熱 +3");
+  }
+
   const corporation = getCorporation(nextState);
   if (!corporation) return { state: nextState, logs: nextLogs };
   if (corporation.effects.eventBonus && card.type === "event") {
