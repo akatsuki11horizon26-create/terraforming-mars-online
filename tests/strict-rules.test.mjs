@@ -1757,31 +1757,52 @@ test("Robotic Workforce copies the whole production box", async () => {
   assert.ok(hit, "somebody's heat production came down");
 });
 
-test("Vitor funds its first award for free, and only the first", async () => {
-  const { applyCorporation, getAwardStatus, fundAward, getPlayer } = await import("../app/game-logic.js");
+test("Vitor funds an award for free as its first action", async () => {
+  const { applyCorporation, advanceSetupTurn, resolvePendingChoice, getAwardStatus, getPlayer } =
+    await import("../app/game-logic.js");
 
+  // "As your first action, fund an award for free": it happens during setup,
+  // not whenever the player next decides to fund one, so the free funding
+  // cannot be banked and spent later in the game.
   let state = getInitialState({ mode: "multi", playerCount: 2, seed: 7 });
+  const ids = state.players.map(player => player.id);
   state.players = state.players.map(player =>
-    player.id === "player"
+    player.id === ids[0]
       ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), "corp-vitor"] }
       : player
   );
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    const corporation = id === ids[0] ? "corp-vitor" : getPlayer(state, id).corporationOptions[0];
+    state = applyCorporation(state, corporation, id);
+  }
+  state = advanceSetupTurn(state);
+
+  const choice = state.pendingChoice;
+  assert.equal(choice?.kind, "vitor-award", "setup asks which award to fund");
+  const opening = getPlayer(state, ids[0]).mc;
+  const settled = resolvePendingChoice(state, choice.options[0].id, state.logs, ids[0]);
+
+  assert.equal(settled.status, "resolved");
+  assert.equal(getPlayer(settled.state, ids[0]).mc, opening, "funding it cost nothing");
+  assert.equal(settled.state.fundedAwards.length, 1, "the award is funded");
+
+  // The ladder advanced, so anything funded later costs what it would have.
+  const after = settled.state;
+  after.phase = "action";
+  after.setupStep = "done";
+  const later = getAwardStatus(after, "banker", ids[0]);
+  assert.ok(later.cost > 0, "only the first action is comped");
+});
+
+test("Vitor asks nothing in solo, where awards are not used", async () => {
+  const { applyCorporation, advanceSetupTurn } = await import("../app/game-logic.js");
+  let state = getInitialState({ mode: "solo", playerCount: 1, seed: 7 });
+  state.players = state.players.map(player => ({ ...player, corporationOptions: ["corp-vitor"] }));
   state.currentPlayerId = "player";
   state = applyCorporation(state, "corp-vitor", "player");
-  state.phase = "action";
-  state.setupStep = "done";
-
-  const opening = getPlayer(state, "player").mc;
-  assert.equal(getAwardStatus(state, "landlord", "player").cost, 0, "the first award is free");
-  const first = fundAward(state, "landlord", state.logs, "player");
-  assert.ok(first.funded);
-  assert.equal(getPlayer(first.state, "player").mc, opening, "funding it cost nothing");
-
-  // The ladder still advanced, so the next award costs what it would have.
-  const second = getAwardStatus(first.state, "banker", "player");
-  assert.ok(second.cost > 0, "only the first award is comped");
-  const paid = fundAward(first.state, "banker", first.state.logs, "player");
-  assert.equal(getPlayer(paid.state, "player").mc, opening - second.cost);
+  state = advanceSetupTurn(state);
+  assert.equal(state.pendingChoice, null, "no award choice in a solo game");
 });
 
 test("Valley Trust draws three preludes and plays one for free", async () => {

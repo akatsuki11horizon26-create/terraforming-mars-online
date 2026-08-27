@@ -38,6 +38,7 @@ import {
   getNextAwardCost,
   scoreAward
 } from "./milestones-awards.js";
+import { awardsForBoard } from "./board-milestones.js";
 
 export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMilestoneThreshold, scoreAward };
 import {
@@ -1559,6 +1560,38 @@ export function applyCorporationInitialAction(state, logs) {
     const drawn = drawCards(nextState, corporation.effects.firstActionDraw);
     nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションでカードを${drawn.length}枚引きました。`);
   }
+  if (corporation.effects.firstAward) {
+    // "As your first action, fund an award for free" -- it happens now, not
+    // whenever the player next feels like funding one. Awards are disabled in
+    // solo, where the reference returns without asking.
+    const taken = new Set((nextState.fundedAwards ?? []).map(entry => entry.awardId));
+    const options = nextState.mode === "solo"
+      ? []
+      : awardsForBoard(nextState.boardId)
+          .filter(award => !taken.has(award.id))
+          .map(award => ({ id: award.id, awardId: award.id, label: award.name }));
+    if (options.length > 0) {
+      const choice = {
+        id: `vitor-award:${ownerId}`,
+        kind: "vitor-award",
+        ownerPlayerId: ownerId,
+        prompt: "初期アクション: 無償で設立する表彰を1つ選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          stage: "vitor-award",
+          sourceKind: "corporation",
+          sourceId: corporation.id,
+          consumedAction: false,
+          paid: true
+        }
+      };
+      nextState.pendingChoice = choice;
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: 表彰を1つ無償で設立します。`);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs };
+    }
+  }
   if (corporation.effects.firstFloaterDraw) {
     const drawn = drawCards(
       nextState,
@@ -2089,6 +2122,22 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "vitor-award": {
+      const seat = next.currentPlayerId;
+      next.currentPlayerId = choice.ownerPlayerId;
+      const funded = fundAward(next, option.awardId, nextLogs, choice.ownerPlayerId);
+      const after = funded.state;
+      after.currentPlayerId = seat;
+      after.pendingChoice = null;
+      const resume = after.setupContinuation;
+      if (resume?.stage === "prelude-setup") {
+        after.setupContinuation = null;
+        after.currentPlayerId = resume.seatBefore;
+        return { status: "resolved", state: advanceSetupTurn(after), logs: funded.logs };
+      }
+      return { status: "resolved", state: after, logs: funded.logs };
+    }
+
     case "valley-trust-prelude": {
       const prelude = PRELUDES.find(item => item.id === option.preludeId);
       if (!prelude) {
