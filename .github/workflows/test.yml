@@ -55,6 +55,11 @@ jobs:
           # is a different setup path and was never exercised here.
           node scripts/playtest.mjs --games=10 --players=3 --draft --prelude --venus --colonies --turmoil --promo
 
+      - name: Card coverage
+        # Plays every card in the catalogue and fails if any produces no
+        # observable change, so a card cannot go inert unnoticed.
+        run: node scripts/card-coverage.mjs
+
       - name: Playtest every map
         run: |
           for map in tharsis hellas elysium utopia amazonis; do

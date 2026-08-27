@@ -1593,3 +1593,71 @@ test("A seeded game deals reproducibly and keeps dealing reproducibly", async ()
   assert.equal(typeof migrated.rngSeed, "number", "a legacy save is given a seed");
   assert.equal(migrated.rngDraws, 0);
 });
+
+// Both of these requirements were stubbed out with a single line that returned
+// "expansion board condition unavailable" for either, so the two cards could
+// never be played at all -- and the message described neither of them.
+test("Diversity Support counts nine different resource types", async () => {
+  const { getCardPlayableStatus, getPlayer, getCardResourceType } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(item => item.id === "card-promo-diversity-support");
+
+  // One card per distinct card-resource kind, so the count can be dialled.
+  const seen = new Set();
+  const holders = [];
+  for (const item of OFFICIAL_PROJECTS) {
+    const type = getCardResourceType(item.id);
+    if (type && !seen.has(type)) { seen.add(type); holders.push(item.id); }
+  }
+
+  const seat = extraKinds => {
+    const state = getInitialState({ playerCount: 1, promo: true, seed: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    // The six board resources are six of the nine.
+    player.mc = 100;
+    player.steel = 1; player.titanium = 1; player.plants = 1; player.energy = 1; player.heat = 1;
+    const carrying = holders.slice(0, extraKinds);
+    player.playedProjects = carrying;
+    player.cardResources = Object.fromEntries(carrying.map(id => [id, 2]));
+    player.hand = [card.id];
+    return state;
+  };
+
+  assert.equal(getCardPlayableStatus(card, seat(2)).playable, false, "eight types is not nine");
+  assert.equal(getCardPlayableStatus(card, seat(3)).playable, true, "nine is enough");
+  // A card holding none of its resource does not count as a type.
+  const empty = seat(3);
+  const player = getPlayer(empty, "player");
+  player.cardResources = Object.fromEntries(Object.keys(player.cardResources).map(id => [id, 0]));
+  assert.equal(getCardPlayableStatus(card, empty).playable, false, "an empty card carries no type");
+});
+
+test("Crash Site Cleanup needs plants removed this generation", async () => {
+  const { getCardPlayableStatus, getPlayer } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+  const card = OFFICIAL_PROJECTS.find(item => item.id === "card-promo-crash-site-cleanup");
+
+  const seat = ledger => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 1 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.mc = 100;
+    player.hand = [card.id];
+    state.generationAttackLedger = ledger.map(entry => ({ ...entry, generation: state.generation }));
+    return state;
+  };
+  const attack = resource => ({ attackerPlayerId: "player2", victimPlayerId: "player", resource, amount: 3 });
+
+  assert.equal(getCardPlayableStatus(card, seat([])).playable, false, "nobody has been attacked");
+  assert.equal(getCardPlayableStatus(card, seat([attack("steel")])).playable, false,
+    "a steel raid is not a plant removal");
+  assert.equal(getCardPlayableStatus(card, seat([attack("plants")])).playable, true);
+
+  // The requirement is scoped to this generation, not the whole game.
+  const stale = seat([attack("plants")]);
+  stale.generationAttackLedger = stale.generationAttackLedger.map(entry => ({ ...entry, generation: entry.generation - 1 }));
+  assert.equal(getCardPlayableStatus(card, stale).playable, false, "last generation does not count");
+});

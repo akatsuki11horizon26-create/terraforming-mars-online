@@ -4759,6 +4759,23 @@ const RESOURCE_LABELS = {
   heat: "熱"
 };
 
+// Diversity Support asks for nine different types at once. The six on the
+// player board count separately, and each distinct kind held on a card --
+// microbes, floaters, animals and the rest -- counts once however many cards
+// carry it.
+function countResourceTypes(state) {
+  const player = getPlayer(state, state.currentPlayerId) ?? state.players?.[0];
+  if (!player) return 0;
+  const kinds = new Set();
+  for (const resource of Object.keys(RESOURCE_LABELS)) {
+    if ((player[resource] ?? 0) > 0) kinds.add(resource);
+  }
+  for (const [cardId, amount] of Object.entries(player.cardResources ?? {})) {
+    if ((amount ?? 0) > 0) kinds.add(getCardResourceType(cardId) ?? cardId);
+  }
+  return kinds.size;
+}
+
 // Tags that are still on the table: the corporation, the green and blue cards
 // in front of the player, and the preludes they opened with. Red events are
 // resolved and gone, so their tags are not counted -- they used to be, because
@@ -4868,7 +4885,26 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       }
       continue;
     }
-    if (requirement.resourceTypes || requirement.plantsRemoved) return { playable: false, reason: "拡張ボード条件はこのゲームモードでは選択できません。" };
+    // "Requires that you have 9 different types of resources." The six on the
+    // player board plus each distinct kind held on a card.
+    if (requirement.resourceTypes !== undefined) {
+      const needed = requirement.count ?? requirement.resourceTypes;
+      if (countResourceTypes(state) < needed) {
+        return { playable: false, reason: `${needed}種類の異なる資源が必要です。` };
+      }
+      continue;
+    }
+    // "Requires that a player has removed plants this generation." The ledger
+    // records landed attacks, so it already knows.
+    if (requirement.plantsRemoved) {
+      const removed = (state.generationAttackLedger ?? []).some(
+        entry => entry.resource === "plants" && entry.generation === state.generation
+      );
+      if (!removed) {
+        return { playable: false, reason: "この世代に植物が取り除かれている必要があります。" };
+      }
+      continue;
+    }
   }
   return { playable: true, reason: "" };
 }
