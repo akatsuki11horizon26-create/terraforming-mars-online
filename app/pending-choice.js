@@ -170,6 +170,36 @@ export function buildDiscardChoice(state, hand, context, cards) {
   };
 }
 
+// "Decrease your heat production any number of steps" and its siblings. The
+// choice system offers a list rather than a number field, so the amounts become
+// the list -- one option per step the player can actually afford.
+export function buildAmountChoice(state, context) {
+  const max = Math.max(0, Math.trunc(context.max ?? 0));
+  if (max <= 0) return null;
+  const amounts = [];
+  for (let amount = context.allowZero ? 0 : 1; amount <= max; amount++) amounts.push(amount);
+  if (amounts.length === 0) return null;
+  return {
+    id: makeChoiceId(context.stage ?? "amount", context.sourceId, state.currentPlayerId),
+    kind: "amount",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: context.prompt ?? "量を選んでください。",
+    optional: context.optional === true,
+    options: amounts.map(amount => ({
+      id: `amount-${amount}`,
+      label: context.labelFor ? context.labelFor(amount) : String(amount),
+      amount
+    })),
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: context.stage ?? "amount",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true
+    }
+  };
+}
+
 export function buildStandardResourceChoice(state, spec, context) {
   const count = resolveCount(spec, context);
   return {

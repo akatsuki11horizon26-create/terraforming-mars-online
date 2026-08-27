@@ -2272,3 +2272,54 @@ test("two cards collect on every city placed, including the opponent's", async (
   );
   assert.equal(getPlayer(done.state, "player").mc, opening + 2, "the opponent's city still pays");
 });
+
+test("Insulation converts as much heat production as the player chooses", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+
+  // "Any number of steps" has no number on the card, so the amounts become the
+  // options rather than a fixed effect.
+  const rig = heatProd => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.heatProd = heatProd;
+    seat.mcProd = 1;
+    seat.actionsRemaining = 20;
+    seat.hand = ["card-base-insulation"];
+    return state;
+  };
+
+  const card = ALL_CARDS.find(item => item.id === "card-base-insulation");
+  assert.equal(
+    getCardPlayableStatus(card, rig(0)).playable,
+    false,
+    "nothing to convert without heat production"
+  );
+
+  const state = rig(4);
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-insulation"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "amount");
+  assert.deepEqual(
+    played.state.pendingChoice.options.map(option => option.amount),
+    [1, 2, 3, 4],
+    "every step the player can afford is offered"
+  );
+
+  const three = played.state.pendingChoice.options.find(option => option.amount === 3);
+  const settled = resolvePendingChoice(played.state, three.id, played.state.logs, "player");
+  const seat = getPlayer(settled.state, "player");
+  assert.equal(seat.heatProd, 1, "three steps of heat production are spent");
+  assert.equal(seat.mcProd, 4, "and the same three arrive as M€ production");
+});

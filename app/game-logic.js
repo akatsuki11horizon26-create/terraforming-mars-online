@@ -54,6 +54,7 @@ import {
   buildResourceRemovalChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  buildAmountChoice,
   buildCorrosiveRainChoice,
   buildEventDiscardChoice,
   buildFloaterPlacementChoice,
@@ -344,6 +345,7 @@ export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJE
 // the board can show what was built there.
 // Two cards pay their owner whenever a city is placed, whoever placed it.
 const IMMIGRANT_CITY_ID = "card-base-immigrant-city";
+const INSULATION_ID = "card-base-insulation";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1789,6 +1791,18 @@ function queuePendingChoices(state, card, context) {
     }
   }
 
+  // "Decrease your heat production any number of steps and increase your M€
+  // production the same number." How many is the player's decision.
+  if (card.id === INSULATION_ID && !done.includes("insulation")) {
+    return buildAmountChoice(state, {
+      ...context,
+      stage: "insulation",
+      max: getCurrentPlayer(state)?.heatProd ?? 0,
+      prompt: "熱生産量をいくつ減らしますか（同じ数だけMC生産量が増えます）。",
+      labelFor: amount => `熱生産量 -${amount} / MC生産量 +${amount}`
+    });
+  }
+
   if (card.id === ROBOTIC_WORKFORCE_ID && !done.includes("building-production")) {
     return buildRoboticWorkforceChoice(state, context);
   }
@@ -2170,6 +2184,27 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       }
       break;
     }
+    case "amount": {
+      // Only Insulation uses the amount choice so far; the stage says which.
+      if (choice.continuation.stage !== "insulation") {
+        next.pendingChoice = null;
+        return { status: "resolved", state: next, logs: nextLogs };
+      }
+      const amount = option.amount ?? 0;
+      next.players = next.players.map(player =>
+        player.id === (choice.ownerPlayerId ?? actorId)
+          ? {
+              ...player,
+              heatProd: (player.heatProd ?? 0) - amount,
+              mcProd: (player.mcProd ?? 0) + amount
+            }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
+      next.pendingChoice = null;
+      return { status: "resolved", state: next, logs: nextLogs };
+    }
+
     case "vitor-award": {
       const seat = next.currentPlayerId;
       next.currentPlayerId = choice.ownerPlayerId;
@@ -5309,6 +5344,11 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     return { playable: false, reason: "フローターを持つ自分のカードが必要です。" };
   }
 
+  // Insulation converts heat production into M€ production, so there has to be
+  // at least one step of heat production to convert.
+  if (card.id === INSULATION_ID && (getCurrentPlayer(state)?.heatProd ?? 0) < 1) {
+    return { playable: false, reason: "熱生産量が1以上必要です。" };
+  }
   if (card.id === ROBOTIC_WORKFORCE_ID && roboticWorkforceBuildingCards(state).length === 0) {
     return { playable: false, reason: "生産ボックスを持つ自分の建物カードが必要です。" };
   }
