@@ -61,6 +61,13 @@ jobs:
         # Trust's free prelude both sat there unnoticed while every test passed.
         run: node scripts/audit-unread-flags.mjs
 
+      - name: Inert cards
+        # Cards whose text promises an effect the engine cannot perform. This is
+        # the gap coverage cannot see: a trigger card correctly changes nothing
+        # when played, and a card that only takes your money changes the state by
+        # taking it. A ratchet, not a gate -- the count must not grow.
+        run: node scripts/audit-inert-cards.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.

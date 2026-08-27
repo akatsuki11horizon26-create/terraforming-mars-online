@@ -1999,3 +1999,68 @@ test("Media Group and Optimal Aerobraking pay out on events", async () => {
   assert.equal(braking.after.mc, 100 - braking.cost + 3, "a space event pays 3 M€");
   assert.equal(braking.after.heat, 3, "and 3 heat");
 });
+
+test("Advertising raises production only for cards costing 20 or more", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus } = await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 12
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 300;
+    seat.steel = 20;
+    seat.titanium = 20;
+    seat.actionsRemaining = 20;
+    state.oceans = 4;
+    state.oxygen = 6;
+    state.temperature = -10;
+    state.venus = 10;
+    return state;
+  };
+
+  let state = rig();
+  getPlayer(state, "player").hand = ["card-promo-advertising"];
+  const seated = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-promo-advertising"
+  });
+  assert.equal(seated.ok, true);
+  state = seated.state;
+
+  // A card of its own that moves production, or that stops to ask where a tile
+  // goes, would measure something other than the trigger.
+  const plain = card =>
+    !/production|tile|city|ocean|greenery|removeAnyPlants|decreaseAnyProduction/
+      .test(JSON.stringify(card.effectSpec ?? {})) &&
+    card.id !== "card-promo-advertising";
+
+  const check = (want, expected) => {
+    const card = ALL_CARDS.find(
+      item => plain(item) && want(item.cost ?? 0) && getCardPlayableStatus(item, state).playable
+    );
+    assert.ok(card, "a card to play");
+    const before = getPlayer(state, "player").mcProd;
+    const ready = { ...state };
+    ready.players = state.players.map(player =>
+      player.id === "player" ? { ...player, hand: [card.id] } : player
+    );
+    const played = executeGameCommand(ready, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+    });
+    assert.equal(played.ok, true, `${card.name} was refused`);
+    assert.equal(
+      getPlayer(played.state, "player").mcProd - before,
+      expected,
+      `${card.name} (cost ${card.cost})`
+    );
+  };
+
+  check(cost => cost >= 20, 1);
+  check(cost => cost > 0 && cost < 20, 0);
+});

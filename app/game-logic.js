@@ -3447,6 +3447,17 @@ export function applyCorporationTriggers(state, card, logs) {
     nextLogs = addLog(nextLogs, "system", "Optimal Aerobraking: MC +3、熱 +3");
   }
 
+  // "When you play a card with a basic cost of 20 M€ or more" -- the printed
+  // cost, before any discount the player happens to have. Events are project
+  // cards too, so they count.
+  if (
+    (card.cost ?? 0) >= 20 &&
+    nextState.playedProjects.some(id => id === "card-promo-advertising")
+  ) {
+    nextState.mcProd = (nextState.mcProd ?? 0) + 1;
+    nextLogs = addLog(nextLogs, "system", "Advertising: MC生産量 +1");
+  }
+
   const corporation = getCorporation(nextState);
   if (!corporation) return { state: nextState, logs: nextLogs };
   if (corporation.effects.eventBonus && card.type === "event") {
