@@ -347,6 +347,7 @@ export { CORPORATIONS, GLOBAL_EVENTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJE
 const IMMIGRANT_CITY_ID = "card-base-immigrant-city";
 const INSULATION_ID = "card-base-insulation";
 const POWER_INFRASTRUCTURE_ID = "card-base-power-infrastructure";
+const FLOYD_CONTINUUM_ID = "card-promo-floyd-continuum";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -3328,6 +3329,13 @@ export function getCardActionStatus(state, card) {
       ? { playable: true, reason: "" }
       : { playable: false, reason: "エネルギーがありません。" };
   }
+  // Floyd Continuum pays nothing until a parameter is finished, but the action
+  // is still legal -- the reference lets it be used for zero.
+  if (card.id === FLOYD_CONTINUUM_ID) {
+    return (getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)
+      ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
+      : { playable: true, reason: "" };
+  }
   if (!action) return { playable: false, reason: "このカードには実行可能なアクションがありません。" };
   // "これら各アクションのあるカードは、各世代につき１回ずつしか使用できません"
   if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
@@ -3387,6 +3395,23 @@ export function applyCardAction(state, card, logs, branchIndex) {
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;
     return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "3 M€ for each completed terraforming parameter." Venus counts only when the
+  // expansion is in play, as it does in the reference.
+  if (card.id === FLOYD_CONTINUUM_ID) {
+    let completed = 0;
+    if (nextState.temperature >= MAX_TEMPERATURE) completed += 1;
+    if (nextState.oxygen >= MAX_OXYGEN) completed += 1;
+    if (nextState.oceans >= MAX_OCEANS) completed += 1;
+    if (nextState.venusEnabled && nextState.venus >= MAX_VENUS) completed += 1;
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.mc += completed * 3;
+    return {
+      state: nextState,
+      logs: addLog(logs, "player", `Floyd Continuum: 完了パラメータ${completed}個で MC +${completed * 3}`),
+      playable: true
+    };
   }
 
   // "Remove N resources for X, or add one" is a choice the player makes every

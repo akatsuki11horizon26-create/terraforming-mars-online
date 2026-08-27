@@ -2360,3 +2360,41 @@ test("Power Infrastructure converts as much energy as the player chooses", async
   // "Each card action may be used once per generation."
   assert.ok((after.usedCardActions ?? []).includes("card-base-power-infrastructure"));
 });
+
+test("Floyd Continuum pays 3 M€ per finished global parameter", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const take = setUp => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 0;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = ["card-promo-floyd-continuum"];
+    setUp(state);
+    const used = executeGameCommand(state, {
+      type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-floyd-continuum"
+    });
+    assert.equal(used.ok, true);
+    return getPlayer(used.state, "player").mc;
+  };
+
+  assert.equal(take(state => {
+    state.temperature = -10; state.oxygen = 5; state.oceans = 3; state.venus = 10;
+  }), 0, "nothing finished pays nothing, and the action is still legal");
+
+  assert.equal(take(state => {
+    state.temperature = 8; state.oxygen = 14; state.oceans = 3; state.venus = 10;
+  }), 6, "temperature and oxygen");
+
+  assert.equal(take(state => {
+    state.temperature = 8; state.oxygen = 14; state.oceans = 9; state.venus = 30;
+  }), 12, "all four, Venus included when the expansion is on");
+});
