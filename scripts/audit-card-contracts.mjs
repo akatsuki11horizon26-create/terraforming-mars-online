@@ -71,6 +71,26 @@ function contractFor(card, state) {
   const printedTr = typeof behavior.tr === "number" ? behavior.tr : 0;
   if (printedTr || fromParameters) expected.tr = printedTr + fromParameters;
 
+  // "Draw 2 cards" is as exact a promise as "+2 M€ production".
+  const draw = behavior.drawCard;
+  if (typeof draw === "number") expected.handSize = draw;
+  else if (draw && typeof draw.count === "number" && !draw.tag) {
+    // "Draw 4, keep 2" ends with the kept number in hand, not the drawn one.
+    expected.handSize = typeof draw.keep === "number" ? draw.keep : draw.count;
+  }
+
+  // So is "place a city": one more tile on the board than there was. A city
+  // sent off-world (`space`) never lands on the board, and a tile whose space
+  // the player picks has not been laid when the command returns.
+  const offBoard = behavior.city?.space !== undefined;
+  const asksWhere = behavior.tile !== undefined;
+  const tiles = offBoard || asksWhere
+    ? 0
+    : (behavior.city ? 1 : 0) +
+      (behavior.ocean ? (typeof behavior.ocean.count === "number" ? behavior.ocean.count : 1) : 0) +
+      (behavior.greenery ? 1 : 0);
+  if (tiles > 0) expected.tiles = tiles;
+
   // "1 M€ per Earth tag" is still a contract, just one the board decides. The
   // engine works the number out from the same spec, so what is being checked
   // is that the amount it computed is the amount it actually paid -- a card
@@ -221,13 +241,19 @@ function check(card, levels) {
   const after = getPlayer(played.state, "player");
 
   const GLOBAL_FIELDS = new Set(["temperature", "oxygen", "venus"]);
+  const countTiles = board => Object.values(board).filter(cell => cell.tileType !== "empty").length;
   const problems = [];
   for (const [field, delta] of Object.entries(expected)) {
-    // Playing the card costs money, so M€ moves by the card's own price too.
+    // Playing the card costs money, so M€ moves by the card's own price too,
+    // and the card itself leaves the hand.
     const paid = field === "mc" ? card.cost : 0;
     const got = GLOBAL_FIELDS.has(field)
       ? (played.state[field] ?? 0) - (state[field] ?? 0)
-      : (after[field] ?? 0) - (before[field] ?? 0) + paid;
+      : field === "tiles"
+        ? countTiles(played.state.board) - countTiles(state.board)
+        : field === "handSize"
+          ? (after.hand ?? []).length - (before.hand ?? []).length + 1
+          : (after[field] ?? 0) - (before[field] ?? 0) + paid;
     if (got !== delta) problems.push(`${field} ${got >= 0 ? "+" : ""}${got}, spec says ${delta >= 0 ? "+" : ""}${delta}`);
   }
   return problems.length > 0 ? { status: "wrong", problems } : { status: "checked" };
