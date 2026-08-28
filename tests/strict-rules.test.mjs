@@ -2908,3 +2908,55 @@ test("Public Plans pays for revealed cards without spending them", async () => {
   assert.equal(after.mc, before.mc + 3, "1 M€ per card revealed");
   assert.equal(after.hand.length, before.hand.length, "revealing is not discarding");
 });
+
+test("Astra Mechanica returns up to two events, and not tile-building ones", async () => {
+  const { getPlayer, resolvePendingChoice, DECLINE_CHOICE } = await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.actionsRemaining = 20;
+    seat.hand = ["card-promo-astra-mechanica"];
+    seat.playedEvents = ["card-base-asteroid", "card-base-comet", "card-base-big-asteroid"];
+    // Taking back a card that built a tile would leave the tile with nothing
+    // behind it, so it is not on offer.
+    seat.cardPlacements = { "card-base-comet": "1,1" };
+    state.deck = state.deck.filter(id => id !== "card-promo-astra-mechanica");
+    return state;
+  };
+
+  const played = executeGameCommand(rig(), {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-promo-astra-mechanica"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "astra-mechanica");
+  assert.deepEqual(
+    played.state.pendingChoice.options.map(option => option.cardId),
+    ["card-base-asteroid", "card-base-big-asteroid"]
+  );
+
+  const first = resolvePendingChoice(
+    played.state, played.state.pendingChoice.options[0].id, played.state.logs, "player"
+  );
+  const second = resolvePendingChoice(
+    first.state, first.state.pendingChoice.options[0].id, first.state.logs, "player"
+  );
+  const after = getPlayer(second.state, "player");
+  assert.equal(second.state.pendingChoice, null, "two is the cap");
+  assert.deepEqual(after.hand, ["card-base-asteroid", "card-base-big-asteroid"]);
+  assert.deepEqual(after.playedEvents, ["card-base-comet"]);
+
+  // "Up to 2": stopping after one is allowed.
+  const stopped = resolvePendingChoice(first.state, DECLINE_CHOICE, first.state.logs, "player");
+  assert.equal(stopped.state.pendingChoice, null);
+  assert.equal(getPlayer(stopped.state, "player").hand.length, 1);
+});

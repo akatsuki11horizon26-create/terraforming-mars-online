@@ -360,6 +360,7 @@ const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
 const PUBLIC_PLANS_ID = "card-promo-public-plans";
+const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1891,6 +1892,18 @@ function colonyTrackOptions(state, direction, excludeTileId) {
     }));
 }
 
+// Played events, minus any that built a special tile -- taking those back would
+// leave a tile on the board with no card behind it.
+function astraMechanicaOptions(state, selfId) {
+  const player = getCurrentPlayer(state);
+  // cardPlacements records which card put a tile where, which is the only
+  // thing that ties a tile back to the event that built it.
+  const built = new Set(Object.keys(player?.cardPlacements ?? {}));
+  return (player?.playedEvents ?? [])
+    .filter(id => id !== selfId && !built.has(id))
+    .map(id => ({ id, cardId: id, label: ALL_CARDS.find(item => item.id === id)?.name ?? id }));
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -1907,6 +1920,32 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Return up to 2 played events to your hand." Asked one at a time, and the
+  // player may stop early -- the choice is optional, so declining ends it.
+  if (card.id === ASTRA_MECHANICA_ID) {
+    const taken = done.filter(stage => stage.startsWith("astra-mechanica")).length;
+    if (taken < 2) {
+      const options = astraMechanicaOptions(state, card.id);
+      if (options.length > 0) {
+        return {
+          id: `astra-mechanica-${taken}:${state.currentPlayerId}`,
+          kind: "astra-mechanica",
+          ownerPlayerId: state.currentPlayerId,
+          prompt: `手札に戻すイベントカードを選んでください（残り${2 - taken}枚まで）。`,
+          optional: true,
+          options,
+          continuation: {
+            sourceKind: context.sourceKind,
+            sourceId: card.id,
+            stage: `astra-mechanica-${taken}`,
+            consumedAction: context.consumedAction ?? true,
+            paid: context.paid ?? true
+          }
+        };
+      }
+    }
+  }
+
   // "Reveal any number of cards from your hand, and gain 1 M€ for each." The
   // cards stay in hand -- revealing is not spending -- so all that is asked is
   // how many, including none.
@@ -2443,6 +2482,19 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
       next.pendingChoice = null;
       return { status: "resolved", state: next, logs: nextLogs };
+    }
+
+    case "astra-mechanica": {
+      const returned = option.cardId ?? option.id;
+      const owner = choice.ownerPlayerId ?? actorId;
+      const seatBefore = next.currentPlayerId;
+      next.currentPlayerId = owner;
+      next.playedEvents = (next.playedEvents ?? []).filter(id => id !== returned);
+      next.hand = [...next.hand, returned];
+      next.currentPlayerId = seatBefore;
+      const card = ALL_CARDS.find(item => item.id === returned);
+      nextLogs = addLog(nextLogs, "system", `【${card?.name ?? returned}】を手札に戻しました。`);
+      break;
     }
 
     case "colony-track": {
