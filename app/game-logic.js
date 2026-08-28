@@ -1053,10 +1053,12 @@ export function drawCards(state, count, tag, accepts) {
   return drawn;
 }
 
+// Automatic placement has to respect the same restrictions the player would be
+// offered -- a Land Claim marker among them -- so it goes through legalCellsFor
+// rather than testing cells itself.
 function firstLegalSpace(state, type, placementRule) {
-  return Object.values(state.board)
-    .sort((a, b) => `${a.q},${a.r}`.localeCompare(`${b.q},${b.r}`))
-    .find(cell => isCellPlacementValid(cell, type, state.board, undefined, placementRule, state.boardId));
+  return legalCellsFor(state, type, undefined, placementRule)
+    .sort((a, b) => `${a.q},${a.r}`.localeCompare(`${b.q},${b.r}`))[0];
 }
 
 // A card whose tile has only one legal space is laid without asking. That path
@@ -3667,10 +3669,12 @@ export function increaseTerraformRating(state, playerId, steps, reason = "action
     payRulingPolicyTrLevy(state, targetId, amount);
   }
 
-  // "When you raise your TR, gain 2 M€ per step." Only the owner's own rating,
-  // and only the terraforming they did -- the reference excludes the ratings
-  // handed out during the production and solar phases.
-  if (amount > 0 && TAXABLE_TR_REASONS.has(reason)) {
+  // "When you raise your TR, gain 2 M€ per step." The reference gates on the
+  // phase, not on why: an action, a prelude or anything during Turmoil pays,
+  // and only the production and solar phases are excluded. Every rating this
+  // engine hands out -- action, card, threshold, chairman -- happens in one of
+  // the phases that pay, so the owner's own increase is the whole condition.
+  if (amount > 0) {
     const owner = getPlayer(state, targetId);
     if ((owner?.selectedPreludeIds ?? []).includes(TERRAFORMING_DEAL_ID)) {
       state.players = state.players.map(player =>

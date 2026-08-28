@@ -3048,11 +3048,12 @@ test("Terraforming Deal pays 2 M€ for each rating step its owner earns", async
   increaseTerraformRating(theirs, "player2", 3, "card");
   assert.equal(getPlayer(theirs, "player").mc, 100);
 
-  // The chairman's rating is not terraforming the player did, and the reference
-  // excludes the ratings handed out outside the action phase.
+  // The reference gates on the phase rather than on why the rating moved, and
+  // taking the chairman's seat happens during the action phase, so it pays --
+  // even though the Reds levy does not reach the same step.
   const office = cloneGameState(state);
   increaseTerraformRating(office, "player", 2, "chairman");
-  assert.equal(getPlayer(office, "player").mc, 100);
+  assert.equal(getPlayer(office, "player").mc, 104);
 });
 
 test("Land Claim reserves a space for the player who claimed it", async () => {
@@ -3130,4 +3131,47 @@ test("WG Project draws three preludes and plays one, for the chairman only", asy
   const pick = played.state.pendingChoice.options[0];
   const settled = resolvePendingChoice(played.state, pick.id, played.state.logs, "player");
   assert.deepEqual(getPlayer(settled.state, "player").selectedPreludeIds, [pick.preludeId]);
+});
+
+test("the chairman's rating pays Terraforming Deal but is still untaxed by Reds", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { NEUTRAL } = await import("../app/turmoil.js");
+
+  // Two rules meet on the same rating step and disagree about it on purpose:
+  // Terraforming Deal gates on the phase, the Reds levy on whether the player
+  // chose to terraform.
+  const state = getInitialState({
+    playerCount: 2, prelude: true, turmoil: true, venus: true, colonies: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-turmoil-vote-of-no-confidence"];
+  seat.selectedPreludeIds = ["card-prelude2-terraforming-deal"];
+  state.deck = state.deck.filter(id => id !== "card-turmoil-vote-of-no-confidence");
+  for (const id of Object.keys(state.turmoil.parties)) {
+    state.turmoil.parties[id].delegates = [];
+    state.turmoil.parties[id].leader = null;
+  }
+  state.turmoil.parties.greens.delegates = ["player"];
+  state.turmoil.parties.greens.leader = "player";
+  state.turmoil.delegateReserve.player = 2;
+  state.turmoil.chairman = NEUTRAL;
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.dominantParty = "reds";
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-turmoil-vote-of-no-confidence"
+  });
+  assert.equal(played.ok, true);
+  // 200 - 5 for the card + 2 from Terraforming Deal, and no 3 M€ levy.
+  assert.equal(getPlayer(played.state, "player").mc, 197);
+  assert.equal(getPlayer(played.state, "player").tr, 21);
 });
