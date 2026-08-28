@@ -12,9 +12,17 @@
 // are skipped and reported so the number is honest about what it covered.
 //
 // Usage: node scripts/audit-card-contracts.mjs [--list]
-import { getInitialState, getPlayer, getCardPlayableStatus, getCardEffect } from "../app/game-logic.js";
+import {
+  getInitialState,
+  getPlayer,
+  getCardPlayableStatus,
+  getCardEffect,
+  applyPreludes,
+  applyCorporation,
+  getPreludeCost
+} from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
-import { OFFICIAL_PROJECTS } from "../app/official-content.js";
+import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
 
 const PRODUCTION_FIELD = {
   megacredits: "mcProd",
@@ -218,6 +226,8 @@ const rig = (levels = THRESHOLD_SAFE[0]) => {
   return state;
 };
 
+const GLOBAL_FIELD_NAMES = new Set(["temperature", "oxygen", "venus"]);
+
 const checked = [];
 const skipped = [];
 const wrong = [];
@@ -267,7 +277,7 @@ function check(card, levels) {
   if (played.state.pendingChoice) return { status: "skip", why: "stopped to ask a question" };
   const after = getPlayer(played.state, "player");
 
-  const GLOBAL_FIELDS = new Set(["temperature", "oxygen", "venus"]);
+  const GLOBAL_FIELDS = GLOBAL_FIELD_NAMES;
   const countTiles = board => Object.values(board).filter(cell => cell.tileType !== "empty").length;
   const problems = [];
   for (const [field, delta] of Object.entries(expected)) {
@@ -286,10 +296,93 @@ function check(card, levels) {
   return problems.length > 0 ? { status: "wrong", problems } : { status: "checked" };
 }
 
+// Preludes and corporations do not go through PLAY_CARD, so they are measured
+// through the entry points that do apply them.
+const preludeResults = { checked: 0, wrong: [], skipped: 0 };
+for (const prelude of PRELUDES) {
+  const expected = contractFor(prelude, rig());
+  if (!expected) { preludeResults.skipped += 1; continue; }
+  const behavior = prelude.effectSpec?.behavior ?? {};
+  if ([...ASKS_A_QUESTION, ...TOUCHES_THE_SAME_FIELDS].some(key => behavior[key] !== undefined)) {
+    preludeResults.skipped += 1;
+    continue;
+  }
+
+  const state = rig();
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "prelude";
+  // Paired with an inert partner so what moves is this prelude's doing.
+  const partner = PRELUDES.find(item =>
+    item.id !== prelude.id && Object.keys(item.effectSpec?.behavior ?? {}).length === 0
+  );
+  if (!partner) { preludeResults.skipped += 1; continue; }
+  seat.preludeOptions = [prelude.id, partner.id];
+  const before = { ...getPlayer(state, "player") };
+  const after = applyPreludes(state, [prelude.id, partner.id], "player");
+  if (after === state) { preludeResults.skipped += 1; continue; }
+  if (after.pendingChoice) { preludeResults.skipped += 1; continue; }
+
+  const seated = getPlayer(after, "player");
+  const problems = [];
+  for (const [field, delta] of Object.entries(expected)) {
+    if (field === "tiles" || field === "handSize" || GLOBAL_FIELD_NAMES.has(field)) continue;
+    // A prelude that costs money pays for itself out of the same M€.
+    const paid = field === "mc" ? getPreludeCost(prelude) : 0;
+    const got = (seated[field] ?? 0) - (before[field] ?? 0) + paid;
+    if (got !== delta) problems.push(`${field} ${got}, spec says ${delta}`);
+  }
+  if (problems.length > 0) preludeResults.wrong.push([prelude, problems]);
+  else preludeResults.checked += 1;
+}
+
+// A corporation's starting resources are printed on the card; choosing it must
+// produce exactly those.
+const corpResults = { checked: 0, wrong: [], skipped: 0 };
+for (const corporation of CORPORATIONS) {
+  const starting = corporation.starting ?? {};
+  const production = starting.production ?? {};
+  if (Object.keys(production).length === 0 && starting.mc === undefined) {
+    corpResults.skipped += 1;
+    continue;
+  }
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 4
+  });
+  state.players = state.players.map(player =>
+    player.id === "player"
+      ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), corporation.id] }
+      : player
+  );
+  state.currentPlayerId = "player";
+  const seated = getPlayer(applyCorporation(state, corporation.id, "player"), "player");
+
+  const problems = [];
+  if (typeof starting.mc === "number" && seated.mc !== starting.mc) {
+    problems.push(`mc ${seated.mc}, card says ${starting.mc}`);
+  }
+  for (const [source, amount] of Object.entries(production)) {
+    const field = PRODUCTION_FIELD[source];
+    if (!field || typeof amount !== "number") continue;
+    if ((seated[field] ?? 0) !== amount) {
+      problems.push(`${field} ${seated[field] ?? 0}, card says ${amount}`);
+    }
+  }
+  if (problems.length > 0) corpResults.wrong.push([corporation, problems]);
+  else corpResults.checked += 1;
+}
+
 console.log(`cards with a fixed numeric contract: ${checked.length + wrong.length}`);
 console.log(`  honoured : ${checked.length}`);
 console.log(`  wrong    : ${wrong.length}`);
 console.log(`skipped (no fixed contract, or does more): ${skipped.length}`);
+console.log(`preludes     : ${preludeResults.checked} honoured, ${preludeResults.wrong.length} wrong, ${preludeResults.skipped} skipped`);
+console.log(`corporations : ${corpResults.checked} honoured, ${corpResults.wrong.length} wrong, ${corpResults.skipped} skipped`);
+
+for (const [card, problems] of [...preludeResults.wrong, ...corpResults.wrong]) {
+  console.log(`
+WRONG ${card.id}  ${card.name}`);
+  for (const problem of problems) console.log(`   ${problem}`);
+}
 
 for (const [card, problems] of wrong) {
   console.log(`\nWRONG ${card.id}  ${card.name}`);
@@ -301,4 +394,4 @@ if (process.argv.includes("--list")) {
   for (const [card, why] of skipped) console.log(`skip ${card.id}: ${why}`);
 }
 
-process.exit(wrong.length > 0 ? 1 : 0);
+process.exit(wrong.length + preludeResults.wrong.length + corpResults.wrong.length > 0 ? 1 : 0);
