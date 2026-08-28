@@ -2871,3 +2871,40 @@ test("Market Manipulation raises one colony track and lowers another", async () 
   assert.equal(tiles[raised.targetTileId].trackPosition, before[raised.targetTileId] + 1);
   assert.equal(tiles[lowered.targetTileId].trackPosition, before[lowered.targetTileId] - 1);
 });
+
+test("Public Plans pays for revealed cards without spending them", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = [
+    "card-promo-public-plans", "card-base-asteroid", "card-base-comet", "card-base-acquired-company"
+  ];
+  state.deck = state.deck.filter(id => !seat.hand.includes(id));
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-promo-public-plans"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "amount");
+  // The other three cards, and revealing none is allowed.
+  assert.deepEqual(played.state.pendingChoice.options.map(option => option.amount), [0, 1, 2, 3]);
+
+  const before = getPlayer(played.state, "player");
+  const three = played.state.pendingChoice.options.find(option => option.amount === 3);
+  const settled = resolvePendingChoice(played.state, three.id, played.state.logs, "player");
+  const after = getPlayer(settled.state, "player");
+
+  assert.equal(after.mc, before.mc + 3, "1 M€ per card revealed");
+  assert.equal(after.hand.length, before.hand.length, "revealing is not discarding");
+});

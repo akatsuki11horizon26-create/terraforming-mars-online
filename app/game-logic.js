@@ -359,6 +359,7 @@ const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
+const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1906,6 +1907,23 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Reveal any number of cards from your hand, and gain 1 M€ for each." The
+  // cards stay in hand -- revealing is not spending -- so all that is asked is
+  // how many, including none.
+  if (card.id === PUBLIC_PLANS_ID && !done.includes("public-plans")) {
+    const hand = (getCurrentPlayer(state)?.hand ?? []).filter(id => id !== card.id);
+    if (hand.length > 0) {
+      return buildAmountChoice(state, {
+        ...context,
+        stage: "public-plans",
+        max: hand.length,
+        allowZero: true,
+        prompt: "公開する手札の枚数を選んでください（1枚につきMC1）。",
+        labelFor: amount => `${amount}枚公開 / MC +${amount}`
+      });
+    }
+  }
+
   // "Increase one colony tile track 1 step, and decrease another 1 step." The
   // two picks are chained; the second excludes whichever tile the first raised.
   if (card.id === MARKET_MANIPULATION_ID && !done.includes("market-manipulation")) {
@@ -2363,6 +2381,14 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "public-plans") {
+        next.players = next.players.map(player =>
+          player.id === target ? { ...player, mc: (player.mc ?? 0) + amount } : player
+        );
+        nextLogs = addLog(nextLogs, "system", `Public Plans: ${amount}枚公開して MC +${amount}`);
+        next.pendingChoice = null;
+        return { status: "resolved", state: next, logs: nextLogs };
+      }
       if (choice.continuation.stage === "hi-tech-lab") {
         const seat = next.currentPlayerId;
         next.currentPlayerId = target;
