@@ -2673,6 +2673,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "viral-enhancers": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      if (option.id === "plant") {
+        next.players = next.players.map(player =>
+          player.id === owner ? { ...player, plants: (player.plants ?? 0) + 1 } : player
+        );
+        nextLogs = addLog(nextLogs, "system", "Viral Enhancers: 植物 +1");
+      } else {
+        changeCardResource(next, { ownerPlayerId: owner, cardId: option.cardId, delta: 1 });
+        nextLogs = addLog(nextLogs, "system", `Viral Enhancers: ${option.label}`);
+      }
+      break;
+    }
+
     case "project-eden": {
       // Record which of the four this was, so the next question offers the rest.
       markChoiceResolved(next, choice.continuation.sourceId, `project-eden-step:${option.stepId}`);
@@ -4347,9 +4361,110 @@ export function applyCardAction(state, card, logs, branchIndex) {
   return { state: result.state, logs: nextLogs, playable: true };
 }
 
+// Cards that watch what gets played. `anyPlayer` is the difference between
+// "when you play a card with a microbe tag" and "when ANY player does": Splice
+// pays its owner for everyone's microbes, the rest only for their own.
+//
+// Counting is per tag, not per card: a card carrying two of the tags a watcher
+// wants fires it twice, which is what cardTagCount does in the reference.
+const CARD_PLAYED_WATCHERS = [
+  {
+    cardId: "card-base-viral-enhancers",
+    tags: ["Plant", "Microbe", "Animal"],
+    // "Gain a plant, OR add a resource to that card" -- the choice only exists
+    // when the card played can actually hold one.
+    perTag: (state, ownerId, played, logs) => {
+      const holds = played.resourceType ?? getCardResourceType(played.id);
+      if (holds === "animal" || holds === "microbe") {
+        return { choice: viralEnhancersChoice(state, ownerId, played) };
+      }
+      state.players = state.players.map(player =>
+        player.id === ownerId ? { ...player, plants: (player.plants ?? 0) + 1 } : player
+      );
+      return { logs: addLog(logs, "system", "Viral Enhancers: 植物 +1") };
+    }
+  },
+  {
+    cardId: "card-base-ecological-zone",
+    tags: ["Animal", "Plant"],
+    perTag: (state, ownerId, played, logs) => {
+      changeCardResource(state, {
+        ownerPlayerId: ownerId,
+        cardId: "card-base-ecological-zone",
+        delta: 1
+      });
+      return { logs: addLog(logs, "system", "Ecological Zone: 動物 +1") };
+    }
+  }
+];
+
+// Splice watches every table, so it is listed apart from the ones that only
+// watch their owner.
+const SPLICE_ID = "card-promo-splice";
+
+function viralEnhancersChoice(state, ownerId, played) {
+  return {
+    id: `viral-enhancers:${played.id}:${ownerId}`,
+    kind: "viral-enhancers",
+    ownerPlayerId: ownerId,
+    prompt: `Viral Enhancers: 植物1個を得るか、【${played.name}】に資源を1個置くかを選んでください。`,
+    optional: false,
+    options: [
+      { id: "plant", label: "植物 +1" },
+      { id: "resource", label: `【${played.name}】に資源 +1`, cardId: played.id }
+    ],
+    continuation: {
+      sourceKind: "card",
+      sourceId: "card-base-viral-enhancers",
+      stage: `viral-enhancers:${played.id}`,
+      consumedAction: false,
+      paid: true
+    }
+  };
+}
+
+// How many of the tags a watcher cares about this card carries.
+function countWatchedTags(card, tags) {
+  return (card.tags ?? []).filter(tag => tags.includes(tag)).length;
+}
+
 export function applyCorporationTriggers(state, card, logs) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
+
+  // The owner's own plays, one firing per matching tag. Anything that needs an
+  // answer is queued rather than asked immediately, so several watchers on one
+  // card play do not overwrite each other.
+  const queued = [];
+  for (const watcher of CARD_PLAYED_WATCHERS) {
+    const owner = getCurrentPlayer(nextState);
+    if (!(owner?.playedProjects ?? []).includes(watcher.cardId)) continue;
+    const firings = countWatchedTags(card, watcher.tags);
+    for (let i = 0; i < firings; i++) {
+      const result = watcher.perTag(nextState, owner.id, card, nextLogs);
+      if (result?.logs) nextLogs = result.logs;
+      if (result?.choice) queued.push(result.choice);
+    }
+  }
+
+  // "When ANY player plays a card with a microbe tag": 2 M€ per tag to Splice's
+  // owner, and the player who played it chooses where a microbe goes.
+  const microbes = countWatchedTags(card, ["Microbe"]);
+  if (microbes > 0) {
+    for (const holder of nextState.players) {
+      if (!(holder.playedProjects ?? []).includes(SPLICE_ID)) continue;
+      nextState.players = nextState.players.map(player =>
+        player.id === holder.id ? { ...player, mc: (player.mc ?? 0) + microbes * 2 } : player
+      );
+      nextLogs = addLog(nextLogs, "system", `Splice: ${holder.name} が MC +${microbes * 2}`);
+    }
+  }
+
+  if (queued.length > 0) {
+    nextState.pendingChoice = queued[0];
+    enqueuePendingChoices(nextState, queued.slice(1));
+    nextLogs = addLog(nextLogs, "system", queued[0].prompt);
+  }
   if (card.tags.includes("Science") && nextState.playedProjects.some(id => id === "p-mars-university")) {
     if (nextState.hand.length > 0 && nextState.deck.length > 0) {
       // The card reads "捨ててよい": the player chooses which card goes, and may
@@ -6391,6 +6506,12 @@ function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
       });
     case "away-from-cities":
       return !hasAdjacentCity(cell.q, cell.r, board);
+    // Ecological Zone's tile goes beside a greenery -- any greenery, not only
+    // the player's own.
+    case "greenery-adjacent":
+      return getAdjacentCells(cell.q, cell.r).some(
+        pos => board[`${pos.q},${pos.r}`]?.tileType === "forest"
+      );
     // The two mining cards take a space that pays steel or titanium, and keep
     // paying that resource as production for the rest of the game.
     case "mineral":

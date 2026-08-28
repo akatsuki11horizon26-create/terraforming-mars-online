@@ -3405,3 +3405,145 @@ test("Project Eden places three tiles in the player's order and discards three",
   assert.equal(tiles(), before + 3, "an ocean, a city and a greenery");
   assert.equal(getPlayer(state, me).hand.length, 1, "three of the four are discarded");
 });
+
+test("cards that watch what gets played fire once per matching tag", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+
+  const rig = (mine, theirs) => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 300;
+    seat.steel = 20;
+    seat.titanium = 20;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = mine;
+    const other = state.players.find(player => player.id !== "player");
+    other.playedProjects = theirs ?? [];
+    other.mc = 100;
+    // Wide open parameters so the cards under test are not gated.
+    state.oceans = 8;
+    state.oxygen = 14;
+    state.temperature = 8;
+    state.venus = 30;
+    return state;
+  };
+
+  const play = (state, cardId) => {
+    getPlayer(state, "player").hand = [cardId];
+    state.deck = state.deck.filter(id => id !== cardId);
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId
+    });
+    assert.equal(played.ok, true, `${cardId} was refused`);
+    return played;
+  };
+
+  // Viral Enhancers: a card that cannot hold resources just pays a plant.
+  const plantOnly = ALL_CARDS.find(card =>
+    (card.tags ?? []).includes("Plant") && !(card.resourceType ?? getCardResourceType(card.id))
+  );
+  const viral = rig(["card-base-viral-enhancers"]);
+  const plantsBefore = getPlayer(viral, "player").plants;
+  const grown = play(viral, plantOnly.id);
+  assert.equal(getPlayer(grown.state, "player").plants, plantsBefore + 1);
+  assert.equal(grown.state.pendingChoice, null, "nothing to ask about");
+
+  // A card that DOES hold them asks which, and the answer can be the card.
+  const animalCard = ALL_CARDS.find(card =>
+    (card.resourceType ?? getCardResourceType(card.id)) === "animal" &&
+    (card.tags ?? []).includes("Animal")
+  );
+  const asked = play(rig(["card-base-viral-enhancers"]), animalCard.id);
+  assert.equal(asked.state.pendingChoice?.kind, "viral-enhancers");
+  const onCard = asked.state.pendingChoice.options.find(option => option.id === "resource");
+  const settled = resolvePendingChoice(asked.state, onCard.id, asked.state.logs, "player");
+  assert.equal(getPlayer(settled.state, "player").cardResources?.[animalCard.id], 1);
+
+  // Ecological Zone counts the tags rather than the card: two matching tags on
+  // one card pay it twice.
+  for (const wanted of [1, 2]) {
+    const card = ALL_CARDS.find(item => {
+      const matching = (item.tags ?? []).filter(tag => tag === "Animal" || tag === "Plant").length;
+      return matching === wanted && getCardPlayableStatus(item, rig(["card-base-ecological-zone"])).playable;
+    });
+    if (!card) continue;
+    const zone = play(rig(["card-base-ecological-zone"]), card.id);
+    assert.equal(
+      getPlayer(zone.state, "player").cardResources?.["card-base-ecological-zone"] ?? 0,
+      wanted,
+      `${card.name} carries ${wanted} matching tags`
+    );
+  }
+
+  // Splice watches every table: the opponent holds it and I play the microbe.
+  const probe = rig([], ["card-promo-splice"]);
+  const microbeCard = ALL_CARDS.find(card =>
+    (card.tags ?? []).includes("Microbe") && getCardPlayableStatus(card, probe).playable
+  );
+  const tags = (microbeCard.tags ?? []).filter(tag => tag === "Microbe").length;
+  const spliced = play(rig([], ["card-promo-splice"]), microbeCard.id);
+  const other = spliced.state.players.find(player => player.id !== "player");
+  assert.equal(other.mc, 100 + tags * 2, "2 M€ per microbe tag, whoever played it");
+});
+
+test("Ecological Zone needs a greenery, sits beside one, and scores per pair", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, getCardEffect, legalCellsFor, computeScore } =
+    await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 2, venus: true, colonies: true, promo: true, seed: 3 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 300;
+  seat.actionsRemaining = 20;
+
+  const card = ALL_CARDS.find(item => item.id === "card-base-ecological-zone");
+  assert.equal(getCardPlayableStatus(card, state).playable, false, "a greenery is required");
+
+  const spaces = Object.keys(state.board)
+    .filter(key => !state.board[key].isOceanOnly && !state.board[key].reservedFor)
+    .slice(0, 2);
+  for (const key of spaces) {
+    state.board[key] = { ...state.board[key], tileType: "forest", placedBy: "player" };
+  }
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+
+  // "Place this tile adjacent to any greenery tile."
+  const effect = getCardEffect(card);
+  const legal = legalCellsFor(state, effect.tile, "player", effect.tilePlacementRule);
+  assert.ok(legal.length > 0);
+  const neighbours = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]];
+  for (const cell of legal) {
+    assert.ok(
+      neighbours.some(([dq, dr]) => state.board[`${cell.q + dq},${cell.r + dr}`]?.tileType === "forest"),
+      `${cell.q},${cell.r} is beside a greenery`
+    );
+  }
+
+  // "1 VP per 2 animals here", so five animals are worth two.
+  seat.playedProjects = ["card-base-ecological-zone"];
+  seat.cardResources = { "card-base-ecological-zone": 5 };
+  const withAnimals = computeScore(state, "player");
+  seat.cardResources = { "card-base-ecological-zone": 0 };
+  const without = computeScore(state, "player");
+  assert.equal(
+    (withAnimals.total ?? withAnimals) - (without.total ?? without),
+    2
+  );
+});
