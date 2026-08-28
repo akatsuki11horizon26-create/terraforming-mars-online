@@ -2779,3 +2779,49 @@ test("Cutting Edge Technology discounts only cards that have a requirement", asy
   assert.equal(getCardPaymentCost(gated, state), before[0] - 2, `${gated.name} is 2 cheaper`);
   assert.equal(getCardPaymentCost(open, state), before[1], `${open.name} is not`);
 });
+
+test("Productive Outpost collects a bonus for every colony held", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { getColonyTile } = await import("../app/colony-tiles.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-colonies-productive-outpost"];
+  state.deck = state.deck.filter(id => id !== "card-colonies-productive-outpost");
+
+  // Plain resource bonuses keep the arithmetic readable, and two colonies on
+  // one tile should pay that tile's bonus twice.
+  const tiles = Object.values(state.colonies.tiles).filter(
+    tile => getColonyTile(tile.id)?.colony?.type === "GAIN_RESOURCES"
+  );
+  assert.ok(tiles.length >= 2, "the fixture has two resource colonies");
+  tiles[0].colonies = ["player", "player"];
+  tiles[1].colonies = ["player2", "player"];
+
+  const owed = {};
+  for (const [tile, count] of [[tiles[0], 2], [tiles[1], 1]]) {
+    const bonus = getColonyTile(tile.id).colony;
+    owed[bonus.resource] = (owed[bonus.resource] ?? 0) + (bonus.quantity ?? 1) * count;
+  }
+
+  const before = { ...getPlayer(state, "player") };
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-productive-outpost"
+  });
+  assert.equal(played.ok, true);
+  const after = getPlayer(played.state, "player");
+  for (const [resource, amount] of Object.entries(owed)) {
+    assert.equal(after[resource], (before[resource] ?? 0) + amount, `${resource} paid per colony`);
+  }
+});

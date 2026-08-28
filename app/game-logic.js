@@ -356,6 +356,7 @@ const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
 const RECRUITMENT_ID = "card-turmoil-recruitment";
 const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
+const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1789,6 +1790,23 @@ export function applyCardEffect(state, card, logs, options = {}) {
     nextLogs = addLog(nextLogs, "system", pending.prompt);
     result.state.logs = nextLogs;
     return { status: "pending", state: result.state, logs: nextLogs, pendingChoice: pending };
+  }
+
+  // "Gain all colony bonuses you are entitled to." One payout per colony the
+  // player holds, so two colonies on the same tile pay it twice.
+  if (card.id === PRODUCTIVE_OUTPOST_ID && result.state.colonies) {
+    for (const tile of Object.values(result.state.colonies.tiles ?? {})) {
+      const definition = getColonyTile(tile.id);
+      const bonus = definition?.colony;
+      if (!bonus) continue;
+      const held = (tile.colonies ?? []).filter(owner => owner === result.state.currentPlayerId).length;
+      for (let i = 0; i < held; i++) {
+        const granted = grantColonyBenefit(result.state, bonus, result.state.currentPlayerId, nextLogs);
+        result.state = granted.state;
+        nextLogs = granted.logs;
+      }
+    }
+    result.state.logs = nextLogs;
   }
 
   // Neither the party nor the delegate is chosen, so this resolves outright.
