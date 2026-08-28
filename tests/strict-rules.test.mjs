@@ -3175,3 +3175,50 @@ test("the chairman's rating pays Terraforming Deal but is still untaxed by Reds"
   assert.equal(getPlayer(played.state, "player").mc, 197);
   assert.equal(getPlayer(played.state, "player").tr, 21);
 });
+
+test("Meat Industry pays for animals actually added, wherever they land", async () => {
+  const { getPlayer, changeCardResource, ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+
+  const rig = tableau => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.playedProjects = tableau;
+    return state;
+  };
+
+  const holds = kind =>
+    ALL_CARDS.find(card => (card.resourceType ?? getCardResourceType(card.id)) === kind);
+  const animals = holds("animal");
+  const microbes = holds("microbe");
+
+  // "2 M€ per animal", so two animals pay 4 -- the amount applied, not the call.
+  const paid = rig(["card-promo-meat-industry", animals.id]);
+  const applied = changeCardResource(paid, {
+    ownerPlayerId: "player", cardId: animals.id, delta: 2
+  });
+  assert.equal(applied, 2);
+  assert.equal(getPlayer(paid, "player").mc, 104);
+
+  // Only animals.
+  const other = rig(["card-promo-meat-industry", microbes.id]);
+  changeCardResource(other, { ownerPlayerId: "player", cardId: microbes.id, delta: 2 });
+  assert.equal(getPlayer(other, "player").mc, 100);
+
+  // Removing pays nothing, and a card at zero cannot go below it.
+  const removed = rig(["card-promo-meat-industry", animals.id]);
+  assert.equal(
+    changeCardResource(removed, { ownerPlayerId: "player", cardId: animals.id, delta: -3 }),
+    0
+  );
+  assert.equal(getPlayer(removed, "player").mc, 100);
+});

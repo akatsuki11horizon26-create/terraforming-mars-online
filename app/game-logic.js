@@ -364,6 +364,7 @@ const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const WG_PROJECT_ID = "card-prelude2-wg-project";
+const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1151,7 +1152,13 @@ function applyEffect(state, effect, logs, options = {}) {
   if (effect.removePlants && !options.skipResourceAttack) {
     nextState.plants = Math.max(0, nextState.plants - effect.removePlants);
   }
-  if (effect.cardResource && effect.cardId) nextState.cardResources[effect.cardId] = (nextState.cardResources[effect.cardId] ?? 0) + effect.cardResource;
+  if (effect.cardResource && effect.cardId) {
+    changeCardResource(nextState, {
+      ownerPlayerId: nextState.currentPlayerId,
+      cardId: effect.cardId,
+      delta: effect.cardResource
+    });
+  }
   if (effect.venusSteps) {
     // Raising the Venus scale one step (2%) raises TR by 1, the same way the
     // temperature and oxygen tracks do.
@@ -2283,19 +2290,50 @@ function queuePendingChoices(state, card, context) {
   return null;
 }
 
-function applyResourceToCard(state, target, amount) {
-  // Guard the arithmetic: a non-numeric amount would concatenate into the total
-  // and silently turn a resource count into a string.
-  const delta = Number.isFinite(Number(amount)) ? Number(amount) : 1;
+// Every in-game change to what a card holds goes through here, so that "when a
+// resource is added" has one place to watch. It reports what actually landed:
+// asking for 2 when only 1 could be removed applies 1, and a card that already
+// holds none stays at none.
+//
+// Meat Industry pays on the amount applied rather than on the call, which is
+// how the reference reads it -- addResourceTo hands onResourceAdded the real
+// count.
+export function changeCardResource(state, { ownerPlayerId, cardId, delta }) {
+  const amount = Number.isFinite(Number(delta)) ? Number(delta) : 0;
+  if (!cardId || amount === 0) return 0;
+
+  let applied = 0;
   state.players = state.players.map(player => {
-    if (player.id !== target.targetPlayerId) return player;
-    const cardResources = { ...player.cardResources };
-    // Removal passes a negative delta; a card cannot hold fewer than none.
-    cardResources[target.targetCardId] = Math.max(
-      0,
-      (cardResources[target.targetCardId] ?? 0) + delta
-    );
-    return { ...player, cardResources };
+    if (player.id !== ownerPlayerId) return player;
+    const held = player.cardResources?.[cardId] ?? 0;
+    const next = Math.max(0, held + amount);
+    applied = next - held;
+    if (applied === 0) return player;
+    return { ...player, cardResources: { ...player.cardResources, [cardId]: next } };
+  });
+
+  if (applied > 0) onCardResourceAdded(state, ownerPlayerId, cardId, applied);
+  return applied;
+}
+
+// "When you gain an animal on any card, gain 2 M€." The reference pays the
+// owner of the card the animals landed on.
+function onCardResourceAdded(state, ownerPlayerId, cardId, amount) {
+  const kind = ALL_CARDS.find(item => item.id === cardId)?.resourceType
+    ?? getCardResourceType(cardId);
+  if (kind !== "animal") return;
+  const owner = getPlayer(state, ownerPlayerId);
+  if (!(owner?.playedProjects ?? []).includes(MEAT_INDUSTRY_ID)) return;
+  state.players = state.players.map(player =>
+    player.id === ownerPlayerId ? { ...player, mc: (player.mc ?? 0) + amount * 2 } : player
+  );
+}
+
+function applyResourceToCard(state, target, amount) {
+  changeCardResource(state, {
+    ownerPlayerId: target.targetPlayerId,
+    cardId: target.targetCardId,
+    delta: amount
   });
   return state;
 }
@@ -3132,17 +3170,11 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "floater-placement": {
-      next.players = next.players.map(player =>
-        player.id === choice.ownerPlayerId
-          ? {
-              ...player,
-              cardResources: {
-                ...player.cardResources,
-                [option.cardId]: (player.cardResources?.[option.cardId] ?? 0) + 1
-              }
-            }
-          : player
-      );
+      changeCardResource(next, {
+        ownerPlayerId: choice.ownerPlayerId,
+        cardId: option.cardId,
+        delta: 1
+      });
       nextLogs = addLog(nextLogs, "system", `${option.label} にフローターを1個置きました。`);
       break;
     }
@@ -4041,7 +4073,11 @@ export function applyCardAction(state, card, logs, branchIndex) {
     if (revealed) {
       const revealedCard = ALL_CARDS.find(item => item.id === revealed);
       if (revealedCard?.tags.includes(action.revealTag)) {
-        nextState.cardResources[card.id] = (nextState.cardResources[card.id] ?? 0) + 1;
+        changeCardResource(nextState, {
+          ownerPlayerId: nextState.currentPlayerId,
+          cardId: card.id,
+          delta: 1
+        });
         nextLogs = addLog(nextLogs, "system", `公開カード【${revealedCard.name}】に${action.revealTag}タグがあり、科学資源を1個置きました。`);
       } else {
         nextLogs = addLog(nextLogs, "system", `公開カード【${revealedCard?.name ?? revealed}】を捨て札にしました。`);
@@ -5082,15 +5118,13 @@ function addResourceToEveryCard(state, { resourceType, requireExisting }, logs) 
   });
   if (targets.length === 0) return logs;
 
-  state.players = state.players.map(player => {
-    const mine = targets.filter(target => target.targetPlayerId === player.id);
-    if (mine.length === 0) return player;
-    const cardResources = { ...(player.cardResources ?? {}) };
-    for (const target of mine) {
-      cardResources[target.targetCardId] = (cardResources[target.targetCardId] ?? 0) + 1;
-    }
-    return { ...player, cardResources };
-  });
+  for (const target of targets) {
+    changeCardResource(state, {
+      ownerPlayerId: target.targetPlayerId,
+      cardId: target.targetCardId,
+      delta: 1
+    });
+  }
 
   return addLog(logs, "system", `${targets.length}枚のカードに資源を1個ずつ追加しました。`);
 }
@@ -5616,14 +5650,10 @@ const TILE_PLACED_EFFECTS = [
   {
     cardId: VERMIN_ID,
     tileType: "city",
-    // Vermin collects an animal for every city, wherever it came from.
-    apply: player => ({
-      ...player,
-      cardResources: {
-        ...player.cardResources,
-        [VERMIN_ID]: (player.cardResources?.[VERMIN_ID] ?? 0) + 1
-      }
-    })
+    // Vermin collects an animal for every city, wherever it came from. Those
+    // are animals like any other, so they go through the same funnel and pay
+    // Meat Industry.
+    addResource: { cardId: VERMIN_ID, amount: 1 }
   },
   {
     cardId: ARCTIC_ALGAE_ID,
@@ -5636,9 +5666,22 @@ const TILE_PLACED_EFFECTS = [
 function grantCityPlacementCardEffects(state, tileType) {
   for (const effect of TILE_PLACED_EFFECTS) {
     if (effect.tileType !== tileType) continue;
-    state.players = state.players.map(player =>
-      player.playedProjects?.includes(effect.cardId) ? effect.apply(player) : player
-    );
+    const holders = state.players
+      .filter(player => player.playedProjects?.includes(effect.cardId))
+      .map(player => player.id);
+    for (const holderId of holders) {
+      if (effect.addResource) {
+        changeCardResource(state, {
+          ownerPlayerId: holderId,
+          cardId: effect.addResource.cardId,
+          delta: effect.addResource.amount
+        });
+      } else {
+        state.players = state.players.map(player =>
+          player.id === holderId ? effect.apply(player) : player
+        );
+      }
+    }
   }
 }
 
