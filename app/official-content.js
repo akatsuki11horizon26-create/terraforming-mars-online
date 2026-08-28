@@ -57,6 +57,9 @@ const CURATED_PROJECT_OVERRIDES = [
   // city anyone places; Rover Construction is only that trigger, so it needs no
   // play effect of its own -- placeTileAt reads both from the tableau.
   project("card-base-immigrant-city", "Immigrant City", 13, ["City", "Building"], "active", "エネルギー生産量-1、MC生産量-2。都市タイルを1枚置く。効果: 都市タイルが置かれるたび（このカードを含む）、MC生産量+1。", {}, {"effectSpec": {"behavior": {"production": {"energy": -1, "megacredits": -2}, "city": {}}}}),
+  // 1 M€ per empty area touching one of the player's own tiles. No tile is
+  // placed; the areas are only counted.
+  project("card-turmoil-red-tourism-wave", "Red Tourism Wave", 3, ["Earth"], "event", "レッズが与党であるか、そこに代表者を2人置いていることが必要。自分のタイルに隣接する空きエリア1つにつきMCを1獲得。", {}, {"requires": {"party": "Reds"}, "reqText": "レッズが与党、または代表者2人", "effectSpec": {"behavior": {"stock": {"megacredits": {"ownedAdjacentEmptyAreas": true}}}}}),
   project("card-promo-crash-site-cleanup", "Crash Site Cleanup", 4, [], "event", "今世代、他のプレイヤーの植物が取り除かれている必要がある。チタンを1、または建材を2獲得。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"or": {"behaviors": [{"title": "Gain 1 titanium", "stock": {"titanium": 1}}, {"title": "Gain 2 steel", "stock": {"steel": 2}}]}}}}),
   project("card-prelude2-microgravity-nutrition", "Microgravity Nutrition", 11, ["Microbe", "Plant"], "automated", "所有する植民地1つにつきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"colonies": {}}}}}}),
   project("card-promo-bio-printing-facility", "Bio Printing Facility", 7, ["Building"], "active", "アクション: エネルギー2で植物2獲得、または他のカードに動物1個を追加する。", {}, {"effectSpec": {"action": {"or": {"autoSelect": true, "behaviors": [{"spend": {"energy": 2}, "addResourcesToAnyCard": {"type": "Animal", "count": 1, "mustHaveCard": true}, "title": "Spend 2 energy to add 1 animal to another card"}, {"spend": {"energy": 2}, "stock": {"plants": 2}, "title": "Spend 2 energy to gain 2 plants"}]}}}}),

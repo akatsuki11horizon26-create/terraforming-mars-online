@@ -2657,3 +2657,58 @@ test("Vote Of No Confidence takes the chairman's seat, untaxed", async () => {
   });
   assert.equal(getPlayer(underReds.state, "player").mc, opening - card.cost);
 });
+
+test("Red Tourism Wave pays for empty areas beside the player's own tiles", async () => {
+  const { getPlayer, ALL_CARDS, getAdjacentCells } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-turmoil-red-tourism-wave"];
+  state.deck = state.deck.filter(id => id !== "card-turmoil-red-tourism-wave");
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.dominantParty = "reds";
+
+  // Two adjacent tiles of the player's own, so at least one empty area touches
+  // both -- and must still be counted once.
+  const first = Object.keys(state.board).find(
+    key => !state.board[key].isOceanOnly && !state.board[key].reservedFor
+  );
+  const anchor = state.board[first];
+  const second = getAdjacentCells(anchor.q, anchor.r)
+    .map(pos => `${pos.q},${pos.r}`)
+    .find(key => state.board[key] && !state.board[key].reservedFor);
+  state.board[first] = { ...anchor, tileType: "city", placedBy: "player" };
+  state.board[second] = { ...state.board[second], tileType: "forest", placedBy: "player" };
+
+  const owned = new Set([first, second]);
+  const expected = Object.values(state.board).filter(cell =>
+    cell.tileType === "empty" &&
+    !cell.reservedFor &&
+    getAdjacentCells(cell.q, cell.r).some(pos => owned.has(`${pos.q},${pos.r}`))
+  ).length;
+  assert.ok(expected > 0, "the fixture leaves some empty neighbours");
+
+  const card = ALL_CARDS.find(item => item.id === "card-turmoil-red-tourism-wave");
+  const opening = getPlayer(state, "player").mc;
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, "player").mc, opening - card.cost + expected);
+  // The areas are counted, not built on.
+  assert.equal(
+    Object.values(played.state.board).filter(cell => cell.tileType !== "empty").length,
+    2
+  );
+});

@@ -739,6 +739,9 @@ function normalizeCountedAmount(amount) {
   if (amount.noTags) return { kind: "noTags", each, per, allPlayers: false };
   if (amount.distinctTags) return { kind: "distinctTags", each, per, allPlayers: false };
   if (amount.coloniesInPlay) return { kind: "coloniesInPlay", each, per, allPlayers: true };
+  if (amount.ownedAdjacentEmptyAreas) {
+    return { kind: "ownedAdjacentEmptyAreas", each, per, allPlayers: false };
+  }
   return null;
 }
 
@@ -799,6 +802,22 @@ function evaluateCountedGain(state, gain, ownerId) {
         }
       }
       units = kinds.size;
+      break;
+    }
+    case "ownedAdjacentEmptyAreas": {
+      // Empty areas touching a tile of the player's own. A reserved space is
+      // not somewhere anyone can build, and an area next to two of the player's
+      // tiles is still one area.
+      const owned = new Set(
+        Object.entries(state.board)
+          .filter(([, cell]) => cell.tileType !== "empty" && cell.placedBy === ownerId)
+          .map(([key]) => key)
+      );
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "empty") return false;
+        if (cell.reservedFor) return false;
+        return getAdjacentCells(cell.q, cell.r).some(pos => owned.has(`${pos.q},${pos.r}`));
+      }).length;
       break;
     }
     case "coloniesInPlay":
