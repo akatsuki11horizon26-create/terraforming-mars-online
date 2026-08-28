@@ -3660,3 +3660,75 @@ test("Splice and PolderTECH Dutch open with their first actions", async () => {
   const placed = Object.values(state.board).filter(cell => cell.tileType !== "empty");
   assert.deepEqual(placed.map(cell => cell.tileType).sort(), ["forest", "ocean"]);
 });
+
+test("Mars Nomads walks its marker for the space's bonus, and blocks that space", async () => {
+  const { getPlayer, resolvePendingChoice, legalCellsFor, getAdjacentCells } =
+    await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-promo-mars-nomads"];
+  state.deck = state.deck.filter(id => id !== "card-promo-mars-nomads");
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-promo-mars-nomads"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "mars-nomads");
+
+  const home = played.state.pendingChoice.options[0];
+  const placed = resolvePendingChoice(played.state, home.id, played.state.logs, "player");
+  const marker = placed.state.boardMarkers.find(entry => entry.kind === "nomad");
+  assert.equal(marker?.cellKey, home.targetCellKey);
+
+  // "No tile may be placed on the area with the nomad marker" -- its owner
+  // included, which is why this is not a Land Claim.
+  for (const playerId of ["player", "player2"]) {
+    assert.ok(
+      !legalCellsFor(placed.state, "city", playerId)
+        .some(cell => `${cell.q},${cell.r}` === home.targetCellKey),
+      `${playerId} cannot build under the marker`
+    );
+  }
+
+  // The action steps it to a neighbour and collects that space's bonus.
+  const before = { ...getPlayer(placed.state, "player") };
+  const moving = executeGameCommand(placed.state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-mars-nomads"
+  });
+  assert.equal(moving.ok, true);
+  const start = placed.state.board[home.targetCellKey];
+  for (const option of moving.state.pendingChoice.options) {
+    const cell = moving.state.board[option.targetCellKey];
+    assert.ok(
+      getAdjacentCells(start.q, start.r).some(pos => `${pos.q},${pos.r}` === `${cell.q},${cell.r}`),
+      "only neighbours are on offer"
+    );
+  }
+
+  const paying = moving.state.pendingChoice.options.find(option => {
+    const cell = moving.state.board[option.targetCellKey];
+    return cell.bonusType && cell.bonusAmount > 0;
+  });
+  if (paying) {
+    const cell = moving.state.board[paying.targetCellKey];
+    const done = resolvePendingChoice(moving.state, paying.id, moving.state.logs, "player");
+    const after = getPlayer(done.state, "player");
+    assert.equal(after[cell.bonusType], (before[cell.bonusType] ?? 0) + cell.bonusAmount);
+    // The marker moves rather than multiplying, and no tile is left behind.
+    const markers = done.state.boardMarkers.filter(entry => entry.kind === "nomad");
+    assert.equal(markers.length, 1);
+    assert.equal(markers[0].cellKey, paying.targetCellKey);
+    assert.equal(done.state.board[paying.targetCellKey].tileType, "empty");
+  }
+});

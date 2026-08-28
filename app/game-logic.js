@@ -367,6 +367,7 @@ const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
 const VENUS_ORBITAL_SURVEY_ID = "card-prelude2-venus-orbital-survey";
+const MARS_NOMADS_ID = "card-promo-mars-nomads";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -2049,6 +2050,41 @@ function venusSurveyChoice(state, ownerId, remaining, sourceId) {
   };
 }
 
+// Where the nomad marker may stand: bare, unreserved land. When it is already
+// somewhere, it may only step to a neighbour of where it is.
+function nomadDestinations(state, fromKey) {
+  const occupied = new Set(
+    (state.boardMarkers ?? []).filter(marker => marker.kind === "nomad").map(marker => marker.cellKey)
+  );
+  const neighbours = fromKey
+    ? new Set(
+        getAdjacentCells(
+          state.board[fromKey].q,
+          state.board[fromKey].r
+        ).map(pos => `${pos.q},${pos.r}`)
+      )
+    : null;
+  return Object.entries(state.board ?? {})
+    .filter(([cellKey, cell]) =>
+      cell.tileType === "empty" &&
+      !cell.isOceanOnly &&
+      !cell.reservedFor &&
+      !occupied.has(cellKey) &&
+      (!neighbours || neighbours.has(cellKey))
+    )
+    .map(([cellKey, cell]) => ({
+      id: cellKey,
+      targetCellKey: cellKey,
+      label: cell.name ?? `(${cell.q},${cell.r})`
+    }));
+}
+
+function nomadCellKey(state, ownerId) {
+  return (state.boardMarkers ?? []).find(
+    marker => marker.kind === "nomad" && marker.sourcePlayerId === ownerId
+  )?.cellKey ?? null;
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -2099,6 +2135,29 @@ function queuePendingChoices(state, card, context) {
       paid: context.paid ?? true
     });
     if (choice) return choice;
+  }
+
+  // "Place the nomad marker on a non-reserved area." Nothing may be built where
+  // it stands, and its action walks it to a neighbour for that space's bonus.
+  if (card.id === MARS_NOMADS_ID && !done.includes("mars-nomads")) {
+    const options = nomadDestinations(state, null);
+    if (options.length > 0) {
+      return {
+        id: `mars-nomads:${state.currentPlayerId}`,
+        kind: "mars-nomads",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "遊牧民コマを置く場所を選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "mars-nomads",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
   }
 
   // "Place your marker on a non-reserved area. Only you may place a tile there."
@@ -2822,6 +2881,32 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           next.logs = nextLogs;
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: discard };
         }
+      }
+      break;
+    }
+
+    case "mars-nomads": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      const from = nomadCellKey(next, owner);
+      next.boardMarkers = [
+        ...(next.boardMarkers ?? []).filter(
+          marker => !(marker.kind === "nomad" && marker.sourcePlayerId === owner)
+        ),
+        {
+          id: `nomad:${owner}`,
+          kind: "nomad",
+          cellKey: option.targetCellKey,
+          sourceCardId: choice.continuation.sourceId,
+          sourcePlayerId: owner
+        }
+      ];
+      // Moving onto a space pays what that space prints, as if a tile had been
+      // laid there -- but no tile is, so the space stays empty.
+      if (from) {
+        grantPlacementBonus(next, next.board[option.targetCellKey], owner);
+        nextLogs = addLog(nextLogs, "system", `遊牧民コマを ${option.label} へ移動しました。`);
+      } else {
+        nextLogs = addLog(nextLogs, "system", `遊牧民コマを ${option.label} に置きました。`);
       }
       break;
     }
@@ -3628,6 +3713,10 @@ export function legalCellsFor(state, tileType, playerId, placementRule = null) {
       .filter(marker => marker.kind === "land-claim" && marker.sourcePlayerId !== owner)
       .map(marker => marker.cellKey)
   );
+  // Nobody may build where the nomad marker stands, its owner included.
+  for (const marker of state.boardMarkers ?? []) {
+    if (marker.kind === "nomad") claimedByOthers.add(marker.cellKey);
+  }
   return Object.values(state.board).filter(cell =>
     !claimedByOthers.has(`${cell.q},${cell.r}`) &&
     isCellPlacementValid(cell, tileType, state.board, owner, placementRule, state.boardId)
@@ -4172,6 +4261,16 @@ export function getCardActionStatus(state, card) {
       ? { playable: true, reason: "" }
       : { playable: false, reason: "エネルギーがありません。" };
   }
+  // The marker has to have somewhere adjacent to step to.
+  if (card.id === MARS_NOMADS_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return nomadDestinations(state, nomadCellKey(state, seat?.id)).length > 0
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "移動できる隣接エリアがありません。" };
+  }
   // "Reveal the top 2 cards": there have to be two to reveal.
   if (card.id === VENUS_ORBITAL_SURVEY_ID) {
     if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
@@ -4248,6 +4347,31 @@ export function applyCardAction(state, card, logs, branchIndex) {
     if (!choice) return { state, logs, playable: false };
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "Move the nomad marker to an adjacent unreserved empty area and gain that
+  // space's placement bonus."
+  if (card.id === MARS_NOMADS_ID) {
+    const from = nomadCellKey(nextState, nextState.currentPlayerId);
+    const options = nomadDestinations(nextState, from);
+    if (options.length === 0) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `mars-nomads-move:${nextState.currentPlayerId}`,
+      kind: "mars-nomads",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: "遊牧民コマを移動する隣接エリアを選んでください。",
+      optional: false,
+      options,
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "mars-nomads-move",
+        consumedAction: true,
+        paid: true
+      }
+    };
     return { state: nextState, logs, playable: true, awaitingChoice: true };
   }
 
