@@ -3243,3 +3243,49 @@ test("New Holland lays its city on an ocean that is already there", async () => 
   const offered = legal().map(cell => `${cell.q},${cell.r}`);
   assert.deepEqual(offered.sort(), [...oceans].sort(), "only the oceans on the board");
 });
+
+test("Protected Habitats keeps opponents off plants, animals and microbes", async () => {
+  const { ALL_CARDS } = await import("../app/game-logic.js");
+  const { buildResourceRemovalChoice } = await import("../app/pending-choice.js");
+  const { getCardResourceType } = await import("../app/card-resource-types.js");
+
+  const animals = ALL_CARDS.find(
+    card => (card.resourceType ?? getCardResourceType(card.id)) === "animal"
+  );
+
+  const rig = shielded => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const other = state.players.find(player => player.id !== "player");
+    other.playedProjects = shielded
+      ? [animals.id, "card-base-protected-habitats"]
+      : [animals.id];
+    other.cardResources = { [animals.id]: 3 };
+    return state;
+  };
+
+  const targets = state => {
+    const built = buildResourceRemovalChoice(
+      state,
+      { type: "Animal", count: 1, source: "all" },
+      { cards: ALL_CARDS, getResourceType: getCardResourceType, sourceId: "probe" }
+    );
+    if (!built) return 0;
+    return built.options ? built.options.length : built.autoTarget ? 1 : 0;
+  };
+
+  assert.equal(targets(rig(false)), 1, "an unprotected opponent is a target");
+  assert.equal(targets(rig(true)), 0, "a protected one is not");
+
+  // "Opponents may not remove": the owner may still spend their own.
+  const own = rig(true);
+  own.currentPlayerId = own.players.find(player => player.id !== "player").id;
+  assert.equal(targets(own), 1);
+});

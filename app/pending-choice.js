@@ -21,6 +21,10 @@ export function makeChoiceId(kind, sourceId, playerId) {
 // Cards that can hold the given resource type, across every player. Effects that
 // name a resource type (Microbe, Animal, Science, Floater...) may only target
 // cards declaring that type.
+// "Opponents may not remove your plants, animals or microbes."
+const PROTECTED_HABITATS_ID = "card-base-protected-habitats";
+const PROTECTED_KINDS = new Set(["plant", "animal", "microbe"]);
+
 export function collectResourceTargets(state, resourceType, cards, options = {}) {
   const wanted = resourceType ? String(resourceType).toLowerCase() : null;
   const resolveType = options.getResourceType ?? (() => undefined);
@@ -28,6 +32,12 @@ export function collectResourceTargets(state, resourceType, cards, options = {})
 
   for (const player of state.players) {
     if (options.ownCardsOnly && player.id !== state.currentPlayerId) continue;
+    // A player is free to spend their own; only somebody else taking them is
+    // what the card stops.
+    const shielded =
+      options.removing === true &&
+      player.id !== state.currentPlayerId &&
+      (player.playedProjects ?? []).includes(PROTECTED_HABITATS_ID);
 
     for (const cardId of player.playedProjects) {
       const card = cards.find(item => item.id === cardId);
@@ -37,6 +47,8 @@ export function collectResourceTargets(state, resourceType, cards, options = {})
       const holds = declared ? String(declared).toLowerCase() : null;
       if (wanted && holds !== wanted) continue;
       if (!wanted && !holds) continue;
+
+      if (shielded && holds && PROTECTED_KINDS.has(holds)) continue;
 
       const current = player.cardResources?.[cardId] ?? 0;
       if (options.mustHaveResources && current <= 0) continue;
@@ -78,6 +90,7 @@ export function buildResourceRemovalChoice(state, spec, context) {
     mustHaveResources: true,
     // `source: 'all'` means any player's card; without it only your own.
     ownCardsOnly: spec?.source !== "all",
+    removing: true,
     getResourceType: context.getResourceType
   });
 
