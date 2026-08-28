@@ -355,6 +355,7 @@ const HI_TECH_LAB_ID = "card-promo-hi-tech-lab";
 const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
 const RECRUITMENT_ID = "card-turmoil-recruitment";
 const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
+const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -860,6 +861,7 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
       unsupported.push("dynamic-production");
     });
   }
+  if (typeof raw.productionFloor === "number") effect.productionFloor = raw.productionFloor;
   if (raw.stock) addNormalizedStock(effect, raw.stock, unsupported);
   if (raw.global) {
     if (typeof raw.global.temperature === "number") effect.temperatureSteps = (effect.temperatureSteps ?? 0) + raw.global.temperature;
@@ -1112,6 +1114,16 @@ function applyEffect(state, effect, logs, options = {}) {
         nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} 生産量が ${counted} 上がりました。`);
       }
     }
+  }
+
+  // "Increase all your productions that are lower than 1, to 1." Anything at or
+  // above 1 is untouched, and a negative box comes all the way up to 1.
+  if (effect.productionFloor !== undefined) {
+    const floor = effect.productionFloor;
+    for (const key of Object.values(PRODUCTION_KEYS)) {
+      if ((nextState[key] ?? 0) < floor) nextState[key] = floor;
+    }
+    nextLogs = addLog(nextLogs, "system", `1未満のすべての生産量を${floor}にしました。`);
   }
 
   if (effect.payMc) nextState.mc -= effect.payMc;
@@ -5234,10 +5246,27 @@ export function grantStandardProjectRebate(state, playerId) {
   return rebate;
 }
 
+// The flat and per-tag discounts a player is carrying, plus Cutting Edge
+// Technology, whose 2 M€ applies only to cards that have a requirement -- that
+// depends on the card being bought, so it cannot live in cardDiscounts.
+function getOngoingDiscount(card, state) {
+  const flat = state.cardDiscounts?.all ?? 0;
+  const byTag = card.tags.reduce(
+    (sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0),
+    0
+  );
+  const hasRequirement =
+    (card.requirements ?? []).length > 0 ||
+    Object.keys(card.requires ?? {}).length > 0;
+  const requirementDiscount =
+    hasRequirement && (state.playedProjects ?? []).includes(CUTTING_EDGE_TECHNOLOGY_ID) ? 2 : 0;
+  return flat + byTag + requirementDiscount + (state.oneShotCardDiscount ?? 0);
+}
+
 export function getCardDiscount(card, state) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0) + (state.oneShotCardDiscount ?? 0);
+  const ongoingDiscount = getOngoingDiscount(card, state);
   const totalDiscount = corporationDiscount + ongoingDiscount;
   // No change is given, so a player may overpay by one unit rather than top up
   // the last few M€ in cash. Flooring the cap forbade that entirely: with 1 M€
@@ -5255,7 +5284,7 @@ export function getCardDiscount(card, state) {
 export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
-  const ongoingDiscount = (state.cardDiscounts?.all ?? 0) + card.tags.reduce((sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0), 0) + (state.oneShotCardDiscount ?? 0);
+  const ongoingDiscount = getOngoingDiscount(card, state);
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * getSteelValue(state) - titaniumUsed * getTitaniumValue(state));
 }
 

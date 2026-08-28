@@ -2712,3 +2712,70 @@ test("Red Tourism Wave pays for empty areas beside the player's own tiles", asyn
     2
   );
 });
+
+test("Industrial Complex lifts every production below 1 up to 1", async () => {
+  const { applyCorporation, applyPreludes, advanceSetupTurn, getPlayer } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({
+    playerCount: 2, prelude: true, venus: true, colonies: true, promo: true, seed: 3
+  });
+  const ids = state.players.map(player => player.id);
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
+  }
+  state = advanceSetupTurn(state);
+
+  const seat = getPlayer(state, ids[0]);
+  seat.preludeOptions = ["card-prelude2-industrial-complex", seat.preludeOptions[0]];
+  seat.mc = 50;
+  seat.mcProd = -2;
+  seat.steelProd = 0;
+  seat.titaniumProd = 3;
+  seat.plantsProd = -1;
+  seat.energyProd = 0;
+  seat.heatProd = 5;
+  state.currentPlayerId = ids[0];
+
+  const before = getPlayer(state, ids[0]).mc;
+  state = applyPreludes(state, seat.preludeOptions.slice(0, 2), ids[0]);
+  const after = getPlayer(state, ids[0]);
+
+  // Anything under 1 comes up to 1, however far below it started.
+  assert.equal(after.mcProd, 1);
+  assert.equal(after.steelProd, 1);
+  assert.equal(after.plantsProd, 1);
+  assert.equal(after.energyProd, 1);
+  // Anything already at 1 or above is left alone.
+  assert.equal(after.titaniumProd, 3);
+  assert.equal(after.heatProd, 5);
+  assert.ok(after.mc <= before - 18, "and it costs 18 M€");
+});
+
+test("Cutting Edge Technology discounts only cards that have a requirement", async () => {
+  const { getPlayer, ALL_CARDS, getCardPaymentCost } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+  }
+  getPlayer(state, "player").mc = 300;
+
+  const gated = ALL_CARDS.find(card => (card.requirements ?? []).length > 0 && card.cost >= 10);
+  const open = ALL_CARDS.find(card =>
+    (card.requirements ?? []).length === 0 &&
+    Object.keys(card.requires ?? {}).length === 0 &&
+    card.cost >= 10
+  );
+  const before = [getCardPaymentCost(gated, state), getCardPaymentCost(open, state)];
+
+  getPlayer(state, "player").playedProjects = ["card-promo-cutting-edge-technology"];
+  assert.equal(getCardPaymentCost(gated, state), before[0] - 2, `${gated.name} is 2 cheaper`);
+  assert.equal(getCardPaymentCost(open, state), before[1], `${open.name} is not`);
+});

@@ -121,6 +121,8 @@ const CURATED_CORPORATION_OVERRIDES = [
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });
 
 const CURATED_PRELUDE_OVERRIDES = [
+  // "Lose 18 M€. Increase all your productions that are lower than 1, to 1."
+  prelude("card-prelude2-industrial-complex", "Industrial Complex", "MCを18失う。1未満のすべての生産量を1にする。", { payMc: 18, productionFloor: 1 }, { tags: ["Building"] }),
   prelude("prelude-allied-banks", "Allied Banks", "MC生産量+4、MC3。", { production: { mc: 4 }, mc: 3 }, { tags: ["Earth"] }),
   prelude("prelude-biosphere-support", "Biosphere Support", "植物生産量+2、MC生産量-1。", { production: { plants: 2, mc: -1 } }, { tags: ["Plant"] }),
   prelude("prelude-aquifer-turbines", "Aquifer Turbines", "MC3を支払い、海洋1枚とエネルギー生産量+2。", { payMc: 3, production: { energy: 2 }, tile: "ocean" }, { tags: ["Building"] }),
