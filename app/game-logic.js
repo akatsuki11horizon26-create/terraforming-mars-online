@@ -1766,6 +1766,43 @@ export function applyCorporationInitialAction(state, logs) {
       `${corporation.name}: 初期アクションでフローターのカードを${drawn.length}枚引きました。`
     );
   }
+  if (corporation.effects.firstPolderTiles) {
+    // "Place an ocean and a greenery next to each other, ignoring greenery
+    // placement restrictions. Raise oxygen 1 step." The ocean is chosen first
+    // and the greenery is then restricted to its neighbours.
+    const oceans = legalCellsFor(nextState, "ocean").filter(cell =>
+      getAdjacentCells(cell.q, cell.r).some(pos => {
+        const neighbour = nextState.board[`${pos.q},${pos.r}`];
+        return neighbour && neighbour.tileType === "empty" && !neighbour.isOceanOnly;
+      })
+    );
+    if (oceans.length > 0) {
+      const choice = buildTileChoice(nextState, "ocean", {
+        sourceKind: "corporation",
+        sourceId: corporation.id,
+        consumedAction: false,
+        paid: true,
+        polderGreenery: true
+      }, oceans);
+      if (choice) {
+        nextState.pendingChoice = choice;
+        nextLogs = addLog(nextLogs, "system", `${corporation.name}: 海洋タイルを配置します。`);
+        nextState.logs = nextLogs;
+        return { state: nextState, logs: nextLogs };
+      }
+    }
+  }
+  if (corporation.effects.firstTagDraw) {
+    // "Reveal cards until you reveal one with a microbe tag. Take it and
+    // discard the rest" -- drawCards discards everything it passes over.
+    const wanted = corporation.effects.firstTagDraw;
+    const drawn = drawCards(nextState, 1, undefined, card => (card?.tags ?? []).includes(wanted));
+    nextLogs = addLog(
+      nextLogs,
+      "system",
+      `${corporation.name}: ${wanted}タグのカードを${drawn.length}枚引きました。`
+    );
+  }
   if (corporation.effects.firstPrelude) {
     // Three fresh preludes off the deck, one of which is played for free; the
     // other two are discarded rather than returned, so the deck shrinks by all
@@ -3379,6 +3416,26 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           next.pendingChoice = followUp;
           next.logs = nextLogs;
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
+        }
+      }
+      // PolderTECH Dutch places the greenery beside the ocean it just laid, and
+      // ignores the usual "adjacent to your own tiles" rule for it.
+      if (cell && choice.continuation.polderGreenery) {
+        const beside = getAdjacentCells(cell.q, cell.r)
+          .map(pos => next.board[`${pos.q},${pos.r}`])
+          .filter(neighbour => neighbour && neighbour.tileType === "empty" && !neighbour.isOceanOnly);
+        if (beside.length > 0) {
+          const greenery = buildTileChoice(next, "forest", {
+            sourceKind: choice.continuation.sourceKind,
+            sourceId: choice.continuation.sourceId,
+            consumedAction: false,
+            paid: true
+          }, beside);
+          if (greenery) {
+            next.pendingChoice = greenery;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: greenery };
+          }
         }
       }
       // A prelude that stopped here to ask where its tile goes still owes the

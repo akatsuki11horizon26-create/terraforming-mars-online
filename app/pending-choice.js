@@ -294,6 +294,7 @@ export function buildTileChoice(state, tileType, context, legalCells) {
       // A prelude that stops to ask where its tile goes still owes the rest of
       // the prelude list; without this the remaining preludes never resolve.
       ...(context.preludeResume ? { preludeResume: context.preludeResume } : {}),
+      ...(context.polderGreenery ? { polderGreenery: true } : {}),
       payload: {
         tileType,
         specialName: context.specialName ?? null,

@@ -120,6 +120,10 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-vitor", "Vitor", ["Earth"], { mc: 45 }, "最初のアクションで賞を無料で設立する。VP付きカードを出すとMC3。", { firstAward: true, vpBonus: 3 }),
   // Merged by name onto the generated Venus entry, which keeps its tags, cost
   // and floater action; only the missing initial draw is added here.
+  // Reveals until a microbe tag turns up, then pays 2 M€ whenever ANY player
+  // plays a microbe tag (handled by the card-played watchers).
+  corporation("card-promo-poldertech-dutch", "PolderTECH Dutch", ["Earth"], { mc: 35 }, "35MCを所持した状態で開始する。最初のアクションとして、隣接する海洋タイルと緑地タイルを配置する（緑地の配置制限を無視）。酸素+1。", { firstPolderTiles: true }),
+  corporation("card-promo-splice", "Splice", ["Microbe"], { mc: 44 }, "44MCを所持した状態で開始する。最初のアクションとして、微生物タグのカードを1枚公開するまでカードを公開し続ける。効果: 誰かが微生物タグをプレイするたびMC2。", { firstTagDraw: "Microbe" }),
   corporation("card-venus-celestic", "Celestic", ["Venus"], { mc: 42 }, "最初のアクションでフローターのカードを2枚引く。アクション: フローターを1個置く。フローター3個ごとに1VP。", { firstFloaterDraw: 2 }),
 ];
 

@@ -3596,3 +3596,67 @@ test("Venus Orbital Survey keeps Venus cards free and offers the rest for sale",
   assert.equal(getPlayer(dropped.state, "player").mc, 100);
   assert.ok(dropped.state.discardPile.includes(plain.id));
 });
+
+test("Splice and PolderTECH Dutch open with their first actions", async () => {
+  const { applyCorporation, resolvePendingChoice, cloneGameState, getAdjacentCells, getPlayer, ALL_CARDS } =
+    await import("../app/game-logic.js");
+
+  const openWith = corporationId => {
+    let state = getInitialState({ playerCount: 2, venus: true, colonies: true, promo: true, seed: 5 });
+    const ids = state.players.map(player => player.id);
+    state.players = state.players.map(player =>
+      player.id === ids[0]
+        ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), corporationId] }
+        : player
+    );
+    for (const id of ids) {
+      state.currentPlayerId = id;
+      const corporation = id === ids[0] ? corporationId : getPlayer(state, id).corporationOptions[0];
+      state = applyCorporation(state, corporation, id);
+    }
+    state = advanceSetupTurn(state);
+    for (let guard = 0; guard < 6 && state.phase === "setup" && !state.pendingChoice; guard++) {
+      const seat = getPlayer(state, state.currentPlayerId);
+      if ((seat.researchCards ?? []).length === 0) break;
+      const buying = cloneGameState(state);
+      buying.hand = [];
+      state = completeSetupPurchase(buying);
+    }
+    return { state, seat: ids[0] };
+  };
+
+  // "Reveal cards until you reveal a microbe tag. Take it, discard the rest."
+  const spliced = openWith("card-promo-splice");
+  const hand = getPlayer(spliced.state, spliced.seat).hand ?? [];
+  assert.equal(hand.length, 1, "exactly the one card is kept");
+  assert.ok(
+    (ALL_CARDS.find(card => card.id === hand[0])?.tags ?? []).includes("Microbe"),
+    "and it carries a microbe tag"
+  );
+
+  // "Place an ocean and a greenery next to each other. Raise oxygen 1 step."
+  const polder = openWith("card-promo-poldertech-dutch");
+  let state = polder.state;
+  assert.equal(state.pendingChoice?.continuation.payload.tileType, "ocean");
+
+  const oxygenBefore = state.oxygen;
+  const oceanOption = state.pendingChoice.options[0];
+  const oceanKey = oceanOption.targetCellKey;
+  state = resolvePendingChoice(state, oceanOption.id, state.logs, polder.seat).state;
+
+  assert.equal(state.pendingChoice?.continuation.payload.tileType, "forest");
+  const ocean = state.board[oceanKey];
+  for (const option of state.pendingChoice.options) {
+    const cell = state.board[option.targetCellKey];
+    assert.ok(
+      getAdjacentCells(ocean.q, ocean.r).some(pos => `${pos.q},${pos.r}` === `${cell.q},${cell.r}`),
+      "the greenery goes beside the ocean"
+    );
+  }
+
+  state = resolvePendingChoice(state, state.pendingChoice.options[0].id, state.logs, polder.seat).state;
+  // The greenery's own step is the oxygen the card promises, not a second one.
+  assert.equal(state.oxygen, oxygenBefore + 1);
+  const placed = Object.values(state.board).filter(cell => cell.tileType !== "empty");
+  assert.deepEqual(placed.map(cell => cell.tileType).sort(), ["forest", "ocean"]);
+});
