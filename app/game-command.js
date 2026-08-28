@@ -44,6 +44,8 @@ import {
   selectSoloColonies,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
+  getPreludeCost,
+  PRELUDES,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
@@ -1125,6 +1127,25 @@ const HANDLERS = {
     const cost = free ? 0 : ids.length * RESEARCH_CARD_COST;
     if ((actor.mc ?? 0) < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
+    }
+    // The starting hand is bought before preludes are resolved, and preludes are
+    // not optional, so a player must not be able to spend their way out of
+    // affording them -- applyPreludes would simply refuse and setup would stall.
+    if (state.phase === "setup") {
+      const owed = (actor.preludeOptions ?? [])
+        .map(id => PRELUDES.find(item => item.id === id))
+        .filter(Boolean)
+        .map(item => getPreludeCost(item))
+        .sort((a, b) => b - a)
+        .slice(0, 2)
+        .reduce((sum, amount) => sum + amount, 0);
+      if ((actor.mc ?? 0) - cost < owed) {
+        return fail(
+          state,
+          ERROR.CANNOT_AFFORD,
+          `Preludeの支払いに ${owed} MC を残す必要があります。`
+        );
+      }
     }
 
     const next = cloneGameState(state);

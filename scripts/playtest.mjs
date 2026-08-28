@@ -37,6 +37,7 @@ import {
   ALL_CARDS,
   selectSoloColonies
 } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND } from "../app/game-command.js";
 
 const args = Object.fromEntries(
   process.argv.slice(2).map(arg => {
@@ -182,6 +183,17 @@ function buyResearchCards(state, playerId, rng, where) {
       : p
   );
   state.discardPile = [...state.discardPile, ...passed];
+
+  // BUY_RESEARCH is what moves a generation from research into action, and this
+  // buys by hand, so the transition has to happen here too. Without it the
+  // whole game ran in the research phase and every command was refused --
+  // which is why no standard project was ever bought and the temperature
+  // track never left -30.
+  if (state.phase === "research" && state.players.every(p => (p.researchCards ?? []).length === 0)) {
+    state.phase = "action";
+    state.currentPlayerId = state.firstPlayerId ?? state.turnOrder[0];
+    state.players = state.players.map(p => ({ ...p, actionsRemaining: 2, passed: false }));
+  }
   checkInvariants(state, where);
 }
 
@@ -350,7 +362,12 @@ function playGame(seed) {
     state = resolved.state;
     logs = resolved.logs;
 
-    if (state.phase === "final_greenery" || state.generation > 40) break;
+    // A multiplayer game takes longer than a solo one to terraform, and a bot
+    // that plays at random longer still. Stopping at 40 meant the end game --
+    // final greenery, scoring, the winner -- was never once reached.
+    if (state.phase === "final_greenery" || state.generation > 80) {
+      break;
+    }
 
     const player = state.players.find(p => p.id === state.currentPlayerId);
     if (!player) {
@@ -403,6 +420,19 @@ function playGame(seed) {
       }
     }
 
+    // Standard projects were missing entirely, which is why a multiplayer game
+    // never finished: nothing bought a temperature step, so the track sat near
+    // -30 while the generations ran out. They go through the command layer,
+    // which also exercises a path the rest of this loop skips.
+    for (const projectId of ["asteroid", "aquifer", "greenery", "city", "power-plant"]) {
+      const probe = executeGameCommand(cloneGameState(state), {
+        type: COMMAND.STANDARD_PROJECT,
+        playerId: player.id,
+        projectId
+      });
+      if (probe.ok) moves.push({ kind: "standard", id: projectId });
+    }
+
     if (moves.length === 0 || rng() < 0.25) {
       // Pass: end the generation.
       const produced = triggerProduction(state, logs);
@@ -416,9 +446,24 @@ function playGame(seed) {
       continue;
     }
 
-    const move = pick(moves, rng);
+    // Terraforming moves are what end the game, so weight them: picking purely
+    // at random left the temperature track barely moving.
+    const terraforming = moves.filter(entry => entry.kind === "standard");
+    const move = terraforming.length > 0 && rng() < 0.5
+      ? pick(terraforming, rng)
+      : pick(moves, rng);
     try {
-      if (move.kind === "play") {
+      if (move.kind === "standard") {
+        const done = executeGameCommand(state, {
+          type: COMMAND.STANDARD_PROJECT,
+          playerId: player.id,
+          projectId: move.id
+        });
+        if (done.ok) {
+          state = done.state;
+          logs = state.logs ?? logs;
+        }
+      } else if (move.kind === "play") {
         state.players = state.players.map(p =>
           p.id === player.id
             ? { ...p, mc: p.mc - move.cost, hand: p.hand.filter(id => id !== move.card.id) }
@@ -475,6 +520,41 @@ function playGame(seed) {
   }
 
   if (steps >= MAX_STEPS) report("step-limit", `hit ${MAX_STEPS} steps`, { where });
+
+  // The final greenery phase, the scoring and the winner were never once run in
+  // a multiplayer game: the loop broke out the moment the phase began. Drive it
+  // to the end so those paths are exercised.
+  // A player who hoarded plants converts a greenery for every eight of them, so
+  // the ceiling is what everyone is holding rather than a flat number.
+  const conversions = state.players.reduce((sum, p) => sum + Math.ceil((p.plants ?? 0) / 8), 0);
+  const endLimit = conversions + state.players.length * 4;
+  let endGuard = 0;
+  while (state.phase === "final_greenery" && endGuard++ < endLimit) {
+    const resolved = resolveAnyPending(state, logs, rng, `${where}/final-greenery`);
+    state = resolved.state;
+    logs = resolved.logs;
+    if (state.phase !== "final_greenery") break;
+
+    const seat = state.players.find(p => p.id === state.currentPlayerId);
+    const converting = executeGameCommand(cloneGameState(state), {
+      type: COMMAND.CONVERT_FINAL_GREENERY,
+      playerId: seat?.id
+    });
+    // Convert while it is affordable, then hand the seat on.
+    const next = converting.ok
+      ? converting
+      : executeGameCommand(state, { type: COMMAND.FINISH_FINAL_GREENERY, playerId: seat?.id });
+    if (!next.ok) {
+      report("final-greenery-stuck", `${seat?.id} could neither convert nor finish`, { where });
+      break;
+    }
+    state = next.state;
+    logs = state.logs ?? logs;
+    checkInvariants(state, `${where}/final-greenery`);
+  }
+  if (state.phase === "final_greenery") {
+    report("final-greenery-never-finished", `still converting after ${endGuard} of ${endLimit} steps`, { where });
+  }
 
   const scores = state.players.map(p => ({ id: p.id, score: computeScore(state, p.id) }));
   for (const entry of scores) {

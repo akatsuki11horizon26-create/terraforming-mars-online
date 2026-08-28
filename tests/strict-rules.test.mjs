@@ -3856,3 +3856,36 @@ test("a merged corporation's own effects apply", async () => {
   assert.equal(steelGained(null), 0, "Point Luna alone pays no steel production");
   assert.equal(steelGained("corp-mining-guild"), 1, "the merged half does");
 });
+
+test("the starting-hand purchase leaves enough to pay for the preludes", async () => {
+  const { applyCorporation, getPlayer, PRELUDES, getPreludeCost } =
+    await import("../app/game-logic.js");
+
+  // The hand is bought before preludes resolve, and preludes are not optional,
+  // so spending down to nothing here would leave applyPreludes refusing and
+  // setup stuck. Two of them are paid for, so the two dearest are reserved.
+  let state = getInitialState({ playerCount: 2, prelude: true, seed: 5 });
+  const ids = state.players.map(player => player.id);
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
+  }
+  state = advanceSetupTurn(state);
+
+  const me = state.currentPlayerId;
+  const seat = getPlayer(state, me);
+  const costly = PRELUDES.filter(prelude => getPreludeCost(prelude) > 0).slice(0, 2);
+  assert.equal(costly.length, 2, "the catalogue has preludes that cost money");
+  seat.preludeOptions = [...costly.map(prelude => prelude.id), ...seat.preludeOptions].slice(0, 4);
+  const owed = costly.reduce((sum, prelude) => sum + getPreludeCost(prelude), 0);
+  seat.mc = owed + 5;
+
+  const buy = count => executeGameCommand(state, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: me,
+    cardIds: seat.researchCards.slice(0, count)
+  });
+
+  assert.equal(buy(1).ok, true, "one card still leaves the preludes covered");
+  assert.equal(buy(2).ok, false, "two would not, so it is refused");
+});
