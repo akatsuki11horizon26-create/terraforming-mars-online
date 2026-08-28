@@ -899,6 +899,8 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     effect.tile = "city";
     effect.tileCount = raw.city.count ?? 1;
     if (raw.city.on) effect.tilePlacementRule = raw.city.on;
+    // Frontier Town takes the space's printed bonus three times over.
+    if (raw.city.bonusMultiplier) effect.placementBonusMultiplier = raw.city.bonusMultiplier;
     // A named space is one of the reserved slots off the map -- Ganymede,
     // Phobos, the Venus cities, Stanford Torus. They are cities you own, but
     // they are not ON Mars, so they must not take a board space, ask the player
@@ -1057,7 +1059,7 @@ function firstLegalSpace(state, type, placementRule) {
 // A card whose tile has only one legal space is laid without asking. That path
 // has to respect the card's placement rule too, or the rule holds only while
 // the player is being offered a choice.
-function placeTile(state, type, count = 1, cardId, placementRule) {
+function placeTile(state, type, count = 1, cardId, placementRule, options = {}) {
   // Tiles belong to whoever is acting, not to a hardcoded "player": in a hotseat
   // game that credited every tile, and the TR for it, to the first seat.
   const ownerId = state.currentPlayerId ?? state.players?.[0]?.id ?? "player";
@@ -1068,7 +1070,7 @@ function placeTile(state, type, count = 1, cardId, placementRule) {
     // Delegating keeps automatic placements — preludes, corporation openings,
     // cards that place without asking — paying the same placement bonus, ocean
     // adjacency bonus and TR as one the player positioned by hand.
-    placeTileAt(state, cell, type, ownerId, cardId && i === 0 ? cardId : undefined);
+    placeTileAt(state, cell, type, ownerId, cardId && i === 0 ? cardId : undefined, options);
     placed += 1;
   }
   return placed;
@@ -1290,7 +1292,9 @@ function applyEffect(state, effect, logs, options = {}) {
     nextLogs = addLog(nextLogs, "system", "盤外の都市を建設しました。");
   } else if (!skipTile && effect.tile) {
     const count = effect.tileCount ?? 1;
-    const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule);
+    const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule, {
+      placementBonusMultiplier: effect.placementBonusMultiplier
+    });
     nextLogs = addLog(nextLogs, "system", `${effect.tile}タイルを${placed}枚配置しました。`);
   }
   const drawCount = effect.drawByTagCount
@@ -2071,7 +2075,8 @@ function queuePendingChoices(state, card, context) {
           ...context,
           remaining: effect.tileCount ?? 1,
           specialName: effect.specialName,
-          mineralProduction: effect.mineralProduction === true
+          mineralProduction: effect.mineralProduction === true,
+          placementBonusMultiplier: effect.placementBonusMultiplier
         },
         legal
       );
@@ -3000,7 +3005,8 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       if (cell) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
           worldGovernment: byWorldGovernment,
-          finalGreenery
+          finalGreenery,
+          placementBonusMultiplier: choice.continuation.payload?.placementBonusMultiplier
         });
         // placeTileAt writes its own lines -- the ruling policy payout among
         // them -- onto next.logs. Carrying on from the snapshot taken before
@@ -3262,7 +3268,11 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
         );
       }
 
-      grantPlacementBonus(state, cell, ownerId);
+      // Frontier Town collects the space's printed bonus twice more. Only the
+      // printed bonus repeats -- not the ocean adjacency money below, and not
+      // the corporation or policy payouts that follow.
+      const bonusTimes = Math.max(1, options.placementBonusMultiplier ?? 1);
+      for (let i = 0; i < bonusTimes; i++) grantPlacementBonus(state, cell, ownerId);
 
       // "各海洋タイルは、隣接するように配置された他のタイルに対し、それぞれ
       // ２Ｍ€の配置ボーナスをもたらします" — 2 MC for every ocean already

@@ -2960,3 +2960,64 @@ test("Astra Mechanica returns up to two events, and not tile-building ones", asy
   assert.equal(stopped.state.pendingChoice, null);
   assert.equal(getPlayer(stopped.state, "player").hand.length, 1);
 });
+
+test("Frontier Town takes the space's printed bonus three times", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  // Mars First's own policy pays 1 steel per tile placed, which is a separate
+  // payout from the space's printed bonus. Ruling with a different party keeps
+  // the arithmetic to the bonus this card multiplies. The requirement is still
+  // met by holding two delegates in Mars First.
+  const rig = card => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.mcProd = 5;
+    seat.energyProd = 3;
+    seat.actionsRemaining = 20;
+    seat.hand = [card];
+    state.deck = state.deck.filter(id => id !== card);
+    state.turmoil.rulingParty = "greens";
+    state.turmoil.dominantParty = "greens";
+    state.turmoil.parties.mars.delegates = ["player", "player"];
+    state.turmoil.parties.mars.leader = "player";
+    return state;
+  };
+
+  const place = (state, cardId, pick) => {
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId
+    });
+    assert.equal(played.ok, true, `${cardId} was refused`);
+    const option = pick(played.state);
+    assert.ok(option, "the fixture space is on offer");
+    const before = getPlayer(played.state, "player");
+    const settled = resolvePendingChoice(played.state, option.id, played.state.logs, "player");
+    return { before, after: getPlayer(settled.state, "player"), option };
+  };
+
+  const steelSpace = state =>
+    state.pendingChoice.options.find(option => {
+      const cell = state.board[option.targetCellKey];
+      return cell?.bonusType === "steel" && cell.bonusAmount === 2;
+    });
+
+  const town = place(rig("card-prelude2-frontier-town"), "card-prelude2-frontier-town", steelSpace);
+  assert.equal(town.after.steel, town.before.steel + 6, "two steel, three times over");
+  assert.equal(town.after.energyProd, 2, "and it costs an energy production");
+
+  // The same space through a card with no multiplier pays it once.
+  const plain = place(rig("card-base-immigrant-city"), "card-base-immigrant-city", state =>
+    state.pendingChoice.options.find(option => option.targetCellKey === town.option.targetCellKey)
+  );
+  assert.equal(plain.after.steel, plain.before.steel + 2);
+});

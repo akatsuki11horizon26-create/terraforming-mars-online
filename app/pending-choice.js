@@ -283,7 +283,10 @@ export function buildTileChoice(state, tileType, context, legalCells) {
         specialName: context.specialName ?? null,
         // The mining cards pay production for the bonus on whichever space the
         // player picks, so the resolver has to know to look.
-        ...(context.mineralProduction ? { mineralProduction: true } : {})
+        ...(context.mineralProduction ? { mineralProduction: true } : {}),
+        ...(context.placementBonusMultiplier
+          ? { placementBonusMultiplier: context.placementBonusMultiplier }
+          : {})
       }
     }
   };
