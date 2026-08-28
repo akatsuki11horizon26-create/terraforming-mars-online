@@ -9,6 +9,8 @@ import {
   applyCorporation,
   draftPick,
   applyPreludes,
+  getPreludeCost,
+  PRELUDES,
   completeSetupPurchase,
   cloneGameState,
   applyCardEffect,
@@ -231,7 +233,11 @@ function playGame(seed) {
   // Setup follows the real flow: the engine hands the seat between players, so
   // drive whoever it says is up rather than looping over the roster ourselves.
   let setupGuard = 0;
-  while (state.phase === "setup" && setupGuard++ < 40) {
+  // Setup is corporation, then the starting-hand purchase, then preludes, then
+  // the corporation's first action -- each a separate step per player, and any
+  // of them can raise a question. 40 was tight enough that a five-player game
+  // with preludes ran out of iterations before it was done.
+  while (state.phase === "setup" && setupGuard++ < 120) {
     // Preludes and corporation first actions can ask a question during setup --
     // Eccentric Sponsor and Valley Trust both do. Leaving it unanswered stalls
     // the whole setup, which read as "nothing left to choose".
@@ -296,14 +302,20 @@ function playGame(seed) {
       checkInvariants(state, `${where}/corp:${corporationId}`);
       continue;
     }
-    if (seat.preludeOptions.length >= 2 && seat.selectedPreludeIds.length === 0) {
-      state = applyPreludes(state, seat.preludeOptions.slice(0, 2));
-      checkInvariants(state, `${where}/prelude:${seat.id}`);
-      continue;
-    }
-    if (seat.setupStep === "projects" || (seat.researchCards?.length ?? 0) > 0) {
-      // Buy a random slice of the ten dealt cards, as a player would.
-      const affordable = Math.min(seat.researchCards.length, Math.floor(seat.mc / 3));
+    // setupStep stays "projects" after the purchase is done, so buying has to be
+    // gated on there being something left to buy or the loop never advances.
+    if ((seat.researchCards?.length ?? 0) > 0) {
+      // Buy a random slice of the ten dealt cards, as a player would -- but the
+      // starting hand is now bought before preludes are paid for, so spending
+      // everything here can leave a cheap corporation unable to afford them.
+      const preludeReserve = (seat.preludeOptions?.length ?? 0) >= 2
+        ? seat.preludeOptions.slice(0, 2).reduce(
+            (sum, id) => sum + getPreludeCost(PRELUDES.find(item => item.id === id) ?? {}),
+            0
+          )
+        : 0;
+      const spendable = Math.max(0, seat.mc - preludeReserve);
+      const affordable = Math.min(seat.researchCards.length, Math.floor(spendable / 3));
       const count = affordable > 0 ? Math.floor(rng() * (affordable + 1)) : 0;
       const buying = seat.researchCards.slice(0, count);
       let bought = cloneGameState(state);
@@ -311,6 +323,11 @@ function playGame(seed) {
       bought.mc -= count * 3;
       state = completeSetupPurchase(bought);
       checkInvariants(state, `${where}/buy:${seat.id}:${count}`);
+      continue;
+    }
+    if (seat.preludeOptions.length >= 2 && seat.selectedPreludeIds.length === 0) {
+      state = applyPreludes(state, seat.preludeOptions.slice(0, 2));
+      checkInvariants(state, `${where}/prelude:${seat.id}`);
       continue;
     }
     report("setup-stuck", `${seat.id} has nothing left to choose`, { where });

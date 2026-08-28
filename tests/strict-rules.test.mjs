@@ -11,9 +11,27 @@ import {
   checkParameterThresholds,
   getAdjacentCells,
   ALL_CARDS,
-  INITIAL_CELLS
+  INITIAL_CELLS,
+  advanceSetupTurn,
+  completeSetupPurchase
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
+
+// Setup runs corporation -> buy starting hand -> preludes -> corporation first
+// action, which is the order the reference uses: preludes sit between the first
+// research phase and the action phase. A test that only wants to reach the
+// first action has to clear the purchase step to get there.
+function runSetupToFirstAction(state) {
+  let next = advanceSetupTurn(state);
+  for (let guard = 0; guard < 12 && next.phase === "setup" && !next.pendingChoice; guard++) {
+    const before = next.currentPlayerId;
+    const seat = next.players.find(player => player.id === before);
+    if ((seat?.researchCards?.length ?? 0) === 0) break;
+    next = completeSetupPurchase(next);
+    if (next.currentPlayerId === before && next.phase === "setup") break;
+  }
+  return next;
+}
 
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
@@ -569,7 +587,10 @@ test("Tharsis Republic collects for the solo neutral cities", async () => {
     const state = getInitialState(options);
     const seat = state.players[0];
     seat.corporationOptions = ["corp-tharsis"];
-    return getPlayer(applyCorporation(state, "corp-tharsis", seat.id), seat.id).mcProd;
+    // Setup now buys the starting hand before the first action runs, so the
+    // city is not placed until that step is cleared.
+    const chosen = runSetupToFirstAction(applyCorporation(state, "corp-tharsis", seat.id));
+    return getPlayer(chosen, seat.id).mcProd;
   };
   // Two neutral cities are already standing, and Tharsis' own first action
   // places a third: "when any city tile is placed ON MARS" pays for all of them.
@@ -1758,7 +1779,7 @@ test("Robotic Workforce copies the whole production box", async () => {
 });
 
 test("Vitor funds an award for free as its first action", async () => {
-  const { applyCorporation, advanceSetupTurn, resolvePendingChoice, getAwardStatus, getPlayer } =
+  const { applyCorporation, resolvePendingChoice, getAwardStatus, getPlayer } =
     await import("../app/game-logic.js");
 
   // "As your first action, fund an award for free": it happens during setup,
@@ -1776,7 +1797,7 @@ test("Vitor funds an award for free as its first action", async () => {
     const corporation = id === ids[0] ? "corp-vitor" : getPlayer(state, id).corporationOptions[0];
     state = applyCorporation(state, corporation, id);
   }
-  state = advanceSetupTurn(state);
+  state = runSetupToFirstAction(state);
 
   const choice = state.pendingChoice;
   assert.equal(choice?.kind, "vitor-award", "setup asks which award to fund");
@@ -1796,17 +1817,17 @@ test("Vitor funds an award for free as its first action", async () => {
 });
 
 test("Vitor asks nothing in solo, where awards are not used", async () => {
-  const { applyCorporation, advanceSetupTurn } = await import("../app/game-logic.js");
+  const { applyCorporation } = await import("../app/game-logic.js");
   let state = getInitialState({ mode: "solo", playerCount: 1, seed: 7 });
   state.players = state.players.map(player => ({ ...player, corporationOptions: ["corp-vitor"] }));
   state.currentPlayerId = "player";
   state = applyCorporation(state, "corp-vitor", "player");
-  state = advanceSetupTurn(state);
+  state = runSetupToFirstAction(state);
   assert.equal(state.pendingChoice, null, "no award choice in a solo game");
 });
 
 test("Valley Trust draws three preludes and plays one for free", async () => {
-  const { applyCorporation, applyPreludes, advanceSetupTurn, resolvePendingChoice, getPlayer } =
+  const { applyCorporation, applyPreludes, resolvePendingChoice, getPlayer } =
     await import("../app/game-logic.js");
 
   let state = getInitialState({ mode: "multi", playerCount: 2, prelude: true, seed: 11 });
@@ -1822,7 +1843,7 @@ test("Valley Trust draws three preludes and plays one for free", async () => {
       id === ids[0] ? "corp-valley-trust" : getPlayer(state, id).corporationOptions[0];
     state = applyCorporation(state, corporation, id);
   }
-  state = advanceSetupTurn(state);
+  state = runSetupToFirstAction(state);
 
   const deckBefore = state.preludeDeck.length;
   state.currentPlayerId = ids[0];
@@ -1886,7 +1907,7 @@ test("every corporation's printed starting production reaches the player", async
 });
 
 test("corporation initial actions do not depend on the Prelude expansion", async () => {
-  const { applyCorporation, applyPreludes, advanceSetupTurn, getPlayer } =
+  const { applyCorporation, applyPreludes, getPlayer } =
     await import("../app/game-logic.js");
 
   // The initial action used to run only from the prelude path, so Tharsis
@@ -1904,7 +1925,7 @@ test("corporation initial actions do not depend on the Prelude expansion", async
       const corporation = id === ids[0] ? first : getPlayer(state, id).corporationOptions[0];
       state = applyCorporation(state, corporation, id);
     }
-    state = advanceSetupTurn(state);
+    state = runSetupToFirstAction(state);
     for (const id of ids) {
       const seat = getPlayer(state, id);
       if (seat.setupStep !== "prelude") continue;
@@ -1928,7 +1949,7 @@ test("corporation initial actions do not depend on the Prelude expansion", async
 });
 
 test("Celestic opens by drawing two floater cards", async () => {
-  const { applyCorporation, advanceSetupTurn, getPlayer, ALL_CARDS } =
+  const { applyCorporation, getPlayer, ALL_CARDS } =
     await import("../app/game-logic.js");
   const { getCardResourceType } = await import("../app/card-resource-types.js");
 
@@ -1945,7 +1966,7 @@ test("Celestic opens by drawing two floater cards", async () => {
       id === ids[0] ? "card-venus-celestic" : getPlayer(state, id).corporationOptions[0];
     state = applyCorporation(state, corporation, id);
   }
-  state = advanceSetupTurn(state);
+  state = runSetupToFirstAction(state);
 
   const hand = getPlayer(state, ids[0]).hand ?? [];
   assert.equal(hand.length, 2, "two cards are drawn");
@@ -2714,7 +2735,7 @@ test("Red Tourism Wave pays for empty areas beside the player's own tiles", asyn
 });
 
 test("Industrial Complex lifts every production below 1 up to 1", async () => {
-  const { applyCorporation, applyPreludes, advanceSetupTurn, getPlayer } =
+  const { applyCorporation, applyPreludes, getPlayer } =
     await import("../app/game-logic.js");
 
   let state = getInitialState({
@@ -2725,7 +2746,7 @@ test("Industrial Complex lifts every production below 1 up to 1", async () => {
     state.currentPlayerId = id;
     state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
   }
-  state = advanceSetupTurn(state);
+  state = runSetupToFirstAction(state);
 
   const seat = getPlayer(state, ids[0]);
   seat.preludeOptions = ["card-prelude2-industrial-complex", seat.preludeOptions[0]];
@@ -3288,4 +3309,38 @@ test("Protected Habitats keeps opponents off plants, animals and microbes", asyn
   const own = rig(true);
   own.currentPlayerId = own.players.find(player => player.id !== "player").id;
   assert.equal(targets(own), 1);
+});
+
+test("waiving one question still asks the ones queued behind it", async () => {
+  const { resolvePendingChoice, DECLINE_CHOICE, enqueuePendingChoices } =
+    await import("../app/game-logic.js");
+
+  // Declining used to return straight out, leaving whatever was queued behind
+  // it in the queue with nothing to bring it up: the game carried on without
+  // ever asking.
+  const state = getInitialState({ playerCount: 2, seed: 3 });
+  state.currentPlayerId = "player";
+  const question = (id, optional) => ({
+    id,
+    kind: "amount",
+    ownerPlayerId: "player",
+    prompt: `question ${id}`,
+    optional,
+    options: [{ id: "a", amount: 1 }],
+    continuation: {
+      stage: "public-plans",
+      sourceId: "card-promo-public-plans",
+      sourceKind: "card",
+      consumedAction: false,
+      paid: true
+    }
+  });
+
+  state.pendingChoice = question("first", true);
+  enqueuePendingChoices(state, [question("second", false)]);
+
+  const declined = resolvePendingChoice(state, DECLINE_CHOICE, state.logs, "player");
+  assert.equal(declined.status, "pending");
+  assert.equal(declined.state.pendingChoice?.id, "second", "the queued question comes up");
+  assert.equal((declined.state.pendingChoiceQueue ?? []).length, 0);
 });

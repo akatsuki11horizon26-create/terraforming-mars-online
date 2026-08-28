@@ -1408,6 +1408,22 @@ export function advanceSetupTurn(state) {
     return next;
   }
 
+  // "配られた 10 枚のプロジェクト・カードのうち、手札として残したいものを、
+  // １枚につき３Ｍ€で開始時の手札として購入します" — the starting hand is bought
+  // before the first action phase, so this step cannot be skipped.
+  const buying = next.turnOrder.find(id => {
+    const player = getPlayer(next, id);
+    return player && player.setupStep !== "complete" && (player.researchCards?.length ?? 0) > 0;
+  });
+  if (buying) {
+    next.currentPlayerId = buying;
+    next.phase = "setup";
+    next.players = next.players.map(player =>
+      player.id === buying ? { ...player, setupStep: "projects" } : player
+    );
+    return next;
+  }
+
   // Everyone has a corporation. Preludes come next if any were dealt.
   const withPreludes = next.turnOrder.find(id => {
     const player = getPlayer(next, id);
@@ -1442,22 +1458,6 @@ export function advanceSetupTurn(state) {
     }
     advanced.currentPlayerId = seatBefore;
     return advanceSetupTurn(advanced);
-  }
-
-  // "配られた 10 枚のプロジェクト・カードのうち、手札として残したいものを、
-  // １枚につき３Ｍ€で開始時の手札として購入します" — the starting hand is bought
-  // before the first action phase, so this step cannot be skipped.
-  const buying = next.turnOrder.find(id => {
-    const player = getPlayer(next, id);
-    return player && player.setupStep !== "complete" && (player.researchCards?.length ?? 0) > 0;
-  });
-  if (buying) {
-    next.currentPlayerId = buying;
-    next.phase = "setup";
-    next.players = next.players.map(player =>
-      player.id === buying ? { ...player, setupStep: "projects" } : player
-    );
-    return next;
   }
 
   next.currentPlayerId = next.firstPlayerId;
@@ -2437,9 +2437,21 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     const declined = cloneGameState(state);
     declined.pendingChoice = null;
     markChoiceResolved(declined, choice.continuation.sourceId, choice.continuation.stage);
-    const declinedLogs = addLog(logs, "system", "任意の効果を使用しませんでした。");
-    declined.logs = declinedLogs;
-    return { status: "resolved", state: declined, logs: declinedLogs };
+    let declinedLogs = addLog(logs, "system", "任意の効果を使用しませんでした。");
+    // Waiving one question does not waive the ones queued behind it. Returning
+    // straight from here left them in the queue with nothing to bring them up.
+    const advanced = advanceChoiceQueue(declined, declinedLogs);
+    declinedLogs = advanced.logs;
+    advanced.state.logs = declinedLogs;
+    if (advanced.pending) {
+      return {
+        status: "pending",
+        state: advanced.state,
+        logs: declinedLogs,
+        pendingChoice: advanced.state.pendingChoice
+      };
+    }
+    return { status: "resolved", state: advanced.state, logs: declinedLogs };
   }
 
   const option = findOption(choice, optionId);
@@ -2526,8 +2538,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           player.id === target ? { ...player, mc: (player.mc ?? 0) + amount } : player
         );
         nextLogs = addLog(nextLogs, "system", `Public Plans: ${amount}枚公開して MC +${amount}`);
-        next.pendingChoice = null;
-        return { status: "resolved", state: next, logs: nextLogs };
+        break;
       }
       if (choice.continuation.stage === "hi-tech-lab") {
         const seat = next.currentPlayerId;
@@ -2555,7 +2566,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             return { status: "pending", state: next, logs: nextLogs, pendingChoice: keep };
           }
         }
-        return { status: "resolved", state: next, logs: nextLogs };
+        break;
       }
       if (choice.continuation.stage === "power-infrastructure") {
         next.players = next.players.map(player =>
@@ -2564,13 +2575,9 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             : player
         );
         nextLogs = addLog(nextLogs, "system", `Power Infrastructure: エネルギー -${amount}、MC +${amount}`);
-        next.pendingChoice = null;
-        return { status: "resolved", state: next, logs: nextLogs };
+        break;
       }
-      if (choice.continuation.stage !== "insulation") {
-        next.pendingChoice = null;
-        return { status: "resolved", state: next, logs: nextLogs };
-      }
+      if (choice.continuation.stage !== "insulation") break;
       next.players = next.players.map(player =>
         player.id === (choice.ownerPlayerId ?? actorId)
           ? {
@@ -2581,8 +2588,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           : player
       );
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
-      next.pendingChoice = null;
-      return { status: "resolved", state: next, logs: nextLogs };
+      break;
     }
 
     case "land-claim": {
@@ -2678,8 +2684,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         return { ...player, mc: (player.mc ?? 0) - amount * 2, energy: (player.energy ?? 0) + amount };
       });
       nextLogs = addLog(nextLogs, "system", `Energy Market: ${option.label}`);
-      next.pendingChoice = null;
-      return { status: "resolved", state: next, logs: nextLogs };
+      break;
     }
 
     case "vitor-award": {
@@ -2700,10 +2705,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
 
     case "valley-trust-prelude": {
       const prelude = PRELUDES.find(item => item.id === option.preludeId);
-      if (!prelude) {
-        next.pendingChoice = null;
-        return { status: "resolved", state: next, logs: nextLogs };
-      }
+      if (!prelude) break;
       const seat = next.currentPlayerId;
       next.currentPlayerId = choice.ownerPlayerId;
       next.selectedPreludeIds = [...(next.selectedPreludeIds ?? []), prelude.id];
