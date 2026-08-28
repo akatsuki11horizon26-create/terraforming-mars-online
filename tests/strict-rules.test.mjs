@@ -3251,7 +3251,8 @@ test("Meat Industry pays for animals actually added, wherever they land", async 
 });
 
 test("New Holland lays its city on an ocean that is already there", async () => {
-  const { getCardEffect, legalCellsFor } = await import("../app/game-logic.js");
+  const { getCardEffect, legalCellsFor, getAdjacentCells, getPlayer } =
+    await import("../app/game-logic.js");
   const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
 
   // Its placement rule had no case, and an unrecognised rule used to allow
@@ -3288,6 +3289,21 @@ test("New Holland lays its city on an ocean that is already there", async () => 
     Object.values(state.board).filter(isOceanTile).length,
     state.oceans,
     "the board and the ocean counter agree"
+  );
+
+  // Being an ocean means paying the adjacency money, and being a city means
+  // scoring for the greeneries beside it. Both, on the same tile.
+  const beside = getAdjacentCells(laid.q, laid.r)
+    .map(pos => `${pos.q},${pos.r}`)
+    .find(key => state.board[key]?.tileType === "empty" && !state.board[key].isOceanOnly);
+  getPlayer(state, "player").mc = 0;
+  const touching = getAdjacentCells(state.board[beside].q, state.board[beside].r)
+    .filter(pos => isOceanTile(state.board[`${pos.q},${pos.r}`])).length;
+  placeTileAt(state, state.board[beside], "city", "player", "probe");
+  assert.equal(
+    getPlayer(state, "player").mc,
+    touching * 2,
+    "it pays ocean adjacency like any ocean"
   );
 });
 
