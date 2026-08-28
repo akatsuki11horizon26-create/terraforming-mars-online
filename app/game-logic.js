@@ -366,6 +366,7 @@ const LAND_CLAIM_ID = "card-base-land-claim";
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
+const VENUS_ORBITAL_SURVEY_ID = "card-prelude2-venus-orbital-survey";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1981,6 +1982,36 @@ function projectEdenRemainingSteps(state, cardId, done) {
   }).map(step => ({ id: step.id, stepId: step.id, label: step.label }));
 }
 
+// One offer per revealed non-Venus card: pay the research price for it, or let
+// it go. Declining is discarding, so the choice is optional.
+function venusSurveyChoice(state, ownerId, remaining, sourceId) {
+  if (remaining.length === 0) return null;
+  const [cardId, ...rest] = remaining;
+  const revealed = ALL_CARDS.find(item => item.id === cardId);
+  const owner = getPlayer(state, ownerId);
+  const options = [];
+  if ((owner?.mc ?? 0) >= RESEARCH_CARD_COST) {
+    options.push({ id: `buy:${cardId}`, label: `【${revealed?.name ?? cardId}】を${RESEARCH_CARD_COST} MCで購入`, cardId, buy: true });
+  }
+  options.push({ id: `discard:${cardId}`, label: `【${revealed?.name ?? cardId}】を捨てる`, cardId });
+  return {
+    id: `venus-survey:${cardId}:${ownerId}`,
+    kind: "venus-survey",
+    ownerPlayerId: ownerId,
+    prompt: `Venus Orbital Survey: 【${revealed?.name ?? cardId}】を購入しますか。`,
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: "card-action",
+      sourceId,
+      stage: `venus-survey:${cardId}`,
+      consumedAction: false,
+      paid: true,
+      payload: { remaining: rest }
+    }
+  };
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -2670,6 +2701,36 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           : player
       );
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
+      break;
+    }
+
+    case "venus-survey": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      if (option.buy) {
+        next.players = next.players.map(player =>
+          player.id === owner
+            ? {
+                ...player,
+                mc: (player.mc ?? 0) - RESEARCH_CARD_COST,
+                hand: [...(player.hand ?? []), option.cardId]
+              }
+            : player
+        );
+      } else {
+        next.discardPile = [...next.discardPile, option.cardId];
+      }
+      nextLogs = addLog(nextLogs, "system", `Venus Orbital Survey: ${option.label}`);
+      const follow = venusSurveyChoice(
+        next,
+        owner,
+        choice.continuation.payload?.remaining ?? [],
+        choice.continuation.sourceId
+      );
+      if (follow) {
+        next.pendingChoice = follow;
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: follow };
+      }
       break;
     }
 
@@ -4054,6 +4115,15 @@ export function getCardActionStatus(state, card) {
       ? { playable: true, reason: "" }
       : { playable: false, reason: "エネルギーがありません。" };
   }
+  // "Reveal the top 2 cards": there have to be two to reveal.
+  if (card.id === VENUS_ORBITAL_SURVEY_ID) {
+    if ((getCurrentPlayer(state)?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (state.deck?.length ?? 0) + (state.discardPile?.length ?? 0) >= 2
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "山札に十分なカードがありません。" };
+  }
   if (card.id === ENERGY_MARKET_ID) {
     const seat = getCurrentPlayer(state);
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
@@ -4122,6 +4192,30 @@ export function applyCardAction(state, card, logs, branchIndex) {
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;
     return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "Reveal the top 2 cards. Take any Venus cards to hand for free; each other
+  // card you either buy or discard." The Venus ones are settled at once and the
+  // rest are asked about one at a time.
+  if (card.id === VENUS_ORBITAL_SURVEY_ID) {
+    const seat = nextState.currentPlayerId;
+    const drawn = drawCards(nextState, 2);
+    const venus = drawn.filter(id => (ALL_CARDS.find(item => item.id === id)?.tags ?? []).includes("Venus"));
+    const rest = drawn.filter(id => !venus.includes(id));
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    const surveyLogs = addLog(
+      logs,
+      "system",
+      `Venus Orbital Survey: ${drawn.length}枚公開、うち金星${venus.length}枚を無償で手札に加えました。`
+    );
+    // drawCards puts everything in hand; the non-Venus ones are only on offer.
+    nextState.hand = nextState.hand.filter(id => !rest.includes(id));
+    const choice = venusSurveyChoice(nextState, seat, rest, card.id);
+    if (choice) {
+      nextState.pendingChoice = choice;
+      return { state: nextState, logs: surveyLogs, playable: true, awaitingChoice: true };
+    }
+    return { state: nextState, logs: surveyLogs, playable: true };
   }
 
   // "Spend any amount of energy to draw the same number of cards, take one into

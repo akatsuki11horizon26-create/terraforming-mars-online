@@ -3547,3 +3547,52 @@ test("Ecological Zone needs a greenery, sits beside one, and scores per pair", a
     2
   );
 });
+
+test("Venus Orbital Survey keeps Venus cards free and offers the rest for sale", async () => {
+  const { getPlayer, ALL_CARDS, resolvePendingChoice, RESEARCH_CARD_COST } =
+    await import("../app/game-logic.js");
+
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = ["card-prelude2-venus-orbital-survey"];
+    // Stack the deck so exactly one of the two revealed cards is Venus.
+    const venus = ALL_CARDS.find(card => (card.tags ?? []).includes("Venus"));
+    const plain = ALL_CARDS.find(card => !(card.tags ?? []).includes("Venus"));
+    state.deck = [venus.id, plain.id, ...state.deck.filter(id => id !== venus.id && id !== plain.id)];
+    return { state, venus, plain };
+  };
+
+  const { state, venus, plain } = rig();
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-prelude2-venus-orbital-survey"
+  });
+  assert.equal(used.ok, true);
+  assert.deepEqual(getPlayer(used.state, "player").hand, [venus.id], "the Venus card is free");
+  assert.equal(used.state.pendingChoice?.kind, "venus-survey");
+
+  // Buying costs the usual research price and puts the card in hand.
+  const buy = used.state.pendingChoice.options.find(option => option.buy);
+  const bought = resolvePendingChoice(used.state, buy.id, used.state.logs, "player");
+  const after = getPlayer(bought.state, "player");
+  assert.deepEqual(after.hand.sort(), [venus.id, plain.id].sort());
+  assert.equal(after.mc, 100 - RESEARCH_CARD_COST);
+
+  // Declining discards it instead, and costs nothing.
+  const drop = used.state.pendingChoice.options.find(option => !option.buy);
+  const dropped = resolvePendingChoice(used.state, drop.id, used.state.logs, "player");
+  assert.deepEqual(getPlayer(dropped.state, "player").hand, [venus.id]);
+  assert.equal(getPlayer(dropped.state, "player").mc, 100);
+  assert.ok(dropped.state.discardPile.includes(plain.id));
+});
