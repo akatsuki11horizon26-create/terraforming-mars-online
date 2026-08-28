@@ -164,6 +164,22 @@ const THRESHOLD_SAFE = [
   { oceans: 8, oxygen: 12, temperature: 2, venus: 20 }
 ];
 
+// Two of the cheapest cards bearing each tag, so every "requires N of a tag"
+// is satisfied without the tableau doing anything else.
+const TAGS = ["Building", "Space", "Science", "Power", "Earth", "Jovian",
+  "Venus", "Plant", "Microbe", "Animal", "City"];
+const TAG_BEARERS = (() => {
+  const chosen = new Set();
+  for (const tag of TAGS) {
+    const bearers = OFFICIAL_PROJECTS
+      .filter(card => (card.tags ?? []).includes(tag) && card.type !== "event")
+      .sort((a, b) => a.cost - b.cost)
+      .slice(0, 3);
+    for (const card of bearers) chosen.add(card.id);
+  }
+  return [...chosen];
+})();
+
 const rig = (levels = THRESHOLD_SAFE[0]) => {
   const state = getInitialState({
     playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 4
@@ -185,6 +201,12 @@ const rig = (levels = THRESHOLD_SAFE[0]) => {
   // Production high enough that a card spending it is still playable.
   for (const field of Object.values(PRODUCTION_FIELD)) seat[field] = 10;
   seat.actionsRemaining = 20;
+  // A tableau carrying every tag several times over, so a card gated behind
+  // "requires 3 science tags" is measured rather than skipped. These are the
+  // cheapest cards bearing each tag, and none of them is the card under test --
+  // the caller overwrites playedProjects when it needs to count a card's own
+  // tag.
+  seat.playedProjects = TAG_BEARERS;
   // Away from every threshold, so a card raising a parameter is measured on its
   // own printed rating and not on the bonus a crossing hands out: oxygen 8%
   // pays a temperature step, venus 16% pays a rating, -24C and -20C pay heat
@@ -218,7 +240,12 @@ function check(card, levels) {
   // by the time its own effect is evaluated, so the expected count has to be
   // taken with it already there.
   const counting = rig(levels);
-  getPlayer(counting, "player").playedProjects = [card.id];
+  // The tableau the engine will see when the card resolves: everything already
+  // in play, plus the card itself, since "including this" is the rule.
+  getPlayer(counting, "player").playedProjects = [
+    ...getPlayer(counting, "player").playedProjects,
+    card.id
+  ];
   const expected = contractFor(card, counting);
   if (!expected) return { status: "skip", why: "no contract this can compute" };
   const behavior = card.effectSpec?.behavior ?? {};
