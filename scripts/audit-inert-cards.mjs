@@ -65,9 +65,10 @@ for (const [kind, list] of [["project", OFFICIAL_PROJECTS], ["prelude", PRELUDES
   }
 }
 
-// A ratchet, not a gate: 1 card is known inert and fixing them is a body of
-// work, but the number must never grow. Lower this as they are implemented.
-const BASELINE = 1;
+// Every card in the catalogue now does something. This is a gate, not a ratchet
+// any more: a card that goes inert -- a spec emptied, a handler removed, a
+// placement rule that stops matching -- fails here.
+const BASELINE = 0;
 
 console.log(`inert cards (text promises an effect, engine has none): ${inert.length} (baseline ${BASELINE})`);
 for (const [kind, card] of inert) {

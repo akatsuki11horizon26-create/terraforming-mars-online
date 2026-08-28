@@ -369,6 +369,8 @@ const PROJECT_EDEN_ID = "card-prelude2-project-eden";
 const VENUS_ORBITAL_SURVEY_ID = "card-prelude2-venus-orbital-survey";
 const MARS_NOMADS_ID = "card-promo-mars-nomads";
 const SELF_REPLICATING_ROBOTS_ID = "card-promo-self-replicating-robots";
+const MERGER_ID = "card-promo-merger";
+const MERGER_COST = 42;
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -485,9 +487,26 @@ export function shuffle(array, state) {
   return copy;
 }
 
-function getCorporation(state) {
-  return CORPORATIONS.find(corporation => corporation.id === state.corporationId);
+// The corporation a named player is playing, with both sets of effects when
+// Merger gave them a second one. Reaching for CORPORATIONS.find directly on a
+// player's corporationId misses the merged half.
+function corporationFor(player) {
+  const first = CORPORATIONS.find(item => item.id === player?.corporationId);
+  const second = CORPORATIONS.find(item => item.id === player?.mergedCorporationId);
+  if (!first || !second) return first;
+  return { ...first, effects: { ...(second.effects ?? {}), ...(first.effects ?? {}) } };
 }
+
+// The corporation a player is playing. With Merger they may hold two, and the
+// effects of both apply, so the object handed back carries the merged effects:
+// every reader of `corporation.effects` then sees both without knowing about it.
+function getCorporation(state) {
+  return corporationFor({
+    corporationId: state.corporationId,
+    mergedCorporationId: state.mergedCorporationId
+  });
+}
+
 
 function getCorporationDiscount(card, corporation) {
   return (corporation?.effects?.earthDiscount && card.tags.includes("Earth")
@@ -627,7 +646,8 @@ function roboticWorkforceBuildingCards(state) {
   const owned = [
     ...(player?.playedProjects ?? []),
     ...(player?.selectedPreludeIds ?? []),
-    ...(player?.corporationId ? [player.corporationId] : [])
+    ...(player?.corporationId ? [player.corporationId] : []),
+    ...(player?.mergedCorporationId ? [player.mergedCorporationId] : [])
   ];
   return owned
     .map(id => ALL_CARDS.find(card => card.id === id))
@@ -2102,6 +2122,37 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Draw 4 corporations, play one of them, discard the rest, then pay 42 M€."
+  if (card.id === MERGER_ID && !done.includes("merger")) {
+    const held = getCurrentPlayer(state);
+    const dealt = (state.corporationDeck ?? []).slice(0, 4);
+    const options = dealt
+      .map(id => CORPORATIONS.find(item => item.id === id))
+      .filter(Boolean)
+      // A corporation is only on offer if its own starting money covers what is
+      // left of the 42 after what the player already has.
+      .filter(item => (held?.mc ?? 0) + (item.starting?.mc ?? 0) >= MERGER_COST)
+      .map(item => ({ id: item.id, corporationId: item.id, label: item.name }));
+    if (options.length > 0) {
+      return {
+        id: `merger:${state.currentPlayerId}`,
+        kind: "merger",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: `Merger: 合併する企業を選んでください（${MERGER_COST} MCを支払います）。`,
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "merger",
+          consumedAction: context.consumedAction ?? false,
+          paid: context.paid ?? true,
+          payload: { dealt }
+        }
+      };
+    }
+  }
+
   // "Place an ocean, a city and a greenery. Discard 3 cards." The player picks
   // the order, which matters: placing the ocean first changes what the greenery
   // beside it is worth.
@@ -2883,6 +2934,41 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: discard };
         }
       }
+      break;
+    }
+
+    case "merger": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      const merged = CORPORATIONS.find(item => item.id === option.corporationId);
+      const dealt = choice.continuation.payload?.dealt ?? [];
+      if (merged) {
+        // The second corporation's starting resources and production are ADDED
+        // to what the player already has; applyCorporation assigns, which is
+        // right for the first corporation and wrong for this one.
+        const starting = merged.starting ?? {};
+        const production = starting.production ?? {};
+        next.players = next.players.map(player => {
+          if (player.id !== owner) return player;
+          const updated = { ...player, mergedCorporationId: merged.id };
+          updated.mc = (player.mc ?? 0) + (starting.mc ?? 0) - MERGER_COST;
+          for (const resource of ["steel", "titanium", "plants", "energy", "heat"]) {
+            updated[resource] = (player[resource] ?? 0) + (starting[resource] ?? 0);
+          }
+          for (const resource of ["mc", "steel", "titanium", "plants", "energy", "heat"]) {
+            const printed = resource === "mc" ? production.megacredits : undefined;
+            updated[`${resource}Prod`] =
+              (player[`${resource}Prod`] ?? 0) + (production[resource] ?? printed ?? 0);
+          }
+          return updated;
+        });
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Merger: 【${merged.name}】と合併しました（${MERGER_COST} MC）。`
+        );
+      }
+      // Everything dealt leaves the deck; the ones not taken are discarded.
+      next.corporationDeck = (next.corporationDeck ?? []).filter(id => !dealt.includes(id));
       break;
     }
 
@@ -3865,7 +3951,7 @@ function grantRulingPolicyTileEffects(state, tileType, ownerId, context = {}) {
 
 function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
   const owner = getPlayer(state, ownerId);
-  const ownerCorp = CORPORATIONS.find(item => item.id === owner?.corporationId);
+  const ownerCorp = corporationFor(owner);
 
   if (ownerCorp?.effects?.miningBonus && (cell.bonusType === "steel" || cell.bonusType === "titanium")) {
     state.players = state.players.map(player =>
@@ -3878,7 +3964,7 @@ function grantPlacementCorporationEffects(state, cell, tileType, ownerId) {
   // "都市が置かれるたびMC生産量+1" reads every city, not only one's own; the
   // extra 3 MC is the part that asks whose it is.
   for (const player of state.players) {
-    const corporation = CORPORATIONS.find(item => item.id === player.corporationId);
+    const corporation = corporationFor(player);
     const perCity = corporation?.effects?.cityProduction ?? 0;
     const ownBonus = player.id === ownerId ? corporation?.effects?.ownCityBonus ?? 0 : 0;
     // Two cards watch for cities the same way a corporation does, and both say
@@ -5092,6 +5178,10 @@ export function getInitialState(options = {}) {
     );
   }
 
+  // Merger deals four corporations of its own, so what setup did not hand out
+  // has to survive it the same way the prelude deck does.
+  const corporationDeck = corporationPool.slice(playerCount * 2);
+
   // Valley Trust draws three more preludes as its first action, so what the deal
   // did not hand out has to survive setup for it to draw from.
   const preludeDeck = preludePool.slice(playerCount * 4);
@@ -5149,6 +5239,7 @@ export function getInitialState(options = {}) {
     board,
     deck: shuffledDeck,
     preludeDeck,
+    corporationDeck,
     discardPile: [],
     claimedMilestones: [],
     fundedAwards: [],
@@ -5584,7 +5675,7 @@ function milestoneContext(state, player) {
     offBoardCities: state.offBoardCities ?? [],
     cards: ALL_CARDS,
     preludes: PRELUDES,
-    corporation: CORPORATIONS.find(c => c.id === player.corporationId),
+    corporation: corporationFor(player),
     // Utopia's Pioneer milestone counts colonies, which live outside the player.
     colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0
   };
@@ -5778,7 +5869,7 @@ function countDistinctTags(state, player) {
     }
   };
 
-  collect(CORPORATIONS.find(item => item.id === player.corporationId));
+  collect(corporationFor(player));
   for (const id of player.playedProjects ?? []) {
     const card = ALL_CARDS.find(item => item.id === id);
     if (card?.type === "event") continue;
@@ -6494,7 +6585,7 @@ function countTagsFor(state, tag, owner) {
   const has = card =>
     (card?.tags ?? []).some(cardTag => String(cardTag).toLowerCase() === normalized);
 
-  const corporation = CORPORATIONS.find(item => item.id === owner?.corporationId);
+  const corporation = corporationFor(owner);
   let count = has(corporation) ? 1 : 0;
 
   for (const id of owner?.playedProjects ?? []) {

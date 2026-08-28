@@ -96,6 +96,7 @@ function migrateV3(parsed) {
     board,
     deck: Array.isArray(parsed.deck) ? parsed.deck : [],
     preludeDeck: Array.isArray(parsed.preludeDeck) ? parsed.preludeDeck : [],
+    corporationDeck: Array.isArray(parsed.corporationDeck) ? parsed.corporationDeck : [],
     setupContinuation: parsed.setupContinuation ?? null,
     discardPile: Array.isArray(parsed.discardPile) ? parsed.discardPile : [],
     pendingChoice,

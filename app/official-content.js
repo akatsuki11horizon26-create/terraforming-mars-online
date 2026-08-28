@@ -130,6 +130,8 @@ const CURATED_CORPORATION_OVERRIDES = [
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });
 
 const CURATED_PRELUDE_OVERRIDES = [
+  // Deals four corporations, merges one in, and charges 42 M€ for it.
+  prelude("card-promo-merger", "Merger", "企業カードを4枚引く。そのうち1枚をプレイし、残り3枚を捨てる。その後、MCを42支払う。", {}, { tags: [] }),
   // The four steps resolve in the player's chosen order, which is why this has
   // no behaviour block: the order changes what the placements are worth.
   prelude("card-prelude2-project-eden", "Project Eden", "海洋タイルを1枚、都市タイルを1枚、緑地タイルを1枚置く。カードを3枚捨てる。", {}, { tags: ["City", "Plant"] }),

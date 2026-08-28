@@ -20,6 +20,7 @@ export const PLAYER_SCALAR_FIELDS = [
   "freeAwardUsed",
   "initialActionDone",
   "corporationId",
+  "mergedCorporationId",
   "setupStep",
   "turnStep",
   "passed"
@@ -75,6 +76,7 @@ export function createPlayer(id, name, overrides = {}) {
     researchCards: [],
     corporationOptions: [],
     corporationId: null,
+    mergedCorporationId: null,
     preludeOptions: [],
     selectedPreludeIds: [],
     tr: STARTING_TR,
@@ -226,6 +228,7 @@ export function cloneGameState(state) {
     turnOrder: [...state.turnOrder],
     deck: [...state.deck],
     preludeDeck: [...(state.preludeDeck ?? [])],
+    corporationDeck: [...(state.corporationDeck ?? [])],
     discardPile: [...state.discardPile],
     logs: [...state.logs],
     board: Object.fromEntries(

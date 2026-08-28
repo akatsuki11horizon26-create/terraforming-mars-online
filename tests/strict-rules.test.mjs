@@ -3787,3 +3787,72 @@ test("Self-Replicating Robots hosts a card, doubles it, and discounts it", async
   assert.equal(getPlayer(played.state, "player").mc, opening - (target.cost - 4));
   assert.deepEqual(getPlayer(played.state, "player").hostedCards, []);
 });
+
+test("Merger adds a second corporation, its effects included", async () => {
+  const { applyCorporation, applyPreludes, resolvePendingChoice, cloneGameState, getPlayer } =
+    await import("../app/game-logic.js");
+  const { CORPORATIONS } = await import("../app/official-content.js");
+
+  let state = getInitialState({
+    playerCount: 2, prelude: true, venus: true, colonies: true, promo: true, seed: 11
+  });
+  const ids = state.players.map(player => player.id);
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
+  }
+  state = advanceSetupTurn(state);
+  for (let guard = 0; guard < 6 && state.phase === "setup" && !state.pendingChoice; guard++) {
+    const seat = getPlayer(state, state.currentPlayerId);
+    if ((seat.researchCards ?? []).length === 0) break;
+    const buying = cloneGameState(state);
+    buying.hand = [];
+    state = completeSetupPurchase(buying);
+  }
+
+  const me = ids[0];
+  const seat = getPlayer(state, me);
+  seat.mc = 60;
+  seat.preludeOptions = ["card-promo-merger", seat.preludeOptions[0]];
+  state.currentPlayerId = me;
+  const deckBefore = state.corporationDeck.length;
+  state = applyPreludes(state, seat.preludeOptions.slice(0, 2), me);
+
+  assert.equal(state.pendingChoice?.kind, "merger");
+  assert.equal(state.pendingChoice.options.length, 4, "four corporations are dealt");
+
+  const before = getPlayer(state, me).mc;
+  const pick = state.pendingChoice.options[0];
+  const merged = CORPORATIONS.find(item => item.id === pick.corporationId);
+  const settled = resolvePendingChoice(state, pick.id, state.logs, me);
+  const after = getPlayer(settled.state, me);
+
+  // Its starting money is added, and 42 comes back out.
+  assert.equal(after.mc, before + (merged.starting.mc ?? 0) - 42);
+  assert.equal(after.mergedCorporationId, merged.id);
+  assert.ok(after.corporationId && after.corporationId !== merged.id, "the first one is kept");
+  assert.equal(settled.state.corporationDeck.length, deckBefore - 4, "all four leave the deck");
+});
+
+test("a merged corporation's own effects apply", async () => {
+  const { getPlayer, placeTileAt } = await import("../app/game-logic.js");
+
+  // Mining Guild raises steel production when its owner takes a steel or
+  // titanium space. Merged in as the SECOND corporation, it still should.
+  const steelGained = mergedCorporationId => {
+    const state = getInitialState({ playerCount: 2, seed: 3 });
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "corp-point-luna";
+    seat.mergedCorporationId = mergedCorporationId;
+    const key = Object.keys(state.board).find(cellKey => {
+      const cell = state.board[cellKey];
+      return cell.bonusType === "steel" && cell.bonusAmount > 0 && !cell.isOceanOnly;
+    });
+    placeTileAt(state, state.board[key], "city", "player", "probe");
+    return getPlayer(state, "player").steelProd;
+  };
+
+  assert.equal(steelGained(null), 0, "Point Luna alone pays no steel production");
+  assert.equal(steelGained("corp-mining-guild"), 1, "the merged half does");
+});
