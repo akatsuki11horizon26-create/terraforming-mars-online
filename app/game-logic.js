@@ -123,6 +123,7 @@ import {
   createColoniesState,
   selectSoloColonies,
   getColonyTile,
+  MAX_COLONY_TRACK_POSITION,
   trade as tradeWithColony
 } from "./colonies.js";
 
@@ -357,6 +358,7 @@ const RECRUITMENT_ID = "card-turmoil-recruitment";
 const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
+const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1870,6 +1872,24 @@ function recruitmentPartyOptions(state) {
     }));
 }
 
+// Only tiles that are in play can move, and only within the track's bounds.
+function colonyTrackOptions(state, direction, excludeTileId) {
+  if (!state.colonies) return [];
+  return Object.values(state.colonies.tiles ?? {})
+    .filter(tile => tile.active !== false)
+    .filter(tile => tile.id !== excludeTileId)
+    .filter(tile =>
+      direction === "up"
+        ? (tile.trackPosition ?? 0) < MAX_COLONY_TRACK_POSITION
+        : (tile.trackPosition ?? 0) > 0
+    )
+    .map(tile => ({
+      id: tile.id,
+      targetTileId: tile.id,
+      label: `${getColonyTile(tile.id)?.name ?? tile.id}（${tile.trackPosition ?? 0}）`
+    }));
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -1886,6 +1906,30 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Increase one colony tile track 1 step, and decrease another 1 step." The
+  // two picks are chained; the second excludes whichever tile the first raised.
+  if (card.id === MARKET_MANIPULATION_ID && !done.includes("market-manipulation")) {
+    const options = colonyTrackOptions(state, "up");
+    if (options.length > 0) {
+      return {
+        id: `market-manipulation-up:${state.currentPlayerId}`,
+        kind: "colony-track",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "トラックを1段階上げる植民地タイルを選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "market-manipulation",
+          direction: "up",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
   // "Exchange a non-leader neutral delegate for one of yours from the reserve."
   // Which party is the only decision; which neutral within it does not matter.
   if (card.id === RECRUITMENT_ID && !done.includes("turmoil-recruitment")) {
@@ -2373,6 +2417,44 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
       next.pendingChoice = null;
       return { status: "resolved", state: next, logs: nextLogs };
+    }
+
+    case "colony-track": {
+      const tile = next.colonies?.tiles?.[option.targetTileId];
+      const up = choice.continuation.direction === "up";
+      if (tile) {
+        const moved = up
+          ? Math.min((tile.trackPosition ?? 0) + 1, MAX_COLONY_TRACK_POSITION)
+          : Math.max((tile.trackPosition ?? 0) - 1, 0);
+        next.colonies = {
+          ...next.colonies,
+          tiles: { ...next.colonies.tiles, [option.targetTileId]: { ...tile, trackPosition: moved } }
+        };
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `${option.label} のトラックを1段階${up ? "上げ" : "下げ"}ました。`
+        );
+      }
+      // The raise is answered; now ask which other tile comes down.
+      if (up) {
+        const down = colonyTrackOptions(next, "down", option.targetTileId);
+        if (down.length > 0) {
+          const follow = {
+            id: `market-manipulation-down:${choice.ownerPlayerId ?? actorId}`,
+            kind: "colony-track",
+            ownerPlayerId: choice.ownerPlayerId ?? actorId,
+            prompt: "トラックを1段階下げる別の植民地タイルを選んでください。",
+            optional: false,
+            options: down,
+            continuation: { ...choice.continuation, direction: "down" }
+          };
+          next.pendingChoice = follow;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: follow };
+        }
+      }
+      break;
     }
 
     case "turmoil-recruitment": {

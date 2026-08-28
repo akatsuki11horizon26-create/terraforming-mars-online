@@ -2825,3 +2825,49 @@ test("Productive Outpost collects a bonus for every colony held", async () => {
     assert.equal(after[resource], (before[resource] ?? 0) + amount, `${resource} paid per colony`);
   }
 });
+
+test("Market Manipulation raises one colony track and lowers another", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-colonies-market-manipulation"];
+  state.deck = state.deck.filter(id => id !== "card-colonies-market-manipulation");
+
+  const before = Object.fromEntries(
+    Object.values(state.colonies.tiles).map(tile => [tile.id, tile.trackPosition])
+  );
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-market-manipulation"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "colony-track");
+  assert.equal(played.state.pendingChoice.continuation.direction, "up");
+
+  const raised = played.state.pendingChoice.options[0];
+  const asked = resolvePendingChoice(played.state, raised.id, played.state.logs, "player");
+  assert.equal(asked.state.pendingChoice.continuation.direction, "down");
+  // "another colony tile": the one just raised is not on offer.
+  assert.ok(
+    !asked.state.pendingChoice.options.some(option => option.targetTileId === raised.targetTileId)
+  );
+
+  const lowered = asked.state.pendingChoice.options[0];
+  const settled = resolvePendingChoice(asked.state, lowered.id, asked.state.logs, "player");
+  assert.equal(settled.state.pendingChoice, null);
+
+  const tiles = settled.state.colonies.tiles;
+  assert.equal(tiles[raised.targetTileId].trackPosition, before[raised.targetTileId] + 1);
+  assert.equal(tiles[lowered.targetTileId].trackPosition, before[lowered.targetTileId] - 1);
+});
