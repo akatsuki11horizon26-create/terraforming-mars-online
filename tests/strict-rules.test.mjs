@@ -3889,3 +3889,27 @@ test("the starting-hand purchase leaves enough to pay for the preludes", async (
   assert.equal(buy(1).ok, true, "one card still leaves the preludes covered");
   assert.equal(buy(2).ok, false, "two would not, so it is refused");
 });
+
+test("a city scores for the greeneries beside it", async () => {
+  const { getPlayer, calculateScoreBreakdowns } = await import("../app/game-logic.js");
+
+  // scoring.js takes its board helpers as options and falls back to stubs that
+  // score zero, so a caller that forgets them silently loses every adjacency
+  // point. game-logic's wrapper is the one that passes them; this pins the
+  // number that comes out of it.
+  const state = getInitialState({ playerCount: 2, seed: 3 });
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").tr = 25;
+  state.board["4,-4"] = { ...state.board["4,-4"], tileType: "city", placedBy: "player" };
+  state.board["5,-4"] = { ...state.board["5,-4"], tileType: "forest", placedBy: "player" };
+  state.board["4,-3"] = { ...state.board["4,-3"], tileType: "forest", placedBy: "player" };
+
+  const breakdown = calculateScoreBreakdowns(state).player;
+  // 25 rating + 2 greeneries + 2 for the city's two neighbours.
+  assert.equal(breakdown.board, 4);
+  assert.equal(breakdown.total, 29);
+  assert.ok(
+    breakdown.details.some(entry => entry.sourceId === "city" && entry.points === 2),
+    "the city's adjacency is its own line"
+  );
+});
