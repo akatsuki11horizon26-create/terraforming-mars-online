@@ -3089,3 +3089,45 @@ test("Land Claim reserves a space for the player who claimed it", async () => {
   assert.equal(holds("player"), true, "the claimer may still build there");
   assert.equal(holds("player2"), false, "nobody else may");
 });
+
+test("WG Project draws three preludes and plays one, for the chairman only", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const { NEUTRAL } = await import("../app/turmoil.js");
+
+  const rig = chairman => {
+    const state = getInitialState({
+      playerCount: 2, prelude: true, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.actionsRemaining = 20;
+    seat.hand = ["card-prelude2-wg-project"];
+    state.deck = state.deck.filter(id => id !== "card-prelude2-wg-project");
+    state.turmoil.chairman = chairman;
+    return state;
+  };
+
+  const card = ALL_CARDS.find(item => item.id === "card-prelude2-wg-project");
+  assert.equal(getCardPlayableStatus(card, rig(NEUTRAL)).playable, false, "chairman only");
+
+  const state = rig("player");
+  const deckBefore = state.preludeDeck.length;
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(played.state.pendingChoice?.options.length, 3);
+  // All three leave the deck: one is played and the other two are discarded.
+  assert.equal(played.state.preludeDeck.length, deckBefore - 3);
+
+  const pick = played.state.pendingChoice.options[0];
+  const settled = resolvePendingChoice(played.state, pick.id, played.state.logs, "player");
+  assert.deepEqual(getPlayer(settled.state, "player").selectedPreludeIds, [pick.preludeId]);
+});

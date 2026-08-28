@@ -363,6 +363,7 @@ const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
+const WG_PROJECT_ID = "card-prelude2-wg-project";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1638,6 +1639,29 @@ export function completeSetupPurchase(state) {
   return advanceSetupTurn(next);
 }
 
+// "Draw N prelude cards, play one of them, discard the rest." Valley Trust does
+// this as its first action and WG Project as a card; the drawn cards leave the
+// deck either way, so the deck shrinks by all N whether or not the choice is
+// answered later.
+function buildPreludeDrawChoice(state, count, context) {
+  const drawn = (state.preludeDeck ?? []).slice(0, count);
+  state.preludeDeck = (state.preludeDeck ?? []).slice(drawn.length);
+  const options = drawn
+    .map(id => PRELUDES.find(prelude => prelude.id === id))
+    .filter(Boolean)
+    .map(prelude => ({ id: prelude.id, preludeId: prelude.id, label: prelude.name }));
+  if (options.length === 0) return null;
+  return {
+    id: `prelude-draw:${context.sourceId}:${state.currentPlayerId}`,
+    kind: "valley-trust-prelude",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: "無償でプレイするPreludeを1枚選んでください。",
+    optional: false,
+    options,
+    continuation: { stage: "valley-trust-prelude", ...context }
+  };
+}
+
 export function applyCorporationInitialAction(state, logs) {
   const nextState = cloneGameState(state);
   const corporation = getCorporation(nextState);
@@ -1705,28 +1729,13 @@ export function applyCorporationInitialAction(state, logs) {
     // Three fresh preludes off the deck, one of which is played for free; the
     // other two are discarded rather than returned, so the deck shrinks by all
     // three whether or not the choice is answered later.
-    const drawn = (nextState.preludeDeck ?? []).slice(0, 3);
-    nextState.preludeDeck = (nextState.preludeDeck ?? []).slice(drawn.length);
-    const options = drawn
-      .map(id => PRELUDES.find(prelude => prelude.id === id))
-      .filter(Boolean)
-      .map(prelude => ({ id: prelude.id, preludeId: prelude.id, label: prelude.name }));
-    if (options.length > 0) {
-      const choice = {
-        id: `valley-trust:${nextState.currentPlayerId}`,
-        kind: "valley-trust-prelude",
-        ownerPlayerId: nextState.currentPlayerId,
-        prompt: "初期アクション: 無償でプレイするPreludeを1枚選んでください。",
-        optional: false,
-        options,
-        continuation: {
-          stage: "valley-trust-prelude",
-          sourceKind: "corporation",
-          sourceId: corporation.id,
-          consumedAction: false,
-          paid: true
-        }
-      };
+    const choice = buildPreludeDrawChoice(nextState, 3, {
+      sourceKind: "corporation",
+      sourceId: corporation.id,
+      consumedAction: false,
+      paid: true
+    });
+    if (choice) {
       nextState.pendingChoice = choice;
       nextLogs = addLog(nextLogs, "system", `${corporation.name}: Preludeを3枚引きました。`);
       nextState.logs = nextLogs;
@@ -1926,6 +1935,18 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Draw 3 prelude cards, play one of them and discard the other two." The same
+  // flow Valley Trust runs as its first action.
+  if (card.id === WG_PROJECT_ID && !done.includes("valley-trust-prelude")) {
+    const choice = buildPreludeDrawChoice(state, 3, {
+      sourceKind: context.sourceKind,
+      sourceId: card.id,
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true
+    });
+    if (choice) return choice;
+  }
+
   // "Place your marker on a non-reserved area. Only you may place a tile there."
   if (card.id === LAND_CLAIM_ID && !done.includes("land-claim")) {
     const claimed = new Set(
