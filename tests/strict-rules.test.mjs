@@ -3222,3 +3222,24 @@ test("Meat Industry pays for animals actually added, wherever they land", async 
   );
   assert.equal(getPlayer(removed, "player").mc, 100);
 });
+
+test("New Holland lays its city on an ocean that is already there", async () => {
+  const { getCardEffect, legalCellsFor } = await import("../app/game-logic.js");
+  const { OFFICIAL_PROJECTS } = await import("../app/official-content.js");
+
+  // Its placement rule had no case, and an unrecognised rule used to allow
+  // every space, so the card could be put down anywhere on the map.
+  const card = OFFICIAL_PROJECTS.find(item => item.id === "card-promo-new-holland");
+  const effect = getCardEffect(card);
+  const state = getInitialState({ playerCount: 2, seed: 3 });
+  state.currentPlayerId = "player";
+
+  const legal = () => legalCellsFor(state, effect.tile, "player", effect.tilePlacementRule);
+  assert.equal(legal().length, 0, "with no ocean down there is nowhere to upgrade");
+
+  const oceans = Object.keys(state.board).filter(key => state.board[key].isOceanOnly).slice(0, 2);
+  for (const key of oceans) state.board[key] = { ...state.board[key], tileType: "ocean" };
+
+  const offered = legal().map(cell => `${cell.q},${cell.r}`);
+  assert.deepEqual(offered.sort(), [...oceans].sort(), "only the oceans on the board");
+});

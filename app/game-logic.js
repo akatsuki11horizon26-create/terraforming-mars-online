@@ -6236,14 +6236,23 @@ function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
         return neighbour && neighbour.tileType !== "empty" &&
           neighbour.tileType !== "ocean" && neighbour.placedBy === playerId;
       });
-    // New Holland upgrades an existing ocean rather than taking a bare space;
-    // that is its own placement flow, so it is not a filter over empty spaces.
+    // New Holland lays its tile ON an ocean that is already there, following the
+    // normal city restrictions, so the space it wants is an occupied one.
+    case "upgradeable-ocean-new-holland":
+      return cell.tileType === "ocean" && !hasAdjacentCity(cell.q, cell.r, board);
     default:
-      return true;
+      // An unrecognised rule used to allow every space, so a card naming a rule
+      // nobody implemented was placed anywhere at all rather than failing.
+      return false;
   }
 }
 
 export function isCellPlacementValid(cell, type, board, playerId = "player", placementRule = null, boardId = "tharsis") {
+  // New Holland is the one card that wants a space that is already taken: it
+  // lays its tile on top of an ocean. Every other placement needs bare ground.
+  if (placementRule === "upgradeable-ocean-new-holland") {
+    return satisfiesPlacementRule(cell, placementRule, board, boardId, playerId);
+  }
   if (cell.tileType !== "empty") return false;
   // Noctis City's space is reserved for that card alone.
   if (cell.reservedFor && cell.reservedFor !== type) return false;
