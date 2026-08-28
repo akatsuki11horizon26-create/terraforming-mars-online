@@ -513,7 +513,10 @@ const HANDLERS = {
     if (!card) return fail(state, ERROR.CARD_NOT_IN_HAND, "そのカードは存在しません。");
     // Playability is about cost and requirements, not possession, so the hand
     // has to be checked separately or any card could be played by naming it.
-    if (!(actor.hand ?? []).includes(card.id)) {
+    // A card parked on Self-Replicating Robots is not in hand, but it is still
+    // the player's to play -- at a discount for what it has accumulated there.
+    const hostedHere = (actor.hostedCards ?? []).some(entry => entry.cardId === card.id);
+    if (!(actor.hand ?? []).includes(card.id) && !hostedHere) {
       return fail(state, ERROR.CARD_NOT_IN_HAND, "そのカードは手札にありません。");
     }
 
@@ -571,6 +574,7 @@ const HANDLERS = {
             steel: (player.steel ?? 0) - steelUsed,
             titanium: (player.titanium ?? 0) - titaniumUsed,
             hand: player.hand.filter(id => id !== card.id),
+            hostedCards: (player.hostedCards ?? []).filter(entry => entry.cardId !== card.id),
             ...(hadOneShot ? { oneShotRequirementBuffer: 0 } : {}),
             ...(hadOneShotDiscount ? { oneShotCardDiscount: 0 } : {}),
             // A red event is resolved and set aside; keeping it in

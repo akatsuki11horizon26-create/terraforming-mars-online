@@ -368,6 +368,7 @@ const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
 const VENUS_ORBITAL_SURVEY_ID = "card-prelude2-venus-orbital-survey";
 const MARS_NOMADS_ID = "card-promo-mars-nomads";
+const SELF_REPLICATING_ROBOTS_ID = "card-promo-self-replicating-robots";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -2885,6 +2886,28 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "self-replicating-robots": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      next.players = next.players.map(player => {
+        if (player.id !== owner) return player;
+        const hosted = [...(player.hostedCards ?? [])];
+        if (option.double) {
+          const index = hosted.findIndex(entry => entry.cardId === option.cardId);
+          if (index >= 0) hosted[index] = { ...hosted[index], resources: hosted[index].resources * 2 };
+          return { ...player, hostedCards: hosted };
+        }
+        // Parking a card takes it out of hand; it is not a played card.
+        hosted.push({ cardId: option.cardId, resources: 2 });
+        return {
+          ...player,
+          hand: (player.hand ?? []).filter(id => id !== option.cardId),
+          hostedCards: hosted
+        };
+      });
+      nextLogs = addLog(nextLogs, "system", `Self-Replicating Robots: ${option.label}`);
+      break;
+    }
+
     case "mars-nomads": {
       const owner = choice.ownerPlayerId ?? actorId;
       const from = nomadCellKey(next, owner);
@@ -4261,6 +4284,20 @@ export function getCardActionStatus(state, card) {
       ? { playable: true, reason: "" }
       : { playable: false, reason: "エネルギーがありません。" };
   }
+  // Either something is parked here to double, or something in hand can be.
+  if (card.id === SELF_REPLICATING_ROBOTS_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    const hostable = (seat?.hand ?? []).some(cardId => {
+      const tags = ALL_CARDS.find(item => item.id === cardId)?.tags ?? [];
+      return tags.includes("Space") || tags.includes("Building");
+    });
+    return (seat?.hostedCards ?? []).length > 0 || hostable
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "対象になるカードがありません。" };
+  }
   // The marker has to have somewhere adjacent to step to.
   if (card.id === MARS_NOMADS_ID) {
     const seat = getCurrentPlayer(state);
@@ -4347,6 +4384,50 @@ export function applyCardAction(state, card, logs, branchIndex) {
     if (!choice) return { state, logs, playable: false };
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
+
+  // "Reveal a space or building card from hand, put it on this card with 2
+  // resources, OR double the resources on a card already here."
+  if (card.id === SELF_REPLICATING_ROBOTS_ID) {
+    const owner = getCurrentPlayer(nextState);
+    const options = [];
+    for (const entry of owner?.hostedCards ?? []) {
+      const hosted = ALL_CARDS.find(item => item.id === entry.cardId);
+      options.push({
+        id: `double:${entry.cardId}`,
+        label: `【${hosted?.name ?? entry.cardId}】の資源を倍にする（${entry.resources} → ${entry.resources * 2}）`,
+        cardId: entry.cardId,
+        double: true
+      });
+    }
+    for (const cardId of owner?.hand ?? []) {
+      const candidate = ALL_CARDS.find(item => item.id === cardId);
+      const tags = candidate?.tags ?? [];
+      if (!tags.includes("Space") && !tags.includes("Building")) continue;
+      options.push({
+        id: `host:${cardId}`,
+        label: `【${candidate?.name ?? cardId}】をこのカードに置く（資源2）`,
+        cardId
+      });
+    }
+    if (options.length === 0) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `self-replicating-robots:${nextState.currentPlayerId}`,
+      kind: "self-replicating-robots",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: "Self-Replicating Robots: 行う操作を選んでください。",
+      optional: false,
+      options,
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "self-replicating-robots",
+        consumedAction: true,
+        paid: true
+      }
+    };
     return { state: nextState, logs, playable: true, awaitingChoice: true };
   }
 
@@ -6128,12 +6209,16 @@ function getOngoingDiscount(card, state) {
     (sum, tag) => sum + (state.cardDiscounts?.tags?.[String(tag).toLowerCase()] ?? 0),
     0
   );
+  // A card parked on Self-Replicating Robots costs less by the resources it has
+  // accumulated there.
+  const hosted = (getCurrentPlayer(state)?.hostedCards ?? []).find(entry => entry.cardId === card.id);
+  const hostedDiscount = hosted?.resources ?? 0;
   const hasRequirement =
     (card.requirements ?? []).length > 0 ||
     Object.keys(card.requires ?? {}).length > 0;
   const requirementDiscount =
     hasRequirement && (state.playedProjects ?? []).includes(CUTTING_EDGE_TECHNOLOGY_ID) ? 2 : 0;
-  return flat + byTag + requirementDiscount + (state.oneShotCardDiscount ?? 0);
+  return flat + byTag + requirementDiscount + hostedDiscount + (state.oneShotCardDiscount ?? 0);
 }
 
 export function getCardDiscount(card, state) {

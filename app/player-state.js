@@ -37,6 +37,7 @@ export const PLAYER_REF_FIELDS = [
   "cardPlacements",
   "cardDiscounts",
   "copiedProductions",
+  "hostedCards",
   "usedCardActions",
   "usedPolicyActions"
 ];
@@ -98,6 +99,7 @@ export function createPlayer(id, name, overrides = {}) {
     cardPlacements: {},
     cardDiscounts: { all: 0, tags: {} },
     copiedProductions: [],
+    hostedCards: [],
     // "各世代につき１回ずつしか使用できません" — the ids of blue-card actions
     // already spent this generation. Cleared in the production phase.
     usedCardActions: [],
@@ -216,6 +218,9 @@ export function cloneGameState(state) {
         sourceCardId: entry.sourceCardId,
         production: { ...(entry.production ?? {}) }
       })),
+      // Cards parked on Self-Replicating Robots. They are not played cards, and
+      // each carries its own resource count rather than sharing cardResources.
+      hostedCards: (player.hostedCards ?? []).map(entry => ({ ...entry })),
       usedCardActions: [...(player.usedCardActions ?? [])]
     })),
     turnOrder: [...state.turnOrder],

@@ -186,7 +186,8 @@ function migrateV4ToV5(parsed) {
     players: parsed.players.map(player => ({
       ...player,
       playedEvents: player.playedEvents ?? [],
-      copiedProductions: player.copiedProductions ?? []
+      copiedProductions: player.copiedProductions ?? [],
+      hostedCards: player.hostedCards ?? []
     }))
   };
 }

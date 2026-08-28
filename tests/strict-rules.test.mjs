@@ -3732,3 +3732,58 @@ test("Mars Nomads walks its marker for the space's bonus, and blocks that space"
     assert.equal(done.state.board[paying.targetCellKey].tileType, "empty");
   }
 });
+
+test("Self-Replicating Robots hosts a card, doubles it, and discounts it", async () => {
+  const { getPlayer, ALL_CARDS, resolvePendingChoice, getCardPaymentCost } =
+    await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 200;
+  seat.actionsRemaining = 20;
+  seat.playedProjects = ["card-promo-self-replicating-robots"];
+
+  const target = ALL_CARDS.find(card =>
+    (card.tags ?? []).some(tag => tag === "Space" || tag === "Building") && card.cost >= 10
+  );
+  seat.hand = [target.id];
+  state.deck = state.deck.filter(id => id !== target.id);
+
+  const use = current => executeGameCommand(current, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-promo-self-replicating-robots"
+  });
+
+  // Parking it takes it out of hand: a hosted card is not a played card.
+  const hosting = use(state);
+  const park = hosting.state.pendingChoice.options.find(option => option.id.startsWith("host:"));
+  let current = resolvePendingChoice(hosting.state, park.id, hosting.state.logs, "player").state;
+  assert.deepEqual(getPlayer(current, "player").hostedCards, [{ cardId: target.id, resources: 2 }]);
+  assert.deepEqual(getPlayer(current, "player").hand, []);
+  assert.equal(getCardPaymentCost(target, current), target.cost - 2, "2 M€ cheaper per resource");
+
+  // The other half of the action doubles what is already there.
+  getPlayer(current, "player").usedCardActions = [];
+  const doubling = use(current);
+  const double = doubling.state.pendingChoice.options.find(option => option.double);
+  current = resolvePendingChoice(doubling.state, double.id, doubling.state.logs, "player").state;
+  assert.deepEqual(getPlayer(current, "player").hostedCards, [{ cardId: target.id, resources: 4 }]);
+  assert.equal(getCardPaymentCost(target, current), target.cost - 4);
+
+  // And it can be played from where it sits, at that discount.
+  const opening = getPlayer(current, "player").mc;
+  const played = executeGameCommand(current, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: target.id
+  });
+  assert.equal(played.ok, true, "a hosted card is still the player's to play");
+  assert.equal(getPlayer(played.state, "player").mc, opening - (target.cost - 4));
+  assert.deepEqual(getPlayer(played.state, "player").hostedCards, []);
+});
