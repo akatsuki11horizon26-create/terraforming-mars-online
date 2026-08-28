@@ -68,6 +68,12 @@ jobs:
         # taking it. A ratchet, not a gate -- the count must not grow.
         run: node scripts/audit-inert-cards.mjs
 
+      - name: Card contracts
+        # Coverage asks whether a card changed the state; this asks whether it
+        # changed the right number by the right amount. A card whose spec says
+        # "M€ production +3" and pays 4 fails here.
+        run: node scripts/audit-card-contracts.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.
