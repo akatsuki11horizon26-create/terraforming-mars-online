@@ -256,6 +256,54 @@ function computeDominantParty(turmoil) {
 
 // Chairman +1; party leader of the dominant party +1 (and +1 more with another
 // delegate there); otherwise +1 for having any delegate in the dominant party.
+// Recruitment swaps a neutral delegate out of a party for one of the player's
+// own. It cannot go through sendDelegateToParty, which lobbies -- that prefers
+// the lobby and charges 5 M€ from the reserve, and this card does neither.
+//
+// A party leader can only be swapped out if another delegate of the same kind
+// is standing in that party, because the seat itself is not what moves.
+export function replaceDelegateInParty(turmoil, partyId, outgoing, incoming) {
+  const party = turmoil.parties?.[partyId];
+  if (!party) return { turmoil, replaced: false, reason: "政党が見つかりません。" };
+  const held = countDelegates(turmoil, partyId, outgoing);
+  if (held === 0) return { turmoil, replaced: false, reason: "その代表者がいません。" };
+  if (party.leader === outgoing && held === 1) {
+    return { turmoil, replaced: false, reason: "党首は交換できません。" };
+  }
+  if ((turmoil.delegateReserve[incoming] ?? 0) <= 0) {
+    return { turmoil, replaced: false, reason: "予備の代表者がいません。" };
+  }
+
+  const next = cloneTurmoil(turmoil);
+  const target = next.parties[partyId];
+  target.delegates.splice(target.delegates.indexOf(outgoing), 1);
+  next.delegateReserve[outgoing] = (next.delegateReserve[outgoing] ?? 0) + 1;
+  target.leader = computePartyLeader(target);
+
+  // sendDelegate recomputes the leader and the dominant party, so neither is
+  // written here.
+  const sent = sendDelegate(next, incoming, partyId);
+  if (!sent.sent) return { turmoil, replaced: false, reason: sent.reason };
+  return { turmoil: sent.turmoil, replaced: true };
+}
+
+// Vote Of No Confidence unseats a neutral chairman directly. Nothing about the
+// parties changes -- the delegate comes from the reserve straight to the seat --
+// so this is not a sendDelegate.
+export function replaceNeutralChairman(turmoil, delegate) {
+  if (turmoil.chairman !== NEUTRAL) {
+    return { turmoil, replaced: false, reason: "現在の議長が中立ではありません。" };
+  }
+  if ((turmoil.delegateReserve[delegate] ?? 0) <= 0) {
+    return { turmoil, replaced: false, reason: "予備の代表者がいません。" };
+  }
+  const next = cloneTurmoil(turmoil);
+  next.delegateReserve[NEUTRAL] = (next.delegateReserve[NEUTRAL] ?? 0) + 1;
+  next.delegateReserve[delegate] -= 1;
+  next.chairman = delegate;
+  return { turmoil: next, replaced: true };
+}
+
 export function getInfluence(turmoil, playerId) {
   return getInfluenceBreakdown(turmoil, playerId).total;
 }

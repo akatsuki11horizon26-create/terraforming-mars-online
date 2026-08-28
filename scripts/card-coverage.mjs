@@ -10,13 +10,14 @@
 import { getInitialState, getPlayer, getCardPlayableStatus, getCardResourceType, applyPreludes, applyCorporation, advanceSetupTurn } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { PRELUDES, CORPORATIONS, OFFICIAL_PROJECTS } from "../app/official-content.js";
+import { NEUTRAL } from "../app/turmoil.js";
 
 const PARTY_IDS = ["greens", "mars", "kelvinists", "reds", "scientists", "unity"];
 
 // A board rich enough that every requirement in the catalogue can be met by one
 // of the parameter corners: cities and greeneries down, colonies built, floaters
 // and microbes on cards, delegates in every party, chairmanship held.
-function rig({ oceans, oxygen, temperature, venus, party, noColonies }) {
+function rig({ oceans, oxygen, temperature, venus, party, noColonies, neutralTurmoil }) {
   const s = getInitialState({ playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 1 });
   s.phase = "action";
   s.currentPlayerId = "player";
@@ -62,10 +63,16 @@ function rig({ oceans, oxygen, temperature, venus, party, noColonies }) {
   // Turmoil: chairman, party leader, and two delegates in every party, with the
   // named one ruling so each "requires X ruling" card opens in some rig.
   if (s.turmoil) {
-    s.turmoil.chairman = "player";
+    // Two cards want the opposite of a board the player already controls:
+    // Recruitment needs a neutral delegate to swap out, and Vote Of No
+    // Confidence needs a neutral chairman to unseat. One rig leaves both.
+    s.turmoil.chairman = neutralTurmoil ? NEUTRAL : "player";
     for (const id of PARTY_IDS) {
-      s.turmoil.parties[id] = { delegates: ["player", "player"], leader: "player" };
+      s.turmoil.parties[id] = neutralTurmoil
+        ? { delegates: ["player", NEUTRAL, NEUTRAL], leader: "player" }
+        : { delegates: ["player", "player"], leader: "player" };
     }
+    s.turmoil.delegateReserve = { ...s.turmoil.delegateReserve, player: 5 };
     s.turmoil.dominantParty = party;
     s.turmoil.rulingParty = party;
   }
@@ -87,6 +94,7 @@ RIGS.push({ oceans: 9, oxygen: 14, temperature: 8, venus: 30, party: "greens" })
 RIGS.push({ oceans: 0, oxygen: 14, temperature: 8, venus: 0, party: "greens" });
 RIGS.push({ oceans: 9, oxygen: 0, temperature: -30, venus: 30, party: "greens" });
 RIGS.push({ oceans: 5, oxygen: 7, temperature: -8, venus: 12, party: "greens", noColonies: true });
+RIGS.push({ oceans: 5, oxygen: 7, temperature: -8, venus: 12, party: "greens", neutralTurmoil: true });
 
 // `mc` moves whenever a card is paid for, and the corporation setup always
 // writes a corporation id and a setup step. Counting those as "the card did

@@ -2528,3 +2528,132 @@ test("Sponsored Academies discards one, draws three, and pays the opponents", as
     assert.equal(player.hand.length, 1, `${player.id} drew one`);
   }
 });
+
+test("Recruitment swaps a neutral delegate for one of the player's own", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const { countDelegates, NEUTRAL } = await import("../app/turmoil.js");
+
+  const rig = setUp => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
+    seat.hand = ["card-turmoil-recruitment"];
+    state.deck = state.deck.filter(id => id !== "card-turmoil-recruitment");
+    for (const id of Object.keys(state.turmoil.parties)) {
+      state.turmoil.parties[id].delegates = [];
+      state.turmoil.parties[id].leader = null;
+    }
+    state.turmoil.delegateReserve.player = 3;
+    setUp(state);
+    return state;
+  };
+
+  const card = ALL_CARDS.find(item => item.id === "card-turmoil-recruitment");
+
+  // A party's leader seat does not move, so a lone neutral leader is not
+  // swappable and the card has no legal target.
+  const lone = rig(state => {
+    state.turmoil.parties.greens.delegates = [NEUTRAL];
+    state.turmoil.parties.greens.leader = NEUTRAL;
+  });
+  assert.equal(getCardPlayableStatus(card, lone).playable, false);
+
+  const state = rig(inner => {
+    inner.turmoil.parties.greens.delegates = [NEUTRAL, NEUTRAL];
+    inner.turmoil.parties.greens.leader = NEUTRAL;
+  });
+  const opening = getPlayer(state, "player").mc;
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-turmoil-recruitment"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "turmoil-recruitment");
+
+  const settled = resolvePendingChoice(
+    played.state, played.state.pendingChoice.options[0].id, played.state.logs, "player"
+  );
+  const greens = settled.state.turmoil.parties.greens;
+  assert.equal(greens.delegates.length, 2, "the party is the same size");
+  assert.equal(countDelegates(settled.state.turmoil, "greens", "player"), 1, "one of them is now mine");
+  assert.equal(settled.state.turmoil.delegateReserve.player, 2, "taken from my reserve");
+
+  // This is not lobbying: sendDelegateToParty would have charged 5 M€.
+  assert.equal(getPlayer(settled.state, "player").mc, opening - card.cost);
+});
+
+test("Vote Of No Confidence takes the chairman's seat, untaxed", async () => {
+  const { getPlayer, ALL_CARDS, getCardPlayableStatus } = await import("../app/game-logic.js");
+  const { NEUTRAL } = await import("../app/turmoil.js");
+
+  const rig = setUp => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
+    seat.hand = ["card-turmoil-vote-of-no-confidence"];
+    state.deck = state.deck.filter(id => id !== "card-turmoil-vote-of-no-confidence");
+    for (const id of Object.keys(state.turmoil.parties)) {
+      state.turmoil.parties[id].delegates = [];
+      state.turmoil.parties[id].leader = null;
+    }
+    // The card requires being a party leader somewhere.
+    state.turmoil.parties.greens.delegates = ["player"];
+    state.turmoil.parties.greens.leader = "player";
+    state.turmoil.delegateReserve.player = 2;
+    state.turmoil.chairman = NEUTRAL;
+    setUp(state);
+    return state;
+  };
+
+  const card = ALL_CARDS.find(item => item.id === "card-turmoil-vote-of-no-confidence");
+  assert.equal(getCardPlayableStatus(card, rig(state => {
+    state.turmoil.chairman = "player2";
+  })).playable, false, "only a neutral chairman can be unseated");
+  assert.equal(getCardPlayableStatus(card, rig(state => {
+    state.turmoil.delegateReserve.player = 0;
+  })).playable, false, "and only with a delegate to seat");
+
+  const state = rig(() => {});
+  const neutralBefore = state.turmoil.delegateReserve[NEUTRAL];
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.turmoil.chairman, "player");
+  assert.equal(getPlayer(played.state, "player").tr, 21);
+  assert.equal(played.state.turmoil.delegateReserve[NEUTRAL], neutralBefore + 1);
+  assert.equal(played.state.turmoil.delegateReserve.player, 1);
+  // The delegate comes from the reserve straight to the seat.
+  assert.deepEqual(played.state.turmoil.parties.greens.delegates, ["player"]);
+
+  // The chairman's rating is not terraforming the player chose to do, so the
+  // Reds levy does not reach it: the only cost is the card.
+  const reds = rig(inner => {
+    inner.turmoil.rulingParty = "reds";
+    inner.turmoil.dominantParty = "reds";
+  });
+  const opening = getPlayer(reds, "player").mc;
+  const underReds = executeGameCommand(reds, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(getPlayer(underReds.state, "player").mc, opening - card.cost);
+});

@@ -88,6 +88,8 @@ import {
   createTurmoilState,
   getInfluence,
   getInfluenceBreakdown,
+  replaceDelegateInParty,
+  replaceNeutralChairman,
   getParty,
   getRulingPolicy,
   hasPolicy,
@@ -351,6 +353,8 @@ const FLOYD_CONTINUUM_ID = "card-promo-floyd-continuum";
 const ENERGY_MARKET_ID = "card-promo-energy-market";
 const HI_TECH_LAB_ID = "card-promo-hi-tech-lab";
 const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
+const RECRUITMENT_ID = "card-turmoil-recruitment";
+const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1756,6 +1760,24 @@ export function applyCardEffect(state, card, logs, options = {}) {
     return { status: "pending", state: result.state, logs: nextLogs, pendingChoice: pending };
   }
 
+  // Neither the party nor the delegate is chosen, so this resolves outright.
+  if (card.id === VOTE_OF_NO_CONFIDENCE_ID && result.state.turmoil) {
+    const actorId = result.state.currentPlayerId;
+    const seated = replaceNeutralChairman(result.state.turmoil, actorId);
+    if (seated.replaced) {
+      result.state.turmoil = seated.turmoil;
+      // The chairman's rating is not terraforming the player chose to do, so
+      // the Reds levy does not reach it.
+      increaseTerraformRating(result.state, actorId, 1, "chairman");
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `中立議長を解任し、自分の代表者が議長に就任しました（TR +1）。`
+      );
+      result.state.logs = nextLogs;
+    }
+  }
+
   // A single guilty party raises no question, so the suit settles here.
   if (card.id === LAW_SUIT_ID) {
     const targets = lawSuitTargets(result.state, result.state.currentPlayerId);
@@ -1782,6 +1804,23 @@ export function applyCardEffect(state, card, logs, options = {}) {
 // Inspects a card's raw spec for the parts applyEffect deliberately skips and
 // turns the first of them into a pending choice. Remaining choices are queued
 // again after each resolution, so a card with several can walk through them.
+// A party can give up a neutral delegate when it holds one that is not its
+// leader -- or two neutrals, in which case the leader's seat is covered.
+function recruitmentPartyOptions(state) {
+  if (!state.turmoil) return [];
+  if ((state.turmoil.delegateReserve?.[state.currentPlayerId] ?? 0) <= 0) return [];
+  return Object.entries(state.turmoil.parties ?? {})
+    .filter(([, party]) => {
+      const neutrals = (party.delegates ?? []).filter(entry => entry === NEUTRAL).length;
+      return neutrals > 1 || (neutrals === 1 && party.leader !== NEUTRAL);
+    })
+    .map(([partyId, party]) => ({
+      id: partyId,
+      partyId,
+      label: `${getParty(partyId)?.name ?? partyId}（中立代表者 ${(party.delegates ?? []).filter(entry => entry === NEUTRAL).length}）`
+    }));
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -1798,6 +1837,29 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Exchange a non-leader neutral delegate for one of yours from the reserve."
+  // Which party is the only decision; which neutral within it does not matter.
+  if (card.id === RECRUITMENT_ID && !done.includes("turmoil-recruitment")) {
+    const options = recruitmentPartyOptions(state);
+    if (options.length > 0) {
+      return {
+        id: `turmoil-recruitment:${state.currentPlayerId}`,
+        kind: "turmoil-recruitment",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "中立代表者を自分の代表者と交換する政党を選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "turmoil-recruitment",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
   // "Discard 1 card, then draw 3. All opponents draw 1." Which card goes is the
   // player's decision; the draws happen once it is answered.
   if (card.id === SPONSORED_ACADEMIES_ID && !done.includes("sponsored-academies")) {
@@ -2262,6 +2324,22 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
       next.pendingChoice = null;
       return { status: "resolved", state: next, logs: nextLogs };
+    }
+
+    case "turmoil-recruitment": {
+      const target = choice.ownerPlayerId ?? actorId;
+      const swapped = replaceDelegateInParty(next.turmoil, option.partyId, NEUTRAL, target);
+      if (swapped.replaced) {
+        next.turmoil = swapped.turmoil;
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `${option.label} の中立代表者を自分の代表者と交換しました。`
+        );
+      } else {
+        nextLogs = addLog(nextLogs, "system", swapped.reason ?? "交換できませんでした。");
+      }
+      break;
     }
 
     case "energy-market": {
@@ -5587,6 +5665,21 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
 
   // Insulation converts heat production into M€ production, so there has to be
   // at least one step of heat production to convert.
+  // Vote Of No Confidence unseats a neutral chairman with one of the player's
+  // own delegates, so both have to be true before it can be played.
+  if (card.id === VOTE_OF_NO_CONFIDENCE_ID) {
+    if (!state.turmoil) return { playable: false, reason: "Turmoilが有効ではありません。" };
+    if (state.turmoil.chairman !== NEUTRAL) {
+      return { playable: false, reason: "現在の議長が中立ではありません。" };
+    }
+    if ((state.turmoil.delegateReserve?.[state.currentPlayerId] ?? 0) <= 0) {
+      return { playable: false, reason: "予備の代表者がいません。" };
+    }
+  }
+  // Recruitment needs a delegate of its own to send and a swappable neutral.
+  if (card.id === RECRUITMENT_ID && recruitmentPartyOptions(state).length === 0) {
+    return { playable: false, reason: "交換できる中立代表者がいません。" };
+  }
   if (card.id === INSULATION_ID && (getCurrentPlayer(state)?.heatProd ?? 0) < 1) {
     return { playable: false, reason: "熱生産量が1以上必要です。" };
   }
