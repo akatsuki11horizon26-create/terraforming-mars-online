@@ -361,6 +361,8 @@ const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
 const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
+const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
+const LAND_CLAIM_ID = "card-base-land-claim";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1924,6 +1926,39 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Place your marker on a non-reserved area. Only you may place a tile there."
+  if (card.id === LAND_CLAIM_ID && !done.includes("land-claim")) {
+    const claimed = new Set(
+      (state.boardMarkers ?? []).filter(marker => marker.kind === "land-claim").map(marker => marker.cellKey)
+    );
+    const options = Object.entries(state.board ?? {})
+      .filter(([cellKey, cell]) =>
+        cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor && !claimed.has(cellKey)
+      )
+      .map(([cellKey, cell]) => ({
+        id: cellKey,
+        targetCellKey: cellKey,
+        label: cell.name ?? `(${cell.q},${cell.r})`
+      }));
+    if (options.length > 0) {
+      return {
+        id: `land-claim:${state.currentPlayerId}`,
+        kind: "land-claim",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "自分のマーカーを置く場所を選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "land-claim",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
   // "Return up to 2 played events to your hand." Asked one at a time, and the
   // player may stop early -- the choice is optional, so declining ends it.
   if (card.id === ASTRA_MECHANICA_ID) {
@@ -2487,6 +2522,21 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
       next.pendingChoice = null;
       return { status: "resolved", state: next, logs: nextLogs };
+    }
+
+    case "land-claim": {
+      next.boardMarkers = [
+        ...(next.boardMarkers ?? []),
+        {
+          id: `land-claim:${option.targetCellKey}`,
+          kind: "land-claim",
+          cellKey: option.targetCellKey,
+          sourceCardId: choice.continuation.sourceId,
+          sourcePlayerId: choice.ownerPlayerId ?? actorId
+        }
+      ];
+      nextLogs = addLog(nextLogs, "system", `${option.label} を自分の土地として確保しました。`);
+      break;
     }
 
     case "astra-mechanica": {
@@ -3218,7 +3268,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
 
 export function legalCellsFor(state, tileType, playerId, placementRule = null) {
   const owner = playerId ?? state.currentPlayerId;
+  // Land Claim reserves a space for the player who claimed it: everyone else
+  // has to place elsewhere. The marker outlives the card, so the filter belongs
+  // here rather than in the card, and it covers automatic placement too.
+  const claimedByOthers = new Set(
+    (state.boardMarkers ?? [])
+      .filter(marker => marker.kind === "land-claim" && marker.sourcePlayerId !== owner)
+      .map(marker => marker.cellKey)
+  );
   return Object.values(state.board).filter(cell =>
+    !claimedByOthers.has(`${cell.q},${cell.r}`) &&
     isCellPlacementValid(cell, tileType, state.board, owner, placementRule, state.boardId)
   );
 }
@@ -3585,6 +3644,18 @@ export function increaseTerraformRating(state, playerId, steps, reason = "action
   // A drop in rating is never a terraforming action, so it is never levied.
   if (amount > 0 && TAXABLE_TR_REASONS.has(reason)) {
     payRulingPolicyTrLevy(state, targetId, amount);
+  }
+
+  // "When you raise your TR, gain 2 M€ per step." Only the owner's own rating,
+  // and only the terraforming they did -- the reference excludes the ratings
+  // handed out during the production and solar phases.
+  if (amount > 0 && TAXABLE_TR_REASONS.has(reason)) {
+    const owner = getPlayer(state, targetId);
+    if ((owner?.selectedPreludeIds ?? []).includes(TERRAFORMING_DEAL_ID)) {
+      state.players = state.players.map(player =>
+        player.id === targetId ? { ...player, mc: (player.mc ?? 0) + amount * 2 } : player
+      );
+    }
   }
   return amount;
 }

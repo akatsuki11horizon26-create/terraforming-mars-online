@@ -3021,3 +3021,71 @@ test("Frontier Town takes the space's printed bonus three times", async () => {
   );
   assert.equal(plain.after.steel, plain.before.steel + 2);
 });
+
+test("Terraforming Deal pays 2 M€ for each rating step its owner earns", async () => {
+  const { getPlayer, increaseTerraformRating, cloneGameState } =
+    await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, prelude: true, venus: true, colonies: true, promo: true, seed: 5
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.selectedPreludeIds = ["card-prelude2-terraforming-deal"];
+
+  const own = cloneGameState(state);
+  increaseTerraformRating(own, "player", 3, "card");
+  assert.equal(getPlayer(own, "player").mc, 106, "2 M€ per step");
+
+  // "When YOU raise your TR": the opponent's terraforming pays nothing.
+  const theirs = cloneGameState(state);
+  increaseTerraformRating(theirs, "player2", 3, "card");
+  assert.equal(getPlayer(theirs, "player").mc, 100);
+
+  // The chairman's rating is not terraforming the player did, and the reference
+  // excludes the ratings handed out outside the action phase.
+  const office = cloneGameState(state);
+  increaseTerraformRating(office, "player", 2, "chairman");
+  assert.equal(getPlayer(office, "player").mc, 100);
+});
+
+test("Land Claim reserves a space for the player who claimed it", async () => {
+  const { getPlayer, resolvePendingChoice, legalCellsFor } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-base-land-claim"];
+  state.deck = state.deck.filter(id => id !== "card-base-land-claim");
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-land-claim"
+  });
+  assert.equal(played.state.pendingChoice?.kind, "land-claim");
+
+  const claim = played.state.pendingChoice.options[0];
+  const settled = resolvePendingChoice(played.state, claim.id, played.state.logs, "player");
+
+  const holds = playerId =>
+    legalCellsFor(settled.state, "city", playerId)
+      .some(cell => `${cell.q},${cell.r}` === claim.targetCellKey);
+
+  assert.equal(holds("player"), true, "the claimer may still build there");
+  assert.equal(holds("player2"), false, "nobody else may");
+});
