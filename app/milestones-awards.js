@@ -41,7 +41,10 @@ export function countTags(player, cards, tag, corporation, preludes = []) {
     (sum, id) => sum + (has(preludes.find(item => item.id === id)) ? 1 : 0),
     0
   );
-  const fromCorporation = has(corporation) ? 1 : 0;
+  // Merger can leave a player holding two corporations, and both sets of tags
+  // count towards a tag award.
+  const held = Array.isArray(corporation) ? corporation : [corporation];
+  const fromCorporation = held.reduce((sum, entry) => sum + (has(entry) ? 1 : 0), 0);
   return fromCards + fromPreludes + fromCorporation;
 }
 
@@ -192,7 +195,10 @@ export function scoreAward(award, state, context) {
       // forgets to pass it cannot silently drop the off-board cities.
       offBoardCities: state.offBoardCities ?? [],
       // Tag-counting awards need the scored player's own corporation.
-      corporation: corporations.find(c => c.id === player.corporationId)
+      corporation: [player.corporationId, player.mergedCorporationId]
+        .filter(Boolean)
+        .map(id => corporations.find(c => c.id === id))
+        .filter(Boolean)
     })
   }));
   const ordered = [...scores].sort((a, b) => b.score - a.score);

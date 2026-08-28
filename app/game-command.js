@@ -46,6 +46,7 @@ import {
   RESEARCH_CARD_COST,
   getPreludeCost,
   PRELUDES,
+  corporationFor,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
@@ -304,7 +305,7 @@ export function getStandardProjectCost(state, playerId, projectId) {
   const project = STANDARD_PROJECTS[projectId];
   if (!project) return null;
   const actor = getPlayer(state, playerId);
-  const corporation = CORPORATIONS.find(item => item.id === actor?.corporationId);
+  const corporation = corporationFor(actor);
   return project.cost(state, corporation);
 }
 
@@ -535,7 +536,7 @@ const HANDLERS = {
     if (!status.playable) return fail(state, ERROR.CARD_NOT_PLAYABLE, status.reason);
 
     const cost = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
-    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const corporation = corporationFor(actor);
     // Helion decides how much heat to burn; without an explicit amount the heat
     // only covers what the megacredits cannot.
     const localHeatTrapping = card.id === "card-base-local-heat-trapping";
@@ -849,7 +850,7 @@ const HANDLERS = {
     if (!project) return fail(state, ERROR.UNKNOWN_PROJECT, "不明な標準プロジェクトです。");
 
     const actor = getPlayer(state, command.playerId);
-    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const corporation = corporationFor(actor);
     const cost = project.cost(state, corporation);
 
     if (project.pays === "plants") {
@@ -944,7 +945,7 @@ const HANDLERS = {
       return fail(state, ERROR.ACTION_ALREADY_USED, "この世代の政策アクションは使用済みです。");
     }
     const cost = policy.cost ?? 0;
-    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const corporation = corporationFor(actor);
     const heatAsMoney = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
     if ((actor.mc ?? 0) + heatAsMoney < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
@@ -973,7 +974,12 @@ const HANDLERS = {
 
   [COMMAND.CORPORATION_ACTION](state, command) {
     const actor = getPlayer(state, command.playerId);
-    const action = CORPORATION_ACTIONS[actor.corporationId];
+    // Merger can bring in a corporation whose action is the reason to take it,
+    // so either of the two may be the one that has one.
+    const actionCorporationId = CORPORATION_ACTIONS[actor.corporationId]
+      ? actor.corporationId
+      : actor.mergedCorporationId;
+    const action = CORPORATION_ACTIONS[actionCorporationId];
     if (!action) {
       return fail(state, ERROR.NO_CORPORATION_ACTION, "この企業にはアクションがありません。");
     }
@@ -1122,7 +1128,7 @@ const HANDLERS = {
     // "初期10枚を無料で保持する" — Beginner Corporation pays nothing for its
     // opening hand, but still pays 3 each in every later research phase. Only
     // the UI knew this, so the room and the bot charged it 3 a card at setup.
-    const corporation = CORPORATIONS.find(item => item.id === actor.corporationId);
+    const corporation = corporationFor(actor);
     const free = state.phase === "setup" && Boolean(corporation?.effects?.freeStartingCards);
     const cost = free ? 0 : ids.length * RESEARCH_CARD_COST;
     if ((actor.mc ?? 0) < cost) {

@@ -3269,6 +3269,26 @@ test("New Holland lays its city on an ocean that is already there", async () => 
 
   const offered = legal().map(cell => `${cell.q},${cell.r}`);
   assert.deepEqual(offered.sort(), [...oceans].sort(), "only the oceans on the board");
+
+  // "The tile counts as a city AND an ocean." Laying it used to overwrite the
+  // ocean with a plain special tile, so the board lost an ocean the counter
+  // still believed in, and gained no city.
+  const { placeTileAt, isOceanTile } = await import("../app/game-logic.js");
+  state.oceans = oceans.length;
+  const target = state.board[oceans[0]];
+  placeTileAt(state, target, effect.tile, "player", card.id, {
+    countsAsOcean: effect.countsAsOcean
+  });
+
+  const laid = state.board[oceans[0]];
+  assert.equal(laid.tileType, "city", "it is a city");
+  assert.equal(laid.placedBy, "player", "and it belongs to whoever placed it");
+  assert.ok(isOceanTile(laid), "and it is still an ocean");
+  assert.equal(
+    Object.values(state.board).filter(isOceanTile).length,
+    state.oceans,
+    "the board and the ocean counter agree"
+  );
 });
 
 test("Protected Habitats keeps opponents off plants, animals and microbes", async () => {
@@ -3912,4 +3932,61 @@ test("a city scores for the greeneries beside it", async () => {
     breakdown.details.some(entry => entry.sourceId === "city" && entry.points === 2),
     "the city's adjacency is its own line"
   );
+});
+
+test("a merged corporation is a real corporation everywhere, not just in game-logic", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { countTags } = await import("../app/milestones-awards.js");
+  const { CORPORATIONS } = await import("../app/official-content.js");
+
+  // getCorporation merged the two sets of effects, but the command layer, the
+  // bot and the award scoring each had their own CORPORATIONS.find on the FIRST
+  // corporation id, so the second one's abilities did nothing outside one file.
+  const rig = mergedCorporationId => {
+    const state = getInitialState({ playerCount: 2, seed: 3 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) player.setupStep = "complete";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "corp-credicor";
+    seat.mergedCorporationId = mergedCorporationId;
+    seat.mc = 200;
+    seat.actionsRemaining = 2;
+    seat.tr = 25;
+    seat.generationStartTr = 24;
+    return state;
+  };
+
+  // Thorgate discounts the power plant standard project, which the command
+  // layer prices.
+  const powerPlantCost = merged => {
+    const state = rig(merged);
+    const before = getPlayer(state, "player").mc;
+    const built = executeGameCommand(state, {
+      type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "power-plant"
+    });
+    assert.equal(built.ok, true);
+    return before - getPlayer(built.state, "player").mc;
+  };
+  assert.equal(powerPlantCost(null), 11);
+  assert.equal(powerPlantCost("corp-thorgate"), 8, "the merged half discounts it");
+
+  // UNMI's action is the reason to merge it in at all.
+  assert.equal(
+    executeGameCommand(rig(null), { type: COMMAND.CORPORATION_ACTION, playerId: "player" }).ok,
+    false
+  );
+  const acted = executeGameCommand(rig("corp-unmi"), {
+    type: COMMAND.CORPORATION_ACTION, playerId: "player"
+  });
+  assert.equal(acted.ok, true, "the merged corporation's action is available");
+  assert.equal(getPlayer(acted.state, "player").tr, 26);
+
+  // And its tags count towards a tag award.
+  const held = ["corp-credicor", "corp-thorgate"].map(id =>
+    CORPORATIONS.find(entry => entry.id === id)
+  );
+  const player = { playedProjects: [], selectedPreludeIds: [] };
+  assert.equal(countTags(player, [], "Power", held), 1);
+  assert.equal(countTags(player, [], "Power", held[0]), 0, "the first alone has none");
 });

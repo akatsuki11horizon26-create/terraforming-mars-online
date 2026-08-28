@@ -490,7 +490,7 @@ export function shuffle(array, state) {
 // The corporation a named player is playing, with both sets of effects when
 // Merger gave them a second one. Reaching for CORPORATIONS.find directly on a
 // player's corporationId misses the merged half.
-function corporationFor(player) {
+export function corporationFor(player) {
   const first = CORPORATIONS.find(item => item.id === player?.corporationId);
   const second = CORPORATIONS.find(item => item.id === player?.mergedCorporationId);
   if (!first || !second) return first;
@@ -929,6 +929,7 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     if (raw.city.on) effect.tilePlacementRule = raw.city.on;
     // Frontier Town takes the space's printed bonus three times over.
     if (raw.city.bonusMultiplier) effect.placementBonusMultiplier = raw.city.bonusMultiplier;
+    if (raw.city.countsAsOcean) effect.countsAsOcean = true;
     // A named space is one of the reserved slots off the map -- Ganymede,
     // Phobos, the Venus cities, Stanford Torus. They are cities you own, but
     // they are not ON Mars, so they must not take a board space, ask the player
@@ -950,6 +951,7 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
       effect.tile = mapped.tile;
       effect.tileCount = raw.tile.count ?? 1;
       if (mapped.specialName) effect.specialName = mapped.specialName;
+      if (mapped.countsAsOcean) effect.countsAsOcean = true;
       // Both mining tiles pay production for the bonus on the space they take.
       if (mapped.specialName === "Mining Area" || mapped.specialName === "Mining Rights") {
         effect.mineralProduction = true;
@@ -1329,7 +1331,8 @@ function applyEffect(state, effect, logs, options = {}) {
   } else if (!skipTile && effect.tile) {
     const count = effect.tileCount ?? 1;
     const placed = placeTile(nextState, effect.tile, count, effect.cardId, effect.tilePlacementRule, {
-      placementBonusMultiplier: effect.placementBonusMultiplier
+      placementBonusMultiplier: effect.placementBonusMultiplier,
+      countsAsOcean: effect.countsAsOcean
     });
     nextLogs = addLog(nextLogs, "system", `${effect.tile}タイルを${placed}枚配置しました。`);
   }
@@ -2398,6 +2401,7 @@ function queuePendingChoices(state, card, context) {
           specialName: effect.specialName,
           mineralProduction: effect.mineralProduction === true,
           placementBonusMultiplier: effect.placementBonusMultiplier,
+          countsAsOcean: effect.countsAsOcean === true,
           preludeResume: context.preludeResume
         },
         legal
@@ -3575,7 +3579,8 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
           worldGovernment: byWorldGovernment,
           finalGreenery,
-          placementBonusMultiplier: choice.continuation.payload?.placementBonusMultiplier
+          placementBonusMultiplier: choice.continuation.payload?.placementBonusMultiplier,
+          countsAsOcean: choice.continuation.payload?.countsAsOcean
         });
         // placeTileAt writes its own lines -- the ruling policy payout among
         // them -- onto next.logs. Carrying on from the snapshot taken before
@@ -3851,6 +3856,8 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
   state.board[`${cell.q},${cell.r}`] = {
     ...cell,
     tileType,
+    // New Holland is laid over an ocean and counts as one as well as a city.
+    ...(options.countsAsOcean ? { countsAsOcean: true } : {}),
     placedBy: tileType === "ocean" ? null : ownerId
   };
   // Flooding hits the owner of a tile beside the ocean it just laid, so the
@@ -5743,7 +5750,7 @@ export function claimMilestone(state, milestoneId, logs, playerId) {
 // Vitor funds one award for free. The award ladder still advances -- the next
 // award costs what it would have -- because only Vitor's own payment is waived.
 function getAwardCostFor(state, player) {
-  const corporation = CORPORATIONS.find(item => item.id === player?.corporationId);
+  const corporation = corporationFor(player);
   if (corporation?.effects?.firstAward && !player.freeAwardUsed) return 0;
   return getNextAwardCost(state);
 }
@@ -5825,7 +5832,7 @@ function countForGlobalEvent(state, player, count) {
     return Object.values(state.board).filter(cell => {
       if (cell.placedBy !== player.id || cell.tileType === "empty") return false;
       return getAdjacentCells(cell.q, cell.r).some(
-        neighbour => state.board[`${neighbour.q},${neighbour.r}`]?.tileType === "ocean"
+        neighbour => isOceanTile(state.board[`${neighbour.q},${neighbour.r}`])
       );
     }).length;
   }
@@ -6204,7 +6211,7 @@ function applyGlobalEventEffect(state, event, logs) {
 
   // Dry Deserts: the first player takes an ocean back off the board.
   if (spec.firstPlayerRemovesOcean) {
-    const oceanCells = Object.values(state.board).filter(cell => cell.tileType === "ocean");
+    const oceanCells = Object.values(state.board).filter(isOceanTile);
     const choice = buildOceanRemovalChoice(state, event.id, state.firstPlayerId, oceanCells);
     if (choice) state.pendingChoice = choice;
   }
@@ -7003,7 +7010,7 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
   if (type === "ocean") {
     // There are exactly nine ocean tiles. The counter saturated at 9 while the
     // board kept accepting them, so a tenth could be placed.
-    const placed = Object.values(board).filter(space => space.tileType === "ocean").length;
+    const placed = Object.values(board).filter(isOceanTile).length;
     if (placed >= MAX_OCEANS) return false;
     // Artificial Lake says "on a non-reserved LAND area", which is exactly the
     // opposite of the default, so the card's own rule wins.
@@ -7035,12 +7042,19 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
   }
 }
 
+// "The tile counts as a city and an ocean." New Holland is laid on top of an
+// ocean and keeps being one, so anything asking whether a space is an ocean has
+// to accept the flag as well as the type.
+export function isOceanTile(cell) {
+  return cell?.tileType === "ocean" || cell?.countsAsOcean === true;
+}
+
 export function countAdjacentOceans(q, r, board) {
   const adj = getAdjacentCells(q, r);
   let count = 0;
   adj.forEach(pos => {
     const key = `${pos.q},${pos.r}`;
-    if (board[key] && board[key].tileType === "ocean") {
+    if (isOceanTile(board[key])) {
       count++;
     }
   });

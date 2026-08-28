@@ -365,7 +365,16 @@ function playGame(seed) {
     // A multiplayer game takes longer than a solo one to terraform, and a bot
     // that plays at random longer still. Stopping at 40 meant the end game --
     // final greenery, scoring, the winner -- was never once reached.
-    if (state.phase === "final_greenery" || state.generation > 80) {
+    if (state.phase === "final_greenery") break;
+    // Running out of generations is not a finished game. Saying nothing about it
+    // and then scoring the unfinished state reported "完走" for a game that
+    // never ended.
+    if (state.generation > 80) {
+      report(
+        "generation-limit",
+        `gen ${state.generation} with oceans=${state.oceans}/9 oxygen=${state.oxygen}/14 temp=${state.temperature}/8`,
+        { where }
+      );
       break;
     }
 
@@ -447,11 +456,20 @@ function playGame(seed) {
     }
 
     // Terraforming moves are what end the game, so weight them: picking purely
-    // at random left the temperature track barely moving.
+    // at random left the temperature track barely moving. Once only one
+    // parameter is short, aim at that one -- otherwise a base-only game can
+    // spend twenty generations buying the two that are already finished.
+    const wanted = new Set();
+    if (state.oceans < 9) wanted.add("aquifer");
+    if (state.oxygen < 14) wanted.add("greenery");
+    if (state.temperature < 8) wanted.add("asteroid");
+    const closing = moves.filter(entry => entry.kind === "standard" && wanted.has(entry.id));
     const terraforming = moves.filter(entry => entry.kind === "standard");
-    const move = terraforming.length > 0 && rng() < 0.5
-      ? pick(terraforming, rng)
-      : pick(moves, rng);
+    const move = closing.length > 0 && rng() < 0.6
+      ? pick(closing, rng)
+      : terraforming.length > 0 && rng() < 0.5
+        ? pick(terraforming, rng)
+        : pick(moves, rng);
     try {
       if (move.kind === "standard") {
         const done = executeGameCommand(state, {

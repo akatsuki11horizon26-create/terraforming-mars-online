@@ -1,8 +1,8 @@
 import {
   ALL_CARDS,
-  CORPORATIONS,
   getPlayer,
   calculateScoreBreakdowns,
+  corporationFor,
   countActiveTags,
   countAdjacentOceans,
   cloneGameState,
@@ -490,7 +490,7 @@ export function runBotResearch(engine, state, botId, difficultyId) {
   const bot = getPlayer(state, botId);
   if (!bot || (bot.researchCards?.length ?? 0) === 0) return state;
   const factors = phaseFactors(state);
-  const corporation = CORPORATIONS.find(entry => entry.id === bot.corporationId);
+  const corporation = corporationFor(bot);
   const freeStartingCards = state.phase === "setup" && corporation?.effects?.freeStartingCards;
   const affordable = freeStartingCards
     ? bot.researchCards.length
