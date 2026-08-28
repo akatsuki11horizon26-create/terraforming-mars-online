@@ -1907,7 +1907,7 @@ test("every corporation's printed starting production reaches the player", async
 });
 
 test("corporation initial actions do not depend on the Prelude expansion", async () => {
-  const { applyCorporation, applyPreludes, getPlayer } =
+  const { applyCorporation, applyPreludes, getPlayer, resolvePendingChoice } =
     await import("../app/game-logic.js");
 
   // The initial action used to run only from the prelude path, so Tharsis
@@ -1931,6 +1931,12 @@ test("corporation initial actions do not depend on the Prelude expansion", async
       if (seat.setupStep !== "prelude") continue;
       state.currentPlayerId = id;
       state = applyPreludes(state, seat.preludeOptions.slice(0, 2), id);
+      // A prelude that places a tile now asks where, rather than taking the
+      // first legal space, so the question has to be answered to finish setup.
+      for (let guard = 0; guard < 8 && state.pendingChoice; guard++) {
+        const choice = state.pendingChoice;
+        state = resolvePendingChoice(state, choice.options[0].id, state.logs, choice.ownerPlayerId).state;
+      }
     }
     return Object.values(state.board).filter(cell => cell.tileType === "city").length;
   };
@@ -3343,4 +3349,59 @@ test("waiving one question still asks the ones queued behind it", async () => {
   assert.equal(declined.status, "pending");
   assert.equal(declined.state.pendingChoice?.id, "second", "the queued question comes up");
   assert.equal((declined.state.pendingChoiceQueue ?? []).length, 0);
+});
+
+test("Project Eden places three tiles in the player's order and discards three", async () => {
+  const { applyCorporation, applyPreludes, resolvePendingChoice, cloneGameState, getPlayer } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({
+    playerCount: 2, prelude: true, venus: true, colonies: true, promo: true, seed: 11
+  });
+  const ids = state.players.map(player => player.id);
+  for (const id of ids) {
+    state.currentPlayerId = id;
+    state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
+  }
+  state = advanceSetupTurn(state);
+
+  // The starting hand is bought before preludes now, which is the whole reason
+  // this card can be played at all: it needs three cards to discard.
+  for (let guard = 0; guard < 6 && state.phase === "setup"; guard++) {
+    const seat = getPlayer(state, state.currentPlayerId);
+    if ((seat.researchCards ?? []).length === 0) break;
+    const buying = cloneGameState(state);
+    buying.hand = seat.researchCards.slice(0, 4);
+    buying.mc -= 12;
+    state = completeSetupPurchase(buying);
+  }
+
+  const me = ids[0];
+  const seat = getPlayer(state, me);
+  assert.equal(seat.hand.length, 4, "four cards in hand at prelude time");
+  seat.preludeOptions = ["card-prelude2-project-eden", seat.preludeOptions[0]];
+  state.currentPlayerId = me;
+  state = applyPreludes(state, seat.preludeOptions.slice(0, 2), me);
+
+  assert.equal(state.pendingChoice?.kind, "project-eden");
+  assert.deepEqual(
+    state.pendingChoice.options.map(option => option.stepId).sort(),
+    ["city", "discard", "greenery", "ocean"]
+  );
+
+  // Taking the greenery first proves the order is the player's: the reference
+  // offers the four as an OrOptions rather than a fixed sequence.
+  const order = ["greenery", "ocean", "city", "discard"];
+  const tiles = () => Object.values(state.board).filter(cell => cell.tileType !== "empty").length;
+  const before = tiles();
+  for (let guard = 0; guard < 20 && state.pendingChoice; guard++) {
+    const choice = state.pendingChoice;
+    const option = choice.kind === "project-eden"
+      ? order.map(id => choice.options.find(entry => entry.stepId === id)).find(Boolean)
+      : choice.options[0];
+    state = resolvePendingChoice(state, option.id, state.logs, me).state;
+  }
+
+  assert.equal(tiles(), before + 3, "an ocean, a city and a greenery");
+  assert.equal(getPlayer(state, me).hand.length, 1, "three of the four are discarded");
 });

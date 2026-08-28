@@ -365,6 +365,7 @@ const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
+const PROJECT_EDEN_ID = "card-prelude2-project-eden";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1529,6 +1530,36 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
     nextState = crossed.state;
     nextLogs = addLog(crossed.logs, "system", `Prelude効果: ${prelude.effectText}`);
 
+    // A prelude that asks a question parks the rest of the list the same way
+    // Eccentric Sponsor does, so the remaining preludes resolve after it.
+    const asked = queuePendingChoices(nextState, prelude, {
+      sourceKind: "prelude",
+      sourceId: prelude.id,
+      consumedAction: false,
+      paid: true,
+      preludeResume: {
+        selectedIds: selected.map(item => item.id),
+        nextIndex: index + 1,
+        seatBefore
+      }
+    });
+    if (asked) {
+      // The builders construct their own continuation, so the resume has to be
+      // stamped on afterwards or the remaining preludes are never reached.
+      asked.continuation = {
+        ...asked.continuation,
+        preludeResume: {
+          selectedIds: selected.map(item => item.id),
+          nextIndex: index + 1,
+          seatBefore
+        }
+      };
+      nextState.pendingChoice = asked;
+      nextLogs = addLog(nextLogs, "system", asked.prompt);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs, pending: true };
+    }
+
     if (prelude.id === ECCENTRIC_SPONSOR_ID) {
       const options = eccentricSponsorOptions(nextState);
       if (options.length > 0) {
@@ -1928,6 +1959,28 @@ function astraMechanicaOptions(state, selfId) {
     .map(id => ({ id, cardId: id, label: ALL_CARDS.find(item => item.id === id)?.name ?? id }));
 }
 
+// The four things Project Eden owes, minus what has already been done and minus
+// anything that cannot happen -- with every ocean already laid there is nothing
+// to place, and the rest of the card still resolves.
+const PROJECT_EDEN_STEPS = [
+  { id: "ocean", tile: "ocean", label: "海洋タイルを1枚置く" },
+  { id: "city", tile: "city", label: "都市タイルを1枚置く" },
+  { id: "greenery", tile: "forest", label: "緑地タイルを1枚置く" },
+  { id: "discard", label: "カードを3枚捨てる" }
+];
+
+function projectEdenRemainingSteps(state, cardId, done) {
+  const taken = new Set(
+    done.filter(stage => stage.startsWith("project-eden-step:"))
+      .map(stage => stage.slice("project-eden-step:".length))
+  );
+  return PROJECT_EDEN_STEPS.filter(step => {
+    if (taken.has(step.id)) return false;
+    if (!step.tile) return (getCurrentPlayer(state)?.hand ?? []).length > 0;
+    return legalCellsFor(state, step.tile).length > 0;
+  }).map(step => ({ id: step.id, stepId: step.id, label: step.label }));
+}
+
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
 
@@ -1944,6 +1997,30 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Place an ocean, a city and a greenery. Discard 3 cards." The player picks
+  // the order, which matters: placing the ocean first changes what the greenery
+  // beside it is worth.
+  if (card.id === PROJECT_EDEN_ID) {
+    const steps = projectEdenRemainingSteps(state, card.id, done);
+    if (steps.length > 0) {
+      return {
+        id: `project-eden:${done.length}:${state.currentPlayerId}`,
+        kind: "project-eden",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "Project Eden: 次に解決する効果を選んでください。",
+        optional: false,
+        options: steps,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: `project-eden:${done.length}`,
+          consumedAction: context.consumedAction ?? false,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
   // "Draw 3 prelude cards, play one of them and discard the other two." The same
   // flow Valley Trust runs as its first action.
   if (card.id === WG_PROJECT_ID && !done.includes("valley-trust-prelude")) {
@@ -2141,7 +2218,8 @@ function queuePendingChoices(state, card, context) {
           remaining: effect.tileCount ?? 1,
           specialName: effect.specialName,
           mineralProduction: effect.mineralProduction === true,
-          placementBonusMultiplier: effect.placementBonusMultiplier
+          placementBonusMultiplier: effect.placementBonusMultiplier,
+          preludeResume: context.preludeResume
         },
         legal
       );
@@ -2469,7 +2547,11 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   next.pendingChoice = null;
   markChoiceResolved(next, choice.continuation.sourceId, choice.continuation.stage);
 
-  const card = ALL_CARDS.find(item => item.id === choice.continuation.sourceId);
+  // ALL_CARDS is projects only, and a prelude can owe follow-up questions too --
+  // Project Eden asks four in a row.
+  const card =
+    ALL_CARDS.find(item => item.id === choice.continuation.sourceId) ??
+    PRELUDES.find(item => item.id === choice.continuation.sourceId);
 
   switch (choice.kind) {
     case "building-production": {
@@ -2588,6 +2670,47 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           : player
       );
       nextLogs = addLog(nextLogs, "system", `Insulation: 熱生産量 -${amount}、MC生産量 +${amount}`);
+      break;
+    }
+
+    case "project-eden": {
+      // Record which of the four this was, so the next question offers the rest.
+      markChoiceResolved(next, choice.continuation.sourceId, `project-eden-step:${option.stepId}`);
+      const step = PROJECT_EDEN_STEPS.find(entry => entry.id === option.stepId);
+      if (step?.tile) {
+        const legal = legalCellsFor(next, step.tile);
+        if (legal.length > 0) {
+          const placement = buildTileChoice(next, step.tile, {
+            sourceKind: choice.continuation.sourceKind,
+            sourceId: choice.continuation.sourceId,
+            consumedAction: false,
+            paid: true
+          }, legal);
+          if (placement) {
+            next.pendingChoice = placement;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: placement };
+          }
+        }
+      } else {
+        // "Discard 3 cards", asked one at a time from whatever is still held.
+        const hand = getPlayer(next, choice.ownerPlayerId ?? actorId)?.hand ?? [];
+        const discard = buildDiscardChoice(next, hand, {
+          sourceKind: choice.continuation.sourceKind,
+          sourceId: choice.continuation.sourceId,
+          stage: "project-eden-discard",
+          prompt: "Project Eden: 捨てるカードを選んでください（3枚）。",
+          optional: false,
+          consumedAction: false,
+          remaining: 3
+        }, ALL_CARDS);
+        if (discard) {
+          discard.ownerPlayerId = choice.ownerPlayerId ?? actorId;
+          next.pendingChoice = discard;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: discard };
+        }
+      }
       break;
     }
 
@@ -2805,6 +2928,33 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      if (choice.continuation.stage === "project-eden-discard") {
+        const target = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        next.currentPlayerId = target;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(nextLogs, "system", `Project Eden: 【${gone?.name ?? discardedId}】を捨てました。`);
+        const left = (choice.continuation.remaining ?? 1) - 1;
+        const hand = getPlayer(next, target)?.hand ?? [];
+        if (left > 0 && hand.length > 0) {
+          const again = buildDiscardChoice(next, hand, {
+            ...choice.continuation,
+            remaining: left,
+            prompt: `Project Eden: 捨てるカードを選んでください（あと${left}枚）。`
+          }, ALL_CARDS);
+          if (again) {
+            again.ownerPlayerId = target;
+            next.pendingChoice = again;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: again };
+          }
+        }
+        break;
+      }
       if (choice.continuation.stage === "sponsored-academies") {
         const target = choice.ownerPlayerId ?? actorId;
         const discardedId = option.cardId ?? option.id;
@@ -3156,6 +3306,13 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
         }
       }
+      // A prelude that stopped here to ask where its tile goes still owes the
+      // rest of the prelude list, and setup cannot move on until it is done.
+      if (choice.continuation.preludeResume) {
+        next.pendingChoice = null;
+        const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
+        return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
+      }
       break;
     }
     case "standard-resource-pick": {
@@ -3309,6 +3466,12 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       next.logs = nextLogs;
       return { status: "pending", state: next, logs: nextLogs, pendingChoice: followUp };
     }
+  }
+
+  // A prelude that stopped to ask something still owes the rest of its list.
+  if (choice.continuation.preludeResume && !next.pendingChoice) {
+    const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
+    return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
 
   // Anything else queued behind this one comes up next; when the queue is empty
@@ -6052,6 +6215,11 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     if ((state.turmoil.delegateReserve?.[state.currentPlayerId] ?? 0) <= 0) {
       return { playable: false, reason: "予備の代表者がいません。" };
     }
+  }
+  // "Discard 3 cards" is part of the card, so it cannot be played without three
+  // to discard. The reference asks the same before offering it.
+  if (card.id === PROJECT_EDEN_ID && (getCurrentPlayer(state)?.hand ?? []).length < 3) {
+    return { playable: false, reason: "手札が3枚以上必要です。" };
   }
   // Recruitment needs a delegate of its own to send and a swappable neutral.
   if (card.id === RECRUITMENT_ID && recruitmentPartyOptions(state).length === 0) {

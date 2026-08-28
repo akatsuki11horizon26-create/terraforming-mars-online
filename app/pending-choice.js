@@ -291,6 +291,9 @@ export function buildTileChoice(state, tileType, context, legalCells) {
       // Work the caller parked until the space is chosen: the triggers a card
       // still owes, and the parameter levels to measure the bonus against.
       ...(context.afterPlay ? { afterPlay: context.afterPlay } : {}),
+      // A prelude that stops to ask where its tile goes still owes the rest of
+      // the prelude list; without this the remaining preludes never resolve.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {}),
       payload: {
         tileType,
         specialName: context.specialName ?? null,

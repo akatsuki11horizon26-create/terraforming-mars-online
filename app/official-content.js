@@ -123,6 +123,9 @@ const CURATED_CORPORATION_OVERRIDES = [
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });
 
 const CURATED_PRELUDE_OVERRIDES = [
+  // The four steps resolve in the player's chosen order, which is why this has
+  // no behaviour block: the order changes what the placements are worth.
+  prelude("card-prelude2-project-eden", "Project Eden", "海洋タイルを1枚、都市タイルを1枚、緑地タイルを1枚置く。カードを3枚捨てる。", {}, { tags: ["City", "Plant"] }),
   // "Lose 18 M€. Increase all your productions that are lower than 1, to 1."
   prelude("card-prelude2-industrial-complex", "Industrial Complex", "MCを18失う。1未満のすべての生産量を1にする。", { payMc: 18, productionFloor: 1 }, { tags: ["Building"] }),
   prelude("prelude-allied-banks", "Allied Banks", "MC生産量+4、MC3。", { production: { mc: 4 }, mc: 3 }, { tags: ["Earth"] }),
