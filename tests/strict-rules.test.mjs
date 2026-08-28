@@ -2487,3 +2487,44 @@ test("Hi-Tech Lab draws for energy and keeps exactly one card", async () => {
   assert.deepEqual(after.hand, [keep.cardId], "only the chosen card stays in hand");
   assert.equal(settled.state.discardPile.length, discardedBefore + 2, "the other two are discarded");
 });
+
+test("Sponsored Academies discards one, draws three, and pays the opponents", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  const state = getInitialState({
+    playerCount: 3, venus: true, colonies: true, turmoil: true, promo: true, seed: 3
+  });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 100;
+  seat.actionsRemaining = 20;
+  seat.hand = ["card-venus-sponsored-academies", "card-base-acquired-company", "card-base-asteroid"];
+  // A card dealt into hand has to leave the deck, or drawing hands it back.
+  state.deck = state.deck.filter(id => !seat.hand.includes(id));
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-venus-sponsored-academies"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "discard-card");
+
+  const discard = played.state.pendingChoice.options[0];
+  const settled = resolvePendingChoice(played.state, discard.id, played.state.logs, "player");
+
+  // Three in hand, one played, one discarded, three drawn.
+  const after = getPlayer(settled.state, "player");
+  assert.equal(after.hand.length, 4);
+  assert.ok(!after.hand.includes(discard.cardId), "the discarded card is gone");
+
+  // "All opponents draw 1", and they keep what they draw.
+  for (const player of settled.state.players) {
+    if (player.id === "player") continue;
+    assert.equal(player.hand.length, 1, `${player.id} drew one`);
+  }
+});

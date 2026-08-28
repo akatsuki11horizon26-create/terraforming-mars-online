@@ -350,6 +350,7 @@ const POWER_INFRASTRUCTURE_ID = "card-base-power-infrastructure";
 const FLOYD_CONTINUUM_ID = "card-promo-floyd-continuum";
 const ENERGY_MARKET_ID = "card-promo-energy-market";
 const HI_TECH_LAB_ID = "card-promo-hi-tech-lab";
+const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
 const ROVER_CONSTRUCTION_ID = "card-base-rover-construction";
 
 const TILE_TYPE_BY_NUMBER = {
@@ -1797,6 +1798,21 @@ function queuePendingChoices(state, card, context) {
 
   // "Decrease your heat production any number of steps and increase your M€
   // production the same number." How many is the player's decision.
+  // "Discard 1 card, then draw 3. All opponents draw 1." Which card goes is the
+  // player's decision; the draws happen once it is answered.
+  if (card.id === SPONSORED_ACADEMIES_ID && !done.includes("sponsored-academies")) {
+    const hand = getCurrentPlayer(state)?.hand ?? [];
+    if (hand.length > 0) {
+      return buildDiscardChoice(state, hand, {
+        ...context,
+        stage: "sponsored-academies",
+        prompt: "捨てるカードを1枚選んでください（その後、あなたは3枚、他プレイヤーは1枚引きます）。",
+        optional: false,
+        consumedAction: context.consumedAction ?? true
+      }, ALL_CARDS);
+    }
+  }
+
   if (card.id === INSULATION_ID && !done.includes("insulation")) {
     return buildAmountChoice(state, {
       ...context,
@@ -2384,6 +2400,30 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      if (choice.continuation.stage === "sponsored-academies") {
+        const target = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        // hand is a seated accessor, so it has to be written with the seat set
+        // to its owner -- a players.map write is clobbered by the resync.
+        next.currentPlayerId = target;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        const mine = drawCards(next, 3);
+        nextLogs = addLog(nextLogs, "system", `Sponsored Academies: 1枚捨てて${mine.length}枚引きました。`);
+        // "All opponents draw 1" -- theirs are kept, not offered.
+        for (const player of next.players) {
+          if (player.id === target) continue;
+          next.currentPlayerId = player.id;
+          const theirs = drawCards(next, 1);
+          if (theirs.length > 0) {
+            nextLogs = addLog(nextLogs, "system", `${player.name}がカードを1枚引きました。`);
+          }
+        }
+        next.currentPlayerId = seatBefore;
+        break;
+      }
+
       // Hi-Tech Lab reuses the card list to ask the opposite question: the
       // picked card is the one kept, and everything else offered is discarded.
       if (choice.continuation.stage === "hi-tech-lab-keep") {
