@@ -74,6 +74,11 @@ jobs:
         # "M€ production +3" and pays 4 fails here.
         run: node scripts/audit-card-contracts.mjs
 
+      - name: Coverage report
+        # Prints what the audits below actually verify and what they do not, so
+        # a run of green ticks is not mistaken for "every card is correct".
+        run: node scripts/audit-coverage-report.mjs
+
       - name: Card actions
         # A blue card's action happens through its own command, so the contract
         # audit above never sees it. This checks every branch of every action
