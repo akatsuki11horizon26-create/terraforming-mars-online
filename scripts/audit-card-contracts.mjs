@@ -16,7 +16,6 @@ import {
   getInitialState,
   getPlayer,
   getCardPlayableStatus,
-  getCardEffect,
   resolvePendingChoice,
   applyPreludes,
   applyCorporation,
@@ -122,54 +121,63 @@ function contractFor(card, state) {
   // engine works the number out from the same spec, so what is being checked
   // is that the amount it computed is the amount it actually paid -- a card
   // that computes 3 and pays 1 fails here.
-  const effect = getCardEffect(card);
-  for (const gain of [...(effect.countedProduction ?? []), ...(effect.countedGains ?? [])]) {
-    const isProduction = (effect.countedProduction ?? []).includes(gain);
-    const field = isProduction ? PRODUCTION_FIELD[gain.resource] : STOCK_FIELD[gain.resource];
-    if (!field) return null;
-    const amount = countedAmount(state, gain);
-    if (amount === null) return null;
-    expected[field] = (expected[field] ?? 0) + amount;
+  // Read from the raw spec, NOT from getCardEffect: that is the same normaliser
+  // the engine runs, so an amount it read wrongly would be expected wrongly and
+  // the two would agree on being wrong.
+  for (const [where, fields] of [["production", PRODUCTION_FIELD], ["stock", STOCK_FIELD]]) {
+    for (const [source, amount] of Object.entries(behavior[where] ?? {})) {
+      if (typeof amount !== "number" && amount && typeof amount === "object") {
+        const field = fields[source];
+        if (!field) return null;
+        const counted = countedAmount(state, amount);
+        if (counted === null) return null;
+        expected[field] = (expected[field] ?? 0) + counted;
+      }
+    }
   }
   return Object.keys(expected).length > 0 ? expected : null;
 }
 
 // Re-derives what a counted gain should pay, from the same board the engine
 // sees. Anything this cannot count is skipped rather than guessed at.
-function countedAmount(state, gain) {
+// Works the counted amount out from the raw spec shape, independently of the
+// engine's own normaliser.
+function countedAmount(state, raw) {
   const seat = getPlayer(state, "player");
-  // `others` counts the opponents' tags and not the player's own -- Toll
-  // Station reads "for each space tag your OPPONENTS have".
-  const players = gain.others
+  // `others` counts the opponents' and not the player's own -- Toll Station
+  // reads "for each space tag your OPPONENTS have".
+  const players = raw.others
     ? state.players.filter(player => player.id !== seat.id)
-    : gain.allPlayers
+    : raw.all
       ? state.players
       : [seat];
+
   let units = 0;
-  switch (gain.kind) {
-    case "tag":
-      for (const player of players) {
-        for (const tag of gain.tags) {
-          units += (player.playedProjects ?? []).filter(id => {
-            const held = OFFICIAL_PROJECTS.find(item => item.id === id);
-            return (held?.tags ?? []).some(t => String(t).toLowerCase() === String(tag).toLowerCase());
-          }).length;
+  if (raw.tag !== undefined) {
+    const wanted = (Array.isArray(raw.tag) ? raw.tag : [raw.tag]).map(tag => String(tag).toLowerCase());
+    for (const player of players) {
+      for (const id of player.playedProjects ?? []) {
+        const held = OFFICIAL_PROJECTS.find(item => item.id === id);
+        for (const tag of held?.tags ?? []) {
+          if (wanted.includes(String(tag).toLowerCase())) units += 1;
         }
       }
-      break;
-    case "cities":
-      units = Object.values(state.board).filter(cell => cell.tileType === "city").length;
-      break;
-    case "greeneries":
-      units = Object.values(state.board).filter(cell => cell.tileType === "forest").length;
-      break;
-    case "eventsPlayed":
-      for (const player of players) units += (player.playedEvents ?? []).length;
-      break;
-    default:
-      return null;
+    }
+  } else if (raw.cities !== undefined) {
+    units = Object.values(state.board).filter(cell => cell.tileType === "city").length;
+  } else if (raw.greeneries !== undefined) {
+    units = Object.values(state.board).filter(cell => cell.tileType === "forest").length;
+  } else if (raw.eventsPlayed !== undefined) {
+    for (const player of players) units += (player.playedEvents ?? []).length;
+  } else {
+    return null;
   }
-  return Math.floor(units / (gain.per ?? 1)) * (gain.each ?? 1);
+  // A compound count -- "cities AND colonies" on one line -- is more than one
+  // thing added together, and this only knows how to count one.
+  const shapes = ["tag", "cities", "greeneries", "eventsPlayed", "colonies"]
+    .filter(key => raw[key] !== undefined).length;
+  if (shapes > 1) return null;
+  return Math.floor(units / (raw.per ?? 1)) * (raw.each ?? 1);
 }
 
 // A card that stops to ask a question has not finished resolving when the
@@ -329,9 +337,10 @@ function check(card, levels) {
   const counting = rig(levels);
   // The tableau the engine will see when the card resolves: everything already
   // in play, plus the card itself, since "including this" is the rule.
+  // The card under test may already be one of the tag bearers, and counting it
+  // twice inflates the expectation by one.
   getPlayer(counting, "player").playedProjects = [
-    ...getPlayer(counting, "player").playedProjects,
-    card.id
+    ...new Set([...getPlayer(counting, "player").playedProjects, card.id])
   ];
   const expected = contractFor(card, counting);
   const hasRelational = attackContract(card) !== null || selfResourceContract(card) !== null;
@@ -343,6 +352,9 @@ function check(card, levels) {
     return { status: "skip", why: "does not finish resolving, or moves the measured fields" };
   }
 
+  // ...and it must not be in the tableau while it is being played from hand.
+  getPlayer(state, "player").playedProjects =
+    getPlayer(state, "player").playedProjects.filter(id => id !== card.id);
   getPlayer(state, "player").hand = [card.id];
   state.deck = state.deck.filter(id => id !== card.id);
   if (!getCardPlayableStatus(card, state).playable) {

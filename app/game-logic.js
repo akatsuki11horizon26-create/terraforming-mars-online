@@ -6589,17 +6589,19 @@ export function countActiveTags(state, playerId, tag) {
 
 function countTagsFor(state, tag, owner) {
   const normalized = String(tag).toLowerCase();
-  const has = card =>
-    (card?.tags ?? []).some(cardTag => String(cardTag).toLowerCase() === normalized);
+  // Tags, not cards: Luna Governor is printed with two Earth tags and counts
+  // for two. Counting cards made it worth one, so every "per Earth tag" card
+  // and every tag requirement was short by one for anyone holding it.
+  const tagsOn = card =>
+    (card?.tags ?? []).filter(cardTag => String(cardTag).toLowerCase() === normalized).length;
 
-  const corporation = corporationFor(owner);
-  let count = has(corporation) ? 1 : 0;
+  let count = tagsOn(corporationFor(owner));
 
   for (const id of owner?.playedProjects ?? []) {
-    if (has(ALL_CARDS.find(item => item.id === id))) count += 1;
+    count += tagsOn(ALL_CARDS.find(item => item.id === id));
   }
   for (const id of owner?.selectedPreludeIds ?? []) {
-    if (has(PRELUDES.find(item => item.id === id))) count += 1;
+    count += tagsOn(PRELUDES.find(item => item.id === id));
   }
 
   return count;

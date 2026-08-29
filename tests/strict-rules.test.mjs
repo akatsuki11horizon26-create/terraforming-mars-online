@@ -4006,3 +4006,60 @@ test("a merged corporation is a real corporation everywhere, not just in game-lo
   assert.equal(countTags(player, [], "Power", held), 1);
   assert.equal(countTags(player, [], "Power", held[0]), 0, "the first alone has none");
 });
+
+test("a card printed with two of a tag counts for two", async () => {
+  const { getPlayer, getCardPlayableStatus, ALL_CARDS } = await import("../app/game-logic.js");
+
+  // Luna Governor is printed with two Earth tags. countTagsFor counted cards
+  // rather than tags, so it was worth one: every "per Earth tag" payout and
+  // every Earth requirement was short by one for anyone holding it.
+  const twoTags = ALL_CARDS.find(card =>
+    (card.tags ?? []).filter(tag => tag === "Earth").length === 2
+  );
+  assert.ok(twoTags, "the catalogue has a card with a doubled tag");
+
+  const state = getInitialState({ playerCount: 2, venus: true, colonies: true, promo: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.corporationId = null;
+    player.hand = [];
+  }
+  const seat = getPlayer(state, "player");
+  seat.mc = 400;
+  seat.actionsRemaining = 20;
+  seat.playedProjects = [twoTags.id];
+
+  // Cartel pays 1 M€ production per Earth tag including its own: two from the
+  // doubled card plus its own is three.
+  seat.hand = ["card-base-cartel"];
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-cartel"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, "player").mcProd, 3);
+
+  // And a requirement counts them the same way: three Earth tags are met by the
+  // doubled card plus one more.
+  const needsThree = ALL_CARDS.find(card =>
+    (card.requirements ?? []).some(entry => entry.tag === "earth" && (entry.count ?? 1) === 3)
+  );
+  if (needsThree) {
+    const gated = getInitialState({ playerCount: 2, venus: true, colonies: true, promo: true, seed: 4 });
+    gated.phase = "action";
+    gated.currentPlayerId = "player";
+    for (const player of gated.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+    }
+    const holder = getPlayer(gated, "player");
+    holder.mc = 400;
+    holder.playedProjects = [twoTags.id, "card-base-acquired-company"];
+    assert.equal(
+      getCardPlayableStatus(needsThree, gated).playable,
+      true,
+      "two tags on one card plus one on another is three"
+    );
+  }
+});
