@@ -202,11 +202,18 @@ export function buildScoreContributions(state, options = {}) {
         if (spec.tag) points += countPlayedTag(state, spec.tag, player);
 
         if (spec.all) {
+          // `all` means every one in play, whoever owns it -- that is what the
+          // flag says, and it is how the cities beside it are already counted.
+          // Colonies were counted for the card's owner alone, so Space Port
+          // Colony scored nothing for the colonies an opponent had built.
           const counted =
             spec.cities !== undefined
               ? Object.values(state.board).filter(cell => cell.tileType === "city").length
               : spec.colonies !== undefined
-                ? countColonies(state.colonies, player.id)
+                ? state.players.reduce(
+                    (sum, entry) => sum + countColonies(state.colonies, entry.id),
+                    0
+                  )
                 : 0;
           points += spec.per ? Math.floor(counted / spec.per) : counted * (spec.each ?? 1);
         } else {

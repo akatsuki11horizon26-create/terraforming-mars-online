@@ -4111,3 +4111,28 @@ test("Ants and Predators grow by what they eat, however the victim is chosen", a
   assert.equal(feed("card-base-ants", "card-base-ghg-producing-bacteria", ["player2", "player3"]), 3);
   assert.equal(feed("card-base-predators", "card-base-birds", ["player2", "player3"]), 3);
 });
+
+test("Space Port Colony scores for every colony in play, not only its owner's", async () => {
+  const { getPlayer, calculateScoreBreakdowns } = await import("../app/game-logic.js");
+
+  // Its spec says `all`, which the cities beside it already honour: every one
+  // on the board, whoever built it. Colonies were counted for the card's owner
+  // alone, so an opponent's colonies scored nothing.
+  const scoreWith = owners => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.currentPlayerId = "player";
+    getPlayer(state, "player").playedProjects = ["card-colonies-space-port-colony"];
+    const tiles = Object.values(state.colonies.tiles);
+    owners.forEach((holders, index) => {
+      tiles[index].colonies = holders;
+    });
+    return calculateScoreBreakdowns(state).player.cards;
+  };
+
+  // 1 VP per two colonies in play.
+  assert.equal(scoreWith([["player2"], ["player2"], ["player2"], ["player2"]]), 2);
+  assert.equal(scoreWith([["player"], ["player"], ["player"], ["player"]]), 2);
+  assert.equal(scoreWith([["player", "player2"], ["player2"], [], []]), 1, "three rounds down to one");
+});
