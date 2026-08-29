@@ -358,6 +358,9 @@ const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
 const RECRUITMENT_ID = "card-turmoil-recruitment";
 const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const BANNED_DELEGATE_ID = "card-turmoil-banned-delegate";
+const OLYMPUS_CONFERENCE_ID = "card-base-olympus-conference";
+const PROJECT_INSPECTION_ID = "card-promo-project-inspection";
+const DOUBLE_DOWN_ID = "card-promo-double-down";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
@@ -931,6 +934,14 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     if (typeof raw.global.venus === "number") effect.venusSteps = (effect.venusSteps ?? 0) + raw.global.venus;
   }
   if (typeof raw.tr === "number") effect.tr = (effect.tr ?? 0) + raw.tr;
+  // "Raise your TR 1 step per Jovian tag." A counted rating gain is resolved
+  // when the card is played, like a counted resource gain, because how many
+  // tags are in play then is the whole question.
+  else if (raw.tr && typeof raw.tr === "object") {
+    const counted = normalizeCountedAmount(raw.tr);
+    if (counted) effect.countedTr = counted;
+    else unsupported.push("dynamic-tr-gain");
+  }
   if (raw.drawCard !== undefined) {
     effect.draw = (effect.draw ?? 0) + (typeof raw.drawCard === "number" ? raw.drawCard : (raw.drawCard.count ?? 1));
     if (typeof raw.drawCard === "object" && raw.drawCard.keep !== undefined) effect.drawKeep = raw.drawCard.keep;
@@ -1157,6 +1168,14 @@ function applyEffect(state, effect, logs, options = {}) {
   });
   if (stillUnsupported.length) {
     nextLogs = addLog(nextLogs, "system", `このカードの個別選択はオンライン版で未実装です: ${stillUnsupported.join("、")}`);
+  }
+
+  if (effect.countedTr) {
+    const steps = evaluateCountedGain(nextState, effect.countedTr, nextState.currentPlayerId, effect.cardId);
+    if (steps > 0) {
+      increaseTerraformRating(nextState, nextState.currentPlayerId, steps, "card");
+      nextLogs = addLog(nextLogs, "system", `条件により TR +${steps}`);
+    }
   }
 
   if (effect.countedGains?.length) {
@@ -2379,6 +2398,64 @@ function queuePendingChoices(state, card, context) {
     }
   }
 
+  // "Copy the immediate effect of your other prelude." The other one has already
+  // resolved by the time this does, so its effect is applied a second time --
+  // and Double Down cannot copy itself, nor another Double Down.
+  if (card.id === DOUBLE_DOWN_ID && !done.includes("double-down")) {
+    const owner = getCurrentPlayer(state);
+    const options = (owner?.selectedPreludeIds ?? [])
+      .filter(id => id !== DOUBLE_DOWN_ID)
+      .map(id => PRELUDES.find(item => item.id === id))
+      .filter(prelude => prelude && Object.keys(getCardEffect(prelude) ?? {}).length > 0)
+      .map(prelude => ({ id: prelude.id, cardId: prelude.id, label: prelude.name }));
+    if (options.length > 0) {
+      return {
+        id: `double-down:${state.currentPlayerId}`,
+        kind: "double-down",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "効果を複製するプレリュードを選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "double-down",
+          consumedAction: context.consumedAction ?? false,
+          paid: true
+        }
+      };
+    }
+  }
+
+  // "Use a card action that has already been used this generation." The card
+  // does not perform the action itself: it un-uses one, so the player may take
+  // it again with a later action of their own.
+  if (card.id === PROJECT_INSPECTION_ID && !done.includes("project-inspection")) {
+    const used = getCurrentPlayer(state)?.usedCardActions ?? [];
+    const options = used.map(cardId => ({
+      id: cardId,
+      cardId,
+      label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+    }));
+    if (options.length > 0) {
+      return {
+        id: `project-inspection:${state.currentPlayerId}`,
+        kind: "project-inspection",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "もう一度使用するカードアクションを選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "project-inspection",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
   // "Remove any NON-LEADER delegate." Anyone's, including the player's own.
   if (card.id === BANNED_DELEGATE_ID && !done.includes("turmoil-banned-delegate")) {
     const options = bannedDelegateOptions(state);
@@ -2975,6 +3052,20 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "olympus-conference": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      if (option.id === "draw") {
+        changeCardResource(next, { ownerPlayerId: owner, cardId: OLYMPUS_CONFERENCE_ID, delta: -1 });
+        const drawn = drawCards(next, 1);
+        if (drawn.state) Object.assign(next, drawn.state);
+        nextLogs = addLog(nextLogs, "system", "Olympus Conference: 科学資源 -1、カードを1枚引きました。");
+      } else {
+        changeCardResource(next, { ownerPlayerId: owner, cardId: OLYMPUS_CONFERENCE_ID, delta: 1 });
+        nextLogs = addLog(nextLogs, "system", "Olympus Conference: 科学資源 +1");
+      }
+      break;
+    }
+
     case "viral-enhancers": {
       const owner = choice.ownerPlayerId ?? actorId;
       if (option.id === "plant") {
@@ -3176,6 +3267,29 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: follow };
         }
       }
+      break;
+    }
+
+    case "double-down": {
+      const copied = PRELUDES.find(item => item.id === option.cardId);
+      if (copied) {
+        const applied = applyEffect(next, getCardEffect(copied), nextLogs);
+        // applyEffect returns a fresh state, and `next` is the one this switch
+        // hands back, so the result is copied into it rather than reassigned.
+        Object.assign(next, applied.state);
+        nextLogs = addLog(applied.logs, "system", `Double Down: 【${option.label}】の効果を複製しました。`);
+      }
+      break;
+    }
+
+    case "project-inspection": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      next.players = next.players.map(player =>
+        player.id === owner
+          ? { ...player, usedCardActions: (player.usedCardActions ?? []).filter(id => id !== option.cardId) }
+          : player
+      );
+      nextLogs = addLog(nextLogs, "system", `Project Inspection: 【${option.label}】のアクションを再度使用できます。`);
       break;
     }
 
@@ -4997,6 +5111,13 @@ const CARD_PLAYED_WATCHERS = [
     }
   },
   {
+    cardId: OLYMPUS_CONFERENCE_ID,
+    tags: ["Science"],
+    perTag: (state, ownerId, played) => ({
+      choice: olympusConferenceChoice(state, ownerId, played)
+    })
+  },
+  {
     // "When you play a science tag, add an animal here."
     cardId: "card-venus-venusian-animals",
     tags: ["Science"],
@@ -5065,6 +5186,30 @@ const CARD_PLAYED_WATCHERS = [
 // Splice watches every table, so it is listed apart from the ones that only
 // watch their owner.
 const SPLICE_ID = "card-promo-splice";
+
+// "Add a science resource here, OR remove one to draw a card." Removing is only
+// on offer when there is something to remove, and the card fires for itself, so
+// the very first science tag played is the card's own.
+function olympusConferenceChoice(state, ownerId, played) {
+  const held = getPlayer(state, ownerId)?.cardResources?.[OLYMPUS_CONFERENCE_ID] ?? 0;
+  const options = [{ id: "add", label: "科学資源 +1" }];
+  if (held > 0) options.push({ id: "draw", label: "科学資源 -1 でカードを1枚引く" });
+  return {
+    id: `olympus-conference:${played.id}:${ownerId}`,
+    kind: "olympus-conference",
+    ownerPlayerId: ownerId,
+    prompt: "Olympus Conference: 科学資源を1個置くか、1個取り除いてカードを1枚引くかを選んでください。",
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: "card",
+      sourceId: OLYMPUS_CONFERENCE_ID,
+      stage: `olympus-conference:${played.id}`,
+      consumedAction: false,
+      paid: true
+    }
+  };
+}
 
 function viralEnhancersChoice(state, ownerId, played) {
   return {

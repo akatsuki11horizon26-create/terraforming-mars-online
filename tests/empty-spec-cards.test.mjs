@@ -8,6 +8,8 @@ import {
   ALL_CARDS
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
+import { applyPreludes } from "../app/game-logic.js";
+import { PRELUDES } from "../app/official-content.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
@@ -61,7 +63,7 @@ const settle = state => {
   return current;
 };
 
-const useAction = (state, cardId, branchIndex) => {
+const takeAction = (state, cardId, branchIndex) => {
   const used = executeGameCommand(state, {
     type: COMMAND.USE_CARD_ACTION,
     playerId: "player",
@@ -80,7 +82,7 @@ test("Extreme-Cold Fungus gains a plant, or feeds another card two microbes", ()
     true
   );
 
-  const plants = useAction(rig([id]), id, 1);
+  const plants = takeAction(rig([id]), id, 1);
   assert.equal(getPlayer(plants, "player").plants, 1, "the plant branch pays one plant");
 
   // What a card can hold is answered by the catalogue as well as the card, so
@@ -92,7 +94,7 @@ test("Extreme-Cold Fungus gains a plant, or feeds another card two microbes", ()
     (card.requirements ?? []).length === 0
   );
   assert.ok(host, "a card that can hold microbes");
-  const fed = useAction(rig([id, host.id]), id, 0);
+  const fed = takeAction(rig([id, host.id]), id, 0);
   const seat = getPlayer(fed, "player");
   assert.equal(seat.cardResources?.[id] ?? 0, 0, "the microbes never land on itself");
   assert.equal(seat.cardResources?.[host.id] ?? 0, 2);
@@ -101,12 +103,12 @@ test("Extreme-Cold Fungus gains a plant, or feeds another card two microbes", ()
 test("Sulphur-Eating Bacteria trades its microbes for triple their worth", () => {
   const id = "card-venus-sulphur-eating-bacteria";
 
-  const grown = useAction(rig([id]), id, 1);
+  const grown = takeAction(rig([id]), id, 1);
   assert.equal(getPlayer(grown, "player").cardResources?.[id] ?? 0, 1);
 
   const stocked = rig([id]);
   getPlayer(stocked, "player").cardResources = { [id]: 3 };
-  const sold = useAction(stocked, id, 0);
+  const sold = takeAction(stocked, id, 0);
   const seat = getPlayer(sold, "player");
   assert.equal(seat.mc - 100, 3, "a microbe is worth three");
   assert.equal(seat.cardResources?.[id] ?? 0, 2, "and one microbe paid for it");
@@ -117,7 +119,7 @@ test("Jupiter Floating Station pays a M€ per floater, and never more than four
   const gain = floaters => {
     const state = rig([id]);
     getPlayer(state, "player").cardResources = { [id]: floaters };
-    return getPlayer(useAction(state, id, 1), "player").mc - 100;
+    return getPlayer(takeAction(state, id, 1), "player").mc - 100;
   };
 
   assert.equal(gain(0), 0);
@@ -139,7 +141,7 @@ test("Red Ships pays for cities and special tiles beside an ocean, not greenerie
       .map(pos => state.board[`${pos.q},${pos.r}`])
       .filter(cell => cell && cell.tileType === "empty" && !cell.reservedFor);
     place(state, beside);
-    return getPlayer(useAction(state, id, undefined), "player").mc - 100;
+    return getPlayer(takeAction(state, id, undefined), "player").mc - 100;
   };
 
   assert.equal(gain(() => {}), 0, "an ocean alone pays nothing");
@@ -241,4 +243,159 @@ test("Banned Delegate removes any delegate that is not a party leader", () => {
   });
   assert.equal(nobody.ok, true);
   assert.equal(nobody.state.pendingChoice?.kind, undefined, "and no question is asked");
+});
+
+
+// Six more of the same shape, found by the registry gate rather than by reading:
+// each was assumed to be a rule the engine held by name, and no engine file
+// named any of them.
+test("Terraforming Ganymede raises TR once per Jovian tag, its own included", () => {
+  const id = "card-base-terraforming-ganymede";
+  const raise = jovian => {
+    const state = rig(jovian, [id]);
+    getPlayer(state, "player").mc = 400;
+    const before = getPlayer(state, "player").tr;
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD,
+      playerId: "player",
+      cardId: id,
+      card: ALL_CARDS.find(item => item.id === id)
+    });
+    assert.equal(played.ok, true);
+    return getPlayer(settle(played.state), "player").tr - before;
+  };
+
+  assert.equal(raise([]), 1, "the card counts its own Jovian tag");
+  const others = ALL_CARDS.filter(card =>
+    (card.tags ?? []).includes("Jovian") && (card.requirements ?? []).length === 0
+  ).slice(0, 2).map(card => card.id);
+  assert.equal(raise(others), 1 + others.length);
+});
+
+test("Olympus Conference banks a science resource, or spends one for a card", () => {
+  const id = "card-base-olympus-conference";
+  const science = ALL_CARDS.find(card =>
+    (card.tags ?? []).includes("Science") &&
+    (card.requirements ?? []).length === 0 &&
+    card.cost < 20
+  );
+
+  const playScience = (held, answer) => {
+    const state = rig([id], [science.id]);
+    getPlayer(state, "player").cardResources = { [id]: held };
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: science.id, card: science
+    });
+    assert.equal(played.ok, true);
+    assert.equal(played.state.pendingChoice?.kind, "olympus-conference");
+    const answered = executeGameCommand(played.state, {
+      type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: answer
+    });
+    assert.equal(answered.ok, true);
+    return getPlayer(answered.state, "player");
+  };
+
+  assert.equal(playScience(0, "add").cardResources?.[id] ?? 0, 1);
+
+  // Spending is only on offer when there is something to spend.
+  const empty = rig([id], [science.id]);
+  const first = executeGameCommand(empty, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: science.id, card: science
+  });
+  assert.deepEqual(first.state.pendingChoice.options.map(option => option.id), ["add"]);
+
+  const spent = playScience(2, "draw");
+  assert.equal(spent.cardResources?.[id] ?? 0, 1, "one resource paid for the card");
+  assert.equal(spent.hand.length, 1, "and a card was drawn");
+});
+
+test("Icy Impactors and Titan Shuttles trade their resources both ways", () => {
+  const icy = "card-promo-icy-impactors";
+  const stocked = rig([icy]);
+  getPlayer(stocked, "player").cardResources = { [icy]: 2 };
+  const oceanBefore = stocked.oceans;
+  const placed = takeAction(stocked, icy, 0);
+  assert.equal(getPlayer(placed, "player").cardResources?.[icy] ?? 0, 1);
+  assert.equal(placed.oceans, oceanBefore + 1, "an asteroid bought an ocean");
+
+  const titan = "card-colonies-titan-shuttles";
+  const held = rig([titan]);
+  getPlayer(held, "player").cardResources = { [titan]: 3 };
+  const traded = takeAction(held, titan, 0);
+  const seat = getPlayer(traded, "player");
+  assert.equal(seat.cardResources?.[titan] ?? 0, 2);
+  assert.equal(seat.titanium, 1, "a floater became a titanium");
+});
+
+test("Floating Trade Hub turns its floaters into standard resources", () => {
+  const id = "card-prelude2-floating-trade-hub";
+  const state = rig([id]);
+  const seat = getPlayer(state, "player");
+  seat.selectedPreludeIds = [id];
+  seat.cardResources = { [id]: 2 };
+  const before = seat.titanium;
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION,
+    playerId: "player",
+    cardId: id,
+    card: PRELUDES.find(item => item.id === id),
+    branchIndex: 0
+  });
+  assert.equal(used.ok, true);
+  const after = getPlayer(settle(used.state), "player");
+  assert.equal(after.cardResources?.[id] ?? 0, 1);
+  assert.equal(after.titanium, before + 1);
+});
+
+test("Project Inspection frees a card action to be used a second time", () => {
+  const id = "card-promo-project-inspection";
+  const state = rig(["card-base-ants"], [id]);
+  const seat = getPlayer(state, "player");
+  seat.usedCardActions = ["card-base-ants"];
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD,
+    playerId: "player",
+    cardId: id,
+    card: ALL_CARDS.find(item => item.id === id)
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.pendingChoice?.kind, "project-inspection");
+
+  const answered = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "card-base-ants"
+  });
+  assert.equal(answered.ok, true);
+  assert.deepEqual(getPlayer(answered.state, "player").usedCardActions, []);
+});
+
+test("Double Down applies the other prelude a second time", () => {
+  const id = "card-promo-double-down";
+  const other = "prelude-allied-banks";
+  const state = getInitialState({
+    playerCount: 2, venus: true, colonies: true, turmoil: true, promo: true, prelude: true, seed: 4
+  });
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "prelude";
+  seat.preludeOptions = [other, id];
+  seat.mc = 50;
+  seat.mcProd = 0;
+
+  const resolved = applyPreludes(state, [other, id], "player");
+  const once = resolved.state ?? resolved;
+  const single = getPlayer(once, "player");
+  assert.equal(single.mcProd, 4, "Allied Banks alone");
+  assert.equal(once.pendingChoice?.kind, "double-down");
+  // Double Down cannot name itself as the prelude to copy.
+  assert.deepEqual(once.pendingChoice.options.map(option => option.id), [other]);
+
+  const copied = executeGameCommand(once, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: other
+  });
+  assert.equal(copied.ok, true);
+  const twice = getPlayer(copied.state, "player");
+  assert.equal(twice.mcProd, 8, "and again after the copy");
+  assert.equal(twice.mc, single.mc + 3);
 });

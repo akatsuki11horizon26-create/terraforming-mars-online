@@ -216,7 +216,15 @@ for (const card of OFFICIAL_PROJECTS) {
       } else {
         got = (after[field] ?? 0) - (before[field] ?? 0);
       }
-      if (got !== delta) problems.push(`${field}${label} ${got}, spec says ${delta}`);
+      // No change is given, so a price that a steel or titanium cannot land on
+      // exactly is overpaid by less than one unit. Icy Impactors costs 10 and
+      // titanium is worth 3: four of them is the cheapest legal payment, and 12
+      // is the right answer, not a broken contract.
+      const overpaidWithinAUnit =
+        field === "paidValue" && got > delta && got - delta < 3;
+      if (got !== delta && !overpaidWithinAUnit) {
+        problems.push(`${field}${label} ${got}, spec says ${delta}`);
+      }
     }
   }
 

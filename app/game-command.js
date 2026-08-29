@@ -692,12 +692,22 @@ const HANDLERS = {
 
   [COMMAND.USE_CARD_ACTION](state, command) {
     const actor = getPlayer(state, command.playerId);
-    const card = ALL_CARDS.find(item => item.id === command.cardId);
+    // A prelude can carry an action too -- Floating Trade Hub has one -- and
+    // ALL_CARDS holds projects only, so looking there alone made every prelude
+    // action unreachable at the command layer however well the engine knew it.
+    const card =
+      ALL_CARDS.find(item => item.id === command.cardId) ??
+      PRELUDES.find(item => item.id === command.cardId);
     if (!card) return fail(state, ERROR.CARD_NOT_OWNED, "そのカードは存在しません。");
-    if (!(actor.playedProjects ?? []).includes(card.id)) {
+    if (
+      !(actor.playedProjects ?? []).includes(card.id) &&
+      !(actor.selectedPreludeIds ?? []).includes(card.id)
+    ) {
       return fail(state, ERROR.CARD_NOT_OWNED, "そのカードを場に出していません。");
     }
-    if (card.type !== "active") {
+    // A prelude's type is "prelude", never "active", so the type alone cannot
+    // decide this: what settles it is whether the card declares an action.
+    if (card.type !== "active" && !card.effectSpec?.action) {
       return fail(state, ERROR.CARD_NOT_ACTIVE, "そのカードにアクションはありません。");
     }
     const status = getCardActionStatus(state, card);

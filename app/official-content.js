@@ -21,6 +21,24 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // "Raise your TR 1 step for each Jovian tag you have, INCLUDING THIS." The
+  // card carries a Jovian tag, so it always pays at least one.
+  project("card-base-terraforming-ganymede", "Terraforming Ganymede", 33, ["Jovian", "Space"], "automated", "自分のジョビアンタグ1つにつきTR+1（このカードを含む）。", {}, { victoryPoints: 2, effectSpec: { behavior: { tr: { tag: "jovian" } } } }),
+  // Three more of the same, found by the registry gate rather than by reading:
+  // each was registered as a rule the engine holds by name, and no engine file
+  // named any of them.
+  project("card-promo-icy-impactors", "Icy Impactors", 15, ["Space"], "active", "アクション: MC10（チタンで支払い可）を支払いこのカードに小惑星を2個追加する、またはこのカードの小惑星1個を支払い海洋タイルを1枚置く。", {}, { resourceType: "asteroid", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Spend 1 asteroid here to place an ocean", spend: { resourcesHere: 1 }, ocean: {} },
+    { title: "Pay 10 M€ to add 2 asteroids here", spend: { megacredits: 10, canUseTitanium: true }, addResources: 2 }
+  ] } } } }),
+  project("card-colonies-titan-shuttles", "Titan Shuttles", 23, ["Jovian", "Space"], "active", "アクション: 任意のジョビアンカードにフローターを2個追加する、またはこのカードのフローターを任意の数支払い、同じ数のチタンを獲得する。", {}, { victoryPoints: 1, resourceType: "floater", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Spend floaters here to gain the same in titanium", spend: { resourcesHere: 1 }, stock: { titanium: 1 } },
+    { title: "Add 2 floaters to a Jovian card", addResourcesToAnyCard: { count: 2, type: "Floater", tag: "Jovian" } }
+  ] } } } }),
+  // "When you play a science tag, INCLUDING THIS, either add a science resource
+  // here or spend one to draw a card." The choice is the owner's each time, so
+  // it goes through the pending-choice queue rather than resolving silently.
+  project("card-base-olympus-conference", "Olympus Conference", 10, ["Science", "Earth", "Building"], "active", "効果: 科学タグのカードをプレイするたび（このカードを含む）、このカードに科学資源を1個追加するか、科学資源1個を取り除いてカードを1枚引く。", {}, { victoryPoints: 1, resourceType: "science" }),
   // Four more that shipped with an empty effectSpec: their action lives in a
   // hand-written method upstream rather than in a declarative block, so the
   // generator had nothing to copy and each was a card you could buy, play, and
@@ -165,6 +183,13 @@ const CURATED_PRELUDE_OVERRIDES = [
   prelude("card-prelude2-project-eden", "Project Eden", "海洋タイルを1枚、都市タイルを1枚、緑地タイルを1枚置く。カードを3枚捨てる。", {}, { tags: ["City", "Plant"] }),
   // "Lose 18 M€. Increase all your productions that are lower than 1, to 1."
   prelude("card-prelude2-industrial-complex", "Industrial Complex", "MCを18失う。1未満のすべての生産量を1にする。", { payMc: 18, productionFloor: 1 }, { tags: ["Building"] }),
+  // "Add 2 floaters to ANY card, or remove any number of floaters here to gain
+  // that many of one standard resource." Shipped with an empty effectSpec, so
+  // the card was a Space tag and an action that never appeared.
+  prelude("card-prelude2-floating-trade-hub", "Floating Trade Hub", "アクション: 任意のカードにフローターを2個追加する、またはこのカードのフローターを任意の数取り除き、同じ数の標準資源を獲得する。", {}, { tags: ["Space"], resourceType: "floater", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Remove a floater here to gain a titanium", spend: { resourcesHere: 1 }, stock: { titanium: 1 } },
+    { title: "Add 2 floaters to any card", addResourcesToAnyCard: { count: 2, type: "Floater" } }
+  ] } } } }),
   prelude("prelude-allied-banks", "Allied Banks", "MC生産量+4、MC3。", { production: { mc: 4 }, mc: 3 }, { tags: ["Earth"] }),
   prelude("prelude-biosphere-support", "Biosphere Support", "植物生産量+2、MC生産量-1。", { production: { plants: 2, mc: -1 } }, { tags: ["Plant"] }),
   prelude("prelude-aquifer-turbines", "Aquifer Turbines", "MC3を支払い、海洋1枚とエネルギー生産量+2。", { payMc: 3, production: { energy: 2 }, tile: "ocean" }, { tags: ["Power"] }),

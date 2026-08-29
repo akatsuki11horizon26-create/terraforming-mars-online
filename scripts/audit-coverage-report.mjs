@@ -47,6 +47,8 @@ Verified:
   audit-card-scoring     every variable-VP card pays what its spec declares at
                          0, per-1, per and per+1 of whatever it counts, with
                          "all" shapes split across both players
+  audit-empty-spec-      every card with no effectSpec says by name why it has
+    registry             none, so a card cannot go quietly dead
   audit-cards-against-   our cost, tags, requirements, type and resource type
     upstream             say what the real cards say, compared against a
                          manifest pinned to one upstream commit
@@ -59,7 +61,9 @@ Not verified:
     engine honours what the catalogue says; a card whose text promises nothing
     passes them all while doing nothing. Seven cards were in exactly that state
     -- their upstream behaviour lives in a hand-written method the catalogue
-    generator could not copy -- and only reading the real cards found them
+    generator could not copy -- and only reading the real cards found them.
+    audit-empty-spec-registry is the gate for the next one, but it can only
+    ask whether a card is accounted for, never whether the account is true
   four ongoing effects the audit has no reading for -- Rover Construction,
     Cutting Edge Technology, Martian Lumber Corp and Meat Industry. Each has a
     test in strict-rules, so they are checked; they are not checked by a
