@@ -905,6 +905,9 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
   if (raw.drawCard !== undefined) {
     effect.draw = (effect.draw ?? 0) + (typeof raw.drawCard === "number" ? raw.drawCard : (raw.drawCard.count ?? 1));
     if (typeof raw.drawCard === "object" && raw.drawCard.keep !== undefined) effect.drawKeep = raw.drawCard.keep;
+    // "Look at the top card and either buy it or discard it" -- the card is
+    // revealed rather than drawn, and taking it costs the research price.
+    if (typeof raw.drawCard === "object" && raw.drawCard.pay === true) effect.drawPay = true;
     if (typeof raw.drawCard === "object" && raw.drawCard.tag) {
       const tag = Array.isArray(raw.drawCard.tag) ? raw.drawCard.tag[0] : raw.drawCard.tag;
       effect.drawTag = tag[0]?.toUpperCase() + tag.slice(1);
@@ -2044,9 +2047,10 @@ function projectEdenRemainingSteps(state, cardId, done) {
   }).map(step => ({ id: step.id, stepId: step.id, label: step.label }));
 }
 
-// One offer per revealed non-Venus card: pay the research price for it, or let
-// it go. Declining is discarding, so the choice is optional.
-function venusSurveyChoice(state, ownerId, remaining, sourceId) {
+// One offer per revealed card: pay the research price for it, or let it go.
+// Venus Orbital Survey reveals two and keeps the Venus ones free; Inventors'
+// Guild and Business Network reveal one and offer it.
+function buyOrDiscardChoice(state, ownerId, remaining, sourceId) {
   if (remaining.length === 0) return null;
   const [cardId, ...rest] = remaining;
   const revealed = ALL_CARDS.find(item => item.id === cardId);
@@ -2875,7 +2879,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         next.discardPile = [...next.discardPile, option.cardId];
       }
       nextLogs = addLog(nextLogs, "system", `Venus Orbital Survey: ${option.label}`);
-      const follow = venusSurveyChoice(
+      const follow = buyOrDiscardChoice(
         next,
         owner,
         choice.continuation.payload?.remaining ?? [],
@@ -4576,7 +4580,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
     );
     // drawCards puts everything in hand; the non-Venus ones are only on offer.
     nextState.hand = nextState.hand.filter(id => !rest.includes(id));
-    const choice = venusSurveyChoice(nextState, seat, rest, card.id);
+    const choice = buyOrDiscardChoice(nextState, seat, rest, card.id);
     if (choice) {
       nextState.pendingChoice = choice;
       return { state: nextState, logs: surveyLogs, playable: true, awaitingChoice: true };
@@ -4809,6 +4813,23 @@ export function applyCardAction(state, card, logs, branchIndex) {
       // The asked path returns here, so the gain travels on the question and is
       // applied when the victim is chosen.
       nextState.pendingChoice = removal;
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
+    }
+  }
+
+  // "Look at the top card: buy it or discard it." The card is revealed rather
+  // than drawn, so it is taken out of hand again and offered at the research
+  // price -- the same offer Venus Orbital Survey makes.
+  if (effect.drawPay) {
+    const seat = nextState.currentPlayerId;
+    const revealed = drawCards(nextState, effect.draw ?? 1);
+    nextState.hand = nextState.hand.filter(id => !revealed.includes(id));
+    effect.draw = 0;
+    effect.drawPay = false;
+    const choice = buyOrDiscardChoice(nextState, seat, revealed, card.id);
+    if (choice) {
+      nextState.pendingChoice = choice;
       nextState.logs = nextLogs;
       return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };
     }

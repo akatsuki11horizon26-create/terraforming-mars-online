@@ -4136,3 +4136,45 @@ test("Space Port Colony scores for every colony in play, not only its owner's", 
   assert.equal(scoreWith([["player"], ["player"], ["player"], ["player"]]), 2);
   assert.equal(scoreWith([["player", "player2"], ["player2"], [], []]), 1, "three rounds down to one");
 });
+
+test("Inventors' Guild offers the top card rather than handing it over", async () => {
+  const { getPlayer, resolvePendingChoice, RESEARCH_CARD_COST } =
+    await import("../app/game-logic.js");
+
+  // "Look at the top card and either buy it or discard it." The `pay` flag on
+  // the draw was never read, so the card arrived in hand for nothing.
+  const rig = () => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 400;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = ["card-base-inventors-guild"];
+    return state;
+  };
+
+  const offered = executeGameCommand(rig(), {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: "card-base-inventors-guild"
+  });
+  assert.equal(offered.ok, true);
+  assert.equal(offered.state.pendingChoice?.kind, "venus-survey", "it asks rather than giving");
+  assert.equal(getPlayer(offered.state, "player").hand.length, 0, "and holds nothing yet");
+
+  const buy = offered.state.pendingChoice.options.find(option => option.buy);
+  const bought = resolvePendingChoice(offered.state, buy.id, offered.state.logs, "player");
+  assert.equal(getPlayer(bought.state, "player").mc, 400 - RESEARCH_CARD_COST);
+  assert.equal(getPlayer(bought.state, "player").hand.length, 1);
+
+  const drop = offered.state.pendingChoice.options.find(option => !option.buy);
+  const dropped = resolvePendingChoice(offered.state, drop.id, offered.state.logs, "player");
+  assert.equal(getPlayer(dropped.state, "player").mc, 400, "letting it go costs nothing");
+  assert.equal(getPlayer(dropped.state, "player").hand.length, 0);
+});
