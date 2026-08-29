@@ -179,10 +179,18 @@ const TAGS = ["Building", "Space", "Science", "Power", "Earth", "Jovian",
 const TAG_BEARERS = (() => {
   const chosen = new Set();
   for (const tag of TAGS) {
+    // Six of each, so "requires 5 science tags" is satisfied too. A card that
+    // watches for later plays is left out: Advertising in the tableau pays a
+    // M€ production step for every card costing 20 or more, which is correct
+    // behaviour and would read as the card under test paying one too many.
     const bearers = OFFICIAL_PROJECTS
-      .filter(card => (card.tags ?? []).includes(tag) && card.type !== "event")
+      .filter(card =>
+        (card.tags ?? []).includes(tag) &&
+        card.type !== "event" &&
+        !/^効果:/.test(card.effectText ?? "")
+      )
       .sort((a, b) => a.cost - b.cost)
-      .slice(0, 3);
+      .slice(0, 6);
     for (const card of bearers) chosen.add(card.id);
   }
   return [...chosen];
@@ -219,6 +227,20 @@ const rig = (levels = THRESHOLD_SAFE[0]) => {
   // own printed rating and not on the bonus a crossing hands out: oxygen 8%
   // pays a temperature step, venus 16% pays a rating, -24C and -20C pay heat
   // production.
+  // Cities and greeneries on the board, for the cards that ask for them. They
+  // are placed for nobody in particular so they do not feed the player's own
+  // adjacency or scoring.
+  const spaces = Object.keys(state.board)
+    .filter(key => !state.board[key].isOceanOnly && !state.board[key].reservedFor)
+    .slice(0, 12);
+  spaces.slice(0, 6).forEach((key, index) => {
+    state.board[key] = {
+      ...state.board[key],
+      tileType: index % 2 === 0 ? "city" : "forest",
+      placedBy: "player2"
+    };
+  });
+
   state.oceans = levels.oceans;
   state.oxygen = levels.oxygen;
   state.temperature = levels.temperature;
