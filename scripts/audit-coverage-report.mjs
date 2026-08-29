@@ -41,10 +41,16 @@ Verified:
                          cards whose promise is a fixed or countable number
   audit-card-actions     every branch of every declared action takes what it
                          says and gives what it says
+  audit-ongoing-effects  an ongoing effect is felt where it applies -- a
+                         discount at a price, a concession at a trade, a
+                         watcher at the next card played
 
 Not verified:
   a bespoke card's effect beyond "something changed"
-  an ongoing effect firing at the right moment, except where a test covers it
+  four ongoing effects the audit has no reading for -- Rover Construction,
+    Cutting Edge Technology, Martian Lumber Corp and Meat Industry. Each has a
+    test in strict-rules, so they are checked; they are not checked by a
+    mechanical sweep that would notice if a fifth appeared
   scoring beyond the cards a test names
   the order effects resolve in, where the order changes the outcome
 

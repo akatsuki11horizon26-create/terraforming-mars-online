@@ -556,16 +556,26 @@ const HANDLERS = {
     const floaterPaid = localHeatTrapping
       ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heatPaid))
       : 0;
-    // "When playing a building tag, plants may be used as 3 M€ each." Plants
-    // cover whatever the money cannot, and no change is given, so a part unit
-    // is still a whole plant.
+    // "When playing a building tag, plants MAY be used as 3 M€ each." The choice
+    // is the player's, exactly as Helion's heat is above: an explicit amount is
+    // honoured even when the money would have covered the cost on its own, and
+    // without one the plants only cover what the money cannot. No change is
+    // given, so a part unit is still a whole plant.
     const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
-    const plantsPaid = plantValue
-      ? Math.min(
-          actor.plants ?? 0,
-          Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heatPaid - floaterPaid) / plantValue)
-        )
-      : 0;
+    const plantsAvailable = plantValue ? actor.plants ?? 0 : 0;
+    const plantsPaid =
+      command.payment?.plants === undefined
+        ? Math.min(
+            plantsAvailable,
+            plantValue
+              ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heatPaid - floaterPaid) / plantValue)
+              : 0
+          )
+        : Math.min(
+            plantsAvailable,
+            Math.max(0, Math.trunc(command.payment.plants)),
+            plantValue ? Math.ceil(cost / plantValue) : 0
+          );
     if ((actor.mc ?? 0) + heatPaid + floaterPaid + plantsPaid * plantValue < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "支払いできません。");
     }

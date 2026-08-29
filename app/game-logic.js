@@ -6346,6 +6346,7 @@ function scoringOptions() {
   return {
     cards: ALL_CARDS,
     preludes: PRELUDES,
+    corporations: CORPORATIONS,
     helpers: { countAdjacentOceans, getAdjacentCells, countPlayedTag, countColonies }
   };
 }

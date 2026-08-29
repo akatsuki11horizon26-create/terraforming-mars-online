@@ -4304,4 +4304,20 @@ test("Martian Lumber Corp pays for building cards with plants", async () => {
   const wrongTag = rig(true);
   getPlayer(wrongTag, "player").hand = [other.id];
   assert.equal(getCardPlayableStatus(other, wrongTag).playable, false);
+
+  // "MAY be used": the choice is the player's, so an explicit amount is spent
+  // even when the money would have covered the price on its own. Filling in
+  // only what the money could not reach made the effect unreachable for anyone
+  // holding enough M€ -- which is most of the game.
+  const rich = rig(true);
+  const seat = getPlayer(rich, "player");
+  seat.mc = 100;
+  seat.hand = [building.id];
+  const chosen = executeGameCommand(rich, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: building.id, payment: { plants: 2 }
+  });
+  assert.equal(chosen.ok, true);
+  const richAfter = getPlayer(chosen.state, "player");
+  assert.equal(richAfter.plants, 8, "the two plants offered were taken");
+  assert.equal(richAfter.mc, 100 - (building.cost - 6), "and paid for six of the price");
 });

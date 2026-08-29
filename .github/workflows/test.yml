@@ -85,6 +85,13 @@ jobs:
         # takes what it says and gives what it says.
         run: node scripts/audit-card-actions.mjs
 
+      - name: Ongoing effects
+        # An ongoing effect changes nothing when played -- it changes what
+        # happens later -- so it is observed where it applies: a discount at the
+        # price of the card it discounts, a trade concession at a trade, a
+        # watcher at the next card played.
+        run: node scripts/audit-ongoing-effects.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.

@@ -403,3 +403,52 @@ test("Milestones and awards are unavailable in a solo game", async () => {
   assert.equal(getMilestoneStatus(table, "terraformer", seat.id).claimable, true);
   assert.equal(getAwardStatus(table, "banker", seat.id).fundable, true);
 });
+
+test("A corporation with a variable victory point spec scores it", () => {
+  // Arklight, Pristar and Celestic each print a per-resource icon, and the
+  // scorer walked projects, events and preludes but never the corporation. The
+  // three did not score badly; they scored nothing, in every game ever played.
+  function scoreWith(corporationId, resources) {
+    const state = cloneGameState(
+      getInitialState({ playerCount: 2, colonies: true, venus: true, turmoil: true })
+    );
+    const seat = state.players[0].id;
+    state.players = state.players.map(player =>
+      player.id === seat
+        ? { ...player, corporationId, cardResources: { [corporationId]: resources } }
+        : player
+    );
+    return computeScore(state, seat);
+  }
+
+  const baseline = id => scoreWith(id, 0);
+  assert.equal(scoreWith("card-colonies-arklight", 5) - baseline("card-colonies-arklight"), 2);
+  assert.equal(scoreWith("card-turmoil-pristar", 5) - baseline("card-turmoil-pristar"), 5);
+  assert.equal(scoreWith("card-venus-celestic", 7) - baseline("card-venus-celestic"), 2);
+});
+
+test("Space Port Colony scores nothing below the first pair", () => {
+  // 0 and 1 are the boundary the original test never reached: a scorer that
+  // rounded up rather than down would pass 2/4/5 and fail here.
+  function scoreWith(colonyCount, projects) {
+    const state = cloneGameState(getInitialState({ playerCount: 2, colonies: true }));
+    const seat = state.players[0].id;
+    const tiles = Object.keys(state.colonies.tiles);
+    for (let i = 0; i < colonyCount; i++) {
+      const tile = tiles[i % tiles.length];
+      state.colonies.tiles[tile] = {
+        ...state.colonies.tiles[tile],
+        colonies: [...(state.colonies.tiles[tile].colonies ?? []), seat]
+      };
+    }
+    state.players = state.players.map(player =>
+      player.id === seat ? { ...player, corporationId: null, playedProjects: projects } : player
+    );
+    return computeScore(state, seat);
+  }
+
+  const card = ["card-colonies-space-port-colony"];
+  assert.equal(scoreWith(0, card) - scoreWith(0, []), 0);
+  assert.equal(scoreWith(1, card) - scoreWith(1, []), 0);
+  assert.equal(scoreWith(3, card) - scoreWith(3, []), 1, "the remainder is dropped");
+});

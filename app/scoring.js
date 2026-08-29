@@ -96,6 +96,7 @@ const SPECIAL_CARD_SCORERS = {
 export function buildScoreContributions(state, options = {}) {
   const cards = options.cards ?? [];
   const preludes = options.preludes ?? [];
+  const corporations = options.corporations ?? [];
   // The board and tag helpers live in game-logic.js, which imports this module,
   // so they are passed in rather than imported back. Callers that only care
   // about the special cards may omit them; those paths then score zero instead
@@ -108,6 +109,7 @@ export function buildScoreContributions(state, options = {}) {
 
   const findCard = id => cards.find(card => card.id === id);
   const findPrelude = id => preludes.find(card => card.id === id);
+  const findCorporation = id => corporations.find(card => card.id === id);
 
   /** @type {ScoreContribution[]} */
   const contributions = [];
@@ -160,10 +162,19 @@ export function buildScoreContributions(state, options = {}) {
     // Red events are set aside rather than kept in the tableau, but their VP
     // still counts at the end -- and several of them are negative, so leaving
     // them out made cards like Bribed Committee (-2) free to play.
+    // A corporation scores by the same rules as a project: Arklight counts its
+    // animals, Pristar its protected resources, Celestic its floaters. Leaving
+    // corporations out of this list did not make them score wrong, it made them
+    // score nothing at all, and no green tick anywhere said so. Merger's second
+    // corporation is a card in play too, so it scores as well.
     const played = [
       ...player.playedProjects.map(id => [id, findCard(id)]),
       ...(player.playedEvents ?? []).map(id => [id, findCard(id)]),
-      ...(player.selectedPreludeIds ?? []).map(id => [id, findPrelude(id)])
+      ...(player.selectedPreludeIds ?? []).map(id => [id, findPrelude(id)]),
+      ...(player.corporationId ? [[player.corporationId, findCorporation(player.corporationId)]] : []),
+      ...(player.mergedCorporationId
+        ? [[player.mergedCorporationId, findCorporation(player.mergedCorporationId)]]
+        : [])
     ];
 
     for (const [cardId, card] of played) {
