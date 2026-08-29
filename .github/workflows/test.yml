@@ -92,6 +92,13 @@ jobs:
         # watcher at the next card played.
         run: node scripts/audit-ongoing-effects.mjs
 
+      - name: Card scoring
+        # A scoring card does nothing when played and everything at the end, so
+        # a scorer that rounds the wrong way or reads the wrong owner's pile is
+        # invisible until someone counts by hand. Every card is measured at 0,
+        # per-1, per and per+1 of whatever it counts.
+        run: node scripts/audit-card-scoring.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.

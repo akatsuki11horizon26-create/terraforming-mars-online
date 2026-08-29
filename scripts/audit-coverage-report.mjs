@@ -44,6 +44,9 @@ Verified:
   audit-ongoing-effects  an ongoing effect is felt where it applies -- a
                          discount at a price, a concession at a trade, a
                          watcher at the next card played
+  audit-card-scoring     every variable-VP card pays what its spec declares at
+                         0, per-1, per and per+1 of whatever it counts, with
+                         "all" shapes split across both players
 
 Not verified:
   a bespoke card's effect beyond "something changed"
@@ -51,7 +54,8 @@ Not verified:
     Cutting Edge Technology, Martian Lumber Corp and Meat Industry. Each has a
     test in strict-rules, so they are checked; they are not checked by a
     mechanical sweep that would notice if a fifth appeared
-  scoring beyond the cards a test names
+  Capital, Law Suit, St Joseph and Vermin, which score by their own rule
+    rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
 
 "Every card does something" is not "every card is right", and the numbers above
