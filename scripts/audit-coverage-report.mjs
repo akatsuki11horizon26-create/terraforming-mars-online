@@ -47,6 +47,9 @@ Verified:
   audit-card-scoring     every variable-VP card pays what its spec declares at
                          0, per-1, per and per+1 of whatever it counts, with
                          "all" shapes split across both players
+  audit-vp-against-      our victory point specs say what the real cards say,
+    upstream             compared against a manifest pinned to one upstream
+                         commit -- the only check that reads the other side
 
 Not verified:
   a bespoke card's effect beyond "something changed"
@@ -57,6 +60,8 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
+  whether a card's non-scoring behaviour matches the real card -- only its
+    victory points are compared with upstream
 
 "Every card does something" is not "every card is right", and the numbers above
 are the first claim. The second is only true where a contract or a test says so.`);

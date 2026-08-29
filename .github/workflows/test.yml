@@ -99,6 +99,13 @@ jobs:
         # per-1, per and per+1 of whatever it counts.
         run: node scripts/audit-card-scoring.mjs
 
+      - name: Victory points against upstream
+        # Every other audit asks whether the engine honours our catalogue. This
+        # asks whether the catalogue is right: a spec saying two points per
+        # resource where the card says three is honoured perfectly and still
+        # loses the game. Compared against a pinned manifest, not the network.
+        run: node scripts/audit-vp-against-upstream.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.

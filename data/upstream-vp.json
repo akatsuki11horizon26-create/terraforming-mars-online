@@ -1,0 +1,169 @@
+{
+  "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "cards": {
+    "card-base-ants": {
+      "source": "src/server/cards/base/Ants.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-base-birds": {
+      "source": "src/server/cards/base/Birds.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "p-capital": {
+      "source": "src/server/cards/base/Capital.ts",
+      "upstream": "victoryPoints: {oceans: {}, nextToThis: {}}"
+    },
+    "card-base-commercial-district": {
+      "source": "src/server/cards/base/CommercialDistrict.ts",
+      "upstream": "victoryPoints: {cities: {}, nextToThis: {}}"
+    },
+    "card-base-decomposers": {
+      "source": "src/server/cards/base/Decomposers.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 3}"
+    },
+    "card-base-ecological-zone": {
+      "source": "src/server/cards/base/EcologicalZone.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-base-fish": {
+      "source": "src/server/cards/base/Fish.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-base-ganymede-colony": {
+      "source": "src/server/cards/base/GanymedeColony.ts",
+      "upstream": "victoryPoints: {tag: Tag.JOVIAN}"
+    },
+    "card-base-herbivores": {
+      "source": "src/server/cards/base/Herbivores.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-base-immigration-shuttles": {
+      "source": "src/server/cards/base/ImmigrationShuttles.ts",
+      "upstream": "victoryPoints: {cities: {}, all: true, per: 3}"
+    },
+    "card-base-io-mining-industries": {
+      "source": "src/server/cards/base/IoMiningIndustries.ts",
+      "upstream": "victoryPoints: {tag: Tag.JOVIAN}"
+    },
+    "card-base-livestock": {
+      "source": "src/server/cards/base/Livestock.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-base-pets": {
+      "source": "src/server/cards/base/Pets.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-base-physics-complex": {
+      "source": "src/server/cards/base/PhysicsComplex.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, each: 2}"
+    },
+    "card-base-predators": {
+      "source": "src/server/cards/base/Predators.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-base-security-fleet": {
+      "source": "src/server/cards/base/SecurityFleet.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-base-small-animals": {
+      "source": "src/server/cards/base/SmallAnimals.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-base-tardigrades": {
+      "source": "src/server/cards/base/Tardigrades.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 4}"
+    },
+    "card-base-water-import-from-europa": {
+      "source": "src/server/cards/base/WaterImportFromEuropa.ts",
+      "upstream": "victoryPoints: {tag: Tag.JOVIAN}"
+    },
+    "card-colonies-jovian-lanterns": {
+      "source": "src/server/cards/colonies/JovianLanterns.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-colonies-refugee-camps": {
+      "source": "src/server/cards/colonies/RefugeeCamps.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-colonies-space-port-colony": {
+      "source": "src/server/cards/colonies/SpacePortColony.ts",
+      "upstream": "victoryPoints: {colonies: {colonies: {}}, all, per: 2}"
+    },
+    "card-colonies-sub-zero-salt-fish": {
+      "source": "src/server/cards/colonies/SubZeroSaltFish.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-prelude2-cloud-tourism": {
+      "source": "src/server/cards/prelude2/CloudTourism.ts",
+      "upstream": "victoryPoints: {resourcesHere: 1, per: 3}"
+    },
+    "card-promo-asteroid-deflection-system": {
+      "source": "src/server/cards/promo/AsteroidDeflectionSystem.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-promo-asteroid-hollowing": {
+      "source": "src/server/cards/promo/AsteroidHollowing.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-promo-law-suit": {
+      "source": "src/server/cards/promo/LawSuit.ts",
+      "upstream": "victoryPoints: 'special'"
+    },
+    "card-promo-neptunian-power-consultants": {
+      "source": "src/server/cards/promo/NeptunianPowerConsultants.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-promo-penguins": {
+      "source": "src/server/cards/promo/Penguins.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-promo-st-joseph-of-cupertino-mission": {
+      "source": "src/server/cards/promo/StJosephOfCupertinoMission.ts",
+      "upstream": "victoryPoints: 'special'"
+    },
+    "card-promo-vermin": {
+      "source": "src/server/cards/promo/Vermin.ts",
+      "upstream": "victoryPoints: 'special'"
+    },
+    "card-venus-extremophiles": {
+      "source": "src/server/cards/venusNext/Extremophiles.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 3}"
+    },
+    "card-venus-floating-habs": {
+      "source": "src/server/cards/venusNext/FloatingHabs.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-venus-stratopolis": {
+      "source": "src/server/cards/venusNext/Stratopolis.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 3}"
+    },
+    "card-venus-stratospheric-birds": {
+      "source": "src/server/cards/venusNext/StratosphericBirds.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-venus-venusian-animals": {
+      "source": "src/server/cards/venusNext/VenusianAnimals.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-venus-venusian-insects": {
+      "source": "src/server/cards/venusNext/VenusianInsects.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-prelude2-main-belt-asteroids": {
+      "source": "src/server/cards/prelude2/MainBeltAsteroids.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-colonies-arklight": {
+      "source": "src/server/cards/colonies/Arklight.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 2}"
+    },
+    "card-turmoil-pristar": {
+      "source": "src/server/cards/turmoil/Pristar.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-venus-celestic": {
+      "source": "src/server/cards/venusNext/Celestic.ts",
+      "upstream": "victoryPoints: {resourcesHere: {}, per: 3}"
+    }
+  }
+}
