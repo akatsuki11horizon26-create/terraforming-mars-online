@@ -2508,10 +2508,13 @@ function queuePendingChoices(state, card, context) {
   }
   if (raw.removeResourcesFromAnyCard && !done.includes("any-card-resource-removal")) {
     const spec = raw.removeResourcesFromAnyCard;
+    // A card that eats and then grows carries its own gain through the choice.
+    const growsBy = typeof raw.addResources === "number" ? raw.addResources : 0;
     const built = buildResourceRemovalChoice(state, spec, {
       ...context,
       cards: ALL_CARDS,
-      getResourceType: getCardResourceType
+      getResourceType: getCardResourceType,
+      addResourcesToSource: growsBy
     });
     if (built) {
       if (built.autoTarget) {
@@ -3225,6 +3228,14 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     case "any-card-resource-removal": {
       const taken = choice.continuation.remaining ?? 1;
       applyResourceToCard(next, option, -taken);
+      const grows = choice.continuation.payload?.addResourcesToSource;
+      if (grows) {
+        changeCardResource(next, {
+          ownerPlayerId: choice.ownerPlayerId ?? actorId,
+          cardId: choice.continuation.sourceId,
+          delta: grows
+        });
+      }
       if (choice.continuation.sourceId === SOIL_ENRICHMENT_ID) addResource(next, "plants", 5);
       nextLogs = addLog(nextLogs, "system", `${option.label}から資源を${taken}個取り除きました。`);
       break;
@@ -4688,6 +4699,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
   }
   if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * actionSteelWorth);
 
+
   let nextLogs = addLog(logs, "player", `カードアクションを実行しました: 【${card.name}】`);
   if (action.revealTag) {
     let deck = [...nextState.deck];
@@ -4756,13 +4768,21 @@ export function applyCardAction(state, card, logs, branchIndex) {
   // queuePendingChoices, so the removal is asked for here.
   const removalSpec = action.removeResourcesFromAnyCard ?? card.effectSpec?.action?.removeResourcesFromAnyCard;
   if (removalSpec) {
+    // "Remove a microbe from any card, then add one to THIS card" -- the gain
+    // is carried through so it happens once the victim is chosen.
+    const gainsAfterRemoval = typeof action.cardResource === "number"
+      ? action.cardResource
+      : typeof card.effectSpec?.action?.addResources === "number"
+        ? card.effectSpec.action.addResources
+        : 0;
     const removal = buildResourceRemovalChoice(nextState, removalSpec, {
       cards: ALL_CARDS,
       getResourceType: getCardResourceType,
       sourceKind: "card-action",
       sourceId: card.id,
       consumedAction: true,
-      paid: true
+      paid: true,
+      addResourcesToSource: gainsAfterRemoval
     });
     if (!removal) {
       // Nothing holds the resource, so the action cannot be taken at all.
@@ -4770,8 +4790,24 @@ export function applyCardAction(state, card, logs, branchIndex) {
     }
     if (removal.autoTarget) {
       applyResourceToCard(nextState, removal.autoTarget, -removal.count);
+      // "Remove a microbe from any card, then ADD ONE TO THIS CARD." The action
+      // chain never applied its own cardResource, so Ants and Predators ate
+      // without ever growing.
+      if (gainsAfterRemoval) {
+        changeCardResource(nextState, {
+          ownerPlayerId: nextState.currentPlayerId,
+          cardId: card.id,
+          delta: gainsAfterRemoval
+        });
+        // Applied here, so the effect that runs afterwards must not grant it a
+        // second time. `effect` was built from `action` further up, so it is the
+        // copy that has to be corrected.
+        effect.cardResource = 0;
+      }
       nextLogs = addLog(nextLogs, "system", `${removal.autoTarget.label}から資源を${removal.count}個取り除きました。`);
     } else {
+      // The asked path returns here, so the gain travels on the question and is
+      // applied when the victim is chosen.
       nextState.pendingChoice = removal;
       nextState.logs = nextLogs;
       return { state: nextState, logs: nextLogs, playable: true, awaitingChoice: true };

@@ -113,7 +113,12 @@ export function buildResourceRemovalChoice(state, spec, context) {
       consumedAction: context.consumedAction ?? true,
       paid: context.paid ?? true,
       remaining: count,
-      payload: { resourceType: resourceType ?? null }
+      payload: {
+        resourceType: resourceType ?? null,
+        // Ants and Predators grow by what they eat, so the gain travels with
+        // the question about whom to eat.
+        ...(context.addResourcesToSource ? { addResourcesToSource: context.addResourcesToSource } : {})
+      }
     }
   };
 }

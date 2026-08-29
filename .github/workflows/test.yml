@@ -74,6 +74,12 @@ jobs:
         # "M€ production +3" and pays 4 fails here.
         run: node scripts/audit-card-contracts.mjs
 
+      - name: Card actions
+        # A blue card's action happens through its own command, so the contract
+        # audit above never sees it. This checks every branch of every action
+        # takes what it says and gives what it says.
+        run: node scripts/audit-card-actions.mjs
+
       - name: Card coverage
         # Plays every card in the catalogue and fails if any produces no
         # observable change, so a card cannot go inert unnoticed.

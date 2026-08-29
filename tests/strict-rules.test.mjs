@@ -4063,3 +4063,51 @@ test("a card printed with two of a tag counts for two", async () => {
     );
   }
 });
+
+test("Ants and Predators grow by what they eat, however the victim is chosen", async () => {
+  const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
+
+  // The action chain never applied its own addResources, so both cards took a
+  // resource from somebody else's card and gained nothing themselves. Two paths
+  // reach that: one target resolves outright, two ask which.
+  const feed = (cardId, preyId, victims) => {
+    const state = getInitialState({
+      playerCount: 3, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 400;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = [cardId];
+    seat.cardResources = { [cardId]: 2 };
+    for (const id of victims) {
+      const victim = getPlayer(state, id);
+      victim.playedProjects = [preyId];
+      victim.cardResources = { [preyId]: 5 };
+    }
+
+    let settled = executeGameCommand(state, {
+      type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId
+    }).state;
+    for (let guard = 0; guard < 6 && settled.pendingChoice; guard++) {
+      const choice = settled.pendingChoice;
+      const option =
+        choice.options.find(entry => entry.targetPlayerId && entry.targetPlayerId !== "player") ??
+        choice.options[0];
+      settled = resolvePendingChoice(settled, option.id, settled.logs, choice.ownerPlayerId).state;
+    }
+    return getPlayer(settled, "player").cardResources?.[cardId] ?? 0;
+  };
+
+  // One holder: the target resolves without asking.
+  assert.equal(feed("card-base-ants", "card-base-ghg-producing-bacteria", ["player2"]), 3);
+  // Two holders: it asks which, and the gain has to survive the question.
+  assert.equal(feed("card-base-ants", "card-base-ghg-producing-bacteria", ["player2", "player3"]), 3);
+  assert.equal(feed("card-base-predators", "card-base-birds", ["player2", "player3"]), 3);
+});
