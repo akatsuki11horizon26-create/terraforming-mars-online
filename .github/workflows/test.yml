@@ -99,6 +99,12 @@ jobs:
         # per-1, per and per+1 of whatever it counts.
         run: node scripts/audit-card-scoring.mjs
 
+      - name: Cards against upstream
+        # Cost, tags, requirements, type and resource type compared with the
+        # real cards. Nine preludes carried the wrong tags and Frontier Town was
+        # free instead of 11 M€, and every other audit passed all ten.
+        run: node scripts/audit-cards-against-upstream.mjs
+
       - name: Victory points against upstream
         # Every other audit asks whether the engine honours our catalogue. This
         # asks whether the catalogue is right: a spec saying two points per

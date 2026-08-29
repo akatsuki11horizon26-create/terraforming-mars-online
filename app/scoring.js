@@ -88,9 +88,27 @@ function scoreStJoseph(state, owner, card) {
   ];
 }
 
+// Three points if it ever found anything, nothing if it did not -- not one per
+// resource, which is why it cannot be written as a spec.
+function scoreSearchForLife(state, owner, card) {
+  if ((owner.cardResources?.[card.id] ?? 0) === 0) return [];
+  return [
+    {
+      targetPlayerId: owner.id,
+      points: 3,
+      category: "cards",
+      sourceType: "card",
+      sourceId: card.id,
+      sourcePlayerId: owner.id,
+      label: card.name
+    }
+  ];
+}
+
 const SPECIAL_CARD_SCORERS = {
   vermin: scoreVermin,
-  "st-joseph": scoreStJoseph
+  "st-joseph": scoreStJoseph,
+  "search-for-life": scoreSearchForLife
 };
 
 export function buildScoreContributions(state, options = {}) {
@@ -253,17 +271,6 @@ export function buildScoreContributions(state, options = {}) {
         }
       }
 
-      if (cardId === "p-search-for-life" && (player.cardResources?.[cardId] ?? 0) > 0) {
-        contributions.push({
-          targetPlayerId: player.id,
-          points: 3,
-          category: "cards",
-          sourceType: "card",
-          sourceId: cardId,
-          sourcePlayerId: player.id,
-          label: card.name
-        });
-      }
       if (cardId === "p-capital") {
         const key = player.cardPlacements?.[cardId];
         const capital = key ? state.board[key] : undefined;

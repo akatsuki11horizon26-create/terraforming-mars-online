@@ -61,7 +61,7 @@ const CURATED_PROJECT_OVERRIDES = [
   // placed; the areas are only counted.
   project("card-turmoil-red-tourism-wave", "Red Tourism Wave", 3, ["Earth"], "event", "レッズが与党であるか、そこに代表者を2人置いていることが必要。自分のタイルに隣接する空きエリア1つにつきMCを1獲得。", {}, {"requires": {"party": "Reds"}, "reqText": "レッズが与党、または代表者2人", "effectSpec": {"behavior": {"stock": {"megacredits": {"ownedAdjacentEmptyAreas": true}}}}}),
   // Energy production for a city, and the space's printed bonus three times.
-  project("card-prelude2-frontier-town", "Frontier Town", 0, ["City", "Building"], "automated", "マーズ・ファーストが与党であるか、マーズ・ファーストに代表者を2人送っている必要がある。エネルギー生産量-1。都市タイルを1枚置く。配置ボーナスをさらに2回追加で獲得する。", {}, {"requires": {"party": "Mars First"}, "reqText": "マーズ・ファーストが与党、または代表者2人", "effectSpec": {"behavior": {"production": {"energy": -1}, "city": {"bonusMultiplier": 3}}}}),
+  project("card-prelude2-frontier-town", "Frontier Town", 11, ["City", "Building"], "automated", "マーズ・ファーストが与党であるか、マーズ・ファーストに代表者を2人送っている必要がある。エネルギー生産量-1。都市タイルを1枚置く。配置ボーナスをさらに2回追加で獲得する。", {}, {"requires": {"party": "Mars First"}, "reqText": "マーズ・ファーストが与党、または代表者2人", "effectSpec": {"behavior": {"production": {"energy": -1}, "city": {"bonusMultiplier": 3}}}}),
   // Its tile goes beside a greenery, it collects animals from Animal/Plant tags
   // (handled by the card-played watchers), and scores 1 VP per 2 animals.
   project("card-base-ecological-zone", "Ecological Zone", 12, ["Animal", "Plant"], "active", "効果: このカードを含め、動物タグまたは植物タグを持つカードをプレイした際、このカードに動物を1つ追加する。自分が緑地タイルを持っていることが必要。このタイルは任意の緑地タイルに隣接させて置く。動物2個ごとに1勝利点。", {}, {"requires": {"greeneries": 1}, "reqText": "緑地タイル1枚以上", "resourceType": "animal", "victoryPointSpec": {"resourcesHere": true, "per": 2}, "effectSpec": {"behavior": {"tile": {"type": 5, "on": "greenery-adjacent"}}}}),
@@ -118,7 +118,7 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-thorgate", "Thorgate", ["Power"], { mc: 48, production: { energy: 1 } }, "エネルギー生産量+1。電力タグのカードと発電所の建設コスト-3。", { powerDiscount: 3 }),
   corporation("corp-unmi", "United Nations Mars Initiative", ["Earth"], { mc: 40 }, "アクション: この世代にTRが上がっていればMC3でTR+1。", { trActionCost: 3 }),
   corporation("corp-cheung-shing", "Cheung Shing MARS", ["Building"], { mc: 44, production: { mc: 3 } }, "MC生産量+3。建物タグのカードコスト-2。", { buildingDiscount: 2 }),
-  corporation("corp-point-luna", "Point Luna", ["Earth"], { mc: 38, production: { titanium: 1 } }, "チタン生産量+1。地球タグをプレイするたび1枚引く。", { earthDraw: 1 }),
+  corporation("corp-point-luna", "Point Luna", ["Space", "Earth"], { mc: 38, production: { titanium: 1 } }, "チタン生産量+1。地球タグをプレイするたび1枚引く。", { earthDraw: 1 }),
   corporation("corp-robinson", "Robinson Industries", [], { mc: 47 }, "アクション: MC4で任意の生産量+1。", { productionActionCost: 4 }),
   corporation("corp-valley-trust", "Valley Trust", ["Earth"], { mc: 37 }, "最初のアクションでプレリュードを3枚見て1枚プレイする。科学タグのカードコスト-2。", { firstPrelude: true, scienceDiscount: 2 }),
   corporation("corp-vitor", "Vitor", ["Earth"], { mc: 45 }, "最初のアクションで賞を無料で設立する。VP付きカードを出すとMC3。", { firstAward: true, vpBonus: 3 }),
@@ -143,20 +143,20 @@ const CURATED_PRELUDE_OVERRIDES = [
   prelude("card-prelude2-industrial-complex", "Industrial Complex", "MCを18失う。1未満のすべての生産量を1にする。", { payMc: 18, productionFloor: 1 }, { tags: ["Building"] }),
   prelude("prelude-allied-banks", "Allied Banks", "MC生産量+4、MC3。", { production: { mc: 4 }, mc: 3 }, { tags: ["Earth"] }),
   prelude("prelude-biosphere-support", "Biosphere Support", "植物生産量+2、MC生産量-1。", { production: { plants: 2, mc: -1 } }, { tags: ["Plant"] }),
-  prelude("prelude-aquifer-turbines", "Aquifer Turbines", "MC3を支払い、海洋1枚とエネルギー生産量+2。", { payMc: 3, production: { energy: 2 }, tile: "ocean" }, { tags: ["Building"] }),
+  prelude("prelude-aquifer-turbines", "Aquifer Turbines", "MC3を支払い、海洋1枚とエネルギー生産量+2。", { payMc: 3, production: { energy: 2 }, tile: "ocean" }, { tags: ["Power"] }),
   prelude("prelude-mohole-excavation", "Mohole Excavation", "建材生産量+1、熱生産量+2、熱2。", { production: { steel: 1, heat: 2 }, heat: 2 }, { tags: ["Building"] }),
-  prelude("prelude-early-settlement", "Early Settlement", "植物生産量+1、都市1枚。", { production: { plants: 1 }, tile: "city" }, { tags: ["Building"] }),
-  prelude("prelude-biofuels", "Biofuels", "エネルギー・植物生産量+1、植物2。", { production: { energy: 1, plants: 1 }, plants: 2 }, { tags: ["Plant"] }),
+  prelude("prelude-early-settlement", "Early Settlement", "植物生産量+1、都市1枚。", { production: { plants: 1 }, tile: "city" }, { tags: ["Building", "City"] }),
+  prelude("prelude-biofuels", "Biofuels", "エネルギー・植物生産量+1、植物2。", { production: { energy: 1, plants: 1 }, plants: 2 }, { tags: ["Microbe"] }),
   prelude("prelude-power-generation", "Power Generation", "エネルギー生産量+3。", { production: { energy: 3 } }, { tags: ["Power"] }),
-  prelude("prelude-self-sufficient-settlement", "Self-Sufficient Settlement", "MC生産量+2、都市1枚。", { production: { mc: 2 }, tile: "city" }, { tags: ["Building"] }),
+  prelude("prelude-self-sufficient-settlement", "Self-Sufficient Settlement", "MC生産量+2、都市1枚。", { production: { mc: 2 }, tile: "city" }, { tags: ["Building", "City"] }),
   prelude("prelude-mining-operations", "Mining Operations", "建材生産量+2、建材4。", { production: { steel: 2 }, steel: 4 }, { tags: ["Building"] }),
   prelude("prelude-unmi-contractor", "UNMI Contractor", "TR+3、カード1枚。", { tr: 3, draw: 1 }, { tags: ["Earth"] }),
-  prelude("prelude-dome-farming", "Dome Farming", "MC生産量+2、植物生産量+1。", { production: { mc: 2, plants: 1 } }, { tags: ["Building"] }),
+  prelude("prelude-dome-farming", "Dome Farming", "MC生産量+2、植物生産量+1。", { production: { mc: 2, plants: 1 } }, { tags: ["Plant", "Building"] }),
   prelude("prelude-business-empire", "Business Empire", "MC6を支払い、MC生産量+6。", { payMc: 6, production: { mc: 6 } }, { tags: ["Earth"] }),
   prelude("prelude-donation", "Donation", "MC21。", { mc: 21 }, { tags: ["Earth"] }),
   prelude("prelude-nitrogen-shipment", "Nitrogen Shipment", "植物生産量+1、TR+1、MC5。", { production: { plants: 1 }, tr: 1, mc: 5 }, { tags: ["Space"] }),
   prelude("prelude-smelting-plant", "Smelting Plant", "酸素2段階、建材5。", { oxygenSteps: 2, steel: 5 }, { tags: ["Building"] }),
-  prelude("prelude-supplier", "Supplier", "エネルギー生産量+2、建材4。", { production: { energy: 2 }, steel: 4 }, { tags: ["Building"] }),
+  prelude("prelude-supplier", "Supplier", "エネルギー生産量+2、建材4。", { production: { energy: 2 }, steel: 4 }, { tags: ["Power"] }),
   prelude("prelude-supply-drop", "Supply Drop", "チタン3、建材8、植物3。", { titanium: 3, steel: 8, plants: 3 }, { tags: ["Space"] }),
   prelude("prelude-great-aquifer", "Great Aquifer", "海洋2枚。", { tile: "ocean", tileCount: 2 }, { tags: ["Building"] }),
   prelude("prelude-biolab", "Biolab", "植物生産量+1、カード3枚。", { production: { plants: 1 }, draw: 3 }, { tags: ["Science"] }),
@@ -172,9 +172,9 @@ const CURATED_PRELUDE_OVERRIDES = [
   prelude("prelude-metal-rich-asteroid", "Metal-Rich Asteroid", "気温1段階、チタン4、建材4。", { temperatureSteps: 1, titanium: 4, steel: 4 }, { tags: ["Space"] }),
   prelude("prelude-orbital-construction-yard", "Orbital Construction Yard", "チタン生産量+1、チタン4。", { production: { titanium: 1 }, titanium: 4 }, { tags: ["Space"] }),
   prelude("prelude-acquired-space-agency", "Acquired Space Agency", "チタン6、山札から宇宙タグ2枚を手札へ。", { titanium: 6, draw: 2, drawTag: "Space" }, { tags: ["Space"] }),
-  prelude("prelude-research-network", "Research Network", "MC生産量+1、カード3枚。ワイルドタグを持つ。", { production: { mc: 1 }, draw: 3, wildTag: true }, { tags: ["Science"] }),
+  prelude("prelude-research-network", "Research Network", "MC生産量+1、カード3枚。ワイルドタグを持つ。", { production: { mc: 1 }, draw: 3, wildTag: true }, { tags: ["Wild"] }),
   prelude("prelude-eccentric-sponsor", "Eccentric Sponsor", "手札のカード1枚をコスト25軽減してプレイ。", { freePlayDiscount: 25 }, { tags: ["Earth"] }),
-  prelude("prelude-ecology-experts", "Ecology Experts", "植物生産量+1。手札のカード1枚を地球条件無視でプレイ。", { production: { plants: 1 }, freePlayIgnoreGlobal: true }, { tags: ["Plant"] }),
+  prelude("prelude-ecology-experts", "Ecology Experts", "植物生産量+1。手札のカード1枚を地球条件無視でプレイ。", { production: { plants: 1 }, freePlayIgnoreGlobal: true }, { tags: ["Plant", "Microbe"] }),
   prelude("prelude-experimental-forest", "Experimental Forest", "緑地1枚。植物タグ2枚を山札から手札へ。", { tile: "forest", draw: 2, drawTag: "Plant" }, { tags: ["Plant"] }),
 ];
 
@@ -308,7 +308,11 @@ const withCardActions = cards =>
 const SPECIAL_VICTORY_KIND = Object.freeze({
   "card-promo-law-suit": "law-suit",
   "card-promo-vermin": "vermin",
-  "card-promo-st-joseph-of-cupertino-mission": "st-joseph"
+  "card-promo-st-joseph-of-cupertino-mission": "st-joseph",
+  // Three points if it ever found anything, none if it did not. That is not a
+  // number per resource, so it cannot be a spec -- and upstream agrees,
+  // declaring victoryPoints: 'special'.
+  "p-search-for-life": "search-for-life"
 });
 
 // None of the three carries a victoryPointSpec, so the card face had nothing

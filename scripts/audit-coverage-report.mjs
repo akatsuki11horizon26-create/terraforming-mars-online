@@ -47,9 +47,11 @@ Verified:
   audit-card-scoring     every variable-VP card pays what its spec declares at
                          0, per-1, per and per+1 of whatever it counts, with
                          "all" shapes split across both players
-  audit-vp-against-      our victory point specs say what the real cards say,
-    upstream             compared against a manifest pinned to one upstream
-                         commit -- the only check that reads the other side
+  audit-cards-against-   our cost, tags, requirements, type and resource type
+    upstream             say what the real cards say, compared against a
+                         manifest pinned to one upstream commit
+  audit-vp-against-      the same, for victory points
+    upstream
 
 Not verified:
   a bespoke card's effect beyond "something changed"
@@ -60,8 +62,14 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
-  whether a card's non-scoring behaviour matches the real card -- only its
-    victory points are compared with upstream
+  whether a card's BEHAVIOUR matches the real card. Its printed values are
+    compared with upstream; what it does when played is not, because upstream
+    expresses that as behavior objects, bespoke play() methods and class
+    inheritance at once, and a field-by-field comparison would report
+    differences of expression rather than of rules
+  31 cards whose upstream constructor declares no readable field: a prelude
+    prints no cost or tags, a corporation declares startingMegaCredits, and a
+    few pass their values positionally to a base class
 
 "Every card does something" is not "every card is right", and the numbers above
 are the first claim. The second is only true where a contract or a test says so.`);

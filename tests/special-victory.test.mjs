@@ -40,16 +40,43 @@ function withCard(state, playerId, cardId, resources) {
   return state;
 }
 
-test("the three special cards are tagged, and nothing else is", () => {
+test("the cards that score by their own rule are tagged, and nothing else is", () => {
+  // Search For Life pays three points for holding any resource at all and
+  // nothing for holding none, which is not a number per resource and so cannot
+  // be a spec. Upstream says the same, declaring victoryPoints: 'special'.
   const tagged = ALL_CARDS.filter(card => card.specialVictoryKind);
   assert.deepEqual(
     tagged.map(card => card.id).sort(),
     [
       "card-promo-law-suit",
       "card-promo-st-joseph-of-cupertino-mission",
-      "card-promo-vermin"
+      "card-promo-vermin",
+      "p-search-for-life"
     ]
   );
+});
+
+test("Search For Life pays three points for any find, and none for none", () => {
+  const state = table();
+  const seat = state.players[0];
+  const score = resources => {
+    const rigged = cloneGameState(state);
+    rigged.players = rigged.players.map(player =>
+      player.id === seat.id
+        ? {
+            ...player,
+            corporationId: null,
+            playedProjects: ["p-search-for-life"],
+            cardResources: { "p-search-for-life": resources }
+          }
+        : player
+    );
+    return calculateScoreBreakdowns(rigged)[seat.id].cards;
+  };
+
+  assert.equal(score(0), 0);
+  assert.equal(score(1), 3, "one find is worth the full three");
+  assert.equal(score(4), 3, "and four finds are worth no more");
 });
 
 test("a breakdown sums to the same number the single-player entry point returns", () => {

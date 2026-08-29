@@ -8,14 +8,14 @@
 //
 // The comparison is against a manifest pinned to one upstream commit rather
 // than against the network, so a run fails for the code's reasons only. Rebuild
-// it with scripts/build-vp-manifest.mjs when deliberately moving to a newer
+// it with scripts/build-upstream-manifest.mjs when deliberately moving to a newer
 // upstream.
 //
 // Usage: node scripts/audit-vp-against-upstream.mjs [--list]
 import { readFileSync } from "node:fs";
 import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
 
-const manifest = JSON.parse(readFileSync(new URL("../data/upstream-vp.json", import.meta.url)));
+const manifest = JSON.parse(readFileSync(new URL("../data/upstream-cards.json", import.meta.url)));
 
 // The upstream declaration is TypeScript, not JSON: keys are bare, `all` is a
 // shorthand for `all: true`, and a plain number means a fixed value. Reading it
@@ -61,9 +61,17 @@ const wrong = [];
 for (const [cardId, entry] of Object.entries(manifest.cards)) {
   const card = cards.find(item => item.id === cardId);
   if (!card) { skipped.push([cardId, "not in our catalogue"]); continue; }
+  // The manifest covers every card; only the ones that print points are this
+  // audit's business.
+  if (entry.victoryPoints === undefined) {
+    if (card.victoryPointSpec || card.dynamicVictory || card.specialVictoryKind) {
+      skipped.push([cardId, "we score it, upstream declares no victoryPoints"]);
+    }
+    continue;
+  }
 
-  const upstream = parseUpstream(entry.upstream);
-  if (!upstream) { skipped.push([cardId, `cannot read ${entry.upstream}`]); continue; }
+  const upstream = parseUpstream(entry.victoryPoints);
+  if (!upstream) { skipped.push([cardId, `cannot read ${entry.victoryPoints}`]); continue; }
 
   // A card upstream scores by its own code carries no readable declaration, and
   // ours says so with specialVictoryKind or dynamicVictory.
@@ -116,7 +124,7 @@ console.log(`skipped    : ${skipped.length}`);
 
 for (const [card, problems] of wrong) {
   console.log(`\nDIFFERS ${card.id}  ${card.name}`);
-  console.log(`   upstream: ${manifest.cards[card.id].upstream}`);
+  console.log(`   upstream: ${manifest.cards[card.id].victoryPoints}`);
   console.log(`   ours    : ${JSON.stringify(card.victoryPointSpec ?? card.victoryPoints)}`);
   for (const problem of problems) console.log(`   ${problem}`);
 }
