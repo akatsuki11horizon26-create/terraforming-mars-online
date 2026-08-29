@@ -180,7 +180,25 @@ const ASKS_A_QUESTION = ["or", "spend", "standardResource", "addResourcesToAnyCa
 
 // These move the same fields the contract measures, so the declared amount is
 // no longer the whole story for that field.
-const TOUCHES_THE_SAME_FIELDS = ["stealFromPlayer", "removeResourcesFromAnyCard", "addResources"];
+const TOUCHES_THE_SAME_FIELDS = ["stealFromPlayer", "removeResourcesFromAnyCard"];
+
+// "Decrease any player's titanium production 1 step", and when it is `stealing`
+// that step arrives on the player's own track. This is a contract about two
+// parties, which is why it is measured apart from the single-player amounts:
+// the victim came down AND the thief went up.
+function attackContract(card) {
+  const attack = card.effectSpec?.behavior?.decreaseAnyProduction;
+  if (!attack || typeof attack.count !== "number") return null;
+  const field = PRODUCTION_FIELD[attack.type];
+  if (!field) return null;
+  return { field, count: attack.count, stealing: attack.stealing === true };
+}
+
+// "Add a resource to this card" -- the card played, not the player's stock.
+function selfResourceContract(card) {
+  const amount = card.effectSpec?.behavior?.addResources;
+  return typeof amount === "number" ? amount : null;
+}
 
 // Two boards: one low, one high. A card gated behind "requires 6% oxygen" is
 // unplayable on the low board, and a card raising oxygen would cross a
@@ -231,6 +249,19 @@ const rig = (levels = THRESHOLD_SAFE[0]) => {
     player.corporationId = null;
     player.hand = [];
   }
+  // Opponents hold production and resources of their own, or an attack has
+  // nothing to take and reads as doing nothing.
+  for (const player of state.players) {
+    if (player.id === "player") continue;
+    player.mc = 40;
+    player.steel = 10;
+    player.titanium = 10;
+    player.plants = 10;
+    player.energy = 10;
+    player.heat = 10;
+    for (const field of Object.values(PRODUCTION_FIELD)) player[field] = 5;
+  }
+
   const seat = getPlayer(state, "player");
   seat.mc = 400;
   seat.steel = 40;
@@ -303,7 +334,10 @@ function check(card, levels) {
     card.id
   ];
   const expected = contractFor(card, counting);
-  if (!expected) return { status: "skip", why: "no contract this can compute" };
+  const hasRelational = attackContract(card) !== null || selfResourceContract(card) !== null;
+  if (!expected && !hasRelational) {
+    return { status: "skip", why: "no contract this can compute" };
+  }
   const behavior = card.effectSpec?.behavior ?? {};
   if ([...ASKS_A_QUESTION, ...TOUCHES_THE_SAME_FIELDS].some(key => behavior[key] !== undefined)) {
     return { status: "skip", why: "does not finish resolving, or moves the measured fields" };
@@ -328,7 +362,12 @@ function check(card, levels) {
   let asked = 0;
   while (settled.pendingChoice && asked < 8) {
     const choice = settled.pendingChoice;
-    const option = choice.options?.[0];
+    // "Decrease ANY player's production" legally includes the player's own, and
+    // choosing yourself nets zero -- which reads as the card doing nothing. The
+    // contract is about what an attack takes, so aim it at somebody else.
+    const option =
+      choice.options?.find(entry => entry.targetPlayerId && entry.targetPlayerId !== "player") ??
+      choice.options?.[0];
     if (!option) return { status: "skip", why: "asked something with no answer" };
     const answered = resolvePendingChoice(settled, option.id, settled.logs, choice.ownerPlayerId);
     if (answered.state.pendingChoice === choice) {
@@ -343,7 +382,38 @@ function check(card, levels) {
   const GLOBAL_FIELDS = GLOBAL_FIELD_NAMES;
   const countTiles = board => Object.values(board).filter(cell => cell.tileType !== "empty").length;
   const problems = [];
-  for (const [field, delta] of Object.entries(expected)) {
+
+  // Somebody else's production must have come down by the stated amount, and a
+  // stealing card must have collected it.
+  const attack = attackContract(card);
+  if (attack) {
+    const worstLoss = state.players
+      .filter(player => player.id !== "player")
+      .reduce((worst, player) => {
+        const now = getPlayer(settled, player.id)?.[attack.field] ?? 0;
+        return Math.max(worst, (player[attack.field] ?? 0) - now);
+      }, 0);
+    if (worstLoss !== attack.count) {
+      problems.push(`an opponent lost ${worstLoss} ${attack.field}, spec says ${attack.count}`);
+    }
+    if (attack.stealing) {
+      const gained = (after[attack.field] ?? 0) - (before[attack.field] ?? 0);
+      if (gained !== attack.count) {
+        problems.push(`stole ${gained} ${attack.field}, spec says ${attack.count}`);
+      }
+    }
+  }
+
+  // A card that puts resources on itself holds exactly that many.
+  const onSelf = selfResourceContract(card);
+  if (onSelf !== null) {
+    const held = (after.cardResources?.[card.id] ?? 0) - (before.cardResources?.[card.id] ?? 0);
+    if (held !== onSelf) {
+      problems.push(`holds ${held} of its own resource, spec says ${onSelf}`);
+    }
+  }
+
+  for (const [field, delta] of Object.entries(expected ?? {})) {
     // Playing the card costs money, so M€ moves by the card's own price too,
     // and the card itself leaves the hand.
     const paid = field === "mc" ? card.cost : 0;
@@ -459,4 +529,7 @@ if (process.argv.includes("--list")) {
   for (const [card, why] of skipped) console.log(`skip ${card.id}: ${why}`);
 }
 
-process.exit(wrong.length + preludeResults.wrong.length + corpResults.wrong.length > 0 ? 1 : 0);
+// exitCode rather than process.exit: the latter can cut a buffered stdout short
+// when the output is piped, which would truncate --list.
+process.exitCode =
+  wrong.length + preludeResults.wrong.length + corpResults.wrong.length > 0 ? 1 : 0;
