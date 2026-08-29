@@ -287,6 +287,27 @@ export function replaceDelegateInParty(turmoil, partyId, outgoing, incoming) {
   return { turmoil: sent.turmoil, replaced: true };
 }
 
+// Banned Delegate takes a delegate off the board without putting one back. Only
+// a non-leader may go, so a party holding just its leader offers nothing, and
+// the delegate returns to whoever's reserve it came from.
+export function removeDelegateFromParty(turmoil, partyId, delegate) {
+  const party = turmoil.parties?.[partyId];
+  if (!party) return { turmoil, removed: false, reason: "政党が見つかりません。" };
+  const held = countDelegates(turmoil, partyId, delegate);
+  if (held === 0) return { turmoil, removed: false, reason: "その代表者がいません。" };
+  if (party.leader === delegate && held === 1) {
+    return { turmoil, removed: false, reason: "党首は取り除けません。" };
+  }
+
+  const next = cloneTurmoil(turmoil);
+  const target = next.parties[partyId];
+  target.delegates.splice(target.delegates.indexOf(delegate), 1);
+  next.delegateReserve[delegate] = (next.delegateReserve[delegate] ?? 0) + 1;
+  target.leader = computePartyLeader(target);
+  next.dominantParty = computeDominantParty(next);
+  return { turmoil: next, removed: true };
+}
+
 // Vote Of No Confidence unseats a neutral chairman directly. Nothing about the
 // parties changes -- the delegate comes from the reserve straight to the seat --
 // so this is not a sendDelegate.

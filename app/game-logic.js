@@ -89,6 +89,7 @@ import {
   getInfluence,
   getInfluenceBreakdown,
   replaceDelegateInParty,
+  removeDelegateFromParty,
   replaceNeutralChairman,
   getParty,
   getRulingPolicy,
@@ -356,6 +357,7 @@ const HI_TECH_LAB_ID = "card-promo-hi-tech-lab";
 const SPONSORED_ACADEMIES_ID = "card-venus-sponsored-academies";
 const RECRUITMENT_ID = "card-turmoil-recruitment";
 const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
+const BANNED_DELEGATE_ID = "card-turmoil-banned-delegate";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
 const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
@@ -776,10 +778,18 @@ function normalizeCountedAmount(amount) {
   if (amount.ownedAdjacentEmptyAreas) {
     return { kind: "ownedAdjacentEmptyAreas", each, per, allPlayers: false };
   }
+  // "1 M€ per floater HERE, max 4" -- the resources on the card doing the
+  // counting, which is why this one needs to know which card that is.
+  if (amount.resourcesHere) {
+    return { kind: "resourcesHere", each, per, allPlayers: false, max: amount.max };
+  }
+  if (amount.citiesAndSpecialTilesNextToOcean) {
+    return { kind: "citiesAndSpecialTilesNextToOcean", each, per, allPlayers: true };
+  }
   return null;
 }
 
-function evaluateCountedGain(state, gain, ownerId) {
+function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
   const players = gain.allPlayers ? state.players : state.players.filter(p => p.id === ownerId);
 
   let units = 0;
@@ -858,6 +868,25 @@ function evaluateCountedGain(state, gain, ownerId) {
       // Every colony on the board, whoever built it.
       if (!state.colonies) return 0;
       for (const player of state.players) units += countColonies(state.colonies, player.id);
+      break;
+    case "resourcesHere": {
+      if (!sourceCardId) return 0;
+      const owner = state.players.find(player => player.id === ownerId);
+      units = owner?.cardResources?.[sourceCardId] ?? 0;
+      // Jupiter Floating Station pays for at most four floaters however many
+      // are sitting on it.
+      if (typeof gain.max === "number") units = Math.min(units, gain.max);
+      break;
+    }
+    case "citiesAndSpecialTilesNextToOcean":
+      // Red Ships counts every city and special tile touching an ocean, whoever
+      // placed it. A greenery beside an ocean is neither, and does not count.
+      units = Object.values(state.board).filter(cell => {
+        if (cell.tileType !== "city" && cell.tileType !== "special") return false;
+        return getAdjacentCells(cell.q, cell.r).some(
+          pos => isOceanTile(state.board[`${pos.q},${pos.r}`])
+        );
+      }).length;
       break;
     default:
       return 0;
@@ -1132,7 +1161,7 @@ function applyEffect(state, effect, logs, options = {}) {
 
   if (effect.countedGains?.length) {
     for (const gain of effect.countedGains) {
-      const amount = evaluateCountedGain(nextState, gain, nextState.currentPlayerId);
+      const amount = evaluateCountedGain(nextState, gain, nextState.currentPlayerId, effect.cardId);
       if (amount > 0) {
         addResource(nextState, gain.resource, amount);
         nextLogs = addLog(nextLogs, "system", `条件により ${gain.resource} を ${amount} 獲得しました。`);
@@ -1995,6 +2024,37 @@ function recruitmentPartyOptions(state) {
     }));
 }
 
+// Every delegate that may be banned: any non-leader, in any party, belonging to
+// anyone including the player holding the card. A party with only its leader in
+// it offers nothing.
+function bannedDelegateOptions(state) {
+  if (!state.turmoil) return [];
+  const options = [];
+  for (const [partyId, party] of Object.entries(state.turmoil.parties ?? {})) {
+    const delegates = party.delegates ?? [];
+    if (delegates.length <= 1) continue;
+    const seen = new Set();
+    for (const delegate of delegates) {
+      // The leader stays, and one entry per owner is enough: which of a
+      // player's two identical delegates goes is not a decision.
+      if (delegate === party.leader && delegates.filter(d => d === delegate).length === 1) continue;
+      const key = `${partyId}:${delegate}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const owner = delegate === NEUTRAL
+        ? "中立"
+        : getPlayer(state, delegate)?.name ?? delegate;
+      options.push({
+        id: key,
+        partyId,
+        delegate,
+        label: `${getParty(partyId)?.name ?? partyId} の ${owner} の代表者`
+      });
+    }
+  }
+  return options;
+}
+
 // Only tiles that are in play can move, and only within the track's bounds.
 function colonyTrackOptions(state, direction, excludeTileId) {
   if (!state.colonies) return [];
@@ -2312,6 +2372,28 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "market-manipulation",
           direction: "up",
+          consumedAction: context.consumedAction ?? true,
+          paid: context.paid ?? true
+        }
+      };
+    }
+  }
+
+  // "Remove any NON-LEADER delegate." Anyone's, including the player's own.
+  if (card.id === BANNED_DELEGATE_ID && !done.includes("turmoil-banned-delegate")) {
+    const options = bannedDelegateOptions(state);
+    if (options.length > 0) {
+      return {
+        id: `turmoil-banned-delegate:${state.currentPlayerId}`,
+        kind: "turmoil-banned-delegate",
+        ownerPlayerId: state.currentPlayerId,
+        prompt: "取り除く代表者を選んでください（党首以外）。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: context.sourceKind,
+          sourceId: card.id,
+          stage: "turmoil-banned-delegate",
           consumedAction: context.consumedAction ?? true,
           paid: context.paid ?? true
         }
@@ -3093,6 +3175,17 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           next.logs = nextLogs;
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: follow };
         }
+      }
+      break;
+    }
+
+    case "turmoil-banned-delegate": {
+      const removed = removeDelegateFromParty(next.turmoil, option.partyId, option.delegate);
+      if (removed.removed) {
+        next.turmoil = removed.turmoil;
+        nextLogs = addLog(nextLogs, "system", `${option.label} を取り除きました。`);
+      } else {
+        nextLogs = addLog(nextLogs, "system", removed.reason ?? "取り除けませんでした。");
       }
       break;
     }
@@ -4939,6 +5032,32 @@ const CARD_PLAYED_WATCHERS = [
         delta: 1
       });
       return { logs: addLog(logs, "system", "Ecological Zone: 動物 +1") };
+    }
+  },
+  {
+    // "When you play an Earth tag, place an animal here."
+    cardId: "card-colonies-martian-zoo",
+    tags: ["Earth"],
+    perTag: (state, ownerId, played, logs) => {
+      changeCardResource(state, {
+        ownerPlayerId: ownerId,
+        cardId: "card-colonies-martian-zoo",
+        delta: 1
+      });
+      return { logs: addLog(logs, "system", "Martian Zoo: 動物 +1") };
+    }
+  },
+  {
+    // "Each time you play a plant, animal or microbe tag, including this, gain
+    // 2 M€." The card carries none of those tags itself, so "including this"
+    // only matters for the card being played.
+    cardId: "card-turmoil-gmo-contract",
+    tags: ["Plant", "Animal", "Microbe"],
+    perTag: (state, ownerId, played, logs) => {
+      state.players = state.players.map(player =>
+        player.id === ownerId ? { ...player, mc: (player.mc ?? 0) + 2 } : player
+      );
+      return { logs: addLog(logs, "system", "GMO Contract: MC +2") };
     }
   }
 ];

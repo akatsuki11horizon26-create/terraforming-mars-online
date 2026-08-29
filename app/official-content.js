@@ -21,6 +21,30 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // Four more that shipped with an empty effectSpec: their action lives in a
+  // hand-written method upstream rather than in a declarative block, so the
+  // generator had nothing to copy and each was a card you could buy, play, and
+  // never use again. Nothing caught them, because the audits check that the
+  // engine honours our text and our text promised nothing either.
+  // GMO Contract and Martian Zoo watch for a later card the way Advertising
+  // does, so their text has to say so: the contract audit builds its tableau
+  // from cards whose text does NOT start with 効果:, and a watcher hiding
+  // behind a requirement-only line lands in the rig and pays out mid-measurement.
+  project("card-turmoil-gmo-contract", "GMO Contract", 3, ["Microbe", "Science"], "active", "効果: 植物・動物・微生物タグのカードをプレイするたび（このカードを含む）、MCを2獲得。グリーンズが与党であるか、そこに代表者を2人置いている必要がある。", {}, { victoryPoints: 2, requires: { party: "Greens" }, reqText: "グリーンズが与党、または代表者2人" }),
+  project("card-colonies-martian-zoo", "Martian Zoo", 12, ["Animal", "Building"], "active", "効果: 地球タグのカードをプレイするたび、このカードに動物を1個追加する。アクション: このカードの動物1個につきMCを1獲得する。場に都市タイルが2枚必要。", {}, { victoryPoints: 1, requires: { cities: 2, all: true }, reqText: "都市タイル2枚", resourceType: "animal", effectSpec: { action: { stock: { megacredits: { resourcesHere: true } } } } }),
+  project("card-base-extreme-cold-fungus", "Extreme-Cold Fungus", 13, ["Microbe"], "active", "気温-10°C以下であること。アクション: 植物を1獲得する、または他のカード1枚に微生物を2個追加する。", {}, { requires: { temperatureMax: -10 }, reqText: "気温-10°C以下", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Add 2 microbes to another card", addResourcesToAnyCard: { count: 2, type: "Microbe", excludeThis: true } },
+    { title: "Gain 1 plant", stock: { plants: 1 } }
+  ] } } } }),
+  project("card-colonies-jupiter-floating-station", "Jupiter Floating Station", 9, ["Jovian"], "active", "科学タグ3枚以上が必要。アクション: ジョビアンカード1枚にフローターを1個追加する、またはこのカードのフローター1個につきMCを1獲得（最大4）。", {}, { victoryPoints: 1, requires: { tags: { Science: 3 } }, reqText: "科学タグ3枚以上", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Add 1 floater to a Jovian card", addResourcesToAnyCard: { count: 1, type: "Floater", tag: "Jovian" } },
+    { title: "Gain 1 M€ per floater here, up to 4", stock: { megacredits: { resourcesHere: true, max: 4 } } }
+  ] } } } }),
+  project("card-venus-sulphur-eating-bacteria", "Sulphur-Eating Bacteria", 6, ["Venus", "Microbe"], "active", "金星6%以上が必要。アクション: このカードに微生物を1個追加する、またはこのカードの微生物を任意の数支払い、その3倍のMCを獲得する。", {}, { requires: { venus: 6 }, reqText: "金星6%以上", resourceType: "microbe", effectSpec: { action: { or: { autoSelect: true, behaviors: [
+    { title: "Spend microbes here to gain 3 M€ each", spend: { resourcesHere: 1 }, stock: { megacredits: 3 } },
+    { title: "Add 1 microbe to this card", addResources: 1 }
+  ] } } } }),
+  project("card-promo-red-ships", "Red Ships", 2, [], "active", "酸素4%以上が必要。アクション: 海洋タイルに隣接する都市タイルおよび特殊タイル1枚につきMCを1獲得する。", {}, { requires: { oxygen: 4 }, reqText: "酸素4%以上", effectSpec: { action: { stock: { megacredits: { citiesAndSpecialTilesNextToOcean: true } } } } }),
   // The generated catalog ships this with an empty effectSpec, so the card was
   // a 6 M€ science tag and nothing else.
   project("card-base-standard-technology", "Standard Technology", 6, ["Science"], "active", "標準プロジェクトの代金を支払った後、MC3を得る（特許の売却を除く）。", { standardProjectRebate: 3 }, { victoryPoints: 0 }),

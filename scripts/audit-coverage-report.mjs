@@ -55,6 +55,11 @@ Verified:
 
 Not verified:
   a bespoke card's effect beyond "something changed"
+  whether OUR TEXT describes the real card. Every audit here checks that the
+    engine honours what the catalogue says; a card whose text promises nothing
+    passes them all while doing nothing. Seven cards were in exactly that state
+    -- their upstream behaviour lives in a hand-written method the catalogue
+    generator could not copy -- and only reading the real cards found them
   four ongoing effects the audit has no reading for -- Rover Construction,
     Cutting Edge Technology, Martian Lumber Corp and Meat Industry. Each has a
     test in strict-rules, so they are checked; they are not checked by a
