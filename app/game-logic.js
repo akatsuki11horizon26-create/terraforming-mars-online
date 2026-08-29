@@ -6433,6 +6433,19 @@ export function getCardDiscount(card, state) {
   return { maxSteel, maxTitanium };
 }
 
+// Martian Lumber Corp lets plants pay for a building card at 3 M€ each. It is
+// the only card in the catalogue with this rule, and it is an ongoing one, so it
+// is read from the tableau rather than from the card being played.
+export const MARTIAN_LUMBER_CORP_ID = "card-promo-martian-lumber-corp";
+export const PLANT_MEGACREDIT_VALUE = 3;
+
+export function plantsAsMegacredits(state, card) {
+  if (!(card.tags ?? []).includes("Building")) return 0;
+  const owner = getCurrentPlayer(state);
+  if (!(owner?.playedProjects ?? []).includes(MARTIAN_LUMBER_CORP_ID)) return 0;
+  return (owner.plants ?? 0) * PLANT_MEGACREDIT_VALUE;
+}
+
 export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0) {
   const corporation = getCorporation(state);
   const corporationDiscount = getCorporationDiscount(card, corporation);
@@ -6907,13 +6920,15 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   const costAfterDiscount = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
 
   const heatAsMoney = corporation?.effects?.heatAsMoney ? state.heat : 0;
+  // "When playing a building tag, plants may be used as 3 M€ each."
+  const plantsAsMoney = plantsAsMegacredits(state, card);
   const localHeatTrapping = card.id === LOCAL_HEAT_TRAPPING_ID;
   const stormcraftFloaters = localHeatTrapping
     ? state.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0
     : 0;
   const costResources = localHeatTrapping
     ? state.mc + state.heat + stormcraftFloaters
-    : state.mc + heatAsMoney;
+    : state.mc + heatAsMoney + plantsAsMoney;
   if (costResources < costAfterDiscount) {
     return { playable: false, reason: "資源（MC）が不足しています。" };
   }

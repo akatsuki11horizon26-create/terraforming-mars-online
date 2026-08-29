@@ -47,6 +47,8 @@ import {
   getPreludeCost,
   PRELUDES,
   corporationFor,
+  plantsAsMegacredits,
+  PLANT_MEGACREDIT_VALUE,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
@@ -554,7 +556,17 @@ const HANDLERS = {
     const floaterPaid = localHeatTrapping
       ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heatPaid))
       : 0;
-    if ((actor.mc ?? 0) + heatPaid + floaterPaid < cost) {
+    // "When playing a building tag, plants may be used as 3 M€ each." Plants
+    // cover whatever the money cannot, and no change is given, so a part unit
+    // is still a whole plant.
+    const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
+    const plantsPaid = plantValue
+      ? Math.min(
+          actor.plants ?? 0,
+          Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heatPaid - floaterPaid) / plantValue)
+        )
+      : 0;
+    if ((actor.mc ?? 0) + heatPaid + floaterPaid + plantsPaid * plantValue < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "支払いできません。");
     }
 
@@ -569,8 +581,9 @@ const HANDLERS = {
       player.id === command.playerId
         ? {
             ...player,
-            mc: player.mc - (cost - heatPaid - floaterPaid),
+            mc: Math.max(0, player.mc - (cost - heatPaid - floaterPaid - plantsPaid * plantValue)),
             heat: (player.heat ?? 0) - heatPaid,
+            ...(plantsPaid > 0 ? { plants: (player.plants ?? 0) - plantsPaid } : {}),
             ...(localHeatTrapping && floaterPaid > 0
               ? { cardResources: { ...player.cardResources, [stormcraftId]: (player.cardResources?.[stormcraftId] ?? 0) - floaterPaid } }
               : {}),

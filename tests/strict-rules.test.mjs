@@ -4236,3 +4236,72 @@ test("Decomposers, Venusian Animals and Carbon Nanosystems collect per tag", asy
     assert.equal(held, wanted, `${holder} collects one per ${tag} tag`);
   }
 });
+
+test("Martian Lumber Corp pays for building cards with plants", async () => {
+  const { getPlayer, getCardPlayableStatus, ALL_CARDS } = await import("../app/game-logic.js");
+
+  // "When playing a building tag, plants may be used as 3 M€ each." Only the
+  // production half of this card was implemented; the ongoing half, which is
+  // the reason to play it, was missing.
+  const rig = holdsCard => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 5;
+    seat.plants = 10;
+    seat.steel = 0;
+    seat.titanium = 0;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = holdsCard ? ["card-promo-martian-lumber-corp"] : [];
+    state.oceans = 8;
+    state.oxygen = 14;
+    state.temperature = 8;
+    state.venus = 30;
+    return state;
+  };
+
+  const building = ALL_CARDS.find(card =>
+    (card.tags ?? []).includes("Building") &&
+    card.cost >= 10 && card.cost <= 14 &&
+    getCardPlayableStatus(card, rig(true)).playable
+  );
+  assert.ok(building, "a building card costing more than the money in hand");
+
+  // 5 M€ alone cannot buy it.
+  const without = rig(false);
+  getPlayer(without, "player").hand = [building.id];
+  assert.equal(getCardPlayableStatus(building, without).playable, false);
+
+  // With the card, plants make up the difference at 3 M€ each, and no change is
+  // given -- so a part unit is still a whole plant.
+  const with_ = rig(true);
+  getPlayer(with_, "player").hand = [building.id];
+  const played = executeGameCommand(with_, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: building.id
+  });
+  assert.equal(played.ok, true);
+  const after = getPlayer(played.state, "player");
+  const plantsSpent = 10 - after.plants;
+  assert.ok(plantsSpent > 0, "plants covered part of it");
+  // What was taken -- money plus plants at three each -- covers the price, and
+  // overpays by less than one plant.
+  const paid = (5 - after.mc) + plantsSpent * 3;
+  assert.ok(paid >= building.cost, "the price is covered");
+  assert.ok(paid - building.cost < 3, "and not by more than a plant's worth");
+
+  // A card without a Building tag is not payable this way.
+  const other = ALL_CARDS.find(card =>
+    !(card.tags ?? []).includes("Building") && card.cost >= 10 && card.cost <= 14
+  );
+  const wrongTag = rig(true);
+  getPlayer(wrongTag, "player").hand = [other.id];
+  assert.equal(getCardPlayableStatus(other, wrongTag).playable, false);
+});
