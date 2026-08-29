@@ -870,7 +870,10 @@ test("Soil Enrichment lets PLAY_CARD choose an own microbe card", async () => {
   const result = getPlayer(settled.state, "player");
   assert.equal(settled.ok, true);
   assert.equal(result.cardResources["card-base-ants"], 2);
-  assert.equal(result.cardResources["card-base-decomposers"], 0);
+  // Soil Enrichment carries a Microbe AND a Plant tag, and Decomposers collects
+  // one microbe per matching tag on anything played -- so it gains two, then
+  // gives one back to the removal: 1 + 2 - 1.
+  assert.equal(result.cardResources["card-base-decomposers"], 2);
   assert.equal(result.plants, 5);
 });
 
@@ -4177,4 +4180,59 @@ test("Inventors' Guild offers the top card rather than handing it over", async (
   const dropped = resolvePendingChoice(offered.state, drop.id, offered.state.logs, "player");
   assert.equal(getPlayer(dropped.state, "player").mc, 400, "letting it go costs nothing");
   assert.equal(getPlayer(dropped.state, "player").hand.length, 0);
+});
+
+test("Decomposers, Venusian Animals and Carbon Nanosystems collect per tag", async () => {
+  const { getPlayer, getCardPlayableStatus, ALL_CARDS } = await import("../app/game-logic.js");
+
+  // All three read "when you play a card with tag X, add a resource here", and
+  // none of them was watching for anything.
+  const collect = (holder, tag) => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    for (const player of state.players) {
+      player.setupStep = "complete";
+      player.corporationId = null;
+      player.hand = [];
+    }
+    const seat = getPlayer(state, "player");
+    seat.mc = 400;
+    seat.steel = 40;
+    seat.titanium = 40;
+    seat.actionsRemaining = 20;
+    seat.playedProjects = [holder];
+    // Wide open, so the card played is not gated by a parameter.
+    state.oceans = 8;
+    state.oxygen = 14;
+    state.temperature = 8;
+    state.venus = 30;
+
+    const trigger = ALL_CARDS.find(card =>
+      (card.tags ?? []).includes(tag) &&
+      card.id !== holder &&
+      getCardPlayableStatus(card, state).playable
+    );
+    assert.ok(trigger, `something with a ${tag} tag to play`);
+    seat.hand = [trigger.id];
+    state.deck = state.deck.filter(id => id !== trigger.id);
+
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: trigger.id
+    });
+    assert.equal(played.ok, true);
+    const wanted = (trigger.tags ?? []).filter(entry => entry === tag).length;
+    return { held: getPlayer(played.state, "player").cardResources?.[holder] ?? 0, wanted };
+  };
+
+  for (const [holder, tag] of [
+    ["card-base-decomposers", "Microbe"],
+    ["card-venus-venusian-animals", "Science"],
+    ["card-promo-carbon-nanosystems", "Science"]
+  ]) {
+    const { held, wanted } = collect(holder, tag);
+    assert.equal(held, wanted, `${holder} collects one per ${tag} tag`);
+  }
 });

@@ -4891,6 +4891,45 @@ const CARD_PLAYED_WATCHERS = [
     }
   },
   {
+    // "When you play an animal, plant or microbe tag, add a microbe here."
+    cardId: "card-base-decomposers",
+    tags: ["Animal", "Plant", "Microbe"],
+    perTag: (state, ownerId) => {
+      changeCardResource(state, {
+        ownerPlayerId: ownerId,
+        cardId: "card-base-decomposers",
+        delta: 1
+      });
+      return {};
+    }
+  },
+  {
+    // "When you play a science tag, add an animal here."
+    cardId: "card-venus-venusian-animals",
+    tags: ["Science"],
+    perTag: (state, ownerId) => {
+      changeCardResource(state, {
+        ownerPlayerId: ownerId,
+        cardId: "card-venus-venusian-animals",
+        delta: 1
+      });
+      return {};
+    }
+  },
+  {
+    // "When you play a science tag, add a graphene here."
+    cardId: "card-promo-carbon-nanosystems",
+    tags: ["Science"],
+    perTag: (state, ownerId) => {
+      changeCardResource(state, {
+        ownerPlayerId: ownerId,
+        cardId: "card-promo-carbon-nanosystems",
+        delta: 1
+      });
+      return {};
+    }
+  },
+  {
     cardId: "card-base-ecological-zone",
     tags: ["Animal", "Plant"],
     perTag: (state, ownerId, played, logs) => {
