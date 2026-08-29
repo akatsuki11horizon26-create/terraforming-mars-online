@@ -17,6 +17,7 @@ import {
   getPlayer,
   getCardPlayableStatus,
   getCardEffect,
+  resolvePendingChoice,
   applyPreludes,
   applyCorporation,
   getPreludeCost
@@ -66,6 +67,9 @@ function contractFor(card, state) {
   // The global parameters and the rating move by fixed printed amounts too.
   // Temperature moves 2 degrees per step, venus 2 points; oxygen and the rating
   // move one for one.
+  const oceanCount = behavior.ocean
+    ? (typeof behavior.ocean.count === "number" ? behavior.ocean.count : 1)
+    : 0;
   const global = behavior.global ?? {};
   if (typeof global.temperature === "number") expected.temperature = global.temperature * 2;
   if (typeof global.oxygen === "number") expected.oxygen = global.oxygen;
@@ -76,8 +80,13 @@ function contractFor(card, state) {
     (typeof global.temperature === "number" ? global.temperature : 0) +
     (typeof global.oxygen === "number" ? global.oxygen : 0) +
     (typeof global.venus === "number" ? global.venus : 0);
+  // An ocean is a global parameter too: laying one pays a rating step, the same
+  // as raising the temperature.
+  const oceanSteps = oceanCount;
   const printedTr = typeof behavior.tr === "number" ? behavior.tr : 0;
-  if (printedTr || fromParameters) expected.tr = printedTr + fromParameters;
+  if (printedTr || fromParameters || oceanSteps) {
+    expected.tr = printedTr + fromParameters + oceanSteps;
+  }
 
   // "Draw 2 cards" is as exact a promise as "+2 M€ production".
   const draw = behavior.drawCard;
@@ -98,6 +107,16 @@ function contractFor(card, state) {
       (behavior.ocean ? (typeof behavior.ocean.count === "number" ? behavior.ocean.count : 1) : 0) +
       (behavior.greenery ? 1 : 0);
   if (tiles > 0) expected.tiles = tiles;
+
+  // The ocean counter is its own promise: "place 2 oceans" must move it by two,
+  // not merely pay two rating steps.
+  if (oceanCount > 0) expected.oceans = oceanCount;
+
+  // Immigrant City collects a M€ production step from every city placed,
+  // including the one it places itself, so its net is one better than printed.
+  if (card.id === "card-base-immigrant-city" && expected.mcProd !== undefined) {
+    expected.mcProd += 1;
+  }
 
   // "1 M€ per Earth tag" is still a contract, just one the board decides. The
   // engine works the number out from the same spec, so what is being checked
@@ -169,7 +188,9 @@ const TOUCHES_THE_SAME_FIELDS = ["stealFromPlayer", "removeResourcesFromAnyCard"
 // its contract clean and reachable.
 const THRESHOLD_SAFE = [
   { oceans: 5, oxygen: 2, temperature: -10, venus: 2 },
-  { oceans: 8, oxygen: 12, temperature: 2, venus: 20 }
+  // Six oceans rather than eight: a card laying two more would otherwise hit
+  // the nine-ocean cap, and an ocean that cannot be placed pays no rating.
+  { oceans: 6, oxygen: 12, temperature: 2, venus: 20 }
 ];
 
 // Two of the cheapest cards bearing each tag, so every "requires N of a tag"
@@ -187,7 +208,10 @@ const TAG_BEARERS = (() => {
       .filter(card =>
         (card.tags ?? []).includes(tag) &&
         card.type !== "event" &&
-        !/^効果:/.test(card.effectText ?? "")
+        // Anything that pays out when something else happens later distorts the
+        // measurement: Advertising pays for an expensive card, Immigrant City
+        // for a city placed anywhere.
+        !/効果:/.test(card.effectText ?? "")
       )
       .sort((a, b) => a.cost - b.cost)
       .slice(0, 6);
@@ -296,8 +320,25 @@ function check(card, levels) {
     type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
   });
   if (!played.ok) return { status: "skip", why: "refused" };
-  if (played.state.pendingChoice) return { status: "skip", why: "stopped to ask a question" };
-  const after = getPlayer(played.state, "player");
+  // A card that asks where its tile goes, or whom it hits, has not finished
+  // paying out until the question is answered. Answering with the first option
+  // resolves it -- what is being checked is the amount, not which space the
+  // player would have chosen.
+  let settled = played.state;
+  let asked = 0;
+  while (settled.pendingChoice && asked < 8) {
+    const choice = settled.pendingChoice;
+    const option = choice.options?.[0];
+    if (!option) return { status: "skip", why: "asked something with no answer" };
+    const answered = resolvePendingChoice(settled, option.id, settled.logs, choice.ownerPlayerId);
+    if (answered.state.pendingChoice === choice) {
+      return { status: "skip", why: "the question would not resolve" };
+    }
+    settled = answered.state;
+    asked += 1;
+  }
+  if (settled.pendingChoice) return { status: "skip", why: "still asking after 8 answers" };
+  const after = getPlayer(settled, "player");
 
   const GLOBAL_FIELDS = GLOBAL_FIELD_NAMES;
   const countTiles = board => Object.values(board).filter(cell => cell.tileType !== "empty").length;
@@ -307,9 +348,11 @@ function check(card, levels) {
     // and the card itself leaves the hand.
     const paid = field === "mc" ? card.cost : 0;
     const got = GLOBAL_FIELDS.has(field)
-      ? (played.state[field] ?? 0) - (state[field] ?? 0)
+      ? (settled[field] ?? 0) - (state[field] ?? 0)
+      : field === "oceans"
+        ? (settled.oceans ?? 0) - (state.oceans ?? 0)
       : field === "tiles"
-        ? countTiles(played.state.board) - countTiles(state.board)
+        ? countTiles(settled.board) - countTiles(state.board)
         : field === "handSize"
           ? (after.hand ?? []).length - (before.hand ?? []).length + 1
           : (after[field] ?? 0) - (before[field] ?? 0) + paid;
