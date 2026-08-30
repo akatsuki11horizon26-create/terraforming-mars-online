@@ -1237,3 +1237,43 @@ test("Focused Organization trades a card and a resource for one of each", () => 
   assert.equal(after.heat, 1, "one heat gained");
   assert.equal(after.hand.length, 2, "one discarded and one drawn");
 });
+
+test("Venus Shuttles costs a M€ less for each Venus tag you hold", () => {
+  // "Spend 12 M€ to raise Venus 1 step. This cost is REDUCED BY 1 FOR EACH
+  // VENUS TAG you have." The card carries a Venus tag itself, so it never
+  // actually costs twelve.
+  const id = "card-prelude2-venus-shuttles";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const play = (extraTags, mc) => {
+    const state = rig([id]);
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    state.venus = 0;
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = null;
+    seat.mc = mc;
+    seat.actionsRemaining = 2;
+    const carriers = ALL_CARDS.filter(entry =>
+      entry.id !== id && (entry.tags ?? []).filter(tag => tag === "Venus").length === 1
+    ).slice(0, extraTags);
+    seat.playedProjects = [id, ...carriers.map(entry => entry.id)];
+    const status = getCardActionStatus(state, card);
+    if (!status.playable) return null;
+    const before = getPlayer(state, "player").mc;
+    const used = executeGameCommand(state, {
+      type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+    });
+    return {
+      paid: before - getPlayer(used.state, "player").mc,
+      venus: used.state.venus,
+      tr: getPlayer(used.state, "player").tr
+    };
+  };
+
+  const alone = play(0, 20);
+  assert.equal(alone.paid, 11, "its own Venus tag takes one off");
+  assert.equal(alone.venus, 2, "a step is two percent");
+  assert.equal(play(3, 20).paid, 8, "three more tags take three more off");
+  assert.equal(play(0, 5), null, "and it cannot be used without the money");
+});

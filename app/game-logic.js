@@ -372,6 +372,13 @@ const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
+const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
+
+// "Spend 12 M€ to raise Venus 1 step. This cost is REDUCED BY 1 FOR EACH VENUS
+// TAG you have." The card carries a Venus tag itself, so it never costs 12.
+function venusShuttlesCost(state, playerId) {
+  return Math.max(0, 12 - countActiveTags(state, playerId, "Venus"));
+}
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
@@ -4914,6 +4921,17 @@ export function getCardActionStatus(state, card) {
       ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
       : { playable: true, reason: "" };
   }
+  // A full Venus scale does NOT forbid the action -- the reference warns and
+  // lets the player go ahead, the same as a full ocean track.
+  if (card.id === VENUS_SHUTTLES_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (seat?.mc ?? 0) >= venusShuttlesCost(state, state.currentPlayerId)
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "MCが不足しています。" };
+  }
   if (card.id === FOCUSED_ORGANIZATION_ID) {
     const seat = getCurrentPlayer(state);
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
@@ -5060,6 +5078,27 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  if (card.id === VENUS_SHUTTLES_ID) {
+    const cost = venusShuttlesCost(nextState, nextState.currentPlayerId);
+    nextState.mc = (nextState.mc ?? 0) - cost;
+    const beforeVenus = nextState.venus ?? 0;
+    nextState.venus = Math.min(MAX_VENUS, beforeVenus + 2);
+    const raised = (nextState.venus - beforeVenus) / 2;
+    if (raised > 0) {
+      increaseTerraformRating(nextState, nextState.currentPlayerId, raised, "card");
+      grantParameterRaisedCardEffects(nextState, "venus", raised);
+      const bonus = applyVenusThresholds(nextState, beforeVenus, logs);
+      nextState.venus = bonus.state.venus;
+      Object.assign(nextState, bonus.state);
+    }
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    return {
+      state: nextState,
+      logs: addLog(logs, "system", `Venus Shuttles: MC -${cost}、金星 +${raised}段階`),
+      playable: true
+    };
+  }
 
   // "Discard 1 card and spend 1 standard resource to draw 1 card and gain 1
   // standard resource." Four steps, each its own question: what to spend, what

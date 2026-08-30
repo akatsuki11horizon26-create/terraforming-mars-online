@@ -23,7 +23,6 @@ const inventory = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json
 // names what it would take, so the entry is a decision rather than a shrug.
 const UNREACHABLE = {
   "card-colonies-titan-floating-launch-pad": "spend a floater to trade with a colony for free",
-  "card-prelude2-venus-shuttles": "a cost that falls by 1 for each Venus tag held",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
 };
 

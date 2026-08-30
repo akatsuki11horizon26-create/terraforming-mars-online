@@ -25,8 +25,6 @@ import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-conte
 export const UNSUPPORTED = {
   "card-colonies-titan-floating-launch-pad":
     "spend a floater to trade with a colony for free",
-  "card-prelude2-venus-shuttles":
-    "a cost that falls by 1 for each Venus tag held",
   "card-prelude2-board-of-directors":
     "draw a prelude, then discard it or pay 12 M€ to play it",
 };
@@ -117,9 +115,9 @@ if (process.argv.includes("--list")) {
 const reachableProblems = problems.filter(problem => problem.includes("still"));
 const staleProblems = problems.filter(problem => !problem.includes("still"));
 
-// Two unimplemented cards still reach a player. Isolating them is a decision
+// One unimplemented card still reaches a player. Isolating it is a decision
 // about what a game contains, so the number is held rather than acted on.
-const BASELINE = 2;
+const BASELINE = 1;
 
 if (staleProblems.length > 0) {
   process.exitCode = 1;
