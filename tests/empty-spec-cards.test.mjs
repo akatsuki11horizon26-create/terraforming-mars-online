@@ -933,3 +933,32 @@ test("Ceres Tech Market pays two M€ for each card discarded", () => {
   assert.equal(after.mc, 4, "two cards, two M€ each");
   assert.equal(after.hand.length, 1);
 });
+
+test("Asteroid Rights spends a M€ to place, or an asteroid to collect", () => {
+  const id = "card-promo-asteroid-rights";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const run = branch => {
+    const state = rig([id]);
+    const seat = getPlayer(state, "player");
+    seat.mc = 10;
+    seat.titanium = 0;
+    seat.mcProd = 0;
+    seat.cardResources = { [id]: 3 };
+    const used = takeAction(state, id, branch);
+    const after = getPlayer(used, "player");
+    return {
+      mc: after.mc,
+      mcProd: after.mcProd,
+      titanium: after.titanium,
+      asteroids: after.cardResources?.[id] ?? 0
+    };
+  };
+
+  // "Spend 1 asteroid here to increase M€ production 1 step, OR to gain 2
+  // titanium, OR spend 1 M€ to add an asteroid to ANY card."
+  assert.deepEqual(run(0), { mc: 10, mcProd: 1, titanium: 0, asteroids: 2 });
+  assert.deepEqual(run(1), { mc: 10, mcProd: 0, titanium: 2, asteroids: 2 });
+  const placed = run(2);
+  assert.equal(placed.mc, 9, "the third branch pays a M€");
+  assert.ok(placed.asteroids > 3, "and puts an asteroid somewhere");
+});

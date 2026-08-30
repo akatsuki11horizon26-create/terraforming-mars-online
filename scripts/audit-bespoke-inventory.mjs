@@ -24,7 +24,6 @@ const inventory = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json
 const UNREACHABLE = {
   "card-colonies-titan-floating-launch-pad": "spend a floater to trade with a colony for free",
   "card-prelude2-venus-shuttles": "a cost that falls by 1 for each Venus tag held",
-  "card-promo-asteroid-rights": "three-way choice ending in a production step or titanium",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization": "discard a card and a standard resource for one of each",
   "card-promo-astrodrill": "spend an asteroid for a standard resource, or take one from any card",

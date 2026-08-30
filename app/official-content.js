@@ -34,6 +34,14 @@ const CURATED_PROJECT_OVERRIDES = [
     { title: "Add a microbe to another card", addResourcesToAnyCard: { count: 1, type: "Microbe", excludeThis: true } },
     { title: "Add an animal to another card", addResourcesToAnyCard: { count: 1, type: "Animal", excludeThis: true } }
   ] } } } }),
+  // "Spend 1 M€ to add an asteroid to ANY card, OR spend 1 asteroid here to
+  // increase M€ production 1 step, OR to gain 2 titanium." Three branches, each
+  // written with keys the engine already had.
+  project("card-promo-asteroid-rights", "Asteroid Rights", 10, ["Earth", "Space"], "active", "このカードに小惑星資源を2個追加する。アクション: MCを1支払い任意のカードに小惑星を1個追加する、またはこのカードの小惑星1個を支払いMC生産量+1、またはチタンを2獲得する。", {}, { resourceType: "asteroid", effectSpec: { behavior: { addResources: 2 }, action: { or: { autoSelect: false, behaviors: [
+    { title: "Remove an asteroid here to increase M€ production 1 step", spend: { resourcesHere: 1 }, production: { megacredits: 1 } },
+    { title: "Remove an asteroid here to gain 2 titanium", spend: { resourcesHere: 1 }, stock: { titanium: 2 } },
+    { title: "Pay 1 M€ to add an asteroid to any card", spend: { megacredits: 1 }, addResourcesToAnyCard: { count: 1, type: "Asteroid" } }
+  ] } } } }),
   // "Spend 1 floater from here to gain 1 M€ from each floater here, INCLUDING
   // THE PAID FLOATER. Max 5." Upstream writes it as Math.min(5, resourceCount--)
   // -- the post-decrement is what makes the spent floater count, and our
