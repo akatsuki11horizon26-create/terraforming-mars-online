@@ -23,11 +23,8 @@ const inventory = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json
 // names what it would take, so the entry is a decision rather than a shrug.
 const UNREACHABLE = {
   "card-colonies-titan-floating-launch-pad": "spend a floater to trade with a colony for free",
-  "card-prelude2-ceres-tech-market": "discard any number of cards for 2 M€ each",
   "card-prelude2-venus-shuttles": "a cost that falls by 1 for each Venus tag held",
   "card-promo-asteroid-rights": "three-way choice ending in a production step or titanium",
-  "card-promo-mohole-lake": "add a microbe OR an animal to another card",
-  "card-promo-saturn-surfing": "spend a floater to gain a M€ per floater here, max 5",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization": "discard a card and a standard resource for one of each",
   "card-prelude2-world-government-advisor": "raise a global parameter with no rating and no bonus",
@@ -72,6 +69,10 @@ const rig = cardId => {
     seat[field] = 10;
   }
   seat.actionsRemaining = 20;
+  // A hand, because an action that discards from it is refused without one --
+  // Ceres Tech Market trades cards for money and has nothing to trade on an
+  // empty hand.
+  seat.hand = state.deck.slice(0, 3);
   seat.playedProjects = [cardId];
   seat.selectedPreludeIds = [cardId];
   seat.cardResources = { [cardId]: 5 };

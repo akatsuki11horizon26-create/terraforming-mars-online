@@ -27,6 +27,18 @@ const CURATED_PROJECT_OVERRIDES = [
   // play it, which the reference refuses because the reserved Noctis space
   // carries no energy bonus to cover the loss.
   project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
+  // "Action: Add a microbe or animal to ANOTHER card." Upstream joins the two
+  // resource lists and asks; two branches of an or say the same thing with keys
+  // we already have.
+  project("card-promo-mohole-lake", "Mohole Lake", 31, ["Building"], "active", "植物を3獲得。気温+1。海洋タイルを1枚置く。アクション: 他のカード1枚に微生物または動物を1個追加する。", {}, { effectSpec: { behavior: { stock: { plants: 3 }, global: { temperature: 1 }, ocean: {} }, action: { or: { autoSelect: true, behaviors: [
+    { title: "Add a microbe to another card", addResourcesToAnyCard: { count: 1, type: "Microbe", excludeThis: true } },
+    { title: "Add an animal to another card", addResourcesToAnyCard: { count: 1, type: "Animal", excludeThis: true } }
+  ] } } } }),
+  // "Spend 1 floater from here to gain 1 M€ from each floater here, INCLUDING
+  // THE PAID FLOATER. Max 5." Upstream writes it as Math.min(5, resourceCount--)
+  // -- the post-decrement is what makes the spent floater count, and our
+  // resourcesHere counter reads the pile before the spend for the same reason.
+  project("card-promo-saturn-surfing", "Saturn Surfing", 13, ["Jovian", "Earth"], "active", "地球タグ1つにつきこのカードにフローターを1個追加する。アクション: このカードのフローターを1個支払い、支払った分を含めフローター1個につきMCを1獲得する（最大5）。", {}, { victoryPoints: 1, resourceType: "floater", effectSpec: { behavior: { addResources: { tag: "earth" } }, action: { spend: { resourcesHere: 1 }, stock: { megacredits: { resourcesHere: true, max: 5 } } } } }),
   // "Spend 1 energy production to gain 1 plant production." Upstream builds the
   // action by hand, so the generated spec carried only the TR half.
   project("card-promo-teslaract", "Teslaract", 14, ["Power", "Building"], "active", "TR+1。アクション: エネルギー生産量-1と引き換えに植物生産量+1。", {}, { effectSpec: { behavior: { tr: 1 }, action: { production: { energy: -1, plants: 1 } } } }),

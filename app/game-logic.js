@@ -360,6 +360,7 @@ const VOTE_OF_NO_CONFIDENCE_ID = "card-turmoil-vote-of-no-confidence";
 const BANNED_DELEGATE_ID = "card-turmoil-banned-delegate";
 const OLYMPUS_CONFERENCE_ID = "card-base-olympus-conference";
 const PROJECT_INSPECTION_ID = "card-promo-project-inspection";
+const CERES_TECH_MARKET_ID = "card-prelude2-ceres-tech-market";
 const DOUBLE_DOWN_ID = "card-promo-double-down";
 const CUTTING_EDGE_TECHNOLOGY_ID = "card-promo-cutting-edge-technology";
 const PRODUCTIVE_OUTPOST_ID = "card-colonies-productive-outpost";
@@ -3499,6 +3500,41 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      // "Discard any number of cards from your hand to gain 2 M€ for each." Which
+      // cards go is the player's decision, so they are asked one at a time and
+      // may stop whenever they like -- the question is optional, and declining
+      // ends it.
+      if (choice.continuation.stage === "ceres-tech-market") {
+        const target = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        next.currentPlayerId = target;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        next.mc = (next.mc ?? 0) + 2;
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Ceres Tech Market: 【${gone?.name ?? discardedId}】を捨てて MC +2`
+        );
+        const hand = getPlayer(next, target)?.hand ?? [];
+        if (hand.length > 0) {
+          const again = buildDiscardChoice(next, hand, {
+            ...choice.continuation,
+            optional: true,
+            prompt: "Ceres Tech Market: さらに捨てるカードを選んでください（1枚につきMC2）。"
+          }, ALL_CARDS);
+          if (again) {
+            next.pendingChoice = again;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: again };
+          }
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "project-eden-discard") {
         const target = choice.ownerPlayerId ?? actorId;
         const discardedId = option.cardId ?? option.id;
@@ -4629,6 +4665,15 @@ export function getCardActionStatus(state, card) {
       ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
       : { playable: true, reason: "" };
   }
+  if (card.id === CERES_TECH_MARKET_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    return (seat?.hand ?? []).filter(id => id !== card.id).length > 0
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "捨てられる手札がありません。" };
+  }
   if (card.id === HI_TECH_LAB_ID) {
     const seat = getCurrentPlayer(state);
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
@@ -4754,6 +4799,26 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  // "Discard any number of cards from your hand to gain 2 M€ for each." Which
+  // cards go is the player's decision, so they are asked one at a time and may
+  // stop whenever they like.
+  if (card.id === CERES_TECH_MARKET_ID) {
+    const hand = (nextState.hand ?? []).filter(id => id !== card.id);
+    const choice = buildDiscardChoice(nextState, hand, {
+      stage: "ceres-tech-market",
+      sourceKind: "card-action",
+      sourceId: card.id,
+      consumedAction: true,
+      paid: true,
+      optional: true,
+      prompt: "Ceres Tech Market: 捨てるカードを選んでください（1枚につきMC2）。"
+    }, ALL_CARDS);
+    if (!choice) return { state, logs, playable: false };
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = choice;
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
 
   // "Spend any amount of energy to gain that amount of M€." How much is the
   // player's call, so the amounts are offered as the choice.

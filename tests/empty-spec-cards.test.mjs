@@ -834,3 +834,95 @@ test("Palladin Shipping trades two titanium for a step of temperature", () => {
   assert.equal(getPlayer(used.state, "player").titanium, 0);
   assert.equal(used.state.temperature, 2, "a step is two degrees");
 });
+
+// Three of the eleven cards the bespoke inventory had registered as needing
+// machinery we do not have. Each turned out to be expressible with keys the
+// engine already had.
+test("Saturn Surfing counts the floater it spends", () => {
+  const id = "card-promo-saturn-surfing";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const gain = floaters => {
+    const state = rig([id]);
+    const seat = getPlayer(state, "player");
+    seat.mc = 0;
+    seat.cardResources = { [id]: floaters };
+    if (!getCardActionStatus(state, card).playable) return null;
+    const used = takeAction(state, id, undefined);
+    const after = getPlayer(used, "player");
+    return { mc: after.mc, left: after.cardResources?.[id] ?? 0 };
+  };
+
+  assert.equal(gain(0), null, "nothing to spend");
+  // "Gain 1 M€ from each floater here, INCLUDING THE PAID FLOATER" -- upstream
+  // writes Math.min(5, resourceCount--), so the pile is counted before the
+  // spend. One floater pays one and leaves none.
+  assert.deepEqual(gain(1), { mc: 1, left: 0 });
+  assert.deepEqual(gain(3), { mc: 3, left: 2 });
+  assert.deepEqual(gain(7), { mc: 5, left: 6 }, "and never more than five");
+});
+
+test("Mohole Lake feeds a microbe or an animal, never itself", () => {
+  const id = "card-promo-mohole-lake";
+  const host = ALL_CARDS.find(entry =>
+    entry.id !== id &&
+    (entry.resourceType ?? getCardResourceType(entry.id)) === "microbe" &&
+    (entry.requirements ?? []).length === 0
+  );
+
+  const state = rig([id, host.id]);
+  getPlayer(state, "player").cardResources = {};
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION,
+    playerId: "player",
+    cardId: id,
+    card: ALL_CARDS.find(entry => entry.id === id),
+    branchIndex: 0
+  });
+  assert.equal(used.ok, true);
+  // The card it feeds is a choice, and this card must not be among the options:
+  // upstream builds the list from cards that hold microbes or animals, and
+  // Mohole Lake holds neither.
+  if (used.state.pendingChoice) {
+    const offered = used.state.pendingChoice.options.map(option => option.cardId ?? option.id);
+    assert.equal(offered.includes(id), false, "another card, not this one");
+  }
+  const after = getPlayer(settle(used.state), "player");
+  assert.equal(after.cardResources?.[host.id] ?? 0, 1);
+  assert.equal(after.cardResources?.[id] ?? 0, 0);
+});
+
+test("Ceres Tech Market pays two M€ for each card discarded", () => {
+  const id = "card-prelude2-ceres-tech-market";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+
+  const empty = rig([id]);
+  getPlayer(empty, "player").hand = [];
+  assert.equal(getCardActionStatus(empty, card).playable, false, "nothing to discard");
+
+  const state = rig([id]);
+  const seat = getPlayer(state, "player");
+  seat.mc = 0;
+  seat.hand = state.deck.slice(0, 3);
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  assert.equal(used.ok, true);
+  assert.equal(used.state.pendingChoice?.kind, "discard-card");
+
+  // It asks one card at a time and keeps asking, so the player chooses how many
+  // to let go rather than committing to a number up front.
+  let settled = used.state;
+  for (let round = 0; round < 2; round += 1) {
+    const choice = settled.pendingChoice;
+    if (!choice) break;
+    const answered = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: choice.options[0].id
+    });
+    if (!answered.ok) break;
+    settled = answered.state;
+  }
+  const after = getPlayer(settled, "player");
+  assert.equal(after.mc, 4, "two cards, two M€ each");
+  assert.equal(after.hand.length, 1);
+});
