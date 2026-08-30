@@ -27,7 +27,6 @@ const UNREACHABLE = {
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization": "discard a card and a standard resource for one of each",
   "card-promo-astrodrill": "spend an asteroid for a standard resource, or take one from any card",
-  "card-promo-arcadian-communities": "place a community marker as a first action"
 };
 
 // Ongoing halves of cards whose play effect works, and whose watching half does
@@ -45,7 +44,10 @@ const BOARD_DEPENDENT = new Set([
   "card-promo-st-joseph-of-cupertino-mission",
   "card-promo-self-replicating-robots",
   "corp-unmi",
-  "card-venus-viron"
+  "card-venus-viron",
+  // Arcadian Communities places beside a tile or marker of its owner's, and the
+  // rig starts on a bare board where it has neither.
+  "card-promo-arcadian-communities"
 ]);
 
 const rig = cardId => {

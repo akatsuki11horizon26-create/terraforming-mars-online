@@ -53,7 +53,9 @@ import {
   checkParameterThresholds,
   ALL_CARDS,
   CORPORATIONS,
-  LAW_SUIT_ID
+  LAW_SUIT_ID,
+  communitySpaceOptions,
+  communityChoice
 } from "./game-logic.js";
 import { buildTileChoice, buildAmountChoice } from "./pending-choice.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
@@ -544,6 +546,27 @@ const CORPORATION_ACTIONS = {
         }
       };
       return { ok: true, state, events: [], pendingAction: state.pendingChoice };
+    }
+  },
+  // "Place a community on a non-reserved area ADJACENT TO ONE OF YOUR TILES OR
+  // MARKED AREAS." A community is a land-claim marker: it reserves the space for
+  // its owner, which the placement rules already honour.
+  "card-promo-arcadian-communities": {
+    label: "Arcadian Communities: コミュニティを1つ置きました。",
+    blocked: (actor, state) =>
+      communitySpaceOptions(state, actor.id, { adjacentOnly: true }).length > 0
+        ? null
+        : "自分のタイルかマーカーに隣接する空きエリアがありません。",
+    run(state, command) {
+      const choice = communityChoice(
+        state,
+        command.playerId,
+        communitySpaceOptions(state, command.playerId, { adjacentOnly: true }),
+        { sourceKind: "corporation", consumedAction: true }
+      );
+      if (!choice) return fail(state, ERROR.ACTION_REFUSED, "置ける場所がありません。");
+      state.pendingChoice = choice;
+      return { ok: true, state, events: [], pendingAction: choice };
     }
   },
   // "Gain 2 M€ for each party where you have at least 1 delegate."

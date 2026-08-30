@@ -308,6 +308,19 @@ function playGame(seed) {
       if (state.draft) report("draft-never-finished", `still drafting after ${picks} picks`, { where });
       continue;
     }
+    // A corporation whose first action asks something -- Vitor's award,
+    // Arcadian Communities' community -- parks setup on that question, and the
+    // loop below has no other way past it.
+    if (state.pendingChoice) {
+      const resolved = resolveAnyPending(state, state.logs, rng, `${where}/setup-choice`);
+      if (resolved.state === state) {
+        report("setup-choice-stuck", `${state.pendingChoice.kind} blocked setup`, { where });
+        break;
+      }
+      state = resolved.state;
+      checkInvariants(state, `${where}/setup-choice`);
+      continue;
+    }
     if (seat.corporationOptions.length > 0) {
       const corporationId = pick(seat.corporationOptions, rng);
       state = applyCorporation(state, corporationId);

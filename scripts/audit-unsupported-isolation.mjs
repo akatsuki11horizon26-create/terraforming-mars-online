@@ -33,8 +33,6 @@ export const UNSUPPORTED = {
     "discard a card and a standard resource for one of each",
   "card-promo-astrodrill":
     "spend an asteroid for a standard resource, or take one from any card",
-  "card-promo-arcadian-communities":
-    "place a community marker as a first action"
 };
 
 const cards = [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS];
@@ -123,9 +121,9 @@ if (process.argv.includes("--list")) {
 const reachableProblems = problems.filter(problem => problem.includes("still"));
 const staleProblems = problems.filter(problem => !problem.includes("still"));
 
-// Three unimplemented cards still reach a player. Isolating them is a decision
+// Two unimplemented cards still reach a player. Isolating them is a decision
 // about what a game contains, so the number is held rather than acted on.
-const BASELINE = 3;
+const BASELINE = 2;
 
 if (staleProblems.length > 0) {
   process.exitCode = 1;

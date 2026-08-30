@@ -369,6 +369,7 @@ const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
+const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
@@ -1810,6 +1811,54 @@ function buildPreludeDrawChoice(state, count, context) {
   };
 }
 
+// "Place a community on a non-reserved area ADJACENT TO ONE OF YOUR TILES OR
+// MARKED AREAS." The first one, taken as the corporation's opening action, has
+// no adjacency requirement -- there is nothing to be adjacent to yet.
+export function communitySpaceOptions(state, ownerId, { adjacentOnly }) {
+  const markers = state.boardMarkers ?? [];
+  const claimed = new Set(markers.filter(marker => marker.kind === "land-claim").map(marker => marker.cellKey));
+  const mine = new Set([
+    ...markers
+      .filter(marker => marker.kind === "land-claim" && marker.sourcePlayerId === ownerId)
+      .map(marker => marker.cellKey),
+    ...Object.entries(state.board ?? {})
+      .filter(([, cell]) => cell.tileType !== "empty" && cell.placedBy === ownerId)
+      .map(([cellKey]) => cellKey)
+  ]);
+
+  return Object.entries(state.board ?? {})
+    .filter(([cellKey, cell]) => {
+      if (cell.tileType !== "empty" || cell.isOceanOnly || cell.reservedFor) return false;
+      if (claimed.has(cellKey)) return false;
+      if (!adjacentOnly) return true;
+      return getAdjacentCells(cell.q, cell.r).some(pos => mine.has(`${pos.q},${pos.r}`));
+    })
+    .map(([cellKey, cell]) => ({
+      id: cellKey,
+      targetCellKey: cellKey,
+      label: cell.name ?? `(${cell.q},${cell.r})`
+    }));
+}
+
+export function communityChoice(state, ownerId, options, context) {
+  if (options.length === 0) return null;
+  return {
+    id: `arcadian-community:${ownerId}`,
+    kind: "land-claim",
+    ownerPlayerId: ownerId,
+    prompt: "コミュニティ（自分のマーカー）を置く場所を選んでください。",
+    optional: false,
+    options,
+    continuation: {
+      sourceKind: context.sourceKind ?? "corporation",
+      sourceId: ARCADIAN_COMMUNITIES_ID,
+      stage: "land-claim",
+      consumedAction: context.consumedAction ?? false,
+      paid: true
+    }
+  };
+}
+
 export function applyCorporationInitialAction(state, logs) {
   const nextState = cloneGameState(state);
   const corporation = getCorporation(nextState);
@@ -1856,6 +1905,21 @@ export function applyCorporationInitialAction(state, logs) {
       };
       nextState.pendingChoice = choice;
       nextLogs = addLog(nextLogs, "system", `${corporation.name}: 表彰を1つ無償で設立します。`);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs };
+    }
+  }
+  // "As your first action, place a community on a non-reserved area."
+  if (corporation.effects.firstCommunity) {
+    const choice = communityChoice(
+      nextState,
+      ownerId,
+      communitySpaceOptions(nextState, ownerId, { adjacentOnly: false }),
+      { sourceKind: "corporation", consumedAction: false }
+    );
+    if (choice) {
+      nextState.pendingChoice = choice;
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: コミュニティを1つ置きます。`);
       nextState.logs = nextLogs;
       return { state: nextState, logs: nextLogs };
     }
@@ -3270,6 +3334,17 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         }
       ];
       nextLogs = addLog(nextLogs, "system", `${option.label} を自分の土地として確保しました。`);
+      // A community placed as the corporation's FIRST action is part of setup,
+      // and setup does not move on by itself -- the same resume Vitor's award
+      // needs after funding one.
+      if (
+        choice.continuation.sourceKind === "corporation" &&
+        next.phase === "setup"
+      ) {
+        next.pendingChoice = null;
+        next.logs = nextLogs;
+        return { status: "resolved", state: advanceSetupTurn(next), logs: nextLogs };
+      }
       break;
     }
 
@@ -4210,6 +4285,20 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
   // Flooding hits the owner of a tile beside the ocean it just laid, so the
   // attack needs to know which square that was.
   state.lastPlacedCellKey = `${cell.q},${cell.r}`;
+  // "Marked areas are reserved for you. When you place a tile there, gain 3 M€."
+  // The marker stays: it goes on reserving the space for its owner.
+  const community = (state.boardMarkers ?? []).find(
+    marker =>
+      marker.kind === "land-claim" &&
+      marker.sourceCardId === ARCADIAN_COMMUNITIES_ID &&
+      marker.sourcePlayerId === ownerId &&
+      marker.cellKey === `${cell.q},${cell.r}`
+  );
+  if (community && !worldGovernment) {
+    state.players = state.players.map(player =>
+      player.id === ownerId ? { ...player, mc: (player.mc ?? 0) + 3 } : player
+    );
+  }
 
   const player = getPlayer(state, ownerId);
   if (player) {

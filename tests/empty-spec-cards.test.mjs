@@ -1053,3 +1053,88 @@ test("A prelude's action is offered, not just a project's", async () => {
     .map(command => command.cardId);
   assert.ok(offered.includes(id), "the prelude's action is on the list");
 });
+
+test("Arcadian Communities places its first community anywhere", async () => {
+  const { applyCorporation, applyCorporationInitialAction, resolvePendingChoice } =
+    await import("../app/game-logic.js");
+  const id = "card-promo-arcadian-communities";
+
+  const state = rig();
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").corporationOptions = [id];
+  const seated = applyCorporation(state, id, "player");
+  const started = getPlayer(seated, "player");
+  assert.equal(started.mc, 40);
+  assert.equal(started.steel, 10);
+
+  seated.currentPlayerId = "player";
+  const opened = applyCorporationInitialAction(seated, seated.logs);
+  assert.equal(opened.state.pendingChoice?.kind, "land-claim");
+  // The first community has nothing to be adjacent to, so every free square is
+  // on offer.
+  assert.ok(opened.state.pendingChoice.options.length > 40);
+
+  const placed = resolvePendingChoice(
+    opened.state, opened.state.pendingChoice.options[0].id, opened.state.logs, "player"
+  );
+  const marker = (placed.state.boardMarkers ?? []).find(entry => entry.sourceCardId === id);
+  assert.ok(marker, "a community is on the board");
+});
+
+test("Its later communities go beside a tile or marker of its own", () => {
+  const id = "card-promo-arcadian-communities";
+  const attempt = withTile => {
+    const state = rig();
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = id;
+    seat.mc = 50;
+    seat.actionsRemaining = 2;
+    seat.playedProjects = [];
+    if (withTile) {
+      const free = Object.values(state.board).find(
+        cell => cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor
+      );
+      state.board[`${free.q},${free.r}`] = { ...free, tileType: "city", placedBy: "player" };
+    }
+    return executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  };
+
+  assert.equal(attempt(false).ok, false, "nothing of its own to build beside");
+  const used = attempt(true);
+  assert.equal(used.ok, true);
+  assert.equal(used.state.pendingChoice?.kind, "land-claim");
+  // Only the squares touching its city, not the whole board.
+  assert.ok(used.state.pendingChoice.options.length <= 6);
+});
+
+test("Building on your own community pays three M€", async () => {
+  const { placeTileAt } = await import("../app/game-logic.js");
+  const id = "card-promo-arcadian-communities";
+  const build = sourceCardId => {
+    const state = rig();
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = id;
+    seat.mc = 0;
+    const free = Object.values(state.board).find(
+      cell => cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor
+    );
+    state.boardMarkers = [{
+      id: "marker",
+      kind: "land-claim",
+      cellKey: `${free.q},${free.r}`,
+      sourceCardId,
+      sourcePlayerId: "player"
+    }];
+    placeTileAt(state, free, "city", "player");
+    return getPlayer(state, "player").mc;
+  };
+
+  // Only a community pays. A Land Claim marker reserves the space and nothing
+  // more, and the two are the same kind of marker.
+  assert.ok(build(id) >= 3, "the community pays three");
+  assert.equal(build(id) - build("card-base-land-claim"), 3);
+});

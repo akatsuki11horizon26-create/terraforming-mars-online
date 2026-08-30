@@ -160,7 +160,16 @@ test("Setup requires buying the starting hand before the first action", async ()
   let state = getInitialState();
   assert.equal(state.researchCards.length, 10);
 
-  state = applyCorporation(state, state.corporationOptions[0]);
+  // A named corporation rather than whichever the deal produced: this test is
+  // about the purchase step, and a corporation whose first action asks a
+  // question -- Vitor's award, Arcadian Communities' community -- parks setup on
+  // that question instead, which is correct behaviour and a different test.
+  state.players = state.players.map((player, index) =>
+    index === 0
+      ? { ...player, corporationOptions: [...(player.corporationOptions ?? []), "corp-credicor"] }
+      : player
+  );
+  state = applyCorporation(state, "corp-credicor");
   assert.equal(state.phase, "setup");
   assert.equal(state.players[0].setupStep, "projects", "the purchase step is reachable");
 

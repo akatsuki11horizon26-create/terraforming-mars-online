@@ -227,6 +227,10 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("corp-point-luna", "Point Luna", ["Space", "Earth"], { mc: 38, production: { titanium: 1 } }, "チタン生産量+1。地球タグをプレイするたび1枚引く。", { earthDraw: 1 }),
   corporation("corp-robinson", "Robinson Industries", [], { mc: 47 }, "アクション: MC4で任意の生産量+1。", { productionActionCost: 4 }),
   corporation("corp-valley-trust", "Valley Trust", ["Earth"], { mc: 37 }, "最初のアクションでプレリュードを3枚見て1枚プレイする。科学タグのカードコスト-2。", { firstPrelude: true, scienceDiscount: 2 }),
+  // "As your first action, place a community on a non-reserved area." Its later
+  // action and the 3 M€ for building on your own marker live in the engine; the
+  // flag is what starts the opening placement.
+  corporation("card-promo-arcadian-communities", "Arcadian Communities", [], { mc: 40, steel: 10 }, "初期資金40MC、建材10。最初のアクションとして、予約されていないエリアにコミュニティ（自分のマーカー）を1つ置く。アクション: 自分のタイルかマーカーに隣接する予約されていないエリアにコミュニティを1つ置く。効果: マーカーのあるエリアは自分専用。そこにタイルを置いたときMC3を獲得。", { firstCommunity: true }),
   corporation("corp-vitor", "Vitor", ["Earth"], { mc: 45 }, "最初のアクションで賞を無料で設立する。VP付きカードを出すとMC3。", { firstAward: true, vpBonus: 3 }),
   // Merged by name onto the generated Venus entry, which keeps its tags, cost
   // and floater action; only the missing initial draw is added here.
