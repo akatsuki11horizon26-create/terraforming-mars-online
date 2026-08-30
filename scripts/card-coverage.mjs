@@ -25,9 +25,55 @@ function rig({ oceans, oxygen, temperature, venus, party, noColonies, neutralTur
 
   const cells = Object.keys(s.board);
   let i = 0;
+  // Skips anything already placed, so the deliberate placements below survive.
   const stamp = (type, n, owner = "player") => {
-    for (let k = 0; k < n; k++) { const key = cells[i++]; s.board[key] = { ...s.board[key], tileType: type, placedBy: owner }; }
+    for (let k = 0; k < n; k++) {
+      while (i < cells.length && s.board[cells[i]].tileType !== "empty") i += 1;
+      if (i >= cells.length) return;
+      const key = cells[i++];
+      s.board[key] = { ...s.board[key], tileType: type, placedBy: owner };
+    }
   };
+  // A card whose tile has nowhere legal to go is not playable, so the board has
+  // to offer what those cards need: a square touching two cities for Urbanized
+  // Area, an untouched mineral square beside one of the player's tiles for
+  // Mining Area, and an ocean for New Holland to be laid over. Stamping tiles
+  // onto consecutive keys does not reliably produce any of the three.
+  const at = (q, r) => s.board[`${q},${r}`];
+  const empty = cell => cell && cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor;
+  const neighbours = cell =>
+    [[1, 0], [-1, 0], [0, 1], [0, -1], [1, -1], [-1, 1]].map(([dq, dr]) => at(cell.q + dq, cell.r + dr));
+
+  const twoCityHome = Object.values(s.board).find(cell => {
+    if (!empty(cell)) return false;
+    return neighbours(cell).filter(entry => empty(entry)).length >= 2;
+  });
+  if (twoCityHome) {
+    for (const spot of neighbours(twoCityHome).filter(entry => empty(entry)).slice(0, 2)) {
+      s.board[`${spot.q},${spot.r}`] = { ...spot, tileType: "city", placedBy: "player" };
+    }
+  }
+
+  const mineral = Object.values(s.board).find(cell =>
+    empty(cell) &&
+    (cell.bonusType === "steel" || cell.bonusType === "titanium") &&
+    (cell.bonusAmount ?? 0) > 0 &&
+    neighbours(cell).some(entry => empty(entry))
+  );
+  if (mineral) {
+    const beside = neighbours(mineral).find(entry => empty(entry));
+    s.board[`${beside.q},${beside.r}`] = { ...beside, tileType: "forest", placedBy: "player" };
+  }
+
+  // New Holland lays its tile ON an ocean that no city touches, so the ocean is
+  // placed at the far end of the board from where the cities get stamped.
+  const seas = Object.values(s.board).filter(cell => cell.isOceanOnly && cell.tileType === "empty");
+  for (const sea of seas.slice(-2)) {
+    s.board[`${sea.q},${sea.r}`] = { ...sea, tileType: "ocean", placedBy: null };
+  }
+
+  // The generic stamping runs last, so it fills whatever the deliberate
+  // placements left rather than consuming the squares they need.
   stamp("city", 5);
   stamp("forest", 5);
   stamp("city", 2, "player2");

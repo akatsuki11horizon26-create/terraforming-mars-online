@@ -653,8 +653,11 @@ test("A card's own placement rule beats the default for its tile type", async ()
 // The official rules place a card's tile "if possible" and state that being
 // unable to place it does not stop the card being played. This looks like a
 // missing guard, so it is pinned here: adding one would be a house rule.
-test("A card is playable even when its tile has nowhere to go", async () => {
-  const { applyCardEffect, ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
+// The reference refuses a card whose tile has nowhere legal to go -- its own
+// test for this card is titled "Can not play if no spaces available" -- and
+// this test asserted the opposite until the upstream cases were run against us.
+test("A card is unplayable when its tile has nowhere to go", async () => {
+  const { ALL_CARDS, getPlayer } = await import("../app/game-logic.js");
   const card = ALL_CARDS.find(entry => entry.id === "card-base-research-outpost");
 
   const state = getInitialState({ playerCount: 1 });
@@ -672,9 +675,11 @@ test("A card is playable even when its tile has nowhere to go", async () => {
     }
   }
 
-  assert.equal(getCardPlayableStatus(card, state).playable, true, "still playable");
-  const played = applyCardEffect(state, card, state.logs);
-  assert.ok(played.state, "and it resolves rather than throwing");
+  assert.equal(
+    getCardPlayableStatus(card, state).playable,
+    false,
+    "a card must be able to carry out what it says"
+  );
 });
 
 // Standard Technology shipped with an empty effect spec: a 6 M€ science tag and

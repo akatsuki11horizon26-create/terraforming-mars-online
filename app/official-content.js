@@ -21,6 +21,11 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // Two cards whose tile has a placement rule their generated spec never
+  // carried, so both could be built anywhere. Industrial Center must touch a
+  // city; Urbanized Area must touch two.
+  project("card-base-industrial-center", "Industrial Center", 4, ["Building"], "active", "このタイルを都市タイルに隣接させて置く。アクション: MCを7支払い、建材生産量+1。", {}, { effectSpec: { behavior: { tile: { type: 6, on: "city-adjacent" } }, action: { spend: { megacredits: 7 }, production: { steel: 1 } } } }),
+  project("card-base-urbanized-area", "Urbanized Area", 10, ["City", "Building"], "automated", "エネルギー生産量-1。MC生産量+2。他の都市タイル2枚以上に隣接する場所に都市タイルを1枚置く。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 2 }, city: { on: "two-cities" } } } }),
   // Two cards whose cost is stated in their own text and missing from the
   // generated spec, because upstream spends the plants in bespokePlay and
   // guards the play in bespokeCanPlay. Both halves were absent: the plants were

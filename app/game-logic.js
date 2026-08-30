@@ -7142,7 +7142,10 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   // card whose spec said the same thing and whose id nobody had thought of was
   // playable for nothing. Reading the spec covers all of them, and the next one.
   const attack = card.effectSpec?.behavior?.decreaseAnyProduction;
-  if (attack?.type) {
+  // A "stealing" card moves the step to its owner, who is a legal target for
+  // it. Taking a step from yourself and giving it back is a pointless play, but
+  // it is a legal one, so these four are never blocked for want of a victim.
+  if (attack?.type && !attack.stealing) {
     const field = `${SOURCE_RESOURCE_MAP[attack.type] ?? attack.type}Prod`;
     const count = attack.count ?? 1;
     // Megacredit production alone may go negative, down to -5, so the owner of
@@ -7151,6 +7154,30 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     const reachable = (state.players ?? []).some(player => (player[field] ?? 0) - count >= floor);
     if (!reachable) {
       return { playable: false, reason: "減少させられる生産量がありません。" };
+    }
+  }
+
+  // A card that places a tile with a placement rule cannot be played when the
+  // board has nowhere legal to put it. Upstream asks this in bespokeCanPlay for
+  // every such card; we had no equivalent, so Industrial Center was playable on
+  // an empty board even though its tile must touch a city.
+  // "on" names the KIND of space the tile needs, not what it must sit beside:
+  // upstream's PlacementType is land, ocean, greenery, city, away-from-cities,
+  // isolated, volcanic and the two upgradeable-ocean values. Only the rules our
+  // board actually narrows are worth asking about -- 'land' and 'city' are
+  // satisfied by any empty square on a fresh board, so a card carrying one is
+  // never blocked by this and asking would only risk refusing it wrongly.
+  const NARROWING_RULES = new Set([
+    "volcanic", "isolated", "away-from-cities", "greenery-adjacent",
+    "mineral", "mineral-adjacent", "two-cities", "city-adjacent",
+    "upgradeable-ocean-new-holland"
+  ]);
+  const placement = card.effectSpec?.behavior?.tile ?? card.effectSpec?.behavior?.city;
+  const placementRule = placement?.on ?? null;
+  if (typeof placementRule === "string" && NARROWING_RULES.has(placementRule)) {
+    const tileType = placement === card.effectSpec?.behavior?.city ? "city" : "special";
+    if (legalCellsFor(state, tileType, state.currentPlayerId, placementRule).length === 0) {
+      return { playable: false, reason: "配置できる場所がありません。" };
     }
   }
 
@@ -7386,6 +7413,11 @@ function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
       return Boolean(cell.volcanic);
     case "city":
       return hasAdjacentCity(cell.q, cell.r, board);
+    // Industrial Center's tile must TOUCH a city, which is not the same as
+    // upstream's 'city' placement type -- that one names a space a city may be
+    // built on, and every empty square qualifies.
+    case "city-adjacent":
+      return hasAdjacentCity(cell.q, cell.r, board);
     case "isolated":
       return getAdjacentCells(cell.q, cell.r).every(pos => {
         const neighbour = board[`${pos.q},${pos.r}`];
@@ -7393,6 +7425,12 @@ function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
       });
     case "away-from-cities":
       return !hasAdjacentCity(cell.q, cell.r, board);
+    // "Place a city tile ADJACENT TO AT LEAST 2 OTHER CITY TILES." One is not
+    // enough, which is what separates this from the plain city rule.
+    case "two-cities":
+      return getAdjacentCells(cell.q, cell.r).filter(
+        pos => board[`${pos.q},${pos.r}`]?.tileType === "city"
+      ).length >= 2;
     // Ecological Zone's tile goes beside a greenery -- any greenery, not only
     // the player's own.
     case "greenery-adjacent":
@@ -7447,6 +7485,10 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
+    // Urbanized Area says "adjacent to at least 2 other city tiles", which is
+    // the opposite of the default and therefore overrides it -- the card's own
+    // rule wins, exactly as Artificial Lake's does over the ocean rule above.
+    if (placementRule === "two-cities") return true;
     return !hasAdjacentCity(cell.q, cell.r, board);
   } else if (type === "special") {
     // Special tiles ignore the greenery adjacency rule; they only need dry land

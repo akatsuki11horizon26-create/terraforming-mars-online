@@ -159,12 +159,13 @@ if (process.argv.includes("--list")) {
   for (const [id, why] of skipped) console.log(`skip ${id}: ${why}`);
 }
 
-// Seven cases are known to differ, and each is the same shape: upstream decides
-// them in a bespokeCanPlay method that asks whether the board can take the tile
-// the card places, or whether a resource the card spends exists somewhere. Our
-// engine has no equivalent, so they are a ratchet rather than a gate -- the
-// number may fall, and a rise is a regression.
-const BASELINE = 7;
+// Three cases are known to differ, each decided upstream inside a bespokeCanPlay
+// method our engine has no equivalent for: whether Noctis City's reserved space
+// still has the energy production to run it, whether a floater exists somewhere
+// for Stratospheric Birds to spend, and Immigrant City, whose M€ cost upstream
+// does not declare as a behavior and so never checks. They are a ratchet rather
+// than a gate -- the number may fall, and a rise is a regression.
+const BASELINE = 3;
 
 if (wrong.length > BASELINE) {
   console.log(`
