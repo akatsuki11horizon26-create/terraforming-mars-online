@@ -83,8 +83,8 @@ Not verified:
     its manifest rather than counted, because a builder that discards half the
     corpus and then reports no skips says the audit is complete when it is not
   the difference between a cost the player must be able to pay and one that
-    simply takes what it can. Upstream distinguishes them with `lose`; we now
-    read that key, but only the cards whose spec carries it
+    simply takes what it can. Upstream distinguishes them with a "lose" key; we
+    now read it, but only for the cards whose spec carries it
   whether a card's BEHAVIOUR matches the real card. Its printed values are
     compared with upstream; what it does when played is not, because upstream
     expresses that as behavior objects, bespoke play() methods and class
