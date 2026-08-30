@@ -106,6 +106,12 @@ jobs:
         # are a known baseline; more is a regression.
         run: node scripts/audit-playable-against-upstream.mjs
 
+      - name: Card actions against upstream
+        # The other half of the playability audit: a blue card's action happens
+        # later, and a card whose action can never be taken is exactly the shape
+        # of the cards that shipped inert. 70 of the reference's own cases.
+        run: node scripts/audit-actions-against-upstream.mjs
+
       - name: Empty spec registry
         # A card whose catalogue entry promises nothing passes every other audit
         # while doing nothing at all. This makes each one say by name why it has

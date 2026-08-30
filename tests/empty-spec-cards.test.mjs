@@ -399,3 +399,107 @@ test("Double Down applies the other prelude a second time", () => {
   assert.equal(twice.mcProd, 8, "and again after the copy");
   assert.equal(twice.mc, single.mc + 3);
 });
+
+// Five more cards whose action existed only in their text. The upstream action
+// cases -- "can this card's action be used?" -- are what found them: each was
+// playable, paid for, and then had no action at all for the rest of the game.
+test("Jovian Lanterns trades a titanium for two floaters", () => {
+  const id = "card-colonies-jovian-lanterns";
+  const state = rig([id]);
+  getPlayer(state, "player").titanium = 2;
+  const used = takeAction(state, id, undefined);
+  const seat = getPlayer(used, "player");
+  assert.equal(seat.titanium, 1, "one titanium paid");
+  assert.equal(seat.cardResources?.[id] ?? 0, 2, "two floaters arrived");
+});
+
+test("Red Spot Observatory banks a floater, or spends one for a card", () => {
+  const id = "card-colonies-red-spot-observatory";
+
+  const banked = takeAction(rig([id]), id, 1);
+  assert.equal(getPlayer(banked, "player").cardResources?.[id] ?? 0, 1);
+
+  const stocked = rig([id]);
+  getPlayer(stocked, "player").cardResources = { [id]: 2 };
+  const before = getPlayer(stocked, "player").hand.length;
+  const drawn = takeAction(stocked, id, 0);
+  const seat = getPlayer(drawn, "player");
+  assert.equal(seat.cardResources?.[id] ?? 0, 1, "a floater paid for it");
+  assert.equal(seat.hand.length, before + 1, "and a card was drawn");
+});
+
+test("Extractor Balloons trades two floaters for a step of Venus", () => {
+  const id = "card-venus-extractor-balloons";
+
+  const grown = takeAction(rig([id]), id, 1);
+  assert.equal(getPlayer(grown, "player").cardResources?.[id] ?? 0, 1);
+
+  const stocked = rig([id]);
+  getPlayer(stocked, "player").cardResources = { [id]: 3 };
+  const venusBefore = stocked.venus;
+  const raised = takeAction(stocked, id, 0);
+  assert.equal(getPlayer(raised, "player").cardResources?.[id] ?? 0, 1, "two floaters paid");
+  assert.equal(raised.venus, venusBefore + 2, "and Venus rose a step");
+});
+
+test("Asteroid Deflection System keeps only what the deck reveals", () => {
+  const id = "card-promo-asteroid-deflection-system";
+  const reveal = topCard => {
+    const state = rig([id]);
+    state.deck = [topCard.id, ...state.deck.filter(entry => entry !== topCard.id)];
+    getPlayer(state, "player").cardResources = {};
+    return getPlayer(takeAction(state, id, undefined), "player").cardResources?.[id] ?? 0;
+  };
+
+  const space = ALL_CARDS.find(card => (card.tags ?? []).includes("Space") && card.id !== id);
+  const other = ALL_CARDS.find(card => !(card.tags ?? []).includes("Space") && card.id !== id);
+  assert.equal(reveal(space), 1, "a space tag pays an asteroid");
+  assert.equal(reveal(other), 0, "anything else pays nothing");
+});
+
+test("An action that costs production needs production to spend", () => {
+  // Equatorial Magnetizer trades an energy production step for a rating step,
+  // and at zero there is nothing to trade. The play-time rule existed; the
+  // action-time one did not, so the action was always offered.
+  const id = "card-base-equatorial-magnetizer";
+  const status = production => {
+    const state = rig([id]);
+    getPlayer(state, "player").energyProd = production;
+    return getCardActionStatus(state, ALL_CARDS.find(card => card.id === id)).playable;
+  };
+
+  assert.equal(status(0), false);
+  assert.equal(status(1), true);
+});
+
+test("A card that eats another card's resources needs one to eat", () => {
+  // Predators removes an animal from any card. With none in play there is
+  // nothing to remove, and the reference simply refuses the action.
+  const id = "card-base-predators";
+  const prey = ALL_CARDS.find(card =>
+    card.id !== id && (card.resourceType ?? getCardResourceType(card.id)) === "animal"
+  );
+  const card = ALL_CARDS.find(entry => entry.id === id);
+
+  const alone = rig([id]);
+  assert.equal(getCardActionStatus(alone, card).playable, false);
+
+  const fed = rig([id, prey.id]);
+  getPlayer(fed, "player").cardResources = { [prey.id]: 1 };
+  assert.equal(getCardActionStatus(fed, card).playable, true);
+});
+
+test("A full ocean track does not forbid an action that would place one", () => {
+  // The reference marks this with a warning and lets the player go ahead:
+  // paying for something that gives nothing is a bad move, not an illegal one.
+  const id = "card-base-aquifer-pumping";
+  const state = rig([id]);
+  const seat = getPlayer(state, "player");
+  seat.mc = 8;
+  seat.steel = 0;
+  state.oceans = 9;
+  assert.equal(
+    getCardActionStatus(state, ALL_CARDS.find(card => card.id === id)).playable,
+    true
+  );
+});

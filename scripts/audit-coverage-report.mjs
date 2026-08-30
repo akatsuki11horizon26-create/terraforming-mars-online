@@ -49,6 +49,8 @@ Verified:
                          "all" shapes split across both players
   audit-playable-        the reference implementation's own requirement cases,
     against-upstream     run against our engine on the boards its authors chose
+  audit-actions-         the same, for whether a card's action can be used --
+    against-upstream     the half a playability check cannot see
   audit-empty-spec-      every card with no effectSpec says by name why it has
     registry             none, so a card cannot go quietly dead
   audit-cards-against-   our cost, tags, requirements, type and resource type

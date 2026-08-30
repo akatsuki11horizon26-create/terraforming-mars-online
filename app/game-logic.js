@@ -4667,11 +4667,45 @@ export function getCardActionStatus(state, card) {
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
+  // An action that costs a production step is unusable by a player who has none
+  // to give -- Equatorial Magnetizer trades an energy production for a rating
+  // step, and at zero there is nothing to trade. The same floor applies as at
+  // play time: M€ production may reach -5, every other track stops at zero.
+  // Ants and Predators eat a resource off ANOTHER card, so with none in play
+  // there is nothing to eat and the action cannot be taken. Upstream refuses it
+  // outright -- its test for Predators is simply "Can not play".
+  const eats = card.effectSpec?.action?.removeResourcesFromAnyCard;
+  if (eats?.type) {
+    const targets = collectResourceTargets(state, eats.type, ALL_CARDS, {
+      mustHaveResources: true,
+      excludeCardId: card.id,
+      getResourceType: getCardResourceType
+    });
+    if (targets.length === 0) {
+      return { playable: false, reason: "取り除ける資源がありません。" };
+    }
+  }
+
+  const actionProduction = card.effectSpec?.action?.production;
+  if (actionProduction && typeof actionProduction === "object") {
+    const seat = getCurrentPlayer(state);
+    for (const [resource, amount] of Object.entries(actionProduction)) {
+      if (typeof amount !== "number" || amount >= 0) continue;
+      const field = `${SOURCE_RESOURCE_MAP[resource] ?? resource}Prod`;
+      const floor = field === "mcProd" ? MIN_MC_PRODUCTION : 0;
+      if ((seat?.[field] ?? 0) + amount < floor) {
+        return { playable: false, reason: "生産量が不足しています。" };
+      }
+    }
+  }
   const steelWorth = getSteelValue(state);
   const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / steelWorth)) : 0;
   const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * steelWorth);
   if (state.mc < mcCost) return { playable: false, reason: "MCが不足しています。" };
-  if (action.tile === "ocean" && state.oceans >= 9) return { playable: false, reason: "海洋タイルが上限に達しています。" };
+  // A full ocean track does NOT forbid the action. The reference marks it with a
+  // warning and lets the player go ahead: paying for something that turns out to
+  // give nothing is a bad move, not an illegal one, and its own test says "can
+  // act if can pay even after oceans are maxed".
   if (action.revealTag && state.deck.length === 0 && state.discardPile.length === 0) {
     return { playable: false, reason: "公開できるカードがありません。" };
   }
@@ -4935,7 +4969,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
           cardId: card.id,
           delta: 1
         });
-        nextLogs = addLog(nextLogs, "system", `公開カード【${revealedCard.name}】に${action.revealTag}タグがあり、科学資源を1個置きました。`);
+        nextLogs = addLog(nextLogs, "system", `公開カード【${revealedCard.name}】に${action.revealTag}タグがあり、資源を1個置きました。`);
       } else {
         nextLogs = addLog(nextLogs, "system", `公開カード【${revealedCard?.name ?? revealed}】を捨て札にしました。`);
       }

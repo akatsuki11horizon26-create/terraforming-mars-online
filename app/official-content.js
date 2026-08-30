@@ -21,6 +21,22 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // "REVEAL AND DISCARD the top card of the deck. If it has a space tag, add an
+  // asteroid here." The mechanism already existed for Search For Life; this
+  // card simply never declared it, so its action did not exist.
+  project("card-promo-asteroid-deflection-system", "Asteroid Deflection System", 13, ["Space", "Earth", "Building"], "active", "エネルギー生産量-1。アクション: 山札の一番上のカードを公開して捨てる。宇宙タグがあれば、このカードに小惑星資源を1個追加する。このカードの小惑星資源1個につき勝利点1点。", { production: { energy: -1 }, action: { revealTag: "Space" } }, { victoryPointSpec: { resourcesHere: {} }, resourceType: "asteroid" }),
+  // Three more actions the generated spec never carried, because upstream builds
+  // them by hand rather than declaring them. Each card could be played and then
+  // never used again, and the action audit against upstream is what found them.
+  project("card-colonies-jovian-lanterns", "Jovian Lanterns", 20, ["Jovian"], "active", "ジョビアンタグ1枚以上が必要。TR+1。任意のカードにフローターを2個置く。アクション: チタン1を支払い、このカードにフローターを2個追加する。", {}, { victoryPointSpec: { resourcesHere: {}, per: 2 }, requires: { tags: { Jovian: 1 } }, reqText: "ジョビアンタグ1枚以上", resourceType: "floater", effectSpec: { behavior: { tr: 1, addResourcesToAnyCard: { type: "Floater", count: 2 } }, action: { spend: { titanium: 1 }, addResources: 2 } } }),
+  project("card-colonies-red-spot-observatory", "Red Spot Observatory", 17, ["Jovian", "Science"], "active", "科学タグ3枚以上が必要。カードを2枚引く。アクション: このカードにフローターを1個追加する、またはこのカードのフローター1個を支払いカードを1枚引く。", {}, { victoryPoints: 2, requires: { tags: { Science: 3 } }, reqText: "科学タグ3枚以上", resourceType: "floater", effectSpec: { behavior: { drawCard: 2 }, action: { or: { autoSelect: true, behaviors: [
+    { title: "Spend a floater here to draw a card", spend: { resourcesHere: 1 }, drawCard: 1 },
+    { title: "Add 1 floater to this card", addResources: 1 }
+  ] } } } }),
+  project("card-venus-extractor-balloons", "Extractor Balloons", 21, ["Venus"], "active", "アクション: このカードにフローターを1個追加する、またはこのカードのフローター2個を取り除き金星+1。", {}, { resourceType: "floater", effectSpec: { behavior: { addResources: 3 }, action: { or: { autoSelect: true, behaviors: [
+    { title: "Remove 2 floaters here to raise Venus 1 step", spend: { resourcesHere: 2 }, global: { venus: 1 } },
+    { title: "Add 1 floater to this card", addResources: 1 }
+  ] } } } }),
   // Two cards whose tile has a placement rule their generated spec never
   // carried, so both could be built anywhere. Industrial Center must touch a
   // city; Urbanized Area must touch two.

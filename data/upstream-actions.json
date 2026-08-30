@@ -1,0 +1,876 @@
+{
+  "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "cards": {
+    "card-base-aquifer-pumping": {
+      "spec": "tests/cards/base/AquiferPumping.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot act if not enough to pay",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can use steel to pay",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can act if can pay even after oceans are maxed",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 9
+            },
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 8
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-business-network": {
+      "spec": "tests/cards/base/BusinessNetwork.spec.ts",
+      "cases": [
+        {
+          "title": "Can act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-caretaker-contract": {
+      "spec": "tests/cards/base/CaretakerContract.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play or act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Cannot act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "heat",
+              "amount": 7
+            },
+            {
+              "kind": "stock",
+              "resource": "heat",
+              "amount": 8
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-development-center": {
+      "spec": "tests/cards/base/DevelopmentCenter.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-equatorial-magnetizer": {
+      "spec": "tests/cards/base/EquatorialMagnetizer.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-industrial-center": {
+      "spec": "tests/cards/base/IndustrialCenter.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play or act",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-ironworks": {
+      "spec": "tests/cards/base/Ironworks.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act without enough energy",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-martian-rails": {
+      "spec": "tests/cards/base/MartianRails.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Ignores cities off Mars",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-ore-processor": {
+      "spec": "tests/cards/base/OreProcessor.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-power-infrastructure": {
+      "spec": "tests/cards/base/PowerInfrastructure.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-physics-complex": {
+      "spec": "tests/cards/base/PhysicsComplex.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-predators": {
+      "spec": "tests/cards/base/Predators.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-restricted-area": {
+      "spec": "tests/cards/base/RestrictedArea.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if not enough MC",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-search-for-life": {
+      "spec": "tests/cards/base/SearchForLife.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no MC",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 0
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-security-fleet": {
+      "spec": "tests/cards/base/SecurityFleet.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no titanium",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-space-elevator": {
+      "spec": "tests/cards/base/SpaceElevator.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no steel",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "steel",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-space-mirrors": {
+      "spec": "tests/cards/base/SpaceMirrors.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 7
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-symbiotic-fungus": {
+      "spec": "tests/cards/base/SymbioticFungus.spec.ts",
+      "cases": [
+        {
+          "title": "Can act without targets",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "p-steelworks": {
+      "spec": "tests/cards/base/Steelworks.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-underground-detonations": {
+      "spec": "tests/cards/base/UndergroundDetonations.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 9
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 10
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-water-import-from-europa": {
+      "spec": "tests/cards/base/WaterImportFromEuropa.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can act if can pay even after oceans are maxed",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 9
+            },
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 12
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-water-splitting-plant": {
+      "spec": "tests/cards/base/WaterSplittingPlant.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-floater-technology": {
+      "spec": "tests/cards/colonies/FloaterTechnology.spec.ts",
+      "cases": [
+        {
+          "title": "Can act without targets",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-jovian-lanterns": {
+      "spec": "tests/cards/colonies/JovianLanterns.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-red-spot-observatory": {
+      "spec": "tests/cards/colonies/RedSpotObservatory.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-refugee-camps": {
+      "spec": "tests/cards/colonies/RefugeeCamps.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-titan-air-scrapping": {
+      "spec": "tests/cards/colonies/TitanAirScrapping.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-prelude-psychrophiles": {
+      "spec": "tests/cards/prelude/Psychrophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Can act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-asteroid-deflection-system": {
+      "spec": "tests/cards/promo/AsteroidDeflectionSystem.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-bio-printing-facility": {
+      "spec": "tests/cards/promo/BioPrintingFacility.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-asteroid-rights": {
+      "spec": "tests/cards/promo/AsteroidRights.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 0
+            },
+            {
+              "kind": "cardResource",
+              "amount": 0
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-asteroid-hollowing": {
+      "spec": "tests/cards/promo/AsteroidHollowing.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-comet-aiming": {
+      "spec": "tests/cards/promo/CometAiming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act - single action choice, single target",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-directed-impactors": {
+      "spec": "tests/cards/promo/DirectedImpactors.spec.ts",
+      "cases": [
+        {
+          "title": "Should act - single action choice, single target",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-energy-market": {
+      "spec": "tests/cards/promo/EnergyMarket.spec.ts",
+      "cases": [
+        {
+          "title": "Can act when energy production available",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-hi-tech-lab": {
+      "spec": "tests/cards/promo/HiTechLab.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no energy resources available",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-icy-impactors": {
+      "spec": "tests/cards/promo/IcyImpactors.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 9
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-meltworks": {
+      "spec": "tests/cards/promo/Meltworks.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "heat",
+              "amount": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "heat",
+              "amount": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-penguins": {
+      "spec": "tests/cards/promo/Penguins.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-self-replicating-robots": {
+      "spec": "tests/cards/promo/SelfReplicatingRobots.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-extractor-balloons": {
+      "spec": "tests/cards/venusNext/ExtractorBalloons.spec.ts",
+      "cases": [
+        {
+          "title": "Can act",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-local-shading": {
+      "spec": "tests/cards/venusNext/LocalShading.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-rotator-impacts": {
+      "spec": "tests/cards/venusNext/RotatorImpacts.spec.ts",
+      "cases": [
+        {
+          "title": "Should act - only add resource",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 16
+            },
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should act - only spend resource",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 1
+            },
+            {
+              "kind": "cardResource",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should not allow to raise Venus level if there no resources on card",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should allow to raise Venus level only",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "corp-unmi": {
+      "spec": "tests/cards/corporation/UnitedNationsMarsInitiative.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if TR was not raised",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 10
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "corp-robinson": {
+      "spec": "tests/cards/prelude/RobinsonIndustries.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    }
+  }
+}
