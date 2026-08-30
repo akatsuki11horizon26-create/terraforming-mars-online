@@ -373,6 +373,7 @@ const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
+const TITAN_FLOATING_LAUNCH_PAD_ID = "card-colonies-titan-floating-launch-pad";
 
 // "Spend 12 M€ to raise Venus 1 step. This cost is REDUCED BY 1 FOR EACH VENUS
 // TAG you have." The card carries a Venus tag itself, so it never costs 12.
@@ -3447,6 +3448,49 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "titan-launch-pad": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      if (option.id === "trade") {
+        const tiles = (next.colonies?.tilesInPlay ?? []).map(tileId => ({
+          id: tileId,
+          name: getColonyTile(tileId)?.name ?? tileId
+        }));
+        const picking = buildColonyChoice(next, {}, {
+          sourceKind: "card-action",
+          sourceId: TITAN_FLOATING_LAUNCH_PAD_ID,
+          stage: "titan-launch-pad-trade",
+          consumedAction: false,
+          paid: true
+        }, tiles);
+        if (picking) {
+          picking.prompt = "無償で交易する植民地を選んでください。";
+          picking.continuation.stage = "titan-launch-pad-trade";
+          next.pendingChoice = picking;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: picking };
+        }
+        break;
+      }
+      const target = buildResourceChoice(next, { type: "Floater", count: 1, tag: "jovian" }, {
+        sourceKind: "card-action",
+        sourceId: TITAN_FLOATING_LAUNCH_PAD_ID,
+        stage: "titan-launch-pad-place",
+        consumedAction: false,
+        paid: true,
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType
+      });
+      if (target?.autoTarget) {
+        applyResourceToCard(next, target.autoTarget, target.count);
+        nextLogs = addLog(nextLogs, "system", `${target.autoTarget.label}にフローターを1個置きました。`);
+      } else if (target) {
+        next.pendingChoice = target;
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: target };
+      }
+      break;
+    }
+
     case "astrodrill": {
       const owner = choice.ownerPlayerId ?? actorId;
       const seatBefore = next.currentPlayerId;
@@ -3848,6 +3892,22 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
     case "colony-placement": {
+      // Titan Floating Launch-Pad reuses the colony picker to choose whom to
+      // trade with, not where to settle -- the stage says which.
+      if (choice.continuation.stage === "titan-launch-pad-trade") {
+        const owner = choice.ownerPlayerId ?? actorId;
+        // The trade happens first: tradeWith clones the state, so spending the
+        // floater beforehand would be undone by the clone coming back.
+        const traded = tradeWith(next, option.targetTileId, nextLogs, owner, { free: true });
+        Object.assign(next, traded.state);
+        nextLogs = traded.logs;
+        changeCardResource(next, {
+          ownerPlayerId: owner,
+          cardId: TITAN_FLOATING_LAUNCH_PAD_ID,
+          delta: -1
+        });
+        break;
+      }
       const allowDuplicates = Boolean(choice.continuation.payload?.allowDuplicates);
       const placed = buildColony(next.colonies, option.targetTileId, actorId, { allowDuplicates });
       if (placed.built) {
@@ -4327,8 +4387,12 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
 
-  // The same card may still owe another decision.
-  if (card) {
+  // The same card may still owe another decision from PLAYING it. A choice
+  // raised by the card's action is a different matter: queuePendingChoices reads
+  // the play behaviour, so asking it here re-ran the card's own effect after
+  // every action -- Titan Floating Launch-Pad handed out its two floaters again
+  // each time its action resolved.
+  if (card && choice.continuation.sourceKind !== "card-action") {
     const followUp = queuePendingChoices(next, card, choice.continuation);
     if (followUp) {
       next.pendingChoice = followUp;
@@ -4923,6 +4987,14 @@ export function getCardActionStatus(state, card) {
   }
   // A full Venus scale does NOT forbid the action -- the reference warns and
   // lets the player go ahead, the same as a full ocean track.
+  // Its action is written into the engine rather than declared, so the generic
+  // gate below would refuse it for having no action at all.
+  if (card.id === TITAN_FLOATING_LAUNCH_PAD_ID) {
+    const seat = getCurrentPlayer(state);
+    return (seat?.usedCardActions ?? []).includes(card.id)
+      ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
+      : { playable: true, reason: "" };
+  }
   if (card.id === VENUS_SHUTTLES_ID) {
     const seat = getCurrentPlayer(state);
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
@@ -5078,6 +5150,34 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  // "Add 1 floater to a Jovian card, or remove 1 floater here to trade for
+  // free." The floater half is the card's declared behaviour and is left to the
+  // declarative path; only the trade needs code.
+  if (card.id === TITAN_FLOATING_LAUNCH_PAD_ID) {
+    const held = nextState.cardResources?.[card.id] ?? 0;
+    const canTrade = held > 0 && (nextState.colonies?.tilesInPlay ?? []).length > 0;
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `titan-launch-pad:${nextState.currentPlayerId}`,
+      kind: "titan-launch-pad",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: "Titan Floating Launch-Pad: どちらを実行しますか。",
+      optional: false,
+      options: [
+        { id: "add", label: "ジョビアンカードにフローターを1個追加する" },
+        ...(canTrade ? [{ id: "trade", label: "フローターを1個支払い、無償で交易する" }] : [])
+      ],
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "titan-launch-pad",
+        consumedAction: true,
+        paid: true
+      }
+    };
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
 
   if (card.id === VENUS_SHUTTLES_ID) {
     const cost = venusShuttlesCost(nextState, nextState.currentPlayerId);
@@ -6257,6 +6357,30 @@ export function tradeWith(state, tileId, logs, playerId, options = {}) {
     return { state, logs: addLog(logs, "system", "Coloniesは有効ではありません。"), traded: false };
   }
   const actorId = playerId ?? state.currentPlayerId;
+  // Titan Floating Launch-Pad buys a trade with a floater instead of the usual
+  // money, energy or titanium, so the colony pays and nothing is taken.
+  if (options.free === true) {
+    const offset = tradeOffsetFor(state, actorId);
+    const boosted = offset > 0 ? increaseTrack(state.colonies, tileId, offset) : state.colonies;
+    const outcome = tradeWithColony(boosted, tileId, actorId);
+    if (!outcome.traded) {
+      return { state, logs: addLog(logs, "system", outcome.reason), traded: false };
+    }
+    const freeState = cloneGameState(state);
+    freeState.colonies = outcome.colonies;
+    const tile = getColonyTile(tileId);
+    let freeLogs = addLog(
+      logs,
+      "system",
+      `${getPlayer(freeState, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} と無償で交易しました。`
+    );
+    freeLogs = grantColonyBenefit(freeState, outcome.tradeBenefit, actorId, freeLogs).logs;
+    for (const owner of outcome.colonyOwners) {
+      freeLogs = grantColonyBenefit(freeState, outcome.colonyBonus, owner, freeLogs).logs;
+    }
+    freeState.logs = freeLogs;
+    return { state: freeState, logs: freeLogs, traded: true };
+  }
   const payable = tradePaymentOptions(state, actorId);
   if (payable.length === 0) {
     const discount = tradeDiscountFor(state, actorId);

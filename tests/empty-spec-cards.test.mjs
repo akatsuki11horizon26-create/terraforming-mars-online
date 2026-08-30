@@ -1277,3 +1277,87 @@ test("Venus Shuttles costs a M€ less for each Venus tag you hold", () => {
   assert.equal(play(3, 20).paid, 8, "three more tags take three more off");
   assert.equal(play(0, 5), null, "and it cannot be used without the money");
 });
+
+test("Titan Floating Launch-Pad buys a trade with a floater", () => {
+  // "Add 1 floater to a Jovian card, or remove 1 floater here to trade for
+  // free." The colony pays what it owes and nothing is taken from the player.
+  const id = "card-colonies-titan-floating-launch-pad";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const start = held => {
+    const state = rig([id]);
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = null;
+    seat.mc = 0;
+    seat.heat = 0;
+    seat.hand = [];
+    seat.actionsRemaining = 2;
+    seat.cardResources = { [id]: held };
+    for (const tile of state.colonies.tilesInPlay) {
+      state.colonies.tiles[tile].trackPosition = 3;
+    }
+    return state;
+  };
+
+  // Without a floater there is nothing to spend, so only the other half stands.
+  const broke = executeGameCommand(start(0), {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  assert.deepEqual(broke.state.pendingChoice.options.map(o => o.id), ["add"]);
+
+  const used = executeGameCommand(start(2), {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  assert.deepEqual(used.state.pendingChoice.options.map(o => o.id), ["add", "trade"]);
+
+  const picking = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "trade"
+  }).state;
+  assert.equal(picking.pendingChoice?.kind, "colony-placement");
+
+  const traded = executeGameCommand(picking, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: picking.pendingChoice.options[0].id
+  });
+  const after = getPlayer(traded.state, "player");
+  assert.equal(after.cardResources[id], 1, "one floater bought the trade");
+  assert.equal(after.mc, 0, "and nothing else was taken");
+  // Whatever the colony pays, it paid something.
+  const gained = ["mc", "steel", "titanium", "plants", "energy", "heat"]
+    .reduce((sum, field) => sum + (after[field] ?? 0), 0) + after.hand.length;
+  assert.ok(gained > 0, "the colony paid what it owed");
+});
+
+test("A card action does not replay the card's play effect", () => {
+  // The follow-up after a resolved choice read the card's PLAY behaviour, so
+  // every action that raised a question handed out the card's own play effect
+  // again. Titan Floating Launch-Pad gave two more floaters each time.
+  const id = "card-colonies-titan-floating-launch-pad";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const state = rig([id]);
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "complete";
+  seat.corporationId = null;
+  seat.mc = 0;
+  seat.hand = [];
+  seat.actionsRemaining = 2;
+  seat.cardResources = { [id]: 2 };
+  for (const tile of state.colonies.tilesInPlay) {
+    state.colonies.tiles[tile].trackPosition = 3;
+  }
+
+  const used = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  const picking = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "trade"
+  }).state;
+  const done = executeGameCommand(picking, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: picking.pendingChoice.options[0].id
+  });
+  // Two floaters, one spent: one left. Not three.
+  assert.equal(getPlayer(done.state, "player").cardResources[id], 1);
+});

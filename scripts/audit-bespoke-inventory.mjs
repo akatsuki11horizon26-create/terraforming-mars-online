@@ -22,7 +22,6 @@ const inventory = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json
 // Cards whose upstream action needs machinery our engine does not have. Each
 // names what it would take, so the entry is a decision rather than a shrug.
 const UNREACHABLE = {
-  "card-colonies-titan-floating-launch-pad": "spend a floater to trade with a colony for free",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
 };
 

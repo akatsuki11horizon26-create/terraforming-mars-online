@@ -23,8 +23,6 @@ import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-conte
 // Cards whose action our engine cannot offer, each with what implementing it
 // would take. They are kept out of play until that happens.
 export const UNSUPPORTED = {
-  "card-colonies-titan-floating-launch-pad":
-    "spend a floater to trade with a colony for free",
   "card-prelude2-board-of-directors":
     "draw a prelude, then discard it or pay 12 M€ to play it",
 };
@@ -112,23 +110,7 @@ if (process.argv.includes("--list")) {
   for (const [cardId, why] of isolated) console.log(`${cardId.padEnd(44)} ${why}`);
 }
 
-const reachableProblems = problems.filter(problem => problem.includes("still"));
-const staleProblems = problems.filter(problem => !problem.includes("still"));
-
-// One unimplemented card still reaches a player. Isolating it is a decision
-// about what a game contains, so the number is held rather than acted on.
-const BASELINE = 1;
-
-if (staleProblems.length > 0) {
-  process.exitCode = 1;
-} else if (reachableProblems.length > BASELINE) {
-  console.log(`
-MORE than the ${BASELINE} known reachable: this is a regression.`);
-  process.exitCode = 1;
-} else if (reachableProblems.length < BASELINE) {
-  console.log(`
-Fewer reachable than the baseline of ${BASELINE}. Lower BASELINE.`);
-  process.exitCode = 1;
-} else {
-  process.exitCode = 0;
-}
+// Every unimplemented card is now kept out of play, so this is a gate rather
+// than a ratchet: a card that can be drawn and not used fails, and so does a
+// listed card that starts working.
+process.exitCode = problems.length > 0 ? 1 : 0;

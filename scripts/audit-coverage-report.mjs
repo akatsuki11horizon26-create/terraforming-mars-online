@@ -92,9 +92,6 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
-  three unimplemented cards that can still be drawn -- Titan Floating Launch-Pad,
-    Venus Shuttles and Arcadian Communities. Keeping them out of the pools
-    changes which cards a seeded deal produces, so it is the user's call
   what those 335 dropped upstream blocks actually assert. The skip ledger says
     every card they concern is measured by something else; it does not say the
     something else asks the same question the dropped block did
