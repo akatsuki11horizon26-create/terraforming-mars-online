@@ -939,6 +939,19 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     if (typeof raw.global.oxygen === "number") effect.oxygenSteps = (effect.oxygenSteps ?? 0) + raw.global.oxygen;
     if (typeof raw.global.venus === "number") effect.venusSteps = (effect.venusSteps ?? 0) + raw.global.venus;
   }
+  // "Lose one of the resources here, or as much of it as the player has." The
+  // reference is explicit that this never blocks the behaviour and takes what it
+  // can -- which is what separates Immigrant City's shed production from a cost
+  // the player has to be able to pay. The amounts are written positive and
+  // applied negative, and applyProduction already floors each track.
+  if (raw.lose?.production && typeof raw.lose.production === "object") {
+    effect.production = { ...(effect.production ?? {}) };
+    for (const [resource, amount] of Object.entries(raw.lose.production)) {
+      if (typeof amount !== "number") continue;
+      const key = SOURCE_RESOURCE_MAP[resource] ?? resource;
+      effect.production[key] = (effect.production[key] ?? 0) - amount;
+    }
+  }
   if (typeof raw.tr === "number") effect.tr = (effect.tr ?? 0) + raw.tr;
   // "Raise your TR 1 step per Jovian tag." A counted rating gain is resolved
   // when the card is played, like a counted resource gain, because how many
@@ -7229,7 +7242,14 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   // floor of -5 cannot pay it. The reference decides this with canAdjust, which
   // compares each resource against its own floor -- -5 for M€ production, zero
   // for the rest -- and refuses the play rather than clamping.
-  const ownCost = card.effectSpec?.behavior?.production;
+  // A cost written as `lose` is forgiving: the reference takes what it can and
+  // never blocks the play. Immigrant City sheds its M€ production that way, so
+  // a player already at -4 may play it and simply floors at -5. Only a cost
+  // written as a production CHANGE is a payment the player has to be able to
+  // make.
+  const ownCost = card.effectSpec?.behavior?.lose?.production
+    ? null
+    : card.effectSpec?.behavior?.production;
   if (ownCost && typeof ownCost === "object") {
     const seat = getCurrentPlayer(state);
     for (const [resource, amount] of Object.entries(ownCost)) {
@@ -7253,15 +7273,19 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
     return { playable: false, reason: "微生物を持つ自分のカードが必要です。" };
   }
 
-  if (
-    card.id === "card-colonies-air-raid" &&
-    !collectResourceTargets(state, "floater", ALL_CARDS, {
+  // A card that spends a resource off one of the player's OWN cards cannot be
+  // played when none of them holds one -- Air Raid spends a floater, and so does
+  // Stratospheric Birds. Reading the spec covers both, and the next one.
+  const spends = card.effectSpec?.behavior?.removeResourcesFromAnyCard;
+  if (spends?.type && spends.source === "self") {
+    const held = collectResourceTargets(state, spends.type, ALL_CARDS, {
       ownCardsOnly: true,
       mustHaveResources: true,
       getResourceType: getCardResourceType
-    }).length
-  ) {
-    return { playable: false, reason: "フローターを持つ自分のカードが必要です。" };
+    });
+    if (held.length === 0) {
+      return { playable: false, reason: "支払える資源を持つ自分のカードがありません。" };
+    }
   }
 
   // Insulation converts heat production into M€ production, so there has to be

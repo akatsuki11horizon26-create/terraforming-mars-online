@@ -4,6 +4,7 @@ import {
   getInitialState,
   getPlayer,
   getCardActionStatus,
+  getCardPlayableStatus,
   getAdjacentCells,
   ALL_CARDS
 } from "../app/game-logic.js";
@@ -502,4 +503,65 @@ test("A full ocean track does not forbid an action that would place one", () => 
     getCardActionStatus(state, ALL_CARDS.find(card => card.id === id)).playable,
     true
   );
+});
+
+// Three costs that were in the card text and missing from the generated spec,
+// found by adjudicating the last differences against the reference's own cases.
+test("Stratospheric Birds spends a floater from one of your cards", () => {
+  const id = "card-venus-stratospheric-birds";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+
+  const bare = rig([], [id]);
+  bare.venus = 16;
+  assert.equal(
+    getCardPlayableStatus(card, bare).playable,
+    false,
+    "no floater anywhere means no way to pay"
+  );
+
+  const host = ALL_CARDS.find(entry =>
+    entry.id !== id && (entry.resourceType ?? getCardResourceType(entry.id)) === "floater"
+  );
+  const stocked = rig([host.id], [id]);
+  stocked.venus = 16;
+  getPlayer(stocked, "player").cardResources = { [host.id]: 1 };
+  assert.equal(getCardPlayableStatus(card, stocked).playable, true);
+});
+
+test("Noctis City needs the energy production it spends", () => {
+  const id = "card-base-noctis-city";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const status = production => {
+    const state = rig([], [id]);
+    getPlayer(state, "player").energyProd = production;
+    return getCardPlayableStatus(card, state).playable;
+  };
+
+  // The reserved Noctis space carries no energy bonus to cover the loss, so
+  // the player has to be producing at least one step already.
+  assert.equal(status(0), false);
+  assert.equal(status(1), true);
+});
+
+test("Immigrant City sheds production rather than paying it", () => {
+  // Upstream uses LoseProduction, which takes what it can and never blocks the
+  // play: at -4 M€ production the card is still playable and simply floors at
+  // -5. Written as a plain cost it would be a payment the player cannot make.
+  const id = "card-base-immigrant-city";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const state = rig([], [id]);
+  const seat = getPlayer(state, "player");
+  seat.mcProd = -4;
+  seat.energyProd = 1;
+
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: id, card
+  });
+  assert.equal(played.ok, true);
+  const after = getPlayer(settle(played.state), "player");
+  assert.equal(after.energyProd, 0, "the energy step was taken");
+  // Down to the -5 floor, then the card's own city pays a step back.
+  assert.equal(after.mcProd, -4);
 });

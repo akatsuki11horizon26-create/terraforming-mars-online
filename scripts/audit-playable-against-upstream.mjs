@@ -166,22 +166,8 @@ if (process.argv.includes("--list")) {
   for (const [id, why] of skipped) console.log(`skip ${id}: ${why}`);
 }
 
-// Three cases are known to differ, each decided upstream inside a bespokeCanPlay
-// method our engine has no equivalent for: whether Noctis City's reserved space
-// still has the energy production to run it, whether a floater exists somewhere
-// for Stratospheric Birds to spend, and Immigrant City, whose M€ cost upstream
-// does not declare as a behavior and so never checks. They are a ratchet rather
-// than a gate -- the number may fall, and a rise is a regression.
-const BASELINE = 3;
-
-if (wrong.length > BASELINE) {
-  console.log(`
-MORE than the ${BASELINE} known differences: this is a regression.`);
-  process.exitCode = 1;
-} else if (wrong.length < BASELINE) {
-  console.log(`
-Fewer differences than the baseline of ${BASELINE}. Lower BASELINE to ${wrong.length}.`);
-  process.exitCode = 1;
-} else {
-  process.exitCode = 0;
-}
+// Every case the reference wrote about playability now agrees, so this is a
+// gate rather than a ratchet: there is no known difference left to carry. It
+// covers the cases the builder could read, and the count printed above says how
+// many it could not.
+process.exitCode = wrong.length > 0 ? 1 : 0;

@@ -21,6 +21,16 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // "Decrease your energy production 1 step and increase your M€ production 3
+  // steps." The energy cost is in the card text and missing from the generated
+  // spec, so it was never taken -- and a player with no energy production could
+  // play it, which the reference refuses because the reserved Noctis space
+  // carries no energy bonus to cover the loss.
+  project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
+  // "Requires Venus 12%. Spend 1 floater from ANY card." The floater cost is in
+  // the card text and was missing from the generated spec, so the card could be
+  // played with no floater anywhere and none was ever taken.
+  project("card-venus-stratospheric-birds", "Stratospheric Birds", 12, ["Venus", "Animal"], "active", "金星12%以上が必要。任意のカードのフローター1個を支払う。アクション: このカードに動物を1個追加する。", {}, { victoryPointSpec: { resourcesHere: {} }, requires: { venus: 12 }, reqText: "金星12%以上", resourceType: "animal", effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "floater", count: 1, source: "self" } }, action: { addResources: 1 } } }),
   // "REVEAL AND DISCARD the top card of the deck. If it has a space tag, add an
   // asteroid here." The mechanism already existed for Search For Life; this
   // card simply never declared it, so its action did not exist.
@@ -125,7 +135,7 @@ const CURATED_PROJECT_OVERRIDES = [
   // Immigrant City pays for its city with production and then collects on every
   // city anyone places; Rover Construction is only that trigger, so it needs no
   // play effect of its own -- placeTileAt reads both from the tableau.
-  project("card-base-immigrant-city", "Immigrant City", 13, ["City", "Building"], "active", "エネルギー生産量-1、MC生産量-2。都市タイルを1枚置く。効果: 都市タイルが置かれるたび（このカードを含む）、MC生産量+1。", {}, {"effectSpec": {"behavior": {"production": {"energy": -1, "megacredits": -2}, "city": {}}}}),
+  project("card-base-immigrant-city", "Immigrant City", 13, ["City", "Building"], "active", "エネルギー生産量-1、MC生産量-2。都市タイルを1枚置く。効果: 都市タイルが置かれるたび（このカードを含む）、MC生産量+1。", {}, { effectSpec: { behavior: { lose: { production: { energy: 1, megacredits: 2 } }, city: {} } } }),
   // 1 M€ per empty area touching one of the player's own tiles. No tile is
   // placed; the areas are only counted.
   project("card-turmoil-red-tourism-wave", "Red Tourism Wave", 3, ["Earth"], "event", "レッズが与党であるか、そこに代表者を2人置いていることが必要。自分のタイルに隣接する空きエリア1つにつきMCを1獲得。", {}, {"requires": {"party": "Reds"}, "reqText": "レッズが与党、または代表者2人", "effectSpec": {"behavior": {"stock": {"megacredits": {"ownedAdjacentEmptyAreas": true}}}}}),
