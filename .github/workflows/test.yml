@@ -129,6 +129,13 @@ jobs:
         # mentions at all. Every one of them must be owned by something else.
         run: node scripts/audit-skip-ledger.mjs
 
+      - name: Unsupported card isolation
+        # Six cards we have not implemented. Three still reach a player, which
+        # is a product decision to make deliberately rather than a bug to slip
+        # in; the audit holds that number and fails if a listed card starts
+        # working, so the register cannot go stale.
+        run: node scripts/audit-unsupported-isolation.mjs
+
       - name: Bespoke method inventory
         # 174 cards whose behaviour upstream writes by hand -- the shape the
         # catalogue generator cannot copy, and where nineteen dead cards have
