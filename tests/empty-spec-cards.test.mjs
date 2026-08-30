@@ -812,3 +812,25 @@ test("Preservation Program raises the terraform rating five steps", () => {
   const after = getPlayer(resolved.state ?? resolved, "player");
   assert.equal(after.tr - before, 5, "five steps, and Allied Banks brings none");
 });
+
+test("Palladin Shipping trades two titanium for a step of temperature", () => {
+  // Found by comparing our declared behaviour with upstream's: its action was
+  // declared there and nowhere here, so the corporation had none.
+  const attempt = (titanium, temperature) => {
+    const state = rig();
+    state.temperature = temperature;
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "card-prelude2-palladin-shipping";
+    seat.titanium = titanium;
+    seat.actionsRemaining = 2;
+    return executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  };
+
+  assert.equal(attempt(1, 0).ok, false, "two titanium or nothing");
+  assert.equal(attempt(2, 8).ok, false, "and somewhere for the temperature to go");
+
+  const used = attempt(2, 0);
+  assert.equal(used.ok, true);
+  assert.equal(getPlayer(used.state, "player").titanium, 0);
+  assert.equal(used.state.temperature, 2, "a step is two degrees");
+});

@@ -54,6 +54,8 @@ Verified:
   audit-vp-cases-        and the same again for what a card is worth: the spec
     against-upstream     comparison checks the declaration, the boundary sweep
                          checks the arithmetic, this checks the answer
+  audit-behavior-        our declared behaviour says what the real card's
+    against-upstream     declared behaviour says, for the keys both use
   audit-skip-ledger      every card the upstream oracles could not speak for --
                          335 dropped blocks across 210 cards, plus 245 no
                          oracle mentions -- is owned by a test or an audit
@@ -93,11 +95,10 @@ Not verified:
   the difference between a cost the player must be able to pay and one that
     simply takes what it can. Upstream distinguishes them with a "lose" key; we
     now read it, but only for the cards whose spec carries it
-  whether a card's BEHAVIOUR matches the real card. Its printed values are
-    compared with upstream; what it does when played is not, because upstream
-    expresses that as behavior objects, bespoke play() methods and class
-    inheritance at once, and a field-by-field comparison would report
-    differences of expression rather than of rules
+  what a card DOES beyond what it declares. Its printed values and its declared
+    behaviour are both compared with upstream now; what a hand-written method
+    does there is not, and 72 cards are skipped by the behaviour comparison
+    with a reason each
   22 cards whose upstream constructor prints nothing to compare: 16 preludes,
     which print no cost, tags or points and declare only a behavior, and 6 that
     pass their values positionally to a base class or hold them in code. Each

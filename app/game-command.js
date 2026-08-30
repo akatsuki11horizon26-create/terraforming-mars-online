@@ -486,6 +486,27 @@ const CORPORATION_ACTIONS = {
       return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
     }
   },
+  // "Spend 2 titanium to raise the temperature 1 step."
+  "card-prelude2-palladin-shipping": {
+    label: "Palladin Shipping: チタン2を支払い気温を1段階上げました。",
+    blocked: (actor, state) => {
+      if ((actor.titanium ?? 0) < 2) return "チタンが不足しています。";
+      return (state.temperature ?? -30) >= 8 ? "気温は上限に達しています。" : null;
+    },
+    run(state, command) {
+      state.players = state.players.map(player =>
+        player.id === command.playerId
+          ? { ...player, titanium: (player.titanium ?? 0) - 2 }
+          : player
+      );
+      raiseTemperature(state, command.playerId);
+      return finishAction(
+        state,
+        command,
+        "Palladin Shipping: チタン2を支払い気温を1段階上げました。"
+      );
+    }
+  },
   // "Increase your energy production 1 step IF YOU HAVE NO ENERGY RESOURCES, or
   // spend 3 M€ to draw a building card." Which half is on offer depends on the
   // board, so both are collected and the player is asked only when both apply.

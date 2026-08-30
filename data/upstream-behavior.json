@@ -1,0 +1,4576 @@
+{
+  "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "cards": {
+    "card-base-adapted-lichen": {
+      "source": "src/server/cards/base/AdaptedLichen.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-advanced-alloys": {
+      "source": "src/server/cards/base/AdvancedAlloys.ts",
+      "behavior": {
+        "steelValue": 1,
+        "titanumValue": 1
+      }
+    },
+    "card-base-aerobraked-ammonia-asteroid": {
+      "source": "src/server/cards/base/AerobrakedAmmoniaAsteroid.ts",
+      "behavior": {
+        "production": {
+          "heat": 3,
+          "plants": 1
+        },
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "microbe"
+        }
+      }
+    },
+    "p-ai-central": {
+      "source": "src/server/cards/base/AICentral.ts",
+      "behavior": {
+        "production": {
+          "energy": -1
+        }
+      },
+      "action": {
+        "drawCard": {
+          "count": 2
+        }
+      }
+    },
+    "card-base-acquired-company": {
+      "source": "src/server/cards/base/AcquiredCompany.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        }
+      }
+    },
+    "card-base-algae": {
+      "source": "src/server/cards/base/Algae.ts",
+      "behavior": {
+        "production": {
+          "plants": 2
+        },
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-ants": {
+      "source": "src/server/cards/base/Ants.ts",
+      "action": {
+        "removeResourcesFromAnyCard": {
+          "type": "microbe",
+          "source": "all"
+        },
+        "addResources": 1
+      }
+    },
+    "card-base-aquifer-pumping": {
+      "source": "src/server/cards/base/AquiferPumping.ts",
+      "action": {
+        "spend": {
+          "megacredits": 8,
+          "canUseSteel": true
+        },
+        "ocean": {}
+      }
+    },
+    "card-base-archaebacteria": {
+      "source": "src/server/cards/base/ArchaeBacteria.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-artificial-lake": {
+      "source": "src/server/cards/base/ArtificialLake.ts",
+      "behavior": {
+        "ocean": {
+          "on": "land"
+        }
+      }
+    },
+    "card-base-artificial-photosynthesis": {
+      "source": "src/server/cards/base/ArtificialPhotosynthesis.ts",
+      "behavior": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "production": {
+                "energy": 2
+              },
+              "title": "Increase your energy production 2 steps"
+            },
+            {
+              "production": {
+                "plants": 1
+              },
+              "title": "Increase your plant production 1 step"
+            }
+          ]
+        }
+      }
+    },
+    "p-asteroid": {
+      "source": "src/server/cards/base/Asteroid.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 2
+        },
+        "global": {
+          "temperature": 1
+        },
+        "removeAnyPlants": 3
+      }
+    },
+    "card-base-arctic-algae": {
+      "source": "src/server/cards/base/ArcticAlgae.ts",
+      "behavior": {
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-asteroid-mining": {
+      "source": "src/server/cards/base/AsteroidMining.ts",
+      "behavior": {
+        "production": {
+          "titanium": 2
+        }
+      }
+    },
+    "p-big-asteroid": {
+      "source": "src/server/cards/base/BigAsteroid.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 4
+        },
+        "global": {
+          "temperature": 2
+        },
+        "removeAnyPlants": 4
+      }
+    },
+    "card-base-biomass-combustors": {
+      "source": "src/server/cards/base/BiomassCombustors.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 1
+        },
+        "production": {
+          "energy": 2
+        }
+      }
+    },
+    "card-base-birds": {
+      "source": "src/server/cards/base/Birds.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 2
+        }
+      },
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-base-beam-from-a-thorium-asteroid": {
+      "source": "src/server/cards/base/BeamFromAThoriumAsteroid.ts",
+      "behavior": {
+        "production": {
+          "heat": 3,
+          "energy": 3
+        }
+      }
+    },
+    "card-base-black-polar-dust": {
+      "source": "src/server/cards/base/BlackPolarDust.ts",
+      "behavior": {
+        "ocean": {},
+        "production": {
+          "megacredits": -2,
+          "heat": 3
+        }
+      }
+    },
+    "card-base-bribed-committee": {
+      "source": "src/server/cards/base/BribedCommittee.ts",
+      "behavior": {
+        "tr": 2
+      }
+    },
+    "card-base-building-industries": {
+      "source": "src/server/cards/base/BuildingIndustries.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "steel": 2
+        }
+      }
+    },
+    "card-base-bushes": {
+      "source": "src/server/cards/base/Bushes.ts",
+      "behavior": {
+        "production": {
+          "plants": 2
+        },
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-callisto-penal-mines": {
+      "source": "src/server/cards/base/CallistoPenalMines.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        }
+      }
+    },
+    "card-base-business-contacts": {
+      "source": "src/server/cards/base/BusinessContacts.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 4,
+          "keep": 2
+        }
+      }
+    },
+    "card-base-carbonate-processing": {
+      "source": "src/server/cards/base/CarbonateProcessing.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "heat": 3
+        }
+      }
+    },
+    "card-base-business-network": {
+      "source": "src/server/cards/base/BusinessNetwork.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -1
+        }
+      },
+      "action": {
+        "drawCard": {
+          "count": 1,
+          "pay": true
+        }
+      }
+    },
+    "p-capital": {
+      "source": "src/server/cards/base/Capital.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-ceo-s-favorite-project": {
+      "source": "src/server/cards/base/CEOsFavoriteProject.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "count": 1,
+          "min": 1,
+          "mustHaveCard": true,
+          "robotCards": true
+        }
+      }
+    },
+    "card-base-caretaker-contract": {
+      "source": "src/server/cards/base/CaretakerContract.ts",
+      "action": {
+        "spend": {
+          "heat": 8
+        },
+        "tr": 1
+      }
+    },
+    "p-comet": {
+      "source": "src/server/cards/base/Comet.ts",
+      "behavior": {
+        "global": {
+          "temperature": 1
+        },
+        "ocean": {},
+        "removeAnyPlants": 3
+      }
+    },
+    "card-base-cloud-seeding": {
+      "source": "src/server/cards/base/CloudSeeding.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -1,
+          "plants": 2
+        },
+        "decreaseAnyProduction": {
+          "type": "heat",
+          "count": 1
+        }
+      }
+    },
+    "card-base-commercial-district": {
+      "source": "src/server/cards/base/CommercialDistrict.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-cartel": {
+      "source": "src/server/cards/base/Cartel.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "earth"
+          }
+        }
+      }
+    },
+    "card-base-convoy-from-europa": {
+      "source": "src/server/cards/base/ConvoyFromEuropa.ts",
+      "behavior": {
+        "ocean": {},
+        "drawCard": 1
+      }
+    },
+    "card-base-corporate-stronghold": {
+      "source": "src/server/cards/base/CorporateStronghold.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 3
+        },
+        "city": {}
+      }
+    },
+    "card-base-designed-microorganisms": {
+      "source": "src/server/cards/base/DesignedMicroOrganisms.ts",
+      "behavior": {
+        "production": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-deimos-down": {
+      "source": "src/server/cards/base/DeimosDown.ts",
+      "behavior": {
+        "stock": {
+          "steel": 4
+        },
+        "global": {
+          "temperature": 3
+        },
+        "removeAnyPlants": 8
+      }
+    },
+    "card-base-domed-crater": {
+      "source": "src/server/cards/base/DomedCrater.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 3
+        },
+        "stock": {
+          "plants": 3
+        },
+        "city": {}
+      }
+    },
+    "card-base-cupola-city": {
+      "source": "src/server/cards/base/CupolaCity.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 3
+        },
+        "city": {}
+      }
+    },
+    "card-base-deep-well-heating": {
+      "source": "src/server/cards/base/DeepWellHeating.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        },
+        "global": {
+          "temperature": 1
+        }
+      }
+    },
+    "card-base-development-center": {
+      "source": "src/server/cards/base/DevelopmentCenter.ts",
+      "action": {
+        "spend": {
+          "energy": 1
+        },
+        "drawCard": 1
+      }
+    },
+    "card-base-energy-saving": {
+      "source": "src/server/cards/base/EnergySaving.ts",
+      "behavior": {
+        "production": {
+          "energy": {
+            "cities": {}
+          }
+        }
+      }
+    },
+    "card-base-electro-catapult": {
+      "source": "src/server/cards/base/ElectroCatapult.ts",
+      "behavior": {
+        "production": {
+          "energy": -1
+        }
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Spend 1 plant to gain 7 M€.",
+              "spend": {
+                "plants": 1
+              },
+              "stock": {
+                "megacredits": 7
+              }
+            },
+            {
+              "title": "Spend 1 steel to gain 7 M€.",
+              "spend": {
+                "steel": 1
+              },
+              "stock": {
+                "megacredits": 7
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-base-eos-chasma-national-park": {
+      "source": "src/server/cards/base/EOSChasmaNationalPark.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "stock": {
+          "plants": 3
+        },
+        "addResourcesToAnyCard": {
+          "count": 1,
+          "type": "animal"
+        }
+      }
+    },
+    "card-base-equatorial-magnetizer": {
+      "source": "src/server/cards/base/EquatorialMagnetizer.ts",
+      "action": {
+        "production": {
+          "energy": -1
+        },
+        "tr": 1
+      }
+    },
+    "card-base-fish": {
+      "source": "src/server/cards/base/Fish.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 1
+        }
+      },
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-base-fuel-factory": {
+      "source": "src/server/cards/base/FuelFactory.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 1,
+          "titanium": 1
+        }
+      }
+    },
+    "card-base-farming": {
+      "source": "src/server/cards/base/Farming.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2,
+          "plants": 2
+        },
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-fueled-generators": {
+      "source": "src/server/cards/base/FueledGenerators.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "megacredits": -1
+        }
+      }
+    },
+    "card-base-food-factory": {
+      "source": "src/server/cards/base/FoodFactory.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 4,
+          "plants": -1
+        }
+      }
+    },
+    "p-geothermal-power": {
+      "source": "src/server/cards/base/GeothermalPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        }
+      }
+    },
+    "card-base-gene-repair": {
+      "source": "src/server/cards/base/GeneRepair.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "p-giant-ice-asteroid": {
+      "source": "src/server/cards/base/GiantIceAsteroid.ts",
+      "behavior": {
+        "global": {
+          "temperature": 2
+        },
+        "removeAnyPlants": 6,
+        "ocean": {
+          "count": 2
+        }
+      }
+    },
+    "card-base-giant-space-mirror": {
+      "source": "src/server/cards/base/GiantSpaceMirror.ts",
+      "behavior": {
+        "production": {
+          "energy": 3
+        }
+      }
+    },
+    "card-base-fusion-power": {
+      "source": "src/server/cards/base/FusionPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 3
+        }
+      }
+    },
+    "card-base-ghg-producing-bacteria": {
+      "source": "src/server/cards/base/GHGProducingBacteria.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "temperature": 1
+              },
+              "title": "Remove 2 microbes to raise temperature 1 step"
+            },
+            {
+              "addResources": 1,
+              "title": "Add 1 microbe to this card"
+            }
+          ]
+        }
+      }
+    },
+    "card-base-ghg-factories": {
+      "source": "src/server/cards/base/GHGFactories.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "heat": 4
+        }
+      }
+    },
+    "card-base-ganymede-colony": {
+      "source": "src/server/cards/base/GanymedeColony.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "p-greenhouses": {
+      "source": "src/server/cards/base/Greenhouses.ts",
+      "behavior": {
+        "stock": {
+          "plants": {
+            "cities": {}
+          }
+        }
+      }
+    },
+    "card-base-grass": {
+      "source": "src/server/cards/base/Grass.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "stock": {
+          "plants": 3
+        }
+      }
+    },
+    "card-base-heather": {
+      "source": "src/server/cards/base/Heather.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-hackers": {
+      "source": "src/server/cards/base/Hackers.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-base-herbivores": {
+      "source": "src/server/cards/base/Herbivores.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 1
+        },
+        "addResources": 1
+      }
+    },
+    "card-base-great-dam": {
+      "source": "src/server/cards/base/GreatDam.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        }
+      }
+    },
+    "card-base-heat-trappers": {
+      "source": "src/server/cards/base/HeatTrappers.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "heat",
+          "count": 2
+        },
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-base-imported-ghg": {
+      "source": "src/server/cards/base/ImportedGHG.ts",
+      "behavior": {
+        "production": {
+          "heat": 1
+        },
+        "stock": {
+          "heat": 3
+        }
+      }
+    },
+    "p-ice-asteroid": {
+      "source": "src/server/cards/base/IceAsteroid.ts",
+      "behavior": {
+        "ocean": {
+          "count": 2
+        }
+      }
+    },
+    "card-base-imported-hydrogen": {
+      "source": "src/server/cards/base/ImportedHydrogen.ts",
+      "behavior": {
+        "ocean": {}
+      }
+    },
+    "card-base-immigration-shuttles": {
+      "source": "src/server/cards/base/ImmigrationShuttles.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 5
+        }
+      }
+    },
+    "card-base-ice-cap-melting": {
+      "source": "src/server/cards/base/IceCapMelting.ts",
+      "behavior": {
+        "ocean": {}
+      }
+    },
+    "card-base-import-of-advanced-ghg": {
+      "source": "src/server/cards/base/ImportOfAdvancedGHG.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        }
+      }
+    },
+    "card-base-imported-nitrogen": {
+      "source": "src/server/cards/base/ImportedNitrogen.ts",
+      "behavior": {
+        "stock": {
+          "plants": 4
+        },
+        "tr": 1,
+        "addResourcesToAnyCard": [
+          {
+            "type": "microbe",
+            "count": 3
+          },
+          {
+            "type": "animal",
+            "count": 2
+          }
+        ]
+      }
+    },
+    "card-base-industrial-center": {
+      "source": "src/server/cards/base/IndustrialCenter.ts",
+      "action": {
+        "spend": {
+          "megacredits": 7
+        },
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-base-insects": {
+      "source": "src/server/cards/base/Insects.ts",
+      "behavior": {
+        "production": {
+          "plants": {
+            "tag": "plant"
+          }
+        }
+      }
+    },
+    "card-base-industrial-microbes": {
+      "source": "src/server/cards/base/IndustrialMicrobes.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "steel": 1
+        }
+      }
+    },
+    "card-base-invention-contest": {
+      "source": "src/server/cards/base/InventionContest.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 3,
+          "keep": 1
+        }
+      }
+    },
+    "card-base-ironworks": {
+      "source": "src/server/cards/base/Ironworks.ts",
+      "action": {
+        "spend": {
+          "energy": 4
+        },
+        "stock": {
+          "steel": 1
+        },
+        "global": {
+          "oxygen": 1
+        }
+      }
+    },
+    "card-base-investment-loan": {
+      "source": "src/server/cards/base/InvestmentLoan.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -1
+        },
+        "stock": {
+          "megacredits": 10
+        }
+      }
+    },
+    "card-base-lagrange-observatory": {
+      "source": "src/server/cards/base/LagrangeObservatory.ts",
+      "behavior": {
+        "drawCard": 1
+      }
+    },
+    "card-base-kelp-farming": {
+      "source": "src/server/cards/base/KelpFarming.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2,
+          "plants": 3
+        },
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-lake-marineris": {
+      "source": "src/server/cards/base/LakeMarineris.ts",
+      "behavior": {
+        "ocean": {
+          "count": 2
+        }
+      }
+    },
+    "card-base-inventors-guild": {
+      "source": "src/server/cards/base/InventorsGuild.ts",
+      "action": {
+        "drawCard": {
+          "count": 1,
+          "pay": true
+        }
+      }
+    },
+    "card-base-io-mining-industries": {
+      "source": "src/server/cards/base/IoMiningIndustries.ts",
+      "behavior": {
+        "production": {
+          "titanium": 2,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-base-lightning-harvest": {
+      "source": "src/server/cards/base/LightningHarvest.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "megacredits": 1
+        }
+      }
+    },
+    "card-base-large-convoy": {
+      "source": "src/server/cards/base/LargeConvoy.ts",
+      "behavior": {
+        "drawCard": 2,
+        "ocean": {}
+      }
+    },
+    "p-lichen": {
+      "source": "src/server/cards/base/Lichen.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-lunar-beam": {
+      "source": "src/server/cards/base/LunarBeam.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -2,
+          "heat": 2,
+          "energy": 2
+        }
+      }
+    },
+    "card-base-lava-flows": {
+      "source": "src/server/cards/base/LavaFlows.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-livestock": {
+      "source": "src/server/cards/base/Livestock.ts",
+      "behavior": {
+        "production": {
+          "plants": -1,
+          "megacredits": 2
+        }
+      },
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-base-magnetic-field-dome": {
+      "source": "src/server/cards/base/MagneticFieldDome.ts",
+      "behavior": {
+        "production": {
+          "energy": -2,
+          "plants": 1
+        },
+        "tr": 1
+      }
+    },
+    "card-base-mangrove": {
+      "source": "src/server/cards/base/Mangrove.ts",
+      "behavior": {
+        "greenery": {
+          "on": "ocean"
+        }
+      }
+    },
+    "card-base-media-archives": {
+      "source": "src/server/cards/base/MediaArchives.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": {
+            "eventsPlayed": true,
+            "all": true
+          }
+        }
+      }
+    },
+    "card-base-magnetic-field-generators": {
+      "source": "src/server/cards/base/MagneticFieldGenerators.ts",
+      "behavior": {
+        "production": {
+          "energy": -4,
+          "plants": 2
+        },
+        "tr": 3
+      }
+    },
+    "card-base-martian-rails": {
+      "source": "src/server/cards/base/MartianRails.ts",
+      "action": {
+        "spend": {
+          "energy": 1
+        },
+        "stock": {
+          "megacredits": {
+            "cities": {
+              "where": "onmars"
+            }
+          }
+        }
+      }
+    },
+    "card-base-medical-lab": {
+      "source": "src/server/cards/base/MedicalLab.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "building",
+            "per": 2
+          }
+        }
+      }
+    },
+    "card-base-mass-converter": {
+      "source": "src/server/cards/base/MassConverter.ts",
+      "behavior": {
+        "production": {
+          "energy": 6
+        }
+      }
+    },
+    "card-base-methane-from-titan": {
+      "source": "src/server/cards/base/MethaneFromTitan.ts",
+      "behavior": {
+        "production": {
+          "heat": 2,
+          "plants": 2
+        }
+      }
+    },
+    "p-mine": {
+      "source": "src/server/cards/base/Mine.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-base-mineral-deposit": {
+      "source": "src/server/cards/base/MineralDeposit.ts",
+      "behavior": {
+        "stock": {
+          "steel": 5
+        }
+      }
+    },
+    "card-base-micro-mills": {
+      "source": "src/server/cards/base/MicroMills.ts",
+      "behavior": {
+        "production": {
+          "heat": 1
+        }
+      }
+    },
+    "card-base-miranda-resort": {
+      "source": "src/server/cards/base/MirandaResort.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "earth"
+          }
+        }
+      }
+    },
+    "card-base-mining-expedition": {
+      "source": "src/server/cards/base/MiningExpedition.ts",
+      "behavior": {
+        "stock": {
+          "steel": 2
+        },
+        "global": {
+          "oxygen": 1
+        },
+        "removeAnyPlants": 2
+      }
+    },
+    "card-base-mohole-area": {
+      "source": "src/server/cards/base/MoholeArea.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-natural-preserve": {
+      "source": "src/server/cards/base/NaturalPreserve.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "p-moss": {
+      "source": "src/server/cards/base/Moss.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-nitrophilic-moss": {
+      "source": "src/server/cards/base/NitrophilicMoss.ts",
+      "behavior": {
+        "production": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-nitrite-reducing-bacteria": {
+      "source": "src/server/cards/base/NitriteReducingBacteria.ts",
+      "behavior": {
+        "addResources": 3
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 3
+              },
+              "tr": 1,
+              "title": "Remove 3 microbes to increase your terraform rating 1 step"
+            },
+            {
+              "addResources": 1,
+              "title": "Add 1 microbe to this card"
+            }
+          ]
+        }
+      }
+    },
+    "card-base-nitrogen-rich-asteroid": {
+      "source": "src/server/cards/base/NitrogenRichAsteroid.ts",
+      "behavior": {
+        "global": {
+          "temperature": 1
+        },
+        "tr": 2
+      }
+    },
+    "card-base-noctis-city": {
+      "source": "src/server/cards/base/NoctisCity.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        }
+      }
+    },
+    "card-base-noctis-farming": {
+      "source": "src/server/cards/base/NoctisFarming.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1
+        },
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "card-base-open-city": {
+      "source": "src/server/cards/base/OpenCity.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 4
+        },
+        "stock": {
+          "plants": 2
+        },
+        "city": {}
+      }
+    },
+    "card-base-peroxide-power": {
+      "source": "src/server/cards/base/PeroxidePower.ts",
+      "behavior": {
+        "production": {
+          "energy": 2,
+          "megacredits": -1
+        }
+      }
+    },
+    "card-base-nuclear-zone": {
+      "source": "src/server/cards/base/NuclearZone.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-permafrost-extraction": {
+      "source": "src/server/cards/base/PermafrostExtraction.ts",
+      "behavior": {
+        "ocean": {}
+      }
+    },
+    "card-base-ore-processor": {
+      "source": "src/server/cards/base/OreProcessor.ts",
+      "action": {
+        "spend": {
+          "energy": 4
+        },
+        "stock": {
+          "titanium": 1
+        },
+        "global": {
+          "oxygen": 1
+        }
+      }
+    },
+    "card-base-nuclear-power": {
+      "source": "src/server/cards/base/NuclearPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 3,
+          "megacredits": -2
+        }
+      }
+    },
+    "card-base-phobos-space-haven": {
+      "source": "src/server/cards/base/PhobosSpaceHaven.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-physics-complex": {
+      "source": "src/server/cards/base/PhysicsComplex.ts",
+      "action": {
+        "spend": {
+          "energy": 6
+        },
+        "addResources": 1
+      }
+    },
+    "card-base-pets": {
+      "source": "src/server/cards/base/Pets.ts",
+      "behavior": {
+        "addResources": 1
+      }
+    },
+    "p-power-plant": {
+      "source": "src/server/cards/base/PowerPlant.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-base-power-grid": {
+      "source": "src/server/cards/base/PowerGrid.ts",
+      "behavior": {
+        "production": {
+          "energy": {
+            "tag": "power"
+          }
+        }
+      }
+    },
+    "p-plantation": {
+      "source": "src/server/cards/base/Plantation.ts",
+      "behavior": {
+        "greenery": {}
+      }
+    },
+    "card-base-protected-valley": {
+      "source": "src/server/cards/base/ProtectedValley.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "greenery": {
+          "on": "ocean"
+        }
+      }
+    },
+    "card-base-release-of-inert-gases": {
+      "source": "src/server/cards/base/ReleaseOfInertGases.ts",
+      "behavior": {
+        "tr": 2
+      }
+    },
+    "card-base-regolith-eaters": {
+      "source": "src/server/cards/base/RegolithEaters.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 2 microbes to raise oxygen level 1 step",
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "oxygen": 1
+              }
+            },
+            {
+              "title": "Add 1 microbe to this card",
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-base-rad-suits": {
+      "source": "src/server/cards/base/RadSuits.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1
+        }
+      }
+    },
+    "card-base-rad-chem-factory": {
+      "source": "src/server/cards/base/RadChemFactory.ts",
+      "behavior": {
+        "production": {
+          "energy": -1
+        },
+        "tr": 2
+      }
+    },
+    "card-base-quantum-extractor": {
+      "source": "src/server/cards/base/QuantumExtractor.ts",
+      "behavior": {
+        "production": {
+          "energy": 4
+        }
+      }
+    },
+    "card-base-predators": {
+      "source": "src/server/cards/base/Predators.ts",
+      "action": {
+        "removeResourcesFromAnyCard": {
+          "type": "animal",
+          "source": "all"
+        },
+        "addResources": 1
+      }
+    },
+    "card-base-research": {
+      "source": "src/server/cards/base/Research.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-base-restricted-area": {
+      "source": "src/server/cards/base/RestrictedArea.ts",
+      "action": {
+        "spend": {
+          "megacredits": 2
+        },
+        "drawCard": 1
+      }
+    },
+    "card-base-satellites": {
+      "source": "src/server/cards/base/Satellites.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "space"
+          }
+        }
+      }
+    },
+    "card-base-research-outpost": {
+      "source": "src/server/cards/base/ResearchOutpost.ts",
+      "behavior": {
+        "city": {
+          "on": "isolated"
+        }
+      }
+    },
+    "card-base-security-fleet": {
+      "source": "src/server/cards/base/SecurityFleet.ts",
+      "action": {
+        "spend": {
+          "titanium": 1
+        },
+        "addResources": 1
+      }
+    },
+    "card-base-soletta": {
+      "source": "src/server/cards/base/Soletta.ts",
+      "behavior": {
+        "production": {
+          "heat": 7
+        }
+      }
+    },
+    "card-base-soil-factory": {
+      "source": "src/server/cards/base/SoilFactory.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "plants": 1
+        }
+      }
+    },
+    "card-base-small-animals": {
+      "source": "src/server/cards/base/SmallAnimals.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 1
+        }
+      },
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-base-shuttles": {
+      "source": "src/server/cards/base/Shuttles.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-base-space-elevator": {
+      "source": "src/server/cards/base/SpaceElevator.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      },
+      "action": {
+        "spend": {
+          "steel": 1
+        },
+        "stock": {
+          "megacredits": 5
+        }
+      }
+    },
+    "card-base-solar-wind-power": {
+      "source": "src/server/cards/base/SolarWindPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        },
+        "stock": {
+          "titanium": 2
+        }
+      }
+    },
+    "p-solar-power": {
+      "source": "src/server/cards/base/SolarPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-base-space-mirrors": {
+      "source": "src/server/cards/base/SpaceMirrors.ts",
+      "action": {
+        "spend": {
+          "megacredits": 7
+        },
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "p-steelworks": {
+      "source": "src/server/cards/base/Steelworks.ts",
+      "action": {
+        "spend": {
+          "energy": 4
+        },
+        "stock": {
+          "steel": 2
+        },
+        "global": {
+          "oxygen": 1
+        }
+      }
+    },
+    "card-base-strip-mine": {
+      "source": "src/server/cards/base/StripMine.ts",
+      "behavior": {
+        "production": {
+          "energy": -2,
+          "steel": 2,
+          "titanium": 1
+        },
+        "global": {
+          "oxygen": 2
+        }
+      }
+    },
+    "card-base-subterranean-reservoir": {
+      "source": "src/server/cards/base/SubterraneanReservoir.ts",
+      "behavior": {
+        "ocean": {}
+      }
+    },
+    "card-base-sponsors": {
+      "source": "src/server/cards/base/Sponsors.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-base-tardigrades": {
+      "source": "src/server/cards/base/Tardigrades.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-base-symbiotic-fungus": {
+      "source": "src/server/cards/base/SymbioticFungus.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-base-technology-demonstration": {
+      "source": "src/server/cards/base/TechnologyDemonstration.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-base-toll-station": {
+      "source": "src/server/cards/base/TollStation.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "space",
+            "others": true
+          }
+        }
+      }
+    },
+    "card-base-tectonic-stress-power": {
+      "source": "src/server/cards/base/TectonicStressPower.ts",
+      "behavior": {
+        "production": {
+          "energy": 3
+        }
+      }
+    },
+    "card-base-towing-a-comet": {
+      "source": "src/server/cards/base/TowingAComet.ts",
+      "behavior": {
+        "stock": {
+          "plants": 2
+        },
+        "global": {
+          "oxygen": 1
+        },
+        "ocean": {}
+      }
+    },
+    "p-titanium-mine": {
+      "source": "src/server/cards/base/TitaniumMine.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      }
+    },
+    "card-base-trees": {
+      "source": "src/server/cards/base/Trees.ts",
+      "behavior": {
+        "production": {
+          "plants": 3
+        },
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-urbanized-area": {
+      "source": "src/server/cards/base/UrbanizedArea.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-base-tropical-resort": {
+      "source": "src/server/cards/base/TropicalResort.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3,
+          "heat": -2
+        }
+      }
+    },
+    "card-base-tundra-farming": {
+      "source": "src/server/cards/base/TundraFarming.ts",
+      "behavior": {
+        "production": {
+          "plants": 1,
+          "megacredits": 2
+        },
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-base-underground-city": {
+      "source": "src/server/cards/base/UndergroundCity.ts",
+      "behavior": {
+        "production": {
+          "energy": -2,
+          "steel": 2
+        },
+        "city": {}
+      }
+    },
+    "card-base-vesta-shipyard": {
+      "source": "src/server/cards/base/VestaShipyard.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      }
+    },
+    "card-base-underground-detonations": {
+      "source": "src/server/cards/base/UndergroundDetonations.ts",
+      "action": {
+        "spend": {
+          "megacredits": 10
+        },
+        "production": {
+          "heat": 2
+        }
+      }
+    },
+    "card-base-water-import-from-europa": {
+      "source": "src/server/cards/base/WaterImportFromEuropa.ts",
+      "action": {
+        "spend": {
+          "megacredits": 12,
+          "canUseTitanium": true
+        },
+        "ocean": {}
+      }
+    },
+    "card-base-windmills": {
+      "source": "src/server/cards/base/Windmills.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-base-worms": {
+      "source": "src/server/cards/base/Worms.ts",
+      "behavior": {
+        "production": {
+          "plants": {
+            "tag": "microbe",
+            "per": 2
+          }
+        }
+      }
+    },
+    "card-base-zeppelins": {
+      "source": "src/server/cards/base/Zeppelins.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "cities": {
+              "where": "onmars"
+            }
+          }
+        }
+      }
+    },
+    "card-base-wave-power": {
+      "source": "src/server/cards/base/WavePower.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-base-water-splitting-plant": {
+      "source": "src/server/cards/base/WaterSplittingPlant.ts",
+      "action": {
+        "spend": {
+          "energy": 3
+        },
+        "global": {
+          "oxygen": 1
+        }
+      }
+    },
+    "card-colonies-atmo-collectors": {
+      "source": "src/server/cards/colonies/AtmoCollectors.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 2
+        }
+      },
+      "action": {
+        "or": {
+          "behaviors": [
+            {
+              "title": "Remove 1 floater to gain 2 titanium",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "stock": {
+                "titanium": 2
+              }
+            },
+            {
+              "title": "Remove 1 floater to gain 3 energy",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "stock": {
+                "energy": 3
+              }
+            },
+            {
+              "title": "Remove 1 floater to gain 4 heat",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "stock": {
+                "heat": 4
+              }
+            },
+            {
+              "title": "Add 1 floater to this card",
+              "addResources": 1
+            }
+          ],
+          "autoSelect": true
+        }
+      }
+    },
+    "card-colonies-airliners": {
+      "source": "src/server/cards/colonies/Airliners.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "floater"
+        }
+      }
+    },
+    "card-colonies-corona-extractor": {
+      "source": "src/server/cards/colonies/CoronaExtractor.ts",
+      "behavior": {
+        "production": {
+          "energy": 4
+        }
+      }
+    },
+    "card-colonies-earth-elevator": {
+      "source": "src/server/cards/colonies/EarthElevator.ts",
+      "behavior": {
+        "production": {
+          "titanium": 3
+        }
+      }
+    },
+    "card-colonies-cryo-sleep": {
+      "source": "src/server/cards/colonies/CryoSleep.ts",
+      "behavior": {
+        "colonies": {
+          "tradeDiscount": 1
+        }
+      }
+    },
+    "card-colonies-ecology-research": {
+      "source": "src/server/cards/colonies/EcologyResearch.ts",
+      "behavior": {
+        "production": {
+          "plants": {
+            "colonies": {
+              "colonies": {}
+            }
+          }
+        }
+      }
+    },
+    "card-colonies-floater-prototypes": {
+      "source": "src/server/cards/colonies/FloaterPrototypes.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 2
+        }
+      }
+    },
+    "card-colonies-floater-leasing": {
+      "source": "src/server/cards/colonies/FloaterLeasing.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "floaters": {},
+            "per": 3
+          }
+        }
+      }
+    },
+    "card-colonies-ice-moon-colony": {
+      "source": "src/server/cards/colonies/IceMoonColony.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {}
+        },
+        "ocean": {}
+      }
+    },
+    "card-colonies-floater-technology": {
+      "source": "src/server/cards/colonies/FloaterTechnology.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-colonies-galilean-waystation": {
+      "source": "src/server/cards/colonies/GalileanWaystation.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "jovian",
+            "all": true
+          }
+        }
+      }
+    },
+    "card-colonies-impactor-swarm": {
+      "source": "src/server/cards/colonies/ImpactorSwarm.ts",
+      "behavior": {
+        "stock": {
+          "heat": 12
+        },
+        "removeAnyPlants": 2
+      }
+    },
+    "card-colonies-heavy-taxation": {
+      "source": "src/server/cards/colonies/HeavyTaxation.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "stock": {
+          "megacredits": 4
+        }
+      }
+    },
+    "card-colonies-interplanetary-colony-ship": {
+      "source": "src/server/cards/colonies/InterplanetaryColonyShip.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {}
+        }
+      }
+    },
+    "card-colonies-luna-governor": {
+      "source": "src/server/cards/colonies/LunaGovernor.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-colonies-jovian-lanterns": {
+      "source": "src/server/cards/colonies/JovianLanterns.ts",
+      "behavior": {
+        "tr": 1,
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 2
+        }
+      },
+      "action": {
+        "spend": {
+          "titanium": 1
+        },
+        "addResources": 2
+      }
+    },
+    "card-colonies-lunar-exports": {
+      "source": "src/server/cards/colonies/LunarExports.ts",
+      "behavior": {
+        "or": {
+          "behaviors": [
+            {
+              "title": "Increase your M€ production 5 steps",
+              "production": {
+                "megacredits": 5
+              }
+            },
+            {
+              "title": "Increase your plant production 2 steps",
+              "production": {
+                "plants": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-colonies-lunar-mining": {
+      "source": "src/server/cards/colonies/LunarMining.ts",
+      "behavior": {
+        "production": {
+          "titanium": {
+            "tag": "earth",
+            "per": 2
+          }
+        }
+      }
+    },
+    "card-colonies-molecular-printing": {
+      "source": "src/server/cards/colonies/MolecularPrinting.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-colonies-mining-colony": {
+      "source": "src/server/cards/colonies/MiningColony.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        },
+        "colonies": {
+          "buildColony": {}
+        }
+      }
+    },
+    "card-colonies-red-spot-observatory": {
+      "source": "src/server/cards/colonies/RedSpotObservatory.ts",
+      "behavior": {
+        "drawCard": 2
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "drawCard": 1,
+              "title": "Remove 1 floater here to draw a card"
+            },
+            {
+              "addResources": 1,
+              "title": "Add 1 floater to this card"
+            }
+          ]
+        }
+      }
+    },
+    "card-colonies-nitrogen-from-titan": {
+      "source": "src/server/cards/colonies/NitrogenFromTitan.ts",
+      "behavior": {
+        "tr": 2,
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 2,
+          "tag": "jovian"
+        }
+      }
+    },
+    "card-colonies-sky-docks": {
+      "source": "src/server/cards/colonies/SkyDocks.ts",
+      "behavior": {
+        "colonies": {
+          "addTradeFleet": 1
+        }
+      }
+    },
+    "card-colonies-solar-reflectors": {
+      "source": "src/server/cards/colonies/SolarReflectors.ts",
+      "behavior": {
+        "production": {
+          "heat": 5
+        }
+      }
+    },
+    "card-colonies-research-colony": {
+      "source": "src/server/cards/colonies/ResearchColony.ts",
+      "behavior": {
+        "drawCard": 2,
+        "colonies": {
+          "buildColony": {
+            "allowDuplicates": true
+          }
+        }
+      }
+    },
+    "card-colonies-refugee-camps": {
+      "source": "src/server/cards/colonies/RefugeeCamps.ts",
+      "action": {
+        "production": {
+          "megacredits": -1
+        },
+        "addResources": 1
+      }
+    },
+    "card-colonies-space-port": {
+      "source": "src/server/cards/colonies/SpacePort.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 4
+        },
+        "colonies": {
+          "addTradeFleet": 1
+        },
+        "city": {}
+      }
+    },
+    "card-colonies-space-port-colony": {
+      "source": "src/server/cards/colonies/SpacePortColony.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {
+            "allowDuplicates": true
+          },
+          "addTradeFleet": 1
+        }
+      }
+    },
+    "card-colonies-solar-probe": {
+      "source": "src/server/cards/colonies/SolarProbe.ts",
+      "behavior": {
+        "drawCard": {
+          "count": {
+            "tag": "science",
+            "per": 3
+          }
+        }
+      }
+    },
+    "card-colonies-rim-freighters": {
+      "source": "src/server/cards/colonies/RimFreighters.ts",
+      "behavior": {
+        "colonies": {
+          "tradeDiscount": 1
+        }
+      }
+    },
+    "card-colonies-spin-off-department": {
+      "source": "src/server/cards/colonies/SpinoffDepartment.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-colonies-sub-zero-salt-fish": {
+      "source": "src/server/cards/colonies/SubZeroSaltFish.ts",
+      "behavior": {
+        "decreaseAnyProduction": {
+          "type": "plants",
+          "count": 1
+        }
+      },
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-colonies-titan-air-scrapping": {
+      "source": "src/server/cards/colonies/TitanAirScrapping.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 2
+              },
+              "tr": 1,
+              "title": "Remove 2 floaters here to increase your TR 1 step"
+            },
+            {
+              "spend": {
+                "titanium": 1
+              },
+              "addResources": 2,
+              "title": "Spend 1 titanium to add 2 floaters here"
+            }
+          ]
+        }
+      }
+    },
+    "card-colonies-titan-floating-launch-pad": {
+      "source": "src/server/cards/colonies/TitanFloatingLaunchPad.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 2,
+          "tag": "jovian"
+        }
+      }
+    },
+    "card-colonies-trade-envoys": {
+      "source": "src/server/cards/colonies/TradeEnvoys.ts",
+      "behavior": {
+        "colonies": {
+          "tradeOffset": 1
+        }
+      }
+    },
+    "card-colonies-urban-decomposers": {
+      "source": "src/server/cards/colonies/UrbanDecomposers.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "microbe"
+        }
+      }
+    },
+    "card-colonies-trading-colony": {
+      "source": "src/server/cards/colonies/TradingColony.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {},
+          "tradeOffset": 1
+        }
+      }
+    },
+    "card-prelude-martian-survey": {
+      "source": "src/server/cards/prelude/MartianSurvey.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-prelude-lava-tube-settlement": {
+      "source": "src/server/cards/prelude/LavaTubeSettlement.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-prelude-sf-memorial": {
+      "source": "src/server/cards/prelude/SFMemorial.ts",
+      "behavior": {
+        "drawCard": 1
+      }
+    },
+    "card-prelude-space-hotels": {
+      "source": "src/server/cards/prelude/SpaceHotels.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 4
+        }
+      }
+    },
+    "card-prelude-house-printing": {
+      "source": "src/server/cards/prelude/HousePrinting.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-prelude-psychrophiles": {
+      "source": "src/server/cards/prelude/Psychrophiles.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-prelude2-cloud-tourism": {
+      "source": "src/server/cards/prelude2/CloudTourism.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-prelude2-floating-refinery": {
+      "source": "src/server/cards/prelude2/FloatingRefinery.ts",
+      "behavior": {
+        "addResources": {
+          "tag": "venus"
+        }
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 2 floaters from ANY CARD to gain 1 titanium and 2 M€",
+              "removeResourcesFromAnyCard": {
+                "type": "floater",
+                "count": 2
+              },
+              "stock": {
+                "titanium": 1,
+                "megacredits": 2
+              }
+            },
+            {
+              "title": "Add 1 floater to this card",
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-prelude2-ghg-shipment": {
+      "source": "src/server/cards/prelude2/GhgShipment.ts",
+      "behavior": {
+        "production": {
+          "heat": 1
+        },
+        "stock": {
+          "heat": {
+            "floaters": {}
+          }
+        }
+      }
+    },
+    "card-prelude2-colonial-representation": {
+      "source": "src/server/cards/prelude2/ColonialRepresentation.ts",
+      "behavior": {
+        "turmoil": {
+          "influenceBonus": 1
+        },
+        "stock": {
+          "megacredits": {
+            "colonies": {
+              "colonies": {}
+            },
+            "each": 3
+          }
+        }
+      }
+    },
+    "card-prelude2-colonial-envoys": {
+      "source": "src/server/cards/prelude2/ColonialEnvoys.ts",
+      "behavior": {
+        "turmoil": {
+          "sendDelegates": {
+            "count": {
+              "colonies": {}
+            },
+            "manyParties": true
+          }
+        }
+      }
+    },
+    "card-prelude2-envoys-from-venus": {
+      "source": "src/server/cards/prelude2/EnvoysFromVenus.ts",
+      "behavior": {
+        "turmoil": {
+          "sendDelegates": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "card-prelude2-ceres-tech-market": {
+      "source": "src/server/cards/prelude2/CeresTechMarket.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": {
+            "colonies": {
+              "colonies": {}
+            },
+            "each": 2
+          }
+        }
+      }
+    },
+    "card-prelude2-l1-trade-terminal": {
+      "source": "src/server/cards/prelude2/L1TradeTerminal.ts",
+      "behavior": {
+        "colonies": {
+          "tradeOffset": 2
+        }
+      }
+    },
+    "card-prelude2-ishtar-expedition": {
+      "source": "src/server/cards/prelude2/IshtarExpedition.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 3
+        },
+        "drawCard": {
+          "count": 2,
+          "tag": "venus"
+        }
+      }
+    },
+    "card-prelude2-soil-studies": {
+      "source": "src/server/cards/prelude2/SoilStudies.ts",
+      "behavior": {
+        "stock": {
+          "plants": {
+            "tag": [
+              "venus",
+              "plant"
+            ],
+            "colonies": {
+              "colonies": {}
+            }
+          }
+        }
+      }
+    },
+    "card-prelude2-microgravity-nutrition": {
+      "source": "src/server/cards/prelude2/MicrogravityNutrition.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "colonies": {}
+          }
+        }
+      }
+    },
+    "card-prelude2-jovian-envoys": {
+      "source": "src/server/cards/prelude2/JovianEnvoys.ts",
+      "behavior": {
+        "turmoil": {
+          "sendDelegates": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "card-prelude2-red-appeasement": {
+      "source": "src/server/cards/prelude2/RedAppeasement.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-prelude2-sponsoring-nation": {
+      "source": "src/server/cards/prelude2/SponsoringNation.ts",
+      "behavior": {
+        "tr": 3,
+        "turmoil": {
+          "sendDelegates": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "card-prelude2-stratospheric-expedition": {
+      "source": "src/server/cards/prelude2/StratosphericExpedition.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "floater"
+        },
+        "drawCard": {
+          "count": 2,
+          "tag": "venus"
+        }
+      }
+    },
+    "card-prelude2-venus-shuttles": {
+      "source": "src/server/cards/prelude2/VenusShuttles.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "tag": "venus",
+          "type": "floater",
+          "autoSelect": true
+        }
+      }
+    },
+    "card-prelude2-unexpected-application": {
+      "source": "src/server/cards/prelude2/UnexpectedApplication.ts",
+      "behavior": {
+        "spend": {
+          "cards": 1
+        },
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-prelude2-summit-logistics": {
+      "source": "src/server/cards/prelude2/SummitLogistics.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": {
+            "tag": [
+              "jovian",
+              "earth",
+              "venus",
+              "mars"
+            ],
+            "colonies": {
+              "colonies": {}
+            }
+          }
+        },
+        "drawCard": 2
+      }
+    },
+    "card-prelude2-venus-allies": {
+      "source": "src/server/cards/prelude2/VenusAllies.ts",
+      "behavior": {
+        "global": {
+          "venus": 2
+        },
+        "stock": {
+          "megacredits": {
+            "colonies": {
+              "colonies": {}
+            },
+            "each": 4
+          }
+        }
+      }
+    },
+    "card-promo-bactoviral-research": {
+      "source": "src/server/cards/promo/BactoviralResearch.ts",
+      "behavior": {
+        "drawCard": 1,
+        "addResourcesToAnyCard": {
+          "count": {
+            "tag": "science"
+          },
+          "type": "microbe"
+        }
+      }
+    },
+    "card-promo-aqueduct-systems": {
+      "source": "src/server/cards/promo/AqueductSystems.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 3,
+          "tag": "building"
+        }
+      }
+    },
+    "card-promo-asteroid-rights": {
+      "source": "src/server/cards/promo/AsteroidRights.ts",
+      "behavior": {
+        "addResources": 2
+      }
+    },
+    "card-promo-asteroid-deflection-system": {
+      "source": "src/server/cards/promo/AsteroidDeflectionSystem.ts",
+      "behavior": {
+        "production": {
+          "energy": -1
+        }
+      }
+    },
+    "card-promo-16-psyche": {
+      "source": "src/server/cards/promo/16Psyche.ts",
+      "behavior": {
+        "production": {
+          "titanium": 2
+        },
+        "stock": {
+          "titanium": 3
+        }
+      }
+    },
+    "card-promo-asteroid-hollowing": {
+      "source": "src/server/cards/promo/AsteroidHollowing.ts",
+      "action": {
+        "spend": {
+          "titanium": 1
+        },
+        "production": {
+          "megacredits": 1
+        },
+        "addResources": 1
+      }
+    },
+    "card-promo-city-parks": {
+      "source": "src/server/cards/promo/CityParks.ts",
+      "behavior": {
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "card-promo-cyberia-systems": {
+      "source": "src/server/cards/promo/CyberiaSystems.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-promo-bio-printing-facility": {
+      "source": "src/server/cards/promo/BioPrintingFacility.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "energy": 2
+              },
+              "addResourcesToAnyCard": {
+                "type": "animal",
+                "count": 1,
+                "mustHaveCard": true
+              },
+              "title": "Spend 2 energy to add 1 animal to another card"
+            },
+            {
+              "spend": {
+                "energy": 2
+              },
+              "stock": {
+                "plants": 2
+              },
+              "title": "Spend 2 energy to gain 2 plants"
+            }
+          ]
+        }
+      }
+    },
+    "card-promo-casinos": {
+      "source": "src/server/cards/promo/Casinos.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 4
+        }
+      }
+    },
+    "card-promo-comet-aiming": {
+      "source": "src/server/cards/promo/CometAiming.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "ocean": {},
+              "title": "Remove 1 asteroid here to place an ocean"
+            },
+            {
+              "spend": {
+                "titanium": 1
+              },
+              "addResourcesToAnyCard": {
+                "type": "asteroid",
+                "count": 1,
+                "mustHaveCard": true
+              },
+              "title": "Spend 1 titanium to add 1 asteroid to any card"
+            }
+          ]
+        }
+      }
+    },
+    "card-promo-directed-impactors": {
+      "source": "src/server/cards/promo/DirectedImpactors.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 1 asteroid to raise temperature 1 step",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "global": {
+                "temperature": 1
+              }
+            },
+            {
+              "title": "Pay 6 M€ to add 1 asteroid to a card",
+              "spend": {
+                "megacredits": 6,
+                "canUseTitanium": true
+              },
+              "addResourcesToAnyCard": {
+                "count": 1,
+                "type": "asteroid"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-promo-directed-heat-usage": {
+      "source": "src/server/cards/promo/DirectedHeatUsage.ts",
+      "action": {
+        "or": {
+          "behaviors": [
+            {
+              "title": "Spend 3 heat to gain 4 M€",
+              "spend": {
+                "heat": 3
+              },
+              "stock": {
+                "megacredits": 4
+              }
+            },
+            {
+              "title": "Spend 3 heat to gain 2 plants",
+              "spend": {
+                "heat": 3
+              },
+              "stock": {
+                "plants": 2
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-promo-deimos-down-promo": {
+      "source": "src/server/cards/promo/DeimosDownPromo.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-promo-diversity-support": {
+      "source": "src/server/cards/promo/DiversitySupport.ts",
+      "behavior": {
+        "tr": 1
+      }
+    },
+    "card-promo-field-capped-city": {
+      "source": "src/server/cards/promo/FieldCappedCity.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "megacredits": 2
+        },
+        "stock": {
+          "plants": 3
+        },
+        "city": {}
+      }
+    },
+    "card-promo-dusk-laser-mining": {
+      "source": "src/server/cards/promo/DuskLaserMining.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "titanium": 1
+        },
+        "stock": {
+          "titanium": 4
+        }
+      }
+    },
+    "card-promo-great-dam-promo": {
+      "source": "src/server/cards/promo/GreatDamPromo.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        }
+      }
+    },
+    "card-promo-icy-impactors": {
+      "source": "src/server/cards/promo/IcyImpactors.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Spend 1 asteroid here to place an ocean (first player chooses where to place it)",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "ocean": {
+                "firstPlayerPlaces": true
+              }
+            },
+            {
+              "title": "Spend 10 M€ to add 2 asteroids here",
+              "spend": {
+                "megacredits": 10,
+                "canUseTitanium": true
+              },
+              "addResources": 2
+            }
+          ]
+        }
+      }
+    },
+    "card-promo-imported-nutrients": {
+      "source": "src/server/cards/promo/ImportedNutrients.ts",
+      "behavior": {
+        "stock": {
+          "plants": 4
+        },
+        "addResourcesToAnyCard": {
+          "count": 4,
+          "type": "microbe"
+        }
+      }
+    },
+    "card-promo-hospitals": {
+      "source": "src/server/cards/promo/Hospitals.ts",
+      "behavior": {
+        "production": {
+          "energy": -1
+        }
+      },
+      "action": {
+        "spend": {
+          "resourceFromAnyCard": {
+            "type": "disease"
+          }
+        },
+        "stock": {
+          "megacredits": {
+            "cities": {}
+          }
+        }
+      }
+    },
+    "card-promo-harvest": {
+      "source": "src/server/cards/promo/Harvest.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 12
+        }
+      }
+    },
+    "card-promo-homeostasis-bureau": {
+      "source": "src/server/cards/promo/HomeostasisBureau.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        }
+      }
+    },
+    "card-promo-hermetic-order-of-mars": {
+      "source": "src/server/cards/promo/HermeticOrderofMars.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-promo-kaguya-tech": {
+      "source": "src/server/cards/promo/KaguyaTech.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "drawCard": 1
+      }
+    },
+    "card-promo-martian-lumber-corp": {
+      "source": "src/server/cards/promo/MartianLumberCorp.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-promo-jovian-embassy": {
+      "source": "src/server/cards/promo/JovianEmbassy.ts",
+      "behavior": {
+        "tr": 1
+      }
+    },
+    "card-promo-magnetic-shield": {
+      "source": "src/server/cards/promo/MagneticShield.ts",
+      "behavior": {
+        "tr": 4
+      }
+    },
+    "card-promo-magnetic-field-generators-promo": {
+      "source": "src/server/cards/promo/MagneticFieldGeneratorsPromo.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-promo-mercurian-alloys": {
+      "source": "src/server/cards/promo/MercurianAlloys.ts",
+      "behavior": {
+        "titanumValue": 1
+      }
+    },
+    "card-promo-mohole-lake": {
+      "source": "src/server/cards/promo/MoholeLake.ts",
+      "behavior": {
+        "stock": {
+          "plants": 3
+        },
+        "global": {
+          "temperature": 1
+        },
+        "ocean": {}
+      }
+    },
+    "card-promo-orbital-cleanup": {
+      "source": "src/server/cards/promo/OrbitalCleanup.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -2
+        }
+      },
+      "action": {
+        "stock": {
+          "megacredits": {
+            "tag": "science"
+          }
+        }
+      }
+    },
+    "card-promo-outdoor-sports": {
+      "source": "src/server/cards/promo/OutdoorSports.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-promo-new-holland": {
+      "source": "src/server/cards/promo/NewHolland.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        },
+        "tile": {
+          "type": "new_holland",
+          "on": "upgradeable-ocean-new-holland"
+        }
+      }
+    },
+    "card-promo-meltworks": {
+      "source": "src/server/cards/promo/Meltworks.ts",
+      "action": {
+        "spend": {
+          "heat": 5
+        },
+        "stock": {
+          "steel": 3
+        }
+      }
+    },
+    "card-promo-penguins": {
+      "source": "src/server/cards/promo/Penguins.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-promo-protected-growth": {
+      "source": "src/server/cards/promo/ProtectedGrowth.ts",
+      "behavior": {
+        "stock": {
+          "plants": {
+            "tag": "power"
+          }
+        }
+      }
+    },
+    "card-promo-rego-plastics": {
+      "source": "src/server/cards/promo/RegoPlastics.ts",
+      "behavior": {
+        "steelValue": 1
+      }
+    },
+    "card-promo-public-baths": {
+      "source": "src/server/cards/promo/PublicBaths.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 6
+        }
+      }
+    },
+    "card-promo-potatoes": {
+      "source": "src/server/cards/promo/Potatoes.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-promo-small-asteroid": {
+      "source": "src/server/cards/promo/SmallAsteroid.ts",
+      "behavior": {
+        "global": {
+          "temperature": 1
+        },
+        "removeAnyPlants": 2
+      }
+    },
+    "card-promo-saturn-surfing": {
+      "source": "src/server/cards/promo/SaturnSurfing.ts",
+      "behavior": {
+        "addResources": {
+          "tag": "earth"
+        }
+      }
+    },
+    "card-promo-solar-logistics": {
+      "source": "src/server/cards/promo/SolarLogistics.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 2
+        }
+      }
+    },
+    "card-promo-snow-algae": {
+      "source": "src/server/cards/promo/SnowAlgae.ts",
+      "behavior": {
+        "production": {
+          "plants": 1,
+          "heat": 1
+        }
+      }
+    },
+    "card-promo-robot-pollinators": {
+      "source": "src/server/cards/promo/RobotPollinators.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "stock": {
+          "plants": {
+            "tag": "plant"
+          }
+        }
+      }
+    },
+    "card-promo-sub-crust-measurements": {
+      "source": "src/server/cards/promo/SubCrustMeasurements.ts",
+      "action": {
+        "drawCard": 1
+      }
+    },
+    "card-promo-static-harvesting": {
+      "source": "src/server/cards/promo/StaticHarvesting.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        },
+        "stock": {
+          "megacredits": {
+            "tag": "building"
+          }
+        }
+      }
+    },
+    "card-promo-topsoil-contract": {
+      "source": "src/server/cards/promo/TopsoilContract.ts",
+      "behavior": {
+        "stock": {
+          "plants": 3
+        }
+      }
+    },
+    "card-promo-teslaract": {
+      "source": "src/server/cards/promo/Teslaract.ts",
+      "behavior": {
+        "tr": 1
+      }
+    },
+    "card-promo-sterling-vents": {
+      "source": "src/server/cards/promo/SterlingVents.ts",
+      "behavior": {
+        "production": {
+          "heat": -2,
+          "energy": 2
+        }
+      }
+    },
+    "card-promo-supermarkets": {
+      "source": "src/server/cards/promo/Supermarkets.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-promo-stanford-torus": {
+      "source": "src/server/cards/promo/StanfordTorus.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-promo-supercapacitors": {
+      "source": "src/server/cards/promo/Supercapacitors.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1
+        }
+      }
+    },
+    "card-promo-weather-balloons": {
+      "source": "src/server/cards/promo/WeatherBalloons.ts",
+      "behavior": {
+        "drawCard": 1
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Spend 1 floater here to gain 1 M€ per city on Mars",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "stock": {
+                "megacredits": {
+                  "cities": {
+                    "where": "onmars"
+                  }
+                }
+              }
+            },
+            {
+              "title": "Add 1 floater here",
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-turmoil-event-analysts": {
+      "source": "src/server/cards/turmoil/EventAnalysts.ts",
+      "behavior": {
+        "turmoil": {
+          "influenceBonus": 1
+        }
+      }
+    },
+    "card-promo-vermin": {
+      "source": "src/server/cards/promo/Vermin.ts",
+      "action": {
+        "or": {
+          "behaviors": [
+            {
+              "title": "Add one animal here",
+              "addResources": 1
+            },
+            {
+              "title": "Add 1 microbe to ANY card",
+              "addResourcesToAnyCard": {
+                "count": 1,
+                "type": "microbe",
+                "mustHaveCard": true
+              }
+            }
+          ],
+          "autoSelect": true
+        }
+      }
+    },
+    "card-turmoil-diaspora-movement": {
+      "source": "src/server/cards/turmoil/DiasporaMovement.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": {
+            "tag": "jovian",
+            "all": true
+          }
+        }
+      }
+    },
+    "card-turmoil-cultural-metropolis": {
+      "source": "src/server/cards/turmoil/CulturalMetropolis.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 3
+        },
+        "city": {}
+      }
+    },
+    "card-turmoil-aerial-lenses": {
+      "source": "src/server/cards/turmoil/AerialLenses.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        },
+        "removeAnyPlants": 2
+      }
+    },
+    "card-turmoil-martian-media-center": {
+      "source": "src/server/cards/turmoil/MartianMediaCenter.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      },
+      "action": {
+        "spend": {
+          "megacredits": 3
+        },
+        "turmoil": {
+          "sendDelegates": {
+            "count": 1
+          }
+        }
+      }
+    },
+    "card-turmoil-pr-office": {
+      "source": "src/server/cards/turmoil/PROffice.ts",
+      "behavior": {
+        "tr": 1,
+        "stock": {
+          "megacredits": {
+            "tag": "earth"
+          }
+        }
+      }
+    },
+    "card-turmoil-parliament-hall": {
+      "source": "src/server/cards/turmoil/ParliamentHall.ts",
+      "behavior": {
+        "production": {
+          "megacredits": {
+            "tag": "building",
+            "per": 3
+          }
+        }
+      }
+    },
+    "card-turmoil-sponsored-mohole": {
+      "source": "src/server/cards/turmoil/SponsoredMohole.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        }
+      }
+    },
+    "card-turmoil-political-alliance": {
+      "source": "src/server/cards/turmoil/PoliticalAlliance.ts",
+      "behavior": {
+        "tr": 1
+      }
+    },
+    "card-venus-aerial-mappers": {
+      "source": "src/server/cards/venusNext/AerialMappers.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "drawCard": 1,
+              "title": "Remove 1 floater on this card and draw a card"
+            },
+            {
+              "addResourcesToAnyCard": {
+                "type": "floater",
+                "count": 1
+              },
+              "title": "Add 1 floater to ANY card"
+            }
+          ]
+        }
+      }
+    },
+    "card-turmoil-supported-research": {
+      "source": "src/server/cards/turmoil/SupportedResearch.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-venus-air-scrapping-expedition": {
+      "source": "src/server/cards/venusNext/AirScrappingExpedition.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-venus-atmoscoop": {
+      "source": "src/server/cards/venusNext/Atmoscoop.ts",
+      "behavior": {
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "floater"
+        }
+      }
+    },
+    "card-venus-aerosport-tournament": {
+      "source": "src/server/cards/venusNext/AerosportTournament.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": {
+            "cities": {}
+          }
+        }
+      }
+    },
+    "card-venus-atalanta-planitia-lab": {
+      "source": "src/server/cards/venusNext/AtalantaPlanitiaLab.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-turmoil-wildlife-dome": {
+      "source": "src/server/cards/turmoil/WildlifeDome.ts",
+      "behavior": {
+        "greenery": {}
+      }
+    },
+    "card-venus-dawn-city": {
+      "source": "src/server/cards/venusNext/DawnCity.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-venus-deuterium-export": {
+      "source": "src/server/cards/venusNext/DeuteriumExport.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 1 floater to raise energy production 1 step",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "production": {
+                "energy": 1
+              }
+            },
+            {
+              "title": "Add 1 floater to this card",
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-floating-habs": {
+      "source": "src/server/cards/venusNext/FloatingHabs.ts",
+      "action": {
+        "spend": {
+          "megacredits": 2
+        },
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 1,
+          "autoSelect": true
+        }
+      }
+    },
+    "card-venus-comet-for-venus": {
+      "source": "src/server/cards/venusNext/CometForVenus.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-venus-extractor-balloons": {
+      "source": "src/server/cards/venusNext/ExtractorBalloons.ts",
+      "behavior": {
+        "addResources": 3
+      },
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 2 floaters here to raise Venus 1 step.",
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "venus": 1
+              }
+            },
+            {
+              "title": "Add 1 floater to this card.",
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-corroder-suits": {
+      "source": "src/server/cards/venusNext/CorroderSuits.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "addResourcesToAnyCard": {
+          "count": 1,
+          "tag": "venus"
+        }
+      }
+    },
+    "card-venus-dirigibles": {
+      "source": "src/server/cards/venusNext/Dirigibles.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "count": 1,
+          "type": "floater",
+          "mustHaveCard": true
+        }
+      }
+    },
+    "card-venus-extremophiles": {
+      "source": "src/server/cards/venusNext/Extremophiles.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "type": "microbe",
+          "count": 1
+        }
+      }
+    },
+    "card-venus-giant-solar-shade": {
+      "source": "src/server/cards/venusNext/GiantSolarShade.ts",
+      "behavior": {
+        "global": {
+          "venus": 3
+        }
+      }
+    },
+    "card-venus-forced-precipitation": {
+      "source": "src/server/cards/venusNext/ForcedPrecipitation.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 2 floaters here to raise Venus 1 step",
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "venus": 1
+              }
+            },
+            {
+              "title": "Pay 2 M€ to add 1 floater to this card",
+              "spend": {
+                "megacredits": 2
+              },
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-freyja-biodomes": {
+      "source": "src/server/cards/venusNext/FreyjaBiodomes.ts",
+      "behavior": {
+        "production": {
+          "energy": -1,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-venus-gyropolis": {
+      "source": "src/server/cards/venusNext/Gyropolis.ts",
+      "behavior": {
+        "city": {},
+        "production": {
+          "energy": -2,
+          "megacredits": {
+            "tag": [
+              "venus",
+              "earth"
+            ]
+          }
+        }
+      }
+    },
+    "card-venus-hydrogen-to-venus": {
+      "source": "src/server/cards/venusNext/HydrogenToVenus.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        },
+        "addResourcesToAnyCard": {
+          "count": {
+            "tag": "jovian"
+          },
+          "type": "floater",
+          "tag": "venus"
+        }
+      }
+    },
+    "card-venus-ishtar-mining": {
+      "source": "src/server/cards/venusNext/IshtarMining.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      }
+    },
+    "card-venus-ghg-import-from-venus": {
+      "source": "src/server/cards/venusNext/GHGImportFromVenus.ts",
+      "behavior": {
+        "production": {
+          "heat": 3
+        },
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-venus-jet-stream-microscrappers": {
+      "source": "src/server/cards/venusNext/JetStreamMicroscrappers.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "venus": 1
+              },
+              "title": "Remove 2 floaters to raise Venus 1 step"
+            },
+            {
+              "spend": {
+                "titanium": 1
+              },
+              "addResources": 2,
+              "title": "Spend 1 titanium to add 2 floaters to this card"
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-omnicourt": {
+      "source": "src/server/cards/venusNext/Omnicourt.ts",
+      "behavior": {
+        "tr": 2
+      }
+    },
+    "card-venus-luna-metropolis": {
+      "source": "src/server/cards/venusNext/LunaMetropolis.ts",
+      "unreadable": "declared a block this cannot parse"
+    },
+    "card-venus-neutralizer-factory": {
+      "source": "src/server/cards/venusNext/NeutralizerFactory.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-venus-mining-quota": {
+      "source": "src/server/cards/venusNext/MiningQuota.ts",
+      "behavior": {
+        "production": {
+          "steel": 2
+        }
+      }
+    },
+    "card-venus-local-shading": {
+      "source": "src/server/cards/venusNext/LocalShading.ts",
+      "action": {
+        "or": {
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "production": {
+                "megacredits": 1
+              },
+              "title": "Remove 1 floater to increase M€ production 1 step"
+            },
+            {
+              "addResources": 1,
+              "title": "Add 1 floater to this card"
+            }
+          ],
+          "autoSelect": true
+        }
+      }
+    },
+    "card-venus-maxwell-base": {
+      "source": "src/server/cards/venusNext/MaxwellBase.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "tag": "venus",
+          "count": 1,
+          "autoSelect": true,
+          "mustHaveCard": true
+        }
+      }
+    },
+    "card-venus-sister-planet-support": {
+      "source": "src/server/cards/venusNext/SisterPlanetSupport.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        }
+      }
+    },
+    "card-venus-rotator-impacts": {
+      "source": "src/server/cards/venusNext/RotatorImpacts.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Remove 1 asteroid to raise Venus 1 step",
+              "spend": {
+                "resourcesHere": 1
+              },
+              "global": {
+                "venus": 1
+              }
+            },
+            {
+              "title": "Pay 6 M€ to add 1 asteroid to this card",
+              "spend": {
+                "megacredits": 6,
+                "canUseTitanium": true
+              },
+              "addResources": 1
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-stratospheric-birds": {
+      "source": "src/server/cards/venusNext/StratosphericBirds.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-venus-solarnet": {
+      "source": "src/server/cards/venusNext/Solarnet.ts",
+      "behavior": {
+        "drawCard": 2
+      }
+    },
+    "card-venus-orbital-reflectors": {
+      "source": "src/server/cards/venusNext/OrbitalReflectors.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        },
+        "global": {
+          "venus": 2
+        }
+      }
+    },
+    "card-venus-spin-inducing-asteroid": {
+      "source": "src/server/cards/venusNext/SpinInducingAsteroid.ts",
+      "behavior": {
+        "global": {
+          "venus": 2
+        }
+      }
+    },
+    "card-venus-stratopolis": {
+      "source": "src/server/cards/venusNext/Stratopolis.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "tag": "venus",
+          "type": "floater",
+          "autoSelect": true
+        }
+      }
+    },
+    "card-venus-venus-magnetizer": {
+      "source": "src/server/cards/venusNext/VenusMagnetizer.ts",
+      "action": {
+        "production": {
+          "energy": -1
+        },
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-venus-sulphur-exports": {
+      "source": "src/server/cards/venusNext/SulphurExports.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        },
+        "production": {
+          "megacredits": {
+            "tag": "venus"
+          }
+        }
+      }
+    },
+    "card-venus-terraforming-contract": {
+      "source": "src/server/cards/venusNext/TerraformingContract.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 4
+        }
+      }
+    },
+    "card-venus-venus-soils": {
+      "source": "src/server/cards/venusNext/VenusSoils.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "global": {
+          "venus": 1
+        },
+        "addResourcesToAnyCard": {
+          "count": 2,
+          "type": "microbe"
+        }
+      }
+    },
+    "card-venus-thermophiles": {
+      "source": "src/server/cards/venusNext/Thermophiles.ts",
+      "action": {
+        "or": {
+          "autoSelect": true,
+          "behaviors": [
+            {
+              "title": "Spend 2 microbes here to raise Venus 1 step.",
+              "spend": {
+                "resourcesHere": 2
+              },
+              "global": {
+                "venus": 1
+              }
+            },
+            {
+              "title": "Select a Venus card to add 1 microbe",
+              "addResourcesToAnyCard": {
+                "count": 1,
+                "tag": "venus",
+                "type": "microbe",
+                "autoSelect": true
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-venus-governor": {
+      "source": "src/server/cards/venusNext/VenusGovernor.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "card-venus-venusian-insects": {
+      "source": "src/server/cards/venusNext/VenusianInsects.ts",
+      "action": {
+        "addResources": 1
+      }
+    },
+    "card-venus-venusian-plants": {
+      "source": "src/server/cards/venusNext/VenusianPlants.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "prelude-aquifer-turbines": {
+      "source": "src/server/cards/prelude/AquiferTurbines.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        },
+        "ocean": {}
+      }
+    },
+    "card-venus-water-to-venus": {
+      "source": "src/server/cards/venusNext/WaterToVenus.ts",
+      "behavior": {
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "prelude-allied-banks": {
+      "source": "src/server/cards/prelude/AlliedBanks.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 4
+        },
+        "stock": {
+          "megacredits": 3
+        }
+      }
+    },
+    "prelude-biofuels": {
+      "source": "src/server/cards/prelude/Biofuels.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "plants": 1
+        },
+        "stock": {
+          "plants": 2
+        }
+      }
+    },
+    "prelude-acquired-space-agency": {
+      "source": "src/server/cards/prelude/AcquiredSpaceAgency.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 6
+        },
+        "drawCard": {
+          "count": 2,
+          "tag": "space"
+        }
+      }
+    },
+    "prelude-early-settlement": {
+      "source": "src/server/cards/prelude/EarlySettlement.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "city": {}
+      }
+    },
+    "prelude-biosphere-support": {
+      "source": "src/server/cards/prelude/BiosphereSupport.ts",
+      "behavior": {
+        "production": {
+          "plants": 2,
+          "megacredits": -1
+        }
+      }
+    },
+    "prelude-dome-farming": {
+      "source": "src/server/cards/prelude/DomeFarming.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2,
+          "plants": 1
+        }
+      }
+    },
+    "prelude-biolab": {
+      "source": "src/server/cards/prelude/Biolab.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "drawCard": 3
+      }
+    },
+    "prelude-donation": {
+      "source": "src/server/cards/prelude/Donation.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 21
+        }
+      }
+    },
+    "prelude-ecology-experts": {
+      "source": "src/server/cards/prelude/EcologyExperts.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "prelude-business-empire": {
+      "source": "src/server/cards/prelude/BusinessEmpire.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 6
+        }
+      }
+    },
+    "prelude-experimental-forest": {
+      "source": "src/server/cards/prelude/ExperimentalForest.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 2,
+          "tag": "plant"
+        },
+        "greenery": {}
+      }
+    },
+    "prelude-huge-asteroid": {
+      "source": "src/server/cards/prelude/HugeAsteroid.ts",
+      "behavior": {
+        "global": {
+          "temperature": 3
+        }
+      }
+    },
+    "prelude-great-aquifer": {
+      "source": "src/server/cards/prelude/GreatAquifer.ts",
+      "behavior": {
+        "ocean": {
+          "count": 2
+        }
+      }
+    },
+    "prelude-metal-rich-asteroid": {
+      "source": "src/server/cards/prelude/MetalRichAsteroid.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 4,
+          "steel": 4
+        },
+        "global": {
+          "temperature": 1
+        }
+      }
+    },
+    "prelude-martian-industries": {
+      "source": "src/server/cards/prelude/MartianIndustries.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "steel": 1
+        },
+        "stock": {
+          "megacredits": 6
+        }
+      }
+    },
+    "prelude-loan": {
+      "source": "src/server/cards/prelude/Loan.ts",
+      "behavior": {
+        "production": {
+          "megacredits": -2
+        },
+        "stock": {
+          "megacredits": 30
+        }
+      }
+    },
+    "prelude-io-research-outpost": {
+      "source": "src/server/cards/prelude/IoResearchOutpost.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        },
+        "drawCard": 1
+      }
+    },
+    "prelude-galilean-mining": {
+      "source": "src/server/cards/prelude/GalileanMining.ts",
+      "behavior": {
+        "production": {
+          "titanium": 2
+        }
+      }
+    },
+    "prelude-orbital-construction-yard": {
+      "source": "src/server/cards/prelude/OrbitalConstructionYard.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        },
+        "stock": {
+          "titanium": 4
+        }
+      }
+    },
+    "prelude-mohole": {
+      "source": "src/server/cards/prelude/Mohole.ts",
+      "behavior": {
+        "production": {
+          "heat": 3
+        },
+        "stock": {
+          "heat": 3
+        }
+      }
+    },
+    "prelude-polar-industries": {
+      "source": "src/server/cards/prelude/PolarIndustries.ts",
+      "behavior": {
+        "production": {
+          "heat": 2
+        },
+        "ocean": {}
+      }
+    },
+    "prelude-metals-company": {
+      "source": "src/server/cards/prelude/MetalsCompany.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1,
+          "steel": 1,
+          "titanium": 1
+        }
+      }
+    },
+    "prelude-power-generation": {
+      "source": "src/server/cards/prelude/PowerGeneration.ts",
+      "behavior": {
+        "production": {
+          "energy": 3
+        }
+      }
+    },
+    "prelude-nitrogen-shipment": {
+      "source": "src/server/cards/prelude/NitrogenShipment.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "tr": 1,
+        "stock": {
+          "megacredits": 5
+        }
+      }
+    },
+    "prelude-mining-operations": {
+      "source": "src/server/cards/prelude/MiningOperations.ts",
+      "behavior": {
+        "production": {
+          "steel": 2
+        },
+        "stock": {
+          "steel": 4
+        }
+      }
+    },
+    "prelude-mohole-excavation": {
+      "source": "src/server/cards/prelude/MoholeExcavation.ts",
+      "behavior": {
+        "production": {
+          "steel": 1,
+          "heat": 2
+        },
+        "stock": {
+          "heat": 2
+        }
+      }
+    },
+    "prelude-unmi-contractor": {
+      "source": "src/server/cards/prelude/UNMIContractor.ts",
+      "behavior": {
+        "drawCard": 1,
+        "tr": 3
+      }
+    },
+    "prelude-supply-drop": {
+      "source": "src/server/cards/prelude/SupplyDrop.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 3,
+          "steel": 8,
+          "plants": 3
+        }
+      }
+    },
+    "prelude-smelting-plant": {
+      "source": "src/server/cards/prelude/SmeltingPlant.ts",
+      "behavior": {
+        "stock": {
+          "steel": 5
+        },
+        "global": {
+          "oxygen": 2
+        }
+      }
+    },
+    "card-prelude2-applied-science": {
+      "source": "src/server/cards/prelude2/AppliedScience.ts",
+      "behavior": {
+        "addResources": 6
+      },
+      "action": {
+        "or": {
+          "behaviors": [
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "standardResource": 1,
+              "title": "Spend 1 science resource here to gain 1 standard resource"
+            },
+            {
+              "spend": {
+                "resourcesHere": 1
+              },
+              "addResourcesToAnyCard": {
+                "count": 1,
+                "min": 1,
+                "mustHaveCard": true,
+                "robotCards": true
+              },
+              "title": "Spend 1 science resource here to gain 1 resource on ANY CARD WITH A RESOURCE."
+            }
+          ],
+          "autoSelect": true
+        }
+      }
+    },
+    "prelude-self-sufficient-settlement": {
+      "source": "src/server/cards/prelude/SelfSufficientSettlement.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        },
+        "city": {}
+      }
+    },
+    "prelude-supplier": {
+      "source": "src/server/cards/prelude/Supplier.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        },
+        "stock": {
+          "steel": 4
+        }
+      }
+    },
+    "prelude-research-network": {
+      "source": "src/server/cards/prelude/ResearchNetwork.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1
+        },
+        "drawCard": 3
+      }
+    },
+    "prelude-society-support": {
+      "source": "src/server/cards/prelude/SocietySupport.ts",
+      "behavior": {
+        "production": {
+          "plants": 1,
+          "energy": 1,
+          "heat": 1,
+          "megacredits": -1
+        }
+      }
+    },
+    "card-prelude2-colony-trade-hub": {
+      "source": "src/server/cards/prelude2/ColonyTradeHub.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        },
+        "stock": {
+          "titanium": 2
+        }
+      }
+    },
+    "card-prelude2-focused-organization": {
+      "source": "src/server/cards/prelude2/FocusedOrganization.ts",
+      "behavior": {
+        "drawCard": 1,
+        "standardResource": 1
+      }
+    },
+    "card-prelude2-atmospheric-enhancers": {
+      "source": "src/server/cards/prelude2/AtmosphericEnhancers.ts",
+      "behavior": {
+        "or": {
+          "behaviors": [
+            {
+              "global": {
+                "temperature": 2
+              },
+              "title": "Raise the temperature 2 steps"
+            },
+            {
+              "global": {
+                "oxygen": 2
+              },
+              "title": "Raise the oxygen level 2 steps"
+            },
+            {
+              "global": {
+                "venus": 2
+              },
+              "title": "Raise the Venus scale level 2 steps"
+            }
+          ]
+        }
+      }
+    },
+    "card-prelude2-high-circles": {
+      "source": "src/server/cards/prelude2/HighCircles.ts",
+      "behavior": {
+        "tr": 1,
+        "turmoil": {
+          "influenceBonus": 1,
+          "sendDelegates": {
+            "count": 2
+          }
+        }
+      }
+    },
+    "card-prelude2-board-of-directors": {
+      "source": "src/server/cards/prelude2/BoardOfDirectors.ts",
+      "behavior": {
+        "addResources": 4
+      }
+    },
+    "card-prelude2-early-colonization": {
+      "source": "src/server/cards/prelude2/EarlyColonization.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {}
+        },
+        "stock": {
+          "energy": 3
+        }
+      }
+    },
+    "card-prelude2-corridors-of-power": {
+      "source": "src/server/cards/prelude2/CorridorsOfPower.ts",
+      "behavior": {
+        "tr": 1,
+        "stock": {
+          "megacredits": 4
+        }
+      }
+    },
+    "card-prelude2-nobel-prize": {
+      "source": "src/server/cards/prelude2/NobelPrize.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 5
+        }
+      }
+    },
+    "card-prelude2-old-mining-colony": {
+      "source": "src/server/cards/prelude2/OldMiningColony.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        },
+        "colonies": {
+          "buildColony": {}
+        }
+      }
+    },
+    "card-prelude2-recession": {
+      "source": "src/server/cards/prelude2/Recession.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 10
+        }
+      }
+    },
+    "card-prelude2-planetary-alliance": {
+      "source": "src/server/cards/prelude2/PlanetaryAlliance.ts",
+      "behavior": {
+        "tr": 2
+      }
+    },
+    "card-prelude2-main-belt-asteroids": {
+      "source": "src/server/cards/prelude2/MainBeltAsteroids.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "type": "asteroid",
+          "count": 1
+        }
+      }
+    },
+    "card-prelude2-venus-contract": {
+      "source": "src/server/cards/prelude2/VenusContract.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 1,
+          "tag": "venus"
+        },
+        "tr": 1
+      }
+    },
+    "card-prelude2-venus-l1-shade": {
+      "source": "src/server/cards/prelude2/VenusL1Shade.ts",
+      "behavior": {
+        "global": {
+          "venus": 3
+        }
+      }
+    },
+    "card-prelude2-rise-to-power": {
+      "source": "src/server/cards/prelude2/RiseToPower.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        },
+        "turmoil": {
+          "sendDelegates": {
+            "count": 3,
+            "manyParties": true
+          }
+        }
+      }
+    },
+    "card-prelude2-suitable-infrastructure": {
+      "source": "src/server/cards/prelude2/SuitableInfrastructure.ts",
+      "behavior": {
+        "stock": {
+          "steel": 5
+        }
+      }
+    },
+    "card-prelude2-space-lanes": {
+      "source": "src/server/cards/prelude2/SpaceLanes.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 3
+        }
+      }
+    },
+    "card-prelude2-world-government-advisor": {
+      "source": "src/server/cards/prelude2/WorldGovernmentAdvisor.ts",
+      "behavior": {
+        "tr": 2,
+        "drawCard": 1
+      }
+    },
+    "card-prelude2-soil-bacteria": {
+      "source": "src/server/cards/prelude2/SoilBacteria.ts",
+      "behavior": {
+        "stock": {
+          "plants": 3
+        },
+        "drawCard": {
+          "count": 2,
+          "tag": "microbe"
+        }
+      }
+    },
+    "card-promo-head-start": {
+      "source": "src/server/cards/promo/HeadStart.ts",
+      "behavior": {
+        "stock": {
+          "steel": 2
+        }
+      }
+    },
+    "card-promo-albedo-plants": {
+      "source": "src/server/cards/promo/AlbedoPlants.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        },
+        "stock": {
+          "plants": 1
+        }
+      }
+    },
+    "card-promo-giant-solar-collector": {
+      "source": "src/server/cards/promo/GiantSolarCollector.ts",
+      "behavior": {
+        "production": {
+          "energy": 2
+        },
+        "global": {
+          "venus": 1
+        }
+      }
+    },
+    "card-promo-corporate-archives": {
+      "source": "src/server/cards/promo/CorporateArchives.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 7,
+          "keep": 2
+        },
+        "stock": {
+          "megacredits": 13
+        }
+      }
+    },
+    "card-promo-established-methods": {
+      "source": "src/server/cards/promo/EstablishedMethods.ts",
+      "behavior": {
+        "stock": {
+          "megacredits": 30
+        }
+      }
+    },
+    "card-promo-anti-desertification-techniques": {
+      "source": "src/server/cards/promo/AntidesertificationTechniques.ts",
+      "behavior": {
+        "production": {
+          "plants": 1,
+          "steel": 1
+        },
+        "stock": {
+          "megacredits": 3
+        }
+      }
+    },
+    "corp-beginner": {
+      "source": "src/server/cards/corporation/BeginnerCorporation.ts",
+      "behavior": {
+        "drawCard": 10
+      }
+    },
+    "corp-helion": {
+      "source": "src/server/cards/corporation/Helion.ts",
+      "behavior": {
+        "production": {
+          "heat": 3
+        }
+      }
+    },
+    "card-promo-new-partner": {
+      "source": "src/server/cards/promo/NewPartner.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 1
+        }
+      }
+    },
+    "corp-ecoline": {
+      "source": "src/server/cards/corporation/EcoLine.ts",
+      "behavior": {
+        "production": {
+          "plants": 2
+        },
+        "stock": {
+          "plants": 3
+        },
+        "greeneryDiscount": 1
+      }
+    },
+    "corp-ic": {
+      "source": "src/server/cards/corporation/InterplanetaryCinematics.ts",
+      "behavior": {
+        "stock": {
+          "steel": 20
+        }
+      }
+    },
+    "card-promo-strategic-base-planning": {
+      "source": "src/server/cards/promo/StrategicBasePlanning.ts",
+      "behavior": {
+        "colonies": {
+          "buildColony": {}
+        },
+        "city": {}
+      }
+    },
+    "corp-mining-guild": {
+      "source": "src/server/cards/corporation/MiningGuild.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        },
+        "stock": {
+          "steel": 5
+        }
+      }
+    },
+    "corp-saturn": {
+      "source": "src/server/cards/corporation/SaturnSystems.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      }
+    },
+    "corp-thorgate": {
+      "source": "src/server/cards/corporation/Thorgate.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "corp-phobolog": {
+      "source": "src/server/cards/corporation/PhoboLog.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 10
+        },
+        "titanumValue": 1
+      }
+    },
+    "card-colonies-arklight": {
+      "source": "src/server/cards/colonies/Arklight.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 2
+        }
+      }
+    },
+    "corp-cheung-shing": {
+      "source": "src/server/cards/prelude/CheungShingMARS.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 3
+        }
+      }
+    },
+    "corp-point-luna": {
+      "source": "src/server/cards/prelude/PointLuna.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      }
+    },
+    "card-colonies-stormcraft-incorporated": {
+      "source": "src/server/cards/colonies/StormCraftIncorporated.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 1,
+          "autoSelect": true
+        }
+      }
+    },
+    "card-colonies-polyphemos": {
+      "source": "src/server/cards/colonies/Polyphemos.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 5
+        },
+        "stock": {
+          "titanium": 5
+        }
+      }
+    },
+    "card-prelude2-nirgal-enterprises": {
+      "source": "src/server/cards/prelude2/NirgalEnterprises.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "plants": 1,
+          "steel": 1
+        }
+      }
+    },
+    "card-prelude2-palladin-shipping": {
+      "source": "src/server/cards/prelude2/PalladinShipping.ts",
+      "behavior": {
+        "stock": {
+          "titanium": 5
+        }
+      },
+      "action": {
+        "spend": {
+          "titanium": 2
+        },
+        "global": {
+          "temperature": 1
+        }
+      }
+    },
+    "card-promo-astrodrill": {
+      "source": "src/server/cards/promo/Astrodrill.ts",
+      "behavior": {
+        "addResources": 3
+      }
+    },
+    "card-promo-arcadian-communities": {
+      "source": "src/server/cards/promo/ArcadianCommunities.ts",
+      "behavior": {
+        "stock": {
+          "steel": 10
+        }
+      }
+    },
+    "card-prelude2-sagitta-frontier-services": {
+      "source": "src/server/cards/prelude2/SagittaFrontierServices.ts",
+      "behavior": {
+        "production": {
+          "energy": 1,
+          "megacredits": 2
+        }
+      }
+    },
+    "card-prelude2-ecotec": {
+      "source": "src/server/cards/prelude2/Ecotec.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-promo-factorum": {
+      "source": "src/server/cards/promo/Factorum.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-promo-mons-insurance": {
+      "source": "src/server/cards/promo/MonsInsurance.ts",
+      "behavior": {
+        "production": {
+          "megacredits": 4
+        }
+      }
+    },
+    "card-promo-kuiper-cooperative": {
+      "source": "src/server/cards/promo/KuiperCooperative.ts",
+      "behavior": {
+        "production": {
+          "titanium": 1
+        }
+      },
+      "action": {
+        "addResources": {
+          "tag": "space"
+        }
+      }
+    },
+    "card-promo-recyclon": {
+      "source": "src/server/cards/promo/Recyclon.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    },
+    "card-promo-pharmacy-union": {
+      "source": "src/server/cards/promo/PharmacyUnion.ts",
+      "behavior": {
+        "drawCard": {
+          "count": 1,
+          "tag": "science"
+        }
+      }
+    },
+    "card-promo-tycho-magnetics": {
+      "source": "src/server/cards/promo/TychoMagnetics.ts",
+      "behavior": {
+        "production": {
+          "energy": 1
+        }
+      }
+    },
+    "card-turmoil-pristar": {
+      "source": "src/server/cards/turmoil/Pristar.ts",
+      "behavior": {
+        "tr": -2
+      }
+    },
+    "card-turmoil-terralabs-research": {
+      "source": "src/server/cards/turmoil/TerralabsResearch.ts",
+      "behavior": {
+        "tr": -1
+      }
+    },
+    "card-venus-celestic": {
+      "source": "src/server/cards/venusNext/Celestic.ts",
+      "action": {
+        "addResourcesToAnyCard": {
+          "type": "floater",
+          "count": 1,
+          "autoSelect": true
+        }
+      }
+    },
+    "card-turmoil-utopia-invest": {
+      "source": "src/server/cards/turmoil/UtopiaInvest.ts",
+      "behavior": {
+        "production": {
+          "steel": 1,
+          "titanium": 1
+        }
+      },
+      "action": {
+        "or": {
+          "title": "Select production to decrease one step and gain 4 resources",
+          "behaviors": [
+            {
+              "title": "Decrease M€ production",
+              "production": {
+                "megacredits": -1
+              },
+              "stock": {
+                "megacredits": 4
+              }
+            },
+            {
+              "title": "Decrease steel production",
+              "production": {
+                "steel": -1
+              },
+              "stock": {
+                "steel": 4
+              }
+            },
+            {
+              "title": "Decrease titanium production",
+              "production": {
+                "titanium": -1
+              },
+              "stock": {
+                "titanium": 4
+              }
+            },
+            {
+              "title": "Decrease plants production",
+              "production": {
+                "plants": -1
+              },
+              "stock": {
+                "plants": 4
+              }
+            },
+            {
+              "title": "Decrease energy production",
+              "production": {
+                "energy": -1
+              },
+              "stock": {
+                "energy": 4
+              }
+            },
+            {
+              "title": "Decrease heat production",
+              "production": {
+                "heat": -1
+              },
+              "stock": {
+                "heat": 4
+              }
+            }
+          ]
+        }
+      }
+    },
+    "card-venus-aphrodite": {
+      "source": "src/server/cards/venusNext/Aphrodite.ts",
+      "behavior": {
+        "production": {
+          "plants": 1
+        }
+      }
+    },
+    "card-venus-manutech": {
+      "source": "src/server/cards/venusNext/Manutech.ts",
+      "behavior": {
+        "production": {
+          "steel": 1
+        }
+      }
+    }
+  }
+}
