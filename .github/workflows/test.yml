@@ -112,6 +112,12 @@ jobs:
         # of the cards that shipped inert. 70 of the reference's own cases.
         run: node scripts/audit-actions-against-upstream.mjs
 
+      - name: Victory point cases against upstream
+        # What the card's own authors say it is worth, on the boards they chose.
+        # The spec comparison checks the declaration and the boundary sweep
+        # checks the arithmetic; this checks the answer.
+        run: node scripts/audit-vp-cases-against-upstream.mjs
+
       - name: Empty spec registry
         # A card whose catalogue entry promises nothing passes every other audit
         # while doing nothing at all. This makes each one say by name why it has

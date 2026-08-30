@@ -1,0 +1,455 @@
+{
+  "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "cards": {
+    "card-base-anti-gravity-technology": {
+      "spec": "tests/cards/base/AntiGravityTechnology.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 3
+        }
+      ]
+    },
+    "card-base-beam-from-a-thorium-asteroid": {
+      "spec": "tests/cards/base/BeamFromAThoriumAsteroid.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-asteroid-mining-consortium": {
+      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-breathing-filters": {
+      "spec": "tests/cards/base/BreathingFilters.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-colonizer-training-camp": {
+      "spec": "tests/cards/base/ColonizerTrainingCamp.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-dust-seals": {
+      "spec": "tests/cards/base/DustSeals.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-farming": {
+      "spec": "tests/cards/base/Farming.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 4
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-gene-repair": {
+      "spec": "tests/cards/base/GeneRepair.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-heat-trappers": {
+      "spec": "tests/cards/base/HeatTrappers.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [],
+          "expected": -1
+        }
+      ]
+    },
+    "card-base-interstellar-colony-ship": {
+      "spec": "tests/cards/base/InterstellarColonyShip.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 4
+        }
+      ]
+    },
+    "card-base-large-convoy": {
+      "spec": "tests/cards/base/LargeConvoy.spec.ts",
+      "cases": [
+        {
+          "title": "Should play without animal cards",
+          "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-lightning-harvest": {
+      "spec": "tests/cards/base/LightningHarvest.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "p-mars-university": {
+      "spec": "tests/cards/base/MarsUniversity.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory point",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-methane-from-titan": {
+      "spec": "tests/cards/base/MethaneFromTitan.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 2
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-olympus-conference": {
+      "spec": "tests/cards/base/OlympusConference.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-noctis-farming": {
+      "spec": "tests/cards/base/NoctisFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -20
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-predators": {
+      "spec": "tests/cards/base/Predators.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 11
+            },
+            {
+              "kind": "cardResource",
+              "amount": 5
+            }
+          ],
+          "expected": 5
+        }
+      ]
+    },
+    "card-base-small-animals": {
+      "spec": "tests/cards/base/SmallAnimals.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 3
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-space-elevator": {
+      "spec": "tests/cards/base/SpaceElevator.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-tardigrades": {
+      "spec": "tests/cards/base/Tardigrades.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 7
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-tectonic-stress-power": {
+      "spec": "tests/cards/base/TectonicStressPower.spec.ts",
+      "cases": [
+        {
+          "title": "play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-tundra-farming": {
+      "spec": "tests/cards/base/TundraFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -6
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-base-trees": {
+      "spec": "tests/cards/base/Trees.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -4
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-water-import-from-europa": {
+      "spec": "tests/cards/base/WaterImportFromEuropa.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-windmills": {
+      "spec": "tests/cards/base/Windmills.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": 1
+        }
+      ]
+    },
+    "card-colonies-titan-floating-launch-pad": {
+      "spec": "tests/cards/colonies/TitanFloatingLaunchPad.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-colonies-titan-shuttles": {
+      "spec": "tests/cards/colonies/TitanShuttles.spec.ts",
+      "cases": [
+        {
+          "title": "Gives VP",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-prelude-martian-survey": {
+      "spec": "tests/cards/prelude/MartianSurvey.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-promo-hi-tech-lab": {
+      "spec": "tests/cards/promo/HiTechLab.spec.ts",
+      "cases": [
+        {
+          "title": "Should give victory points",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-promo-orbital-cleanup": {
+      "spec": "tests/cards/promo/OrbitalCleanup.spec.ts",
+      "cases": [
+        {
+          "title": "Should give victory points",
+          "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-promo-saturn-surfing": {
+      "spec": "tests/cards/promo/SaturnSurfing.spec.ts",
+      "cases": [
+        {
+          "title": "Should give victory points",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-promo-rego-plastics": {
+      "spec": "tests/cards/promo/RegoPlastics.spec.ts",
+      "cases": [
+        {
+          "title": "Should give victory points",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-promo-stanford-torus": {
+      "spec": "tests/cards/promo/StanfordTorus.spec.ts",
+      "cases": [
+        {
+          "title": "Should give victory points",
+          "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-venus-floating-habs": {
+      "spec": "tests/cards/venusNext/FloatingHabs.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 5
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-venus-extremophiles": {
+      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 7
+            }
+          ],
+          "expected": 2
+        }
+      ]
+    },
+    "card-venus-venusian-insects": {
+      "spec": "tests/cards/venusNext/VenusianInsects.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 7
+            }
+          ],
+          "expected": 3
+        }
+      ]
+    }
+  }
+}

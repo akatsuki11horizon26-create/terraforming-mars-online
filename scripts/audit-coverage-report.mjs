@@ -51,6 +51,9 @@ Verified:
     against-upstream     run against our engine on the boards its authors chose
   audit-actions-         the same, for whether a card's action can be used --
     against-upstream     the half a playability check cannot see
+  audit-vp-cases-        and the same again for what a card is worth: the spec
+    against-upstream     comparison checks the declaration, the boundary sweep
+                         checks the arithmetic, this checks the answer
   audit-empty-spec-      every card with no effectSpec says by name why it has
     registry             none, so a card cannot go quietly dead
   audit-cards-against-   our cost, tags, requirements, type and resource type
