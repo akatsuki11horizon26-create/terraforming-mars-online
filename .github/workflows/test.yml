@@ -118,6 +118,11 @@ jobs:
         # checks the arithmetic; this checks the answer.
         run: node scripts/audit-vp-cases-against-upstream.mjs
 
+      - name: Cards with no upstream oracle
+        # Seven cards the reference ships no test file for, so all three upstream
+        # oracles are blind to them. Each must name the local test that owns it.
+        run: node scripts/audit-unspecced-cards.mjs
+
       - name: Empty spec registry
         # A card whose catalogue entry promises nothing passes every other audit
         # while doing nothing at all. This makes each one say by name why it has

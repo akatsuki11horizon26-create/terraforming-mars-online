@@ -54,6 +54,9 @@ Verified:
   audit-vp-cases-        and the same again for what a card is worth: the spec
     against-upstream     comparison checks the declaration, the boundary sweep
                          checks the arithmetic, this checks the answer
+  audit-unspecced-       the seven cards the reference ships no test file for
+    cards                each name the local test that owns them, since all
+                         three upstream oracles are blind to them
   audit-empty-spec-      every card with no effectSpec says by name why it has
     registry             none, so a card cannot go quietly dead
   audit-cards-against-   our cost, tags, requirements, type and resource type

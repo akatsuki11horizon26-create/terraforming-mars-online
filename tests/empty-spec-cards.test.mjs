@@ -565,3 +565,117 @@ test("Immigrant City sheds production rather than paying it", () => {
   // Down to the -5 floor, then the card's own city pays a step back.
   assert.equal(after.mcProd, -4);
 });
+
+// The seven cards the reference ships no test file for. Nothing upstream
+// asserts their behaviour, so no oracle can reach them and these tests are the
+// only thing standing between them and a silent regression. Two of the seven
+// had a half missing when they were checked one at a time.
+test("Hermetic Order of Mars pays a M€ per empty area beside your tiles", () => {
+  const id = "card-promo-hermetic-order-of-mars";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  const gain = tiles => {
+    const state = rig([], [id]);
+    state.oxygen = 0;
+    const free = Object.values(state.board)
+      .filter(cell => cell.tileType === "empty" && !cell.isOceanOnly)
+      .slice(0, tiles);
+    for (const cell of free) {
+      state.board[`${cell.q},${cell.r}`] = { ...cell, tileType: "city", placedBy: "player" };
+    }
+    const before = getPlayer(state, "player").mc;
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: id, card
+    });
+    assert.equal(played.ok, true);
+    return getPlayer(settle(played.state), "player").mc - before + card.cost;
+  };
+
+  // With no tile of your own there is nothing to be adjacent to, so only the
+  // production half happens. Each tile brings its own empty neighbours.
+  assert.equal(gain(0), 0);
+  assert.ok(gain(1) > 0, "one tile pays for the empty areas beside it");
+  assert.ok(gain(2) > gain(1), "and a second tile pays more");
+});
+
+test("Tycho Magnetics spends energy to draw, and keeps one", async () => {
+  const { applyCorporation } = await import("../app/game-logic.js");
+  const id = "card-promo-tycho-magnetics";
+  const state = rig();
+  const seat = getPlayer(state, "player");
+  seat.corporationOptions = [id];
+  const seated = applyCorporation(state, id, "player");
+  const started = getPlayer(seated, "player");
+  assert.equal(started.mc, 42, "starts with 42 M€");
+  assert.equal(started.energyProd, 1, "and a step of energy production");
+
+  seated.phase = "action";
+  seated.currentPlayerId = "player";
+  const player = getPlayer(seated, "player");
+  player.setupStep = "complete";
+  player.energy = 3;
+  player.actionsRemaining = 2;
+  player.hand = [];
+
+  const used = executeGameCommand(seated, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.equal(used.ok, true);
+  assert.equal(used.state.pendingChoice?.kind, "amount", "it asks how much energy");
+
+  const option = used.state.pendingChoice.options.find(entry => /2/.test(entry.label));
+  const answered = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: option.id
+  });
+  assert.equal(answered.ok, true);
+  const after = getPlayer(answered.state, "player");
+  assert.equal(after.energy, 1, "two energy spent");
+  assert.equal(answered.state.pendingChoice?.kind, "discard-card", "and it asks which to keep");
+});
+
+test("The five remaining unspecced cards do what their text says", async () => {
+  const { applyCorporation, applyPreludes } = await import("../app/game-logic.js");
+
+  // Nirgal Enterprises: 30 M€ and a step each of energy, plant and steel.
+  const nirgal = rig();
+  getPlayer(nirgal, "player").corporationOptions = ["card-prelude2-nirgal-enterprises"];
+  const seated = getPlayer(
+    applyCorporation(nirgal, "card-prelude2-nirgal-enterprises", "player"),
+    "player"
+  );
+  assert.equal(seated.mc, 30);
+  assert.equal(seated.energyProd, 1);
+  assert.equal(seated.plantsProd, 1);
+  assert.equal(seated.steelProd, 1);
+
+  // Applied Science: six science resources on itself.
+  const applied = rig();
+  applied.currentPlayerId = "player";
+  const appliedSeat = getPlayer(applied, "player");
+  appliedSeat.setupStep = "prelude";
+  appliedSeat.preludeOptions = ["card-prelude2-applied-science", "prelude-allied-banks"];
+  appliedSeat.mc = 50;
+  const resolved = applyPreludes(
+    applied, ["card-prelude2-applied-science", "prelude-allied-banks"], "player"
+  );
+  assert.equal(
+    getPlayer(resolved.state ?? resolved, "player").cardResources?.["card-prelude2-applied-science"],
+    6
+  );
+
+  // Atmospheric Enhancers: three ways to raise a parameter, so it asks which.
+  const atmospheric = rig();
+  atmospheric.currentPlayerId = "player";
+  const atmoSeat = getPlayer(atmospheric, "player");
+  atmoSeat.setupStep = "prelude";
+  atmoSeat.preludeOptions = ["card-prelude2-atmospheric-enhancers", "prelude-allied-banks"];
+  atmoSeat.mc = 50;
+  const asked = applyPreludes(
+    atmospheric, ["card-prelude2-atmospheric-enhancers", "prelude-allied-banks"], "player"
+  );
+  const atmoState = asked.state ?? asked;
+  assert.equal(atmoState.pendingChoice?.kind, "effect-branch");
+  assert.equal(atmoState.pendingChoice.options.length, 3);
+
+  // Pioneer Settlement and Martian Lumber Corp are covered by their own tests
+  // in strict-rules; what matters here is that all seven are accounted for.
+  assert.ok(ALL_CARDS.find(card => card.id === "card-colonies-pioneer-settlement"));
+  assert.ok(ALL_CARDS.find(card => card.id === "card-promo-martian-lumber-corp"));
+});

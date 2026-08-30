@@ -55,7 +55,7 @@ import {
   CORPORATIONS,
   LAW_SUIT_ID
 } from "./game-logic.js";
-import { buildTileChoice } from "./pending-choice.js";
+import { buildTileChoice, buildAmountChoice } from "./pending-choice.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
 
 export const COMMAND = {
@@ -484,6 +484,29 @@ const CORPORATION_ACTIONS = {
           : player
       );
       return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
+    }
+  },
+  // "Spend any amount of energy to draw that many cards. Keep 1, discard the
+  // rest." Identical to Hi-Tech Lab, whose amount-choice and keep-one question
+  // are keyed on the stage rather than the card, so both share them.
+  "card-promo-tycho-magnetics": {
+    label: "Tycho Magnetics: エネルギーを支払いカードを引きました。",
+    blocked: actor => ((actor.energy ?? 0) > 0 ? null : "エネルギーがありません。"),
+    run(state, command) {
+      const actor = getPlayer(state, command.playerId);
+      const choice = buildAmountChoice(state, {
+        stage: "hi-tech-lab",
+        max: actor.energy ?? 0,
+        sourceKind: "card-action",
+        sourceId: "card-promo-tycho-magnetics",
+        consumedAction: true,
+        paid: false,
+        prompt: "エネルギーをいくつ支払って、同じ枚数を引きますか。",
+        labelFor: amount => `エネルギー -${amount} / ${amount}枚引く`
+      });
+      if (!choice) return fail(state, ERROR.ACTION_REFUSED, "エネルギーがありません。");
+      state.pendingChoice = choice;
+      return { ok: true, state, events: [], pendingAction: choice };
     }
   },
   "corp-robinson": {

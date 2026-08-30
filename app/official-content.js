@@ -27,6 +27,10 @@ const CURATED_PROJECT_OVERRIDES = [
   // play it, which the reference refuses because the reserved Noctis space
   // carries no energy bonus to cover the loss.
   project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
+  // "Gain 1 M€ per empty area adjacent to your tiles." Upstream counts them in
+  // bespokePlay, so the generated spec carried only the production half and the
+  // money was never paid. Red Tourism Wave already declares the same count.
+  project("card-promo-hermetic-order-of-mars", "Hermetic Order of Mars", 10, [], "automated", "酸素4%以下が必要。MC生産量+2。自分のタイルに隣接する空きエリア1つにつきMCを1獲得。", {}, { requires: { oxygenMax: 4 }, reqText: "酸素4%以下", effectSpec: { behavior: { production: { megacredits: 2 }, stock: { megacredits: { ownedAdjacentEmptyAreas: true } } } } }),
   // "Requires Venus 12%. Spend 1 floater from ANY card." The floater cost is in
   // the card text and was missing from the generated spec, so the card could be
   // played with no floater anywhere and none was ever taken.
