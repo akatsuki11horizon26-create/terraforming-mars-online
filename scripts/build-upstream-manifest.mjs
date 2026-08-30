@@ -22,7 +22,13 @@ const CONCURRENCY = 8;
 // here: upstream expresses it as `behavior` objects, bespoke `play()` methods
 // and class inheritance all at once, so a field-by-field comparison would
 // report differences of expression rather than of rules.
-const FIELDS = ["cost", "tags", "requirements", "type", "resourceType", "victoryPoints"];
+// A prelude prints no cost or tags, and a corporation declares its opening
+// money as startingMegaCredits rather than a cost -- both were read as "nothing
+// to compare" and skipped. They print a real value; it just has another name.
+const FIELDS = [
+  "cost", "tags", "requirements", "type", "resourceType", "victoryPoints",
+  "startingMegaCredits"
+];
 
 // A card may declare a field twice: once as a render helper for the card face,
 // once as the value the engine reads. The engine's form wins wherever both
@@ -90,7 +96,17 @@ const readOne = async card => {
   // (Mining Rights, Mining Area) pass their values positionally to a base
   // class. They are recorded as unreadable so the audit skips them by name
   // rather than silently having nothing to say.
-  if (Object.keys(entry).length === 1) entry.unreadable = "no field declared in the constructor";
+  // Nothing printed to compare. Two shapes reach here and both are legitimate:
+  // a prelude prints no cost, tags or points at all -- it declares only a
+  // `behavior`, which this audit deliberately leaves alone -- and four cards
+  // (Mining Area, Mining Rights, Merger, Double Down) pass their values
+  // positionally to a base class or hold them entirely in code. The reason is
+  // recorded so the skip is a decision rather than a silence.
+  if (Object.keys(entry).length === 1) {
+    entry.unreadable = /^ {4,8}behavior:/m.test(text)
+      ? "prints no cost, tags or points; declares only a behavior"
+      : "declares nothing in its constructor (values are positional or in code)";
+  }
   manifest[card.id] = entry;
 };
 

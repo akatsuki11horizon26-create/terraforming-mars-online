@@ -96,9 +96,10 @@ Not verified:
     expresses that as behavior objects, bespoke play() methods and class
     inheritance at once, and a field-by-field comparison would report
     differences of expression rather than of rules
-  31 cards whose upstream constructor declares no readable field: a prelude
-    prints no cost or tags, a corporation declares startingMegaCredits, and a
-    few pass their values positionally to a base class
+  22 cards whose upstream constructor prints nothing to compare: 16 preludes,
+    which print no cost, tags or points and declare only a behavior, and 6 that
+    pass their values positionally to a base class or hold them in code. Each
+    carries its reason in the manifest
 
 "Every card does something" is not "every card is right", and the numbers above
 are the first claim. The second is only true where a contract or a test says so.`);

@@ -1,37 +1,25 @@
 {
   "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
   "cards": {
-    "card-base-aerobraked-ammonia-asteroid": {
-      "source": "src/server/cards/base/AerobrakedAmmoniaAsteroid.ts",
-      "cost": "cost: 26",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
-    },
     "card-base-adapted-lichen": {
       "source": "src/server/cards/base/AdaptedLichen.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.PLANT]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-acquired-company": {
-      "source": "src/server/cards/base/AcquiredCompany.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-advanced-ecosystems": {
+      "source": "src/server/cards/base/AdvancedEcosystems.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.PLANT, Tag.MICROBE, Tag.ANIMAL]",
+      "requirements": "requirements: [{tag: Tag.PLANT}, {tag: Tag.ANIMAL}, {tag: Tag.MICROBE}]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 3"
     },
-    "card-base-algae": {
-      "source": "src/server/cards/base/Algae.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {oceans: 5}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-adaptation-technology": {
-      "source": "src/server/cards/base/AdaptationTechnology.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 1"
+    "card-base-aerobraked-ammonia-asteroid": {
+      "source": "src/server/cards/base/AerobrakedAmmoniaAsteroid.ts",
+      "cost": "cost: 26",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
     },
     "p-ai-central": {
       "source": "src/server/cards/base/AICentral.ts",
@@ -41,19 +29,31 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
+    "card-base-acquired-company": {
+      "source": "src/server/cards/base/AcquiredCompany.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-adaptation-technology": {
+      "source": "src/server/cards/base/AdaptationTechnology.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-algae": {
+      "source": "src/server/cards/base/Algae.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {oceans: 5}",
+      "type": "type: CardType.AUTOMATED"
+    },
     "card-base-advanced-alloys": {
       "source": "src/server/cards/base/AdvancedAlloys.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.ACTIVE"
-    },
-    "card-base-advanced-ecosystems": {
-      "source": "src/server/cards/base/AdvancedEcosystems.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.PLANT, Tag.MICROBE, Tag.ANIMAL]",
-      "requirements": "requirements: [{tag: Tag.PLANT}, {tag: Tag.ANIMAL}, {tag: Tag.MICROBE}]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 3"
     },
     "card-base-anti-gravity-technology": {
       "source": "src/server/cards/base/AntiGravityTechnology.ts",
@@ -72,24 +72,19 @@
       "resourceType": "resourceType: CardResource.MICROBE",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
+    "card-base-arctic-algae": {
+      "source": "src/server/cards/base/ArcticAlgae.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: -12, max}",
+      "type": "type: CardType.ACTIVE"
+    },
     "card-base-archaebacteria": {
       "source": "src/server/cards/base/ArchaeBacteria.ts",
       "cost": "cost: 6",
       "tags": "tags: [Tag.MICROBE]",
       "requirements": "requirements: {temperature: -18, max}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-aquifer-pumping": {
-      "source": "src/server/cards/base/AquiferPumping.ts",
-      "cost": "cost: 18",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "p-asteroid": {
-      "source": "src/server/cards/base/Asteroid.ts",
-      "cost": "cost: 14",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
     },
     "card-base-artificial-lake": {
       "source": "src/server/cards/base/ArtificialLake.ts",
@@ -105,12 +100,30 @@
       "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-arctic-algae": {
-      "source": "src/server/cards/base/ArcticAlgae.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: -12, max}",
+    "card-base-aquifer-pumping": {
+      "source": "src/server/cards/base/AquiferPumping.ts",
+      "cost": "cost: 18",
+      "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
+    },
+    "p-asteroid": {
+      "source": "src/server/cards/base/Asteroid.ts",
+      "cost": "cost: 14",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-black-polar-dust": {
+      "source": "src/server/cards/base/BlackPolarDust.ts",
+      "cost": "cost: 15",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-beam-from-a-thorium-asteroid": {
+      "source": "src/server/cards/base/BeamFromAThoriumAsteroid.ts",
+      "cost": "cost: 32",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE, Tag.POWER]",
+      "requirements": "requirements: {tag: Tag.JOVIAN}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-asteroid-mining": {
       "source": "src/server/cards/base/AsteroidMining.ts",
@@ -118,6 +131,14 @@
       "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
+    },
+    "card-base-biomass-combustors": {
+      "source": "src/server/cards/base/BiomassCombustors.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 6}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: -1"
     },
     "card-base-asteroid-mining-consortium": {
       "source": "src/server/cards/base/AsteroidMiningConsortium.ts",
@@ -133,35 +154,6 @@
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
-    "card-base-biomass-combustors": {
-      "source": "src/server/cards/base/BiomassCombustors.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 6}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: -1"
-    },
-    "card-base-beam-from-a-thorium-asteroid": {
-      "source": "src/server/cards/base/BeamFromAThoriumAsteroid.ts",
-      "cost": "cost: 32",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE, Tag.POWER]",
-      "requirements": "requirements: {tag: Tag.JOVIAN}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-breathing-filters": {
-      "source": "src/server/cards/base/BreathingFilters.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SCIENCE]",
-      "requirements": "requirements: {oxygen: 7}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-base-black-polar-dust": {
-      "source": "src/server/cards/base/BlackPolarDust.ts",
-      "cost": "cost: 15",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-base-birds": {
       "source": "src/server/cards/base/Birds.ts",
       "cost": "cost: 10",
@@ -171,6 +163,20 @@
       "resourceType": "resourceType: CardResource.ANIMAL",
       "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
+    "card-base-breathing-filters": {
+      "source": "src/server/cards/base/BreathingFilters.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.SCIENCE]",
+      "requirements": "requirements: {oxygen: 7}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
+    },
+    "card-base-carbonate-processing": {
+      "source": "src/server/cards/base/CarbonateProcessing.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
     "card-base-bushes": {
       "source": "src/server/cards/base/Bushes.ts",
       "cost": "cost: 10",
@@ -178,18 +184,11 @@
       "requirements": "requirements: {temperature: -10}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-building-industries": {
-      "source": "src/server/cards/base/BuildingIndustries.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-bribed-committee": {
-      "source": "src/server/cards/base/BribedCommittee.ts",
+    "card-base-business-contacts": {
+      "source": "src/server/cards/base/BusinessContacts.ts",
       "cost": "cost: 7",
       "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.EVENT",
-      "victoryPoints": "victoryPoints: -2"
+      "type": "type: CardType.EVENT"
     },
     "card-base-callisto-penal-mines": {
       "source": "src/server/cards/base/CallistoPenalMines.ts",
@@ -198,17 +197,18 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-base-business-contacts": {
-      "source": "src/server/cards/base/BusinessContacts.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.EVENT"
-    },
     "card-base-business-network": {
       "source": "src/server/cards/base/BusinessNetwork.ts",
       "cost": "cost: 4",
       "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.ACTIVE"
+    },
+    "card-base-bribed-committee": {
+      "source": "src/server/cards/base/BribedCommittee.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.EVENT",
+      "victoryPoints": "victoryPoints: -2"
     },
     "p-capital": {
       "source": "src/server/cards/base/Capital.ts",
@@ -218,8 +218,8 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: {oceans: {}, nextToThis: {}}"
     },
-    "card-base-carbonate-processing": {
-      "source": "src/server/cards/base/CarbonateProcessing.ts",
+    "card-base-building-industries": {
+      "source": "src/server/cards/base/BuildingIndustries.ts",
       "cost": "cost: 6",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
@@ -230,42 +230,22 @@
       "requirements": "requirements: {temperature: 0}",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-cloud-seeding": {
-      "source": "src/server/cards/base/CloudSeeding.ts",
-      "cost": "cost: 11",
-      "requirements": "requirements: {oceans: 3}",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-convoy-from-europa": {
+      "source": "src/server/cards/base/ConvoyFromEuropa.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
     },
     "card-base-ceo-s-favorite-project": {
       "source": "src/server/cards/base/CEOsFavoriteProject.ts",
       "cost": "cost: 1",
       "type": "type: CardType.EVENT"
     },
-    "card-base-cartel": {
-      "source": "src/server/cards/base/Cartel.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.EARTH]",
+    "card-base-cloud-seeding": {
+      "source": "src/server/cards/base/CloudSeeding.ts",
+      "cost": "cost: 11",
+      "requirements": "requirements: {oceans: 3}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-colonizer-training-camp": {
-      "source": "src/server/cards/base/ColonizerTrainingCamp.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.JOVIAN, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 5, max}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "p-comet": {
-      "source": "src/server/cards/base/Comet.ts",
-      "cost": "cost: 21",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-convoy-from-europa": {
-      "source": "src/server/cards/base/ConvoyFromEuropa.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
     },
     "card-base-commercial-district": {
       "source": "src/server/cards/base/CommercialDistrict.ts",
@@ -274,39 +254,25 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: {cities: {}, nextToThis: {}}"
     },
-    "card-base-corporate-stronghold": {
-      "source": "src/server/cards/base/CorporateStronghold.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: -2"
-    },
-    "card-base-domed-crater": {
-      "source": "src/server/cards/base/DomedCrater.ts",
-      "cost": "cost: 24",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 7, max}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-development-center": {
-      "source": "src/server/cards/base/DevelopmentCenter.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-cupola-city": {
-      "source": "src/server/cards/base/CupolaCity.ts",
-      "cost": "cost: 16",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 9, max}",
+    "card-base-cartel": {
+      "source": "src/server/cards/base/Cartel.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-deep-well-heating": {
-      "source": "src/server/cards/base/DeepWellHeating.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
+    "p-comet": {
+      "source": "src/server/cards/base/Comet.ts",
+      "cost": "cost: 21",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-colonizer-training-camp": {
+      "source": "src/server/cards/base/ColonizerTrainingCamp.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.JOVIAN, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 5, max}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-base-decomposers": {
       "source": "src/server/cards/base/Decomposers.ts",
@@ -317,11 +283,37 @@
       "resourceType": "resourceType: CardResource.MICROBE",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 3}"
     },
+    "card-base-development-center": {
+      "source": "src/server/cards/base/DevelopmentCenter.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
     "card-base-designed-microorganisms": {
       "source": "src/server/cards/base/DesignedMicroOrganisms.ts",
       "cost": "cost: 16",
       "tags": "tags: [Tag.SCIENCE, Tag.MICROBE]",
       "requirements": "requirements: {temperature: -14, max}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-corporate-stronghold": {
+      "source": "src/server/cards/base/CorporateStronghold.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: -2"
+    },
+    "card-base-deep-well-heating": {
+      "source": "src/server/cards/base/DeepWellHeating.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-cupola-city": {
+      "source": "src/server/cards/base/CupolaCity.ts",
+      "cost": "cost: 16",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 9, max}",
       "type": "type: CardType.AUTOMATED"
     },
     "card-base-deimos-down": {
@@ -330,33 +322,18 @@
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
+    "card-base-domed-crater": {
+      "source": "src/server/cards/base/DomedCrater.ts",
+      "cost": "cost: 24",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 7, max}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-base-dust-seals": {
       "source": "src/server/cards/base/DustSeals.ts",
       "cost": "cost: 2",
       "requirements": "requirements: {oceans: 3, max}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-earth-catapult": {
-      "source": "src/server/cards/base/EarthCatapult.ts",
-      "cost": "cost: 23",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-base-ecological-zone": {
-      "source": "src/server/cards/base/EcologicalZone.ts",
-      "tags": "tags: [Tag.ANIMAL, Tag.PLANT]",
-      "requirements": "requirements: {greeneries: 1}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
-    },
-    "card-base-eos-chasma-national-park": {
-      "source": "src/server/cards/base/EOSChasmaNationalPark.ts",
-      "cost": "cost: 16",
-      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
-      "requirements": "requirements: {temperature: -12}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
@@ -375,11 +352,13 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: -1"
     },
-    "card-base-energy-saving": {
-      "source": "src/server/cards/base/EnergySaving.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.POWER]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-ecological-zone": {
+      "source": "src/server/cards/base/EcologicalZone.ts",
+      "tags": "tags: [Tag.ANIMAL, Tag.PLANT]",
+      "requirements": "requirements: {greeneries: 1}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
     "card-base-earth-office": {
       "source": "src/server/cards/base/EarthOffice.ts",
@@ -387,41 +366,26 @@
       "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-farming": {
-      "source": "src/server/cards/base/Farming.ts",
-      "cost": "cost: 16",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: 4}",
-      "type": "type: CardType.AUTOMATED",
+    "card-base-earth-catapult": {
+      "source": "src/server/cards/base/EarthCatapult.ts",
+      "cost": "cost: 23",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-base-fish": {
-      "source": "src/server/cards/base/Fish.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.ANIMAL]",
-      "requirements": "requirements: {temperature: 2}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
-    },
-    "card-base-equatorial-magnetizer": {
-      "source": "src/server/cards/base/EquatorialMagnetizer.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-extreme-cold-fungus": {
-      "source": "src/server/cards/base/ExtremeColdFungus.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.MICROBE]",
-      "requirements": "requirements: {temperature: -10, max}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-fueled-generators": {
-      "source": "src/server/cards/base/FueledGenerators.ts",
-      "cost": "cost: 1",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+    "card-base-energy-saving": {
+      "source": "src/server/cards/base/EnergySaving.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.POWER]",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-eos-chasma-national-park": {
+      "source": "src/server/cards/base/EOSChasmaNationalPark.ts",
+      "cost": "cost: 16",
+      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
+      "requirements": "requirements: {temperature: -12}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-flooding": {
       "source": "src/server/cards/base/Flooding.ts",
@@ -436,11 +400,47 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
+    "card-base-extreme-cold-fungus": {
+      "source": "src/server/cards/base/ExtremeColdFungus.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.MICROBE]",
+      "requirements": "requirements: {temperature: -10, max}",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-equatorial-magnetizer": {
+      "source": "src/server/cards/base/EquatorialMagnetizer.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-fish": {
+      "source": "src/server/cards/base/Fish.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.ANIMAL]",
+      "requirements": "requirements: {temperature: 2}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+    },
     "card-base-fuel-factory": {
       "source": "src/server/cards/base/FuelFactory.ts",
       "cost": "cost: 6",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-fueled-generators": {
+      "source": "src/server/cards/base/FueledGenerators.ts",
+      "cost": "cost: 1",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-farming": {
+      "source": "src/server/cards/base/Farming.ts",
+      "cost": "cost: 16",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: 4}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-base-fusion-power": {
       "source": "src/server/cards/base/FusionPower.ts",
@@ -449,38 +449,12 @@
       "requirements": "requirements: {tag: Tag.POWER, count: 2}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-gene-repair": {
-      "source": "src/server/cards/base/GeneRepair.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.SCIENCE]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 3}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
     "card-base-ganymede-colony": {
       "source": "src/server/cards/base/GanymedeColony.ts",
       "cost": "cost: 20",
       "tags": "tags: [Tag.JOVIAN, Tag.SPACE, Tag.CITY]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: {tag: Tag.JOVIAN}"
-    },
-    "p-geothermal-power": {
-      "source": "src/server/cards/base/GeothermalPower.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-giant-space-mirror": {
-      "source": "src/server/cards/base/GiantSpaceMirror.ts",
-      "cost": "cost: 17",
-      "tags": "tags: [Tag.POWER, Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "p-giant-ice-asteroid": {
-      "source": "src/server/cards/base/GiantIceAsteroid.ts",
-      "cost": "cost: 36",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
     },
     "card-base-ghg-producing-bacteria": {
       "source": "src/server/cards/base/GHGProducingBacteria.ts",
@@ -490,24 +464,36 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.MICROBE"
     },
+    "card-base-gene-repair": {
+      "source": "src/server/cards/base/GeneRepair.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SCIENCE]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 3}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
+    },
+    "p-giant-ice-asteroid": {
+      "source": "src/server/cards/base/GiantIceAsteroid.ts",
+      "cost": "cost: 36",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
     "card-base-ghg-factories": {
       "source": "src/server/cards/base/GHGFactories.ts",
       "cost": "cost: 11",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-heat-trappers": {
-      "source": "src/server/cards/base/HeatTrappers.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: -1"
+    "card-base-giant-space-mirror": {
+      "source": "src/server/cards/base/GiantSpaceMirror.ts",
+      "cost": "cost: 17",
+      "tags": "tags: [Tag.POWER, Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
     },
-    "card-base-grass": {
-      "source": "src/server/cards/base/Grass.ts",
+    "p-geothermal-power": {
+      "source": "src/server/cards/base/GeothermalPower.ts",
       "cost": "cost: 11",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: -16}",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-base-great-escarpment-consortium": {
@@ -516,14 +502,18 @@
       "requirements": "requirements: {production: Resource.STEEL, count: 1}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-herbivores": {
-      "source": "src/server/cards/base/Herbivores.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.ANIMAL]",
-      "requirements": "requirements: {oxygen: 8}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
+    "card-base-grass": {
+      "source": "src/server/cards/base/Grass.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: -16}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "p-greenhouses": {
+      "source": "src/server/cards/base/Greenhouses.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-base-great-dam": {
       "source": "src/server/cards/base/GreatDam.ts",
@@ -532,6 +522,13 @@
       "requirements": "requirements: {oceans: 4}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-heat-trappers": {
+      "source": "src/server/cards/base/HeatTrappers.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: -1"
     },
     "card-base-hackers": {
       "source": "src/server/cards/base/Hackers.ts",
@@ -546,16 +543,32 @@
       "requirements": "requirements: {temperature: -14}",
       "type": "type: CardType.AUTOMATED"
     },
-    "p-greenhouses": {
-      "source": "src/server/cards/base/Greenhouses.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-herbivores": {
+      "source": "src/server/cards/base/Herbivores.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.ANIMAL]",
+      "requirements": "requirements: {oxygen: 8}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
     "card-base-hired-raiders": {
       "source": "src/server/cards/base/HiredRaiders.ts",
       "cost": "cost: 1",
       "type": "type: CardType.EVENT"
+    },
+    "card-base-import-of-advanced-ghg": {
+      "source": "src/server/cards/base/ImportOfAdvancedGHG.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.EARTH, Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-immigration-shuttles": {
+      "source": "src/server/cards/base/ImmigrationShuttles.ts",
+      "cost": "cost: 31",
+      "tags": "tags: [Tag.EARTH, Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: {cities: {}, all: true, per: 3}"
     },
     "p-ice-asteroid": {
       "source": "src/server/cards/base/IceAsteroid.ts",
@@ -566,25 +579,6 @@
     "card-base-imported-hydrogen": {
       "source": "src/server/cards/base/ImportedHydrogen.ts",
       "cost": "cost: 16",
-      "tags": "tags: [Tag.EARTH, Tag.SPACE]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-immigrant-city": {
-      "source": "src/server/cards/base/ImmigrantCity.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-immigration-shuttles": {
-      "source": "src/server/cards/base/ImmigrationShuttles.ts",
-      "cost": "cost: 31",
-      "tags": "tags: [Tag.EARTH, Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: {cities: {}, all: true, per: 3}"
-    },
-    "card-base-import-of-advanced-ghg": {
-      "source": "src/server/cards/base/ImportOfAdvancedGHG.ts",
-      "cost": "cost: 9",
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
@@ -600,17 +594,28 @@
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
-    "card-base-industrial-center": {
-      "source": "src/server/cards/base/IndustrialCenter.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.BUILDING]",
+    "card-base-immigrant-city": {
+      "source": "src/server/cards/base/ImmigrantCity.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
+    },
+    "card-base-insulation": {
+      "source": "src/server/cards/base/Insulation.ts",
+      "cost": "cost: 2",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-base-imported-nitrogen": {
       "source": "src/server/cards/base/ImportedNitrogen.ts",
       "cost": "cost: 23",
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.EVENT"
+    },
+    "card-base-indentured-workers": {
+      "source": "src/server/cards/base/IndenturedWorkers.ts",
+      "cost": "cost: 0",
+      "type": "type: CardType.EVENT",
+      "victoryPoints": "victoryPoints: -1"
     },
     "card-base-industrial-microbes": {
       "source": "src/server/cards/base/IndustrialMicrobes.ts",
@@ -623,12 +628,6 @@
       "cost": "cost: 2",
       "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.EVENT"
-    },
-    "card-base-indentured-workers": {
-      "source": "src/server/cards/base/IndenturedWorkers.ts",
-      "cost": "cost: 0",
-      "type": "type: CardType.EVENT",
-      "victoryPoints": "victoryPoints: -1"
     },
     "card-base-interstellar-colony-ship": {
       "source": "src/server/cards/base/InterstellarColonyShip.ts",
@@ -645,15 +644,22 @@
       "requirements": "requirements: {oxygen: 6}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-insulation": {
-      "source": "src/server/cards/base/Insulation.ts",
-      "cost": "cost: 2",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-industrial-center": {
+      "source": "src/server/cards/base/IndustrialCenter.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
     },
     "card-base-inventors-guild": {
       "source": "src/server/cards/base/InventorsGuild.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-ironworks": {
+      "source": "src/server/cards/base/Ironworks.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
     "card-base-kelp-farming": {
@@ -664,18 +670,6 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-investment-loan": {
-      "source": "src/server/cards/base/InvestmentLoan.ts",
-      "cost": "cost: 3",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-ironworks": {
-      "source": "src/server/cards/base/Ironworks.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
     "card-base-io-mining-industries": {
       "source": "src/server/cards/base/IoMiningIndustries.ts",
       "cost": "cost: 41",
@@ -683,17 +677,23 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: {tag: Tag.JOVIAN}"
     },
-    "card-base-land-claim": {
-      "source": "src/server/cards/base/LandClaim.ts",
-      "cost": "cost: 1",
-      "type": "type: CardType.EVENT"
-    },
     "card-base-lagrange-observatory": {
       "source": "src/server/cards/base/LagrangeObservatory.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.SCIENCE, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-investment-loan": {
+      "source": "src/server/cards/base/InvestmentLoan.ts",
+      "cost": "cost: 3",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-land-claim": {
+      "source": "src/server/cards/base/LandClaim.ts",
+      "cost": "cost: 1",
+      "type": "type: CardType.EVENT"
     },
     "card-base-lake-marineris": {
       "source": "src/server/cards/base/LakeMarineris.ts",
@@ -709,11 +709,14 @@
       "type": "type: CardType.EVENT",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-base-magnetic-field-dome": {
-      "source": "src/server/cards/base/MagneticFieldDome.ts",
-      "cost": "cost: 5",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-livestock": {
+      "source": "src/server/cards/base/Livestock.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.ANIMAL]",
+      "requirements": "requirements: {oxygen: 9}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
     "p-lichen": {
       "source": "src/server/cards/base/Lichen.ts",
@@ -722,9 +725,15 @@
       "requirements": "requirements: {temperature: -24}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-lava-flows": {
-      "source": "src/server/cards/base/LavaFlows.ts",
-      "cost": "cost: 18",
+    "card-base-magnetic-field-dome": {
+      "source": "src/server/cards/base/MagneticFieldDome.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-local-heat-trapping": {
+      "source": "src/server/cards/base/LocalHeatTrapping.ts",
+      "cost": "cost: 1",
       "type": "type: CardType.EVENT"
     },
     "card-base-lightning-harvest": {
@@ -741,25 +750,37 @@
       "tags": "tags: [Tag.EARTH, Tag.POWER]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-livestock": {
-      "source": "src/server/cards/base/Livestock.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.ANIMAL]",
-      "requirements": "requirements: {oxygen: 9}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
-    },
-    "card-base-local-heat-trapping": {
-      "source": "src/server/cards/base/LocalHeatTrapping.ts",
-      "cost": "cost: 1",
+    "card-base-lava-flows": {
+      "source": "src/server/cards/base/LavaFlows.ts",
+      "cost": "cost: 18",
       "type": "type: CardType.EVENT"
+    },
+    "card-base-mass-converter": {
+      "source": "src/server/cards/base/MassConverter.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.SCIENCE, Tag.POWER]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 5}",
+      "type": "type: CardType.ACTIVE"
     },
     "card-base-magnetic-field-generators": {
       "source": "src/server/cards/base/MagneticFieldGenerators.ts",
       "cost": "cost: 20",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-media-archives": {
+      "source": "src/server/cards/base/MediaArchives.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-mangrove": {
+      "source": "src/server/cards/base/Mangrove.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: 4}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-media-group": {
       "source": "src/server/cards/base/MediaGroup.ts",
@@ -773,18 +794,12 @@
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-mass-converter": {
-      "source": "src/server/cards/base/MassConverter.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.SCIENCE, Tag.POWER]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 5}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-media-archives": {
-      "source": "src/server/cards/base/MediaArchives.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-medical-lab": {
+      "source": "src/server/cards/base/MedicalLab.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "p-mars-university": {
       "source": "src/server/cards/base/MarsUniversity.ts",
@@ -793,20 +808,19 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-medical-lab": {
-      "source": "src/server/cards/base/MedicalLab.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+    "card-base-mining-area": {
+      "source": "src/server/cards/base/MiningArea.ts",
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
     },
-    "card-base-mangrove": {
-      "source": "src/server/cards/base/Mangrove.ts",
+    "card-base-mineral-deposit": {
+      "source": "src/server/cards/base/MineralDeposit.ts",
+      "cost": "cost: 5",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-mining-expedition": {
+      "source": "src/server/cards/base/MiningExpedition.ts",
       "cost": "cost: 12",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: 4}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+      "type": "type: CardType.EVENT"
     },
     "card-base-methane-from-titan": {
       "source": "src/server/cards/base/MethaneFromTitan.ts",
@@ -816,10 +830,9 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-base-micro-mills": {
-      "source": "src/server/cards/base/MicroMills.ts",
-      "cost": "cost: 3",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-mining-rights": {
+      "source": "src/server/cards/base/MiningRights.ts",
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
     },
     "card-base-miranda-resort": {
       "source": "src/server/cards/base/MirandaResort.ts",
@@ -828,23 +841,10 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-mining-expedition": {
-      "source": "src/server/cards/base/MiningExpedition.ts",
-      "cost": "cost: 12",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-mining-rights": {
-      "source": "src/server/cards/base/MiningRights.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-base-mining-area": {
-      "source": "src/server/cards/base/MiningArea.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-base-mineral-deposit": {
-      "source": "src/server/cards/base/MineralDeposit.ts",
-      "cost": "cost: 5",
-      "type": "type: CardType.EVENT"
+    "card-base-micro-mills": {
+      "source": "src/server/cards/base/MicroMills.ts",
+      "cost": "cost: 3",
+      "type": "type: CardType.AUTOMATED"
     },
     "p-mine": {
       "source": "src/server/cards/base/Mine.ts",
@@ -857,20 +857,6 @@
       "cost": "cost: 20",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-noctis-city": {
-      "source": "src/server/cards/base/NoctisCity.ts",
-      "cost": "cost: 18",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-natural-preserve": {
-      "source": "src/server/cards/base/NaturalPreserve.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 4, max}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-nitrite-reducing-bacteria": {
       "source": "src/server/cards/base/NitriteReducingBacteria.ts",
@@ -886,11 +872,10 @@
       "requirements": "requirements: {oceans: 3}",
       "type": "type: CardType.AUTOMATED"
     },
-    "p-moss": {
-      "source": "src/server/cards/base/Moss.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {oceans: 3}",
+    "card-base-noctis-city": {
+      "source": "src/server/cards/base/NoctisCity.ts",
+      "cost": "cost: 18",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-base-noctis-farming": {
@@ -900,6 +885,21 @@
       "requirements": "requirements: {temperature: -20}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-natural-preserve": {
+      "source": "src/server/cards/base/NaturalPreserve.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.SCIENCE, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 4, max}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "p-moss": {
+      "source": "src/server/cards/base/Moss.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {oceans: 3}",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-base-nitrogen-rich-asteroid": {
       "source": "src/server/cards/base/NitrogenRichAsteroid.ts",
@@ -913,25 +913,29 @@
       "tags": "tags: [Tag.POWER, Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-permafrost-extraction": {
-      "source": "src/server/cards/base/PermafrostExtraction.ts",
-      "cost": "cost: 8",
-      "requirements": "requirements: {temperature: -8}",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-open-city": {
-      "source": "src/server/cards/base/OpenCity.ts",
-      "cost": "cost: 23",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "requirements": "requirements: {oxygen: 12}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+    "card-base-optimal-aerobraking": {
+      "source": "src/server/cards/base/OptimalAerobraking.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.ACTIVE"
     },
     "card-base-peroxide-power": {
       "source": "src/server/cards/base/PeroxidePower.ts",
       "cost": "cost: 7",
       "tags": "tags: [Tag.POWER, Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-ore-processor": {
+      "source": "src/server/cards/base/OreProcessor.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-permafrost-extraction": {
+      "source": "src/server/cards/base/PermafrostExtraction.ts",
+      "cost": "cost: 8",
+      "requirements": "requirements: {temperature: -8}",
+      "type": "type: CardType.EVENT"
     },
     "card-base-olympus-conference": {
       "source": "src/server/cards/base/OlympusConference.ts",
@@ -941,17 +945,13 @@
       "resourceType": "resourceType: CardResource.SCIENCE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-ore-processor": {
-      "source": "src/server/cards/base/OreProcessor.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-optimal-aerobraking": {
-      "source": "src/server/cards/base/OptimalAerobraking.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.ACTIVE"
+    "card-base-open-city": {
+      "source": "src/server/cards/base/OpenCity.ts",
+      "cost": "cost: 23",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "requirements": "requirements: {oxygen: 12}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-nuclear-zone": {
       "source": "src/server/cards/base/NuclearZone.ts",
@@ -959,11 +959,13 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: -2"
     },
-    "p-power-plant": {
-      "source": "src/server/cards/base/PowerPlant.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
+    "card-base-pets": {
+      "source": "src/server/cards/base/Pets.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.EARTH, Tag.ANIMAL]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
     "card-base-physics-complex": {
       "source": "src/server/cards/base/PhysicsComplex.ts",
@@ -979,13 +981,11 @@
       "tags": "tags: [Tag.POWER, Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-pets": {
-      "source": "src/server/cards/base/Pets.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.EARTH, Tag.ANIMAL]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
+    "p-power-plant": {
+      "source": "src/server/cards/base/PowerPlant.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-base-phobos-space-haven": {
       "source": "src/server/cards/base/PhobosSpaceHaven.ts",
@@ -1001,18 +1001,54 @@
       "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-power-grid": {
-      "source": "src/server/cards/base/PowerGrid.ts",
-      "cost": "cost: 18",
-      "tags": "tags: [Tag.POWER]",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-base-power-supply-consortium": {
       "source": "src/server/cards/base/PowerSupplyConsortium.ts",
       "cost": "cost: 5",
       "tags": "tags: [Tag.POWER]",
       "requirements": "requirements: {tag: Tag.POWER, count: 2}",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-power-grid": {
+      "source": "src/server/cards/base/PowerGrid.ts",
+      "cost": "cost: 18",
+      "tags": "tags: [Tag.POWER]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-rad-chem-factory": {
+      "source": "src/server/cards/base/RadChemFactory.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-quantum-extractor": {
+      "source": "src/server/cards/base/QuantumExtractor.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.SCIENCE, Tag.POWER]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-rad-suits": {
+      "source": "src/server/cards/base/RadSuits.ts",
+      "cost": "cost: 6",
+      "requirements": "requirements: {cities: 2, all}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-protected-habitats": {
+      "source": "src/server/cards/base/ProtectedHabitats.ts",
+      "cost": "cost: 5",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-protected-valley": {
+      "source": "src/server/cards/base/ProtectedValley.ts",
+      "cost": "cost: 23",
+      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-release-of-inert-gases": {
+      "source": "src/server/cards/base/ReleaseOfInertGases.ts",
+      "cost": "cost: 14",
+      "type": "type: CardType.EVENT"
     },
     "card-base-predators": {
       "source": "src/server/cards/base/Predators.ts",
@@ -1023,30 +1059,6 @@
       "resourceType": "resourceType: CardResource.ANIMAL",
       "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
-    "card-base-protected-valley": {
-      "source": "src/server/cards/base/ProtectedValley.ts",
-      "cost": "cost: 23",
-      "tags": "tags: [Tag.PLANT, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-protected-habitats": {
-      "source": "src/server/cards/base/ProtectedHabitats.ts",
-      "cost": "cost: 5",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-quantum-extractor": {
-      "source": "src/server/cards/base/QuantumExtractor.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.SCIENCE, Tag.POWER]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-rad-chem-factory": {
-      "source": "src/server/cards/base/RadChemFactory.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-base-regolith-eaters": {
       "source": "src/server/cards/base/RegolithEaters.ts",
       "cost": "cost: 13",
@@ -1054,23 +1066,19 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.MICROBE"
     },
-    "card-base-release-of-inert-gases": {
-      "source": "src/server/cards/base/ReleaseOfInertGases.ts",
-      "cost": "cost: 14",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-rad-suits": {
-      "source": "src/server/cards/base/RadSuits.ts",
-      "cost": "cost: 6",
-      "requirements": "requirements: {cities: 2, all}",
+    "card-base-research": {
+      "source": "src/server/cards/base/Research.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.SCIENCE, Tag.SCIENCE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-restricted-area": {
-      "source": "src/server/cards/base/RestrictedArea.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.ACTIVE"
+    "card-base-rover-construction": {
+      "source": "src/server/cards/base/RoverConstruction.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-research-outpost": {
       "source": "src/server/cards/base/ResearchOutpost.ts",
@@ -1078,12 +1086,11 @@
       "tags": "tags: [Tag.SCIENCE, Tag.CITY, Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-research": {
-      "source": "src/server/cards/base/Research.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SCIENCE, Tag.SCIENCE]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+    "card-base-satellites": {
+      "source": "src/server/cards/base/Satellites.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
     },
     "p-search-for-life": {
       "source": "src/server/cards/base/SearchForLife.ts",
@@ -1094,10 +1101,10 @@
       "resourceType": "resourceType: CardResource.SCIENCE",
       "victoryPoints": "victoryPoints: 'special'"
     },
-    "card-base-satellites": {
-      "source": "src/server/cards/base/Satellites.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.SPACE]",
+    "card-base-robotic-workforce": {
+      "source": "src/server/cards/base/RoboticWorkforce.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-base-sabotage": {
@@ -1105,32 +1112,19 @@
       "cost": "cost: 1",
       "type": "type: CardType.EVENT"
     },
-    "card-base-rover-construction": {
-      "source": "src/server/cards/base/RoverConstruction.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-robotic-workforce": {
-      "source": "src/server/cards/base/RoboticWorkforce.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-space-elevator": {
-      "source": "src/server/cards/base/SpaceElevator.ts",
-      "cost": "cost: 27",
-      "tags": "tags: [Tag.SPACE, Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "p-solar-power": {
-      "source": "src/server/cards/base/SolarPower.ts",
+    "card-base-restricted-area": {
+      "source": "src/server/cards/base/RestrictedArea.ts",
       "cost": "cost: 11",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-security-fleet": {
+      "source": "src/server/cards/base/SecurityFleet.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FIGHTER",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
     "card-base-solar-wind-power": {
       "source": "src/server/cards/base/SolarWindPower.ts",
@@ -1138,12 +1132,11 @@
       "tags": "tags: [Tag.SCIENCE, Tag.SPACE, Tag.POWER]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-base-shuttles": {
-      "source": "src/server/cards/base/Shuttles.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {oxygen: 5}",
-      "type": "type: CardType.ACTIVE",
+    "card-base-soil-factory": {
+      "source": "src/server/cards/base/SoilFactory.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
     "card-base-small-animals": {
@@ -1155,20 +1148,20 @@
       "resourceType": "resourceType: CardResource.ANIMAL",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
-    "card-base-security-fleet": {
-      "source": "src/server/cards/base/SecurityFleet.ts",
-      "cost": "cost: 12",
+    "card-base-shuttles": {
+      "source": "src/server/cards/base/Shuttles.ts",
+      "cost": "cost: 10",
       "tags": "tags: [Tag.SPACE]",
+      "requirements": "requirements: {oxygen: 5}",
       "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FIGHTER",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
-    },
-    "card-base-soil-factory": {
-      "source": "src/server/cards/base/SoilFactory.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-space-elevator": {
+      "source": "src/server/cards/base/SpaceElevator.ts",
+      "cost": "cost: 27",
+      "tags": "tags: [Tag.SPACE, Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-base-soletta": {
       "source": "src/server/cards/base/Soletta.ts",
@@ -1176,46 +1169,23 @@
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.AUTOMATED"
     },
+    "p-solar-power": {
+      "source": "src/server/cards/base/SolarPower.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-base-space-mirrors": {
       "source": "src/server/cards/base/SpaceMirrors.ts",
       "cost": "cost: 3",
       "tags": "tags: [Tag.POWER, Tag.SPACE]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-subterranean-reservoir": {
-      "source": "src/server/cards/base/SubterraneanReservoir.ts",
-      "cost": "cost: 11",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-strip-mine": {
-      "source": "src/server/cards/base/StripMine.ts",
-      "cost": "cost: 25",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-special-design": {
-      "source": "src/server/cards/base/SpecialDesign.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-space-station": {
-      "source": "src/server/cards/base/SpaceStation.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 1"
-    },
     "p-steelworks": {
       "source": "src/server/cards/base/Steelworks.ts",
       "cost": "cost: 15",
       "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-standard-technology": {
-      "source": "src/server/cards/base/StandardTechnology.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.ACTIVE"
     },
     "card-base-sponsors": {
@@ -1224,6 +1194,36 @@
       "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.AUTOMATED"
     },
+    "card-base-special-design": {
+      "source": "src/server/cards/base/SpecialDesign.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-standard-technology": {
+      "source": "src/server/cards/base/StandardTechnology.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-strip-mine": {
+      "source": "src/server/cards/base/StripMine.ts",
+      "cost": "cost: 25",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-space-station": {
+      "source": "src/server/cards/base/SpaceStation.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-subterranean-reservoir": {
+      "source": "src/server/cards/base/SubterraneanReservoir.ts",
+      "cost": "cost: 11",
+      "type": "type: CardType.EVENT"
+    },
     "card-base-symbiotic-fungus": {
       "source": "src/server/cards/base/SymbioticFungus.ts",
       "cost": "cost: 4",
@@ -1231,19 +1231,18 @@
       "requirements": "requirements: {temperature: -14}",
       "type": "type: CardType.ACTIVE"
     },
-    "card-base-technology-demonstration": {
-      "source": "src/server/cards/base/TechnologyDemonstration.ts",
-      "cost": "cost: 5",
-      "tags": "tags: [Tag.SCIENCE, Tag.SPACE]",
-      "type": "type: CardType.EVENT"
+    "card-base-toll-station": {
+      "source": "src/server/cards/base/TollStation.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
     },
-    "card-base-tectonic-stress-power": {
-      "source": "src/server/cards/base/TectonicStressPower.ts",
-      "cost": "cost: 18",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
+    "card-base-terraforming-ganymede": {
+      "source": "src/server/cards/base/TerraformingGanymede.ts",
+      "cost": "cost: 33",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-base-tardigrades": {
       "source": "src/server/cards/base/Tardigrades.ts",
@@ -1253,12 +1252,25 @@
       "resourceType": "resourceType: CardResource.MICROBE",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 4}"
     },
-    "card-base-terraforming-ganymede": {
-      "source": "src/server/cards/base/TerraformingGanymede.ts",
-      "cost": "cost: 33",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
+    "p-titanium-mine": {
+      "source": "src/server/cards/base/TitaniumMine.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-tectonic-stress-power": {
+      "source": "src/server/cards/base/TectonicStressPower.ts",
+      "cost": "cost: 18",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
       "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-technology-demonstration": {
+      "source": "src/server/cards/base/TechnologyDemonstration.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.SCIENCE, Tag.SPACE]",
+      "type": "type: CardType.EVENT"
     },
     "card-base-towing-a-comet": {
       "source": "src/server/cards/base/TowingAComet.ts",
@@ -1266,17 +1278,12 @@
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
-    "card-base-toll-station": {
-      "source": "src/server/cards/base/TollStation.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "p-titanium-mine": {
-      "source": "src/server/cards/base/TitaniumMine.ts",
-      "cost": "cost: 7",
+    "card-base-tropical-resort": {
+      "source": "src/server/cards/base/TropicalResort.ts",
+      "cost": "cost: 13",
       "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-base-trans-neptune-probe": {
       "source": "src/server/cards/base/TransNeptuneProbe.ts",
@@ -1285,10 +1292,31 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-tropical-resort": {
-      "source": "src/server/cards/base/TropicalResort.ts",
+    "card-base-urbanized-area": {
+      "source": "src/server/cards/base/UrbanizedArea.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-base-trees": {
+      "source": "src/server/cards/base/Trees.ts",
       "cost": "cost: 13",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: -4}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-underground-detonations": {
+      "source": "src/server/cards/base/UndergroundDetonations.ts",
+      "cost": "cost: 6",
       "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-base-tundra-farming": {
+      "source": "src/server/cards/base/TundraFarming.ts",
+      "cost": "cost: 16",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {temperature: -6}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
     },
@@ -1299,71 +1327,10 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-base-urbanized-area": {
-      "source": "src/server/cards/base/UrbanizedArea.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-underground-detonations": {
-      "source": "src/server/cards/base/UndergroundDetonations.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
-    },
     "card-base-underground-city": {
       "source": "src/server/cards/base/UndergroundCity.ts",
       "cost": "cost: 18",
       "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-base-tundra-farming": {
-      "source": "src/server/cards/base/TundraFarming.ts",
-      "cost": "cost: 16",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: -6}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-base-trees": {
-      "source": "src/server/cards/base/Trees.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {temperature: -4}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-viral-enhancers": {
-      "source": "src/server/cards/base/ViralEnhancers.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.SCIENCE, Tag.MICROBE]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-base-virus": {
-      "source": "src/server/cards/base/Virus.ts",
-      "cost": "cost: 1",
-      "tags": "tags: [Tag.MICROBE]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-base-zeppelins": {
-      "source": "src/server/cards/base/Zeppelins.ts",
-      "cost": "cost: 13",
-      "requirements": "requirements: {oxygen: 5}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-base-water-import-from-europa": {
-      "source": "src/server/cards/base/WaterImportFromEuropa.ts",
-      "cost": "cost: 25",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: {tag: Tag.JOVIAN}"
-    },
-    "card-base-worms": {
-      "source": "src/server/cards/base/Worms.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.MICROBE]",
-      "requirements": "requirements: {oxygen: 4}",
       "type": "type: CardType.AUTOMATED"
     },
     "card-base-wave-power": {
@@ -1374,12 +1341,38 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
+    "card-base-water-import-from-europa": {
+      "source": "src/server/cards/base/WaterImportFromEuropa.ts",
+      "cost": "cost: 25",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: {tag: Tag.JOVIAN}"
+    },
+    "card-base-virus": {
+      "source": "src/server/cards/base/Virus.ts",
+      "cost": "cost: 1",
+      "tags": "tags: [Tag.MICROBE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-base-viral-enhancers": {
+      "source": "src/server/cards/base/ViralEnhancers.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.SCIENCE, Tag.MICROBE]",
+      "type": "type: CardType.ACTIVE"
+    },
     "card-base-water-splitting-plant": {
       "source": "src/server/cards/base/WaterSplittingPlant.ts",
       "cost": "cost: 12",
       "tags": "tags: [Tag.BUILDING]",
       "requirements": "requirements: {oceans: 2}",
       "type": "type: CardType.ACTIVE"
+    },
+    "card-base-zeppelins": {
+      "source": "src/server/cards/base/Zeppelins.ts",
+      "cost": "cost: 13",
+      "requirements": "requirements: {oxygen: 5}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-base-windmills": {
       "source": "src/server/cards/base/Windmills.ts",
@@ -1388,6 +1381,19 @@
       "requirements": "requirements: {oxygen: 7}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-base-worms": {
+      "source": "src/server/cards/base/Worms.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.MICROBE]",
+      "requirements": "requirements: {oxygen: 4}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-colonies-atmo-collectors": {
+      "source": "src/server/cards/colonies/AtmoCollectors.ts",
+      "cost": "cost: 15",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER"
     },
     "card-colonies-air-raid": {
       "source": "src/server/cards/colonies/AirRaid.ts",
@@ -1401,24 +1407,12 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-earth-elevator": {
-      "source": "src/server/cards/colonies/EarthElevator.ts",
-      "cost": "cost: 43",
-      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 4"
-    },
-    "card-colonies-atmo-collectors": {
-      "source": "src/server/cards/colonies/AtmoCollectors.ts",
-      "cost": "cost: 15",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER"
-    },
-    "card-colonies-community-services": {
-      "source": "src/server/cards/colonies/CommunityServices.ts",
-      "cost": "cost: 13",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+    "card-colonies-corona-extractor": {
+      "source": "src/server/cards/colonies/CoronaExtractor.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.SPACE, Tag.POWER]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-conscription": {
       "source": "src/server/cards/colonies/Conscription.ts",
@@ -1435,19 +1429,18 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-corona-extractor": {
-      "source": "src/server/cards/colonies/CoronaExtractor.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.SPACE, Tag.POWER]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
-      "type": "type: CardType.AUTOMATED"
+    "card-colonies-earth-elevator": {
+      "source": "src/server/cards/colonies/EarthElevator.ts",
+      "cost": "cost: 43",
+      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 4"
     },
-    "card-colonies-impactor-swarm": {
-      "source": "src/server/cards/colonies/ImpactorSwarm.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {tag: Tag.JOVIAN, count: 2}",
-      "type": "type: CardType.EVENT"
+    "card-colonies-community-services": {
+      "source": "src/server/cards/colonies/CommunityServices.ts",
+      "cost": "cost: 13",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-colonies-ecology-research": {
       "source": "src/server/cards/colonies/EcologyResearch.ts",
@@ -1456,10 +1449,29 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
+    "card-colonies-galilean-waystation": {
+      "source": "src/server/cards/colonies/GalileanWaystation.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-colonies-floater-leasing": {
       "source": "src/server/cards/colonies/FloaterLeasing.ts",
       "cost": "cost: 3",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-colonies-ice-moon-colony": {
+      "source": "src/server/cards/colonies/IceMoonColony.ts",
+      "cost": "cost: 23",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-colonies-floater-prototypes": {
+      "source": "src/server/cards/colonies/FloaterPrototypes.ts",
+      "cost": "cost: 2",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.EVENT"
     },
     "card-colonies-heavy-taxation": {
       "source": "src/server/cards/colonies/HeavyTaxation.ts",
@@ -1469,24 +1481,12 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: -1"
     },
-    "card-colonies-galilean-waystation": {
-      "source": "src/server/cards/colonies/GalileanWaystation.ts",
-      "cost": "cost: 15",
+    "card-colonies-impactor-swarm": {
+      "source": "src/server/cards/colonies/ImpactorSwarm.ts",
+      "cost": "cost: 11",
       "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-colonies-floater-prototypes": {
-      "source": "src/server/cards/colonies/FloaterPrototypes.ts",
-      "cost": "cost: 2",
-      "tags": "tags: [Tag.SCIENCE]",
+      "requirements": "requirements: {tag: Tag.JOVIAN, count: 2}",
       "type": "type: CardType.EVENT"
-    },
-    "card-colonies-ice-moon-colony": {
-      "source": "src/server/cards/colonies/IceMoonColony.ts",
-      "cost": "cost: 23",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-floater-technology": {
       "source": "src/server/cards/colonies/FloaterTechnology.ts",
@@ -1498,6 +1498,21 @@
       "source": "src/server/cards/colonies/InterplanetaryColonyShip.ts",
       "cost": "cost: 12",
       "tags": "tags: [Tag.SPACE, Tag.EARTH]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-colonies-martian-zoo": {
+      "source": "src/server/cards/colonies/MartianZoo.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.ANIMAL, Tag.BUILDING]",
+      "requirements": "requirements: {cities: 2, all}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-colonies-market-manipulation": {
+      "source": "src/server/cards/colonies/MarketManipulation.ts",
+      "cost": "cost: 1",
+      "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.EVENT"
     },
     "card-colonies-jovian-lanterns": {
@@ -1515,10 +1530,11 @@
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-colonies-lunar-mining": {
-      "source": "src/server/cards/colonies/LunarMining.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.EARTH]",
+    "card-colonies-luna-governor": {
+      "source": "src/server/cards/colonies/LunaGovernor.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.EARTH, Tag.EARTH]",
+      "requirements": "requirements: {tag: Tag.EARTH, count: 3}",
       "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-jupiter-floating-station": {
@@ -1530,32 +1546,10 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-market-manipulation": {
-      "source": "src/server/cards/colonies/MarketManipulation.ts",
-      "cost": "cost: 1",
+    "card-colonies-lunar-mining": {
+      "source": "src/server/cards/colonies/LunarMining.ts",
+      "cost": "cost: 11",
       "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-colonies-luna-governor": {
-      "source": "src/server/cards/colonies/LunaGovernor.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.EARTH, Tag.EARTH]",
-      "requirements": "requirements: {tag: Tag.EARTH, count: 3}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-colonies-martian-zoo": {
-      "source": "src/server/cards/colonies/MartianZoo.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.ANIMAL, Tag.BUILDING]",
-      "requirements": "requirements: {cities: 2, all}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-colonies-mining-colony": {
-      "source": "src/server/cards/colonies/MiningColony.ts",
-      "cost": "cost: 20",
-      "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-molecular-printing": {
@@ -1565,10 +1559,24 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-quantum-communications": {
-      "source": "src/server/cards/colonies/QuantumCommunications.ts",
-      "cost": "cost: 8",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
+    "card-colonies-mining-colony": {
+      "source": "src/server/cards/colonies/MiningColony.ts",
+      "cost": "cost: 20",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-colonies-pioneer-settlement": {
+      "source": "src/server/cards/colonies/PioneerSettlement.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.SPACE]",
+      "requirements": "requirements: {colonies: 1, max}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
+    },
+    "card-colonies-nitrogen-from-titan": {
+      "source": "src/server/cards/colonies/NitrogenFromTitan.ts",
+      "cost": "cost: 25",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
@@ -1576,6 +1584,18 @@
       "source": "src/server/cards/colonies/MinorityRefuge.ts",
       "cost": "cost: 5",
       "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-colonies-quantum-communications": {
+      "source": "src/server/cards/colonies/QuantumCommunications.ts",
+      "cost": "cost: 8",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-colonies-productive-outpost": {
+      "source": "src/server/cards/colonies/ProductiveOutpost.ts",
+      "cost": "cost: 0",
       "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-red-spot-observatory": {
@@ -1587,45 +1607,12 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-colonies-nitrogen-from-titan": {
-      "source": "src/server/cards/colonies/NitrogenFromTitan.ts",
-      "cost": "cost: 25",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-colonies-productive-outpost": {
-      "source": "src/server/cards/colonies/ProductiveOutpost.ts",
-      "cost": "cost: 0",
+    "card-colonies-space-port": {
+      "source": "src/server/cards/colonies/SpacePort.ts",
+      "cost": "cost: 22",
+      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
+      "requirements": "requirements: {colonies: 1}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-colonies-pioneer-settlement": {
-      "source": "src/server/cards/colonies/PioneerSettlement.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {colonies: 1, max}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-colonies-research-colony": {
-      "source": "src/server/cards/colonies/ResearchColony.ts",
-      "cost": "cost: 20",
-      "tags": "tags: [Tag.SPACE, Tag.SCIENCE]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-colonies-rim-freighters": {
-      "source": "src/server/cards/colonies/RimFreighters.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-colonies-sky-docks": {
-      "source": "src/server/cards/colonies/SkyDocks.ts",
-      "cost": "cost: 18",
-      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
-      "requirements": "requirements: {tag: Tag.EARTH, count: 2}",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 2"
     },
     "card-colonies-refugee-camps": {
       "source": "src/server/cards/colonies/RefugeeCamps.ts",
@@ -1635,19 +1622,10 @@
       "resourceType": "resourceType: CardResource.CAMP",
       "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
-    "card-colonies-space-port-colony": {
-      "source": "src/server/cards/colonies/SpacePortColony.ts",
-      "cost": "cost: 27",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {colonies: 1}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: {colonies: {colonies: {}}, all, per: 2}"
-    },
-    "card-colonies-space-port": {
-      "source": "src/server/cards/colonies/SpacePort.ts",
-      "cost": "cost: 22",
-      "tags": "tags: [Tag.CITY, Tag.BUILDING]",
-      "requirements": "requirements: {colonies: 1}",
+    "card-colonies-research-colony": {
+      "source": "src/server/cards/colonies/ResearchColony.ts",
+      "cost": "cost: 20",
+      "tags": "tags: [Tag.SPACE, Tag.SCIENCE]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-solar-reflectors": {
@@ -1663,24 +1641,52 @@
       "type": "type: CardType.EVENT",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-spin-off-department": {
-      "source": "src/server/cards/colonies/SpinoffDepartment.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.BUILDING]",
+    "card-colonies-rim-freighters": {
+      "source": "src/server/cards/colonies/RimFreighters.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-colonies-urban-decomposers": {
-      "source": "src/server/cards/colonies/UrbanDecomposers.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.MICROBE]",
-      "requirements": "requirements: [{colonies: 1}, {cities: 1}]",
-      "type": "type: CardType.AUTOMATED"
+    "card-colonies-sky-docks": {
+      "source": "src/server/cards/colonies/SkyDocks.ts",
+      "cost": "cost: 18",
+      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
+      "requirements": "requirements: {tag: Tag.EARTH, count: 2}",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 2"
+    },
+    "card-colonies-space-port-colony": {
+      "source": "src/server/cards/colonies/SpacePortColony.ts",
+      "cost": "cost: 27",
+      "tags": "tags: [Tag.SPACE]",
+      "requirements": "requirements: {colonies: 1}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: {colonies: {colonies: {}}, all, per: 2}"
     },
     "card-colonies-trading-colony": {
       "source": "src/server/cards/colonies/TradingColony.ts",
       "cost": "cost: 18",
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.ACTIVE"
+    },
+    "card-colonies-trade-envoys": {
+      "source": "src/server/cards/colonies/TradeEnvoys.ts",
+      "cost": "cost: 6",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-colonies-spin-off-department": {
+      "source": "src/server/cards/colonies/SpinoffDepartment.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-colonies-titan-shuttles": {
+      "source": "src/server/cards/colonies/TitanShuttles.ts",
+      "cost": "cost: 23",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-colonies-sub-zero-salt-fish": {
       "source": "src/server/cards/colonies/SubZeroSaltFish.ts",
@@ -1699,14 +1705,6 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-colonies-titan-shuttles": {
-      "source": "src/server/cards/colonies/TitanShuttles.ts",
-      "cost": "cost: 23",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER",
-      "victoryPoints": "victoryPoints: 1"
-    },
     "card-colonies-titan-floating-launch-pad": {
       "source": "src/server/cards/colonies/TitanFloatingLaunchPad.ts",
       "cost": "cost: 18",
@@ -1715,10 +1713,25 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-colonies-trade-envoys": {
-      "source": "src/server/cards/colonies/TradeEnvoys.ts",
+    "card-colonies-urban-decomposers": {
+      "source": "src/server/cards/colonies/UrbanDecomposers.ts",
       "cost": "cost: 6",
-      "type": "type: CardType.ACTIVE"
+      "tags": "tags: [Tag.MICROBE]",
+      "requirements": "requirements: [{colonies: 1}, {cities: 1}]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-prelude-lava-tube-settlement": {
+      "source": "src/server/cards/prelude/LavaTubeSettlement.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.BUILDING, Tag.CITY]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-prelude-space-hotels": {
+      "source": "src/server/cards/prelude/SpaceHotels.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
+      "requirements": "requirements: {tag: Tag.EARTH, count: 2}",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-colonies-warp-drive": {
       "source": "src/server/cards/colonies/WarpDrive.ts",
@@ -1728,13 +1741,6 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-prelude-sf-memorial": {
-      "source": "src/server/cards/prelude/SFMemorial.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
     "card-prelude-martian-survey": {
       "source": "src/server/cards/prelude/MartianSurvey.ts",
       "cost": "cost: 9",
@@ -1743,21 +1749,16 @@
       "type": "type: CardType.EVENT",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-prelude-research-coordination": {
-      "source": "src/server/cards/prelude/ResearchCoordination.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.WILD]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-prelude-lava-tube-settlement": {
-      "source": "src/server/cards/prelude/LavaTubeSettlement.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.BUILDING, Tag.CITY]",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-prelude-house-printing": {
       "source": "src/server/cards/prelude/HousePrinting.ts",
       "cost": "cost: 10",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-prelude-sf-memorial": {
+      "source": "src/server/cards/prelude/SFMemorial.ts",
+      "cost": "cost: 7",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
@@ -1770,11 +1771,10 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.MICROBE"
     },
-    "card-prelude-space-hotels": {
-      "source": "src/server/cards/prelude/SpaceHotels.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
-      "requirements": "requirements: {tag: Tag.EARTH, count: 2}",
+    "card-prelude-research-coordination": {
+      "source": "src/server/cards/prelude/ResearchCoordination.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.WILD]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-prelude2-ceres-tech-market": {
@@ -1784,10 +1784,12 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-prelude2-colonial-representation": {
-      "source": "src/server/cards/prelude2/ColonialRepresentation.ts",
-      "cost": "cost: 10",
-      "type": "type: CardType.ACTIVE"
+    "card-prelude2-floating-refinery": {
+      "source": "src/server/cards/prelude2/FloatingRefinery.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.VENUS]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER"
     },
     "card-prelude2-ghg-shipment": {
       "source": "src/server/cards/prelude2/GhgShipment.ts",
@@ -1796,11 +1798,10 @@
       "requirements": "requirements: {party: PartyName.KELVINISTS}",
       "type": "type: CardType.EVENT"
     },
-    "card-prelude2-envoys-from-venus": {
-      "source": "src/server/cards/prelude2/EnvoysFromVenus.ts",
-      "cost": "cost: 1",
-      "tags": "tags: [Tag.VENUS]",
-      "requirements": "requirements: {tag: Tag.VENUS, count: 3}",
+    "card-prelude2-colonial-envoys": {
+      "source": "src/server/cards/prelude2/ColonialEnvoys.ts",
+      "cost": "cost: 4",
+      "requirements": "requirements: {party: PartyName.UNITY}",
       "type": "type: CardType.EVENT"
     },
     "card-prelude2-cloud-tourism": {
@@ -1818,18 +1819,36 @@
       "requirements": "requirements: {party: PartyName.MARS}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-prelude2-colonial-envoys": {
-      "source": "src/server/cards/prelude2/ColonialEnvoys.ts",
-      "cost": "cost: 4",
-      "requirements": "requirements: {party: PartyName.UNITY}",
+    "card-prelude2-envoys-from-venus": {
+      "source": "src/server/cards/prelude2/EnvoysFromVenus.ts",
+      "cost": "cost: 1",
+      "tags": "tags: [Tag.VENUS]",
+      "requirements": "requirements: {tag: Tag.VENUS, count: 3}",
       "type": "type: CardType.EVENT"
     },
-    "card-prelude2-floating-refinery": {
-      "source": "src/server/cards/prelude2/FloatingRefinery.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.VENUS]",
+    "card-prelude2-colonial-representation": {
+      "source": "src/server/cards/prelude2/ColonialRepresentation.ts",
+      "cost": "cost: 10",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-prelude2-jovian-envoys": {
+      "source": "src/server/cards/prelude2/JovianEnvoys.ts",
+      "cost": "cost: 2",
+      "requirements": "requirements: {tag: Tag.JOVIAN, count: 2}",
+      "type": "type: CardType.EVENT"
+    },
+    "card-prelude2-l1-trade-terminal": {
+      "source": "src/server/cards/prelude2/L1TradeTerminal.ts",
+      "cost": "cost: 25",
+      "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER"
+      "victoryPoints": "victoryPoints: 2"
+    },
+    "card-prelude2-red-appeasement": {
+      "source": "src/server/cards/prelude2/RedAppeasement.ts",
+      "cost": "cost: 0",
+      "requirements": "requirements: {party: PartyName.REDS}",
+      "type": "type: CardType.EVENT"
     },
     "card-prelude2-ishtar-expedition": {
       "source": "src/server/cards/prelude2/IshtarExpedition.ts",
@@ -1845,20 +1864,6 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-prelude2-l1-trade-terminal": {
-      "source": "src/server/cards/prelude2/L1TradeTerminal.ts",
-      "cost": "cost: 25",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-prelude2-special-permit": {
-      "source": "src/server/cards/prelude2/SpecialPermit.ts",
-      "cost": "cost: 5",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {party: PartyName.GREENS}",
-      "type": "type: CardType.EVENT"
-    },
     "card-prelude2-soil-studies": {
       "source": "src/server/cards/prelude2/SoilStudies.ts",
       "cost": "cost: 13",
@@ -1866,10 +1871,11 @@
       "requirements": "requirements: {temperature: -4, max}",
       "type": "type: CardType.EVENT"
     },
-    "card-prelude2-jovian-envoys": {
-      "source": "src/server/cards/prelude2/JovianEnvoys.ts",
-      "cost": "cost: 2",
-      "requirements": "requirements: {tag: Tag.JOVIAN, count: 2}",
+    "card-prelude2-special-permit": {
+      "source": "src/server/cards/prelude2/SpecialPermit.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {party: PartyName.GREENS}",
       "type": "type: CardType.EVENT"
     },
     "card-prelude2-sponsoring-nation": {
@@ -1879,11 +1885,19 @@
       "requirements": "requirements: {tag: Tag.EARTH, count: 4}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-prelude2-red-appeasement": {
-      "source": "src/server/cards/prelude2/RedAppeasement.ts",
-      "cost": "cost: 0",
-      "requirements": "requirements: {party: PartyName.REDS}",
-      "type": "type: CardType.EVENT"
+    "card-prelude2-stratospheric-expedition": {
+      "source": "src/server/cards/prelude2/StratosphericExpedition.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
+      "type": "type: CardType.EVENT",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-prelude2-summit-logistics": {
+      "source": "src/server/cards/prelude2/SummitLogistics.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.BUILDING, Tag.SPACE]",
+      "requirements": "requirements: {party: PartyName.SCIENTISTS}",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-prelude2-wg-project": {
       "source": "src/server/cards/prelude2/WGProject.ts",
@@ -1906,31 +1920,11 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-prelude2-summit-logistics": {
-      "source": "src/server/cards/prelude2/SummitLogistics.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.BUILDING, Tag.SPACE]",
-      "requirements": "requirements: {party: PartyName.SCIENTISTS}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-prelude2-unexpected-application": {
-      "source": "src/server/cards/prelude2/UnexpectedApplication.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.VENUS]",
-      "type": "type: CardType.EVENT"
-    },
     "card-prelude2-venus-shuttles": {
       "source": "src/server/cards/prelude2/VenusShuttles.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.VENUS]",
       "type": "type: CardType.ACTIVE"
-    },
-    "card-prelude2-stratospheric-expedition": {
-      "source": "src/server/cards/prelude2/StratosphericExpedition.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
-      "type": "type: CardType.EVENT",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-prelude2-venus-allies": {
       "source": "src/server/cards/prelude2/VenusAllies.ts",
@@ -1939,18 +1933,18 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
     },
+    "card-prelude2-unexpected-application": {
+      "source": "src/server/cards/prelude2/UnexpectedApplication.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.VENUS]",
+      "type": "type: CardType.EVENT"
+    },
     "card-promo-16-psyche": {
       "source": "src/server/cards/promo/16Psyche.ts",
       "cost": "cost: 31",
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
-    },
-    "card-promo-astra-mechanica": {
-      "source": "src/server/cards/promo/AstraMechanica.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.AUTOMATED"
     },
     "card-promo-asteroid-hollowing": {
       "source": "src/server/cards/promo/AsteroidHollowing.ts",
@@ -1960,28 +1954,12 @@
       "resourceType": "resourceType: CardResource.ASTEROID",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
-    "card-promo-asteroid-deflection-system": {
-      "source": "src/server/cards/promo/AsteroidDeflectionSystem.ts",
-      "cost": "cost: 13",
-      "tags": "tags: [Tag.SPACE, Tag.EARTH, Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ASTEROID",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
-    },
     "card-promo-asteroid-rights": {
       "source": "src/server/cards/promo/AsteroidRights.ts",
       "cost": "cost: 10",
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.ASTEROID"
-    },
-    "card-promo-aqueduct-systems": {
-      "source": "src/server/cards/promo/AqueductSystems.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.BUILDING]",
-      "requirements": "requirements: [{cities: 1, nextTo}, {oceans: 1}]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-bactoviral-research": {
       "source": "src/server/cards/promo/BactoviralResearch.ts",
@@ -1995,6 +1973,47 @@
       "tags": "tags: [Tag.EARTH]",
       "type": "type: CardType.ACTIVE"
     },
+    "card-promo-astra-mechanica": {
+      "source": "src/server/cards/promo/AstraMechanica.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-promo-aqueduct-systems": {
+      "source": "src/server/cards/promo/AqueductSystems.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.BUILDING]",
+      "requirements": "requirements: [{cities: 1, nextTo}, {oceans: 1}]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-asteroid-deflection-system": {
+      "source": "src/server/cards/promo/AsteroidDeflectionSystem.ts",
+      "cost": "cost: 13",
+      "tags": "tags: [Tag.SPACE, Tag.EARTH, Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ASTEROID",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+    },
+    "card-promo-comet-aiming": {
+      "source": "src/server/cards/promo/CometAiming.ts",
+      "cost": "cost: 17",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ASTEROID"
+    },
+    "card-promo-cutting-edge-technology": {
+      "source": "src/server/cards/promo/CuttingEdgeTechnology.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.SCIENCE]",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-cyberia-systems": {
+      "source": "src/server/cards/promo/CyberiaSystems.ts",
+      "cost": "cost: 16",
+      "type": "type: CardType.AUTOMATED"
+    },
     "card-promo-bio-printing-facility": {
       "source": "src/server/cards/promo/BioPrintingFacility.ts",
       "cost": "cost: 7",
@@ -2007,26 +2026,6 @@
       "tags": "tags: [Tag.BUILDING]",
       "requirements": "requirements: {cities: 1}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-promo-cyberia-systems": {
-      "source": "src/server/cards/promo/CyberiaSystems.ts",
-      "cost": "cost: 16",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-promo-cutting-edge-technology": {
-      "source": "src/server/cards/promo/CuttingEdgeTechnology.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-promo-city-parks": {
-      "source": "src/server/cards/promo/CityParks.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {cities: 3}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
     },
     "card-promo-crash-site-cleanup": {
       "source": "src/server/cards/promo/CrashSiteCleanup.ts",
@@ -2043,12 +2042,13 @@
       "resourceType": "resourceType: CardResource.GRAPHENE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-promo-comet-aiming": {
-      "source": "src/server/cards/promo/CometAiming.ts",
-      "cost": "cost: 17",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ASTEROID"
+    "card-promo-city-parks": {
+      "source": "src/server/cards/promo/CityParks.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {cities: 3}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-promo-directed-impactors": {
       "source": "src/server/cards/promo/DirectedImpactors.ts",
@@ -2057,12 +2057,29 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.ASTEROID"
     },
+    "card-promo-deimos-down-promo": {
+      "source": "src/server/cards/promo/DeimosDownPromo.ts",
+      "cost": "cost: 31",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-promo-energy-market": {
+      "source": "src/server/cards/promo/EnergyMarket.ts",
+      "cost": "cost: 3",
+      "tags": "tags: [Tag.POWER]",
+      "type": "type: CardType.ACTIVE"
+    },
     "card-promo-dusk-laser-mining": {
       "source": "src/server/cards/promo/DuskLaserMining.ts",
       "cost": "cost: 8",
       "tags": "tags: [Tag.SPACE]",
       "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-promo-directed-heat-usage": {
+      "source": "src/server/cards/promo/DirectedHeatUsage.ts",
+      "cost": "cost: 1",
+      "type": "type: CardType.ACTIVE"
     },
     "card-promo-diversity-support": {
       "source": "src/server/cards/promo/DiversitySupport.ts",
@@ -2071,16 +2088,11 @@
       "requirements": "requirements: {resourceTypes: 9}",
       "type": "type: CardType.EVENT"
     },
-    "card-promo-directed-heat-usage": {
-      "source": "src/server/cards/promo/DirectedHeatUsage.ts",
-      "cost": "cost: 1",
+    "card-promo-floyd-continuum": {
+      "source": "src/server/cards/promo/FloydContinuum.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.SCIENCE]",
       "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-deimos-down-promo": {
-      "source": "src/server/cards/promo/DeimosDownPromo.ts",
-      "cost": "cost: 31",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
     },
     "card-promo-field-capped-city": {
       "source": "src/server/cards/promo/FieldCappedCity.ts",
@@ -2088,38 +2100,11 @@
       "tags": "tags: [Tag.CITY, Tag.BUILDING, Tag.POWER]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-promo-floyd-continuum": {
-      "source": "src/server/cards/promo/FloydContinuum.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.SCIENCE]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-energy-market": {
-      "source": "src/server/cards/promo/EnergyMarket.ts",
-      "cost": "cost: 3",
-      "tags": "tags: [Tag.POWER]",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-harvest": {
-      "source": "src/server/cards/promo/Harvest.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {greeneries: 3}",
-      "type": "type: CardType.EVENT"
-    },
     "card-promo-hermetic-order-of-mars": {
       "source": "src/server/cards/promo/HermeticOrderofMars.ts",
       "cost": "cost: 10",
       "requirements": "requirements: {oxygen: 4, max}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-promo-great-dam-promo": {
-      "source": "src/server/cards/promo/GreatDamPromo.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
-      "requirements": "requirements: {oceans: 4}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-icy-impactors": {
       "source": "src/server/cards/promo/IcyImpactors.ts",
@@ -2134,12 +2119,27 @@
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
+    "card-promo-harvest": {
+      "source": "src/server/cards/promo/Harvest.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {greeneries: 3}",
+      "type": "type: CardType.EVENT"
+    },
     "card-promo-hospitals": {
       "source": "src/server/cards/promo/Hospitals.ts",
       "cost": "cost: 8",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.DISEASE",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-great-dam-promo": {
+      "source": "src/server/cards/promo/GreatDamPromo.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "requirements": "requirements: {oceans: 4}",
+      "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-hi-tech-lab": {
@@ -2155,30 +2155,16 @@
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-promo-interplanetary-trade": {
-      "source": "src/server/cards/promo/InterplanetaryTrade.ts",
-      "cost": "cost: 27",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
     "card-promo-kaguya-tech": {
       "source": "src/server/cards/promo/KaguyaTech.ts",
       "cost": "cost: 10",
       "tags": "tags: [Tag.CITY, Tag.PLANT]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-promo-law-suit": {
-      "source": "src/server/cards/promo/LawSuit.ts",
-      "cost": "cost: 2",
-      "tags": "tags: [Tag.EARTH]",
-      "type": "type: CardType.EVENT",
-      "victoryPoints": "victoryPoints: 'special'"
-    },
-    "card-promo-jovian-embassy": {
-      "source": "src/server/cards/promo/JovianEmbassy.ts",
-      "cost": "cost: 14",
-      "tags": "tags: [Tag.JOVIAN, Tag.BUILDING]",
+    "card-promo-interplanetary-trade": {
+      "source": "src/server/cards/promo/InterplanetaryTrade.ts",
+      "cost": "cost: 27",
+      "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
@@ -2195,6 +2181,13 @@
       "requirements": "requirements: {tag: Tag.POWER, count: 3}",
       "type": "type: CardType.AUTOMATED"
     },
+    "card-promo-jovian-embassy": {
+      "source": "src/server/cards/promo/JovianEmbassy.ts",
+      "cost": "cost: 14",
+      "tags": "tags: [Tag.JOVIAN, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-promo-martian-lumber-corp": {
       "source": "src/server/cards/promo/MartianLumberCorp.ts",
       "cost": "cost: 6",
@@ -2207,18 +2200,12 @@
       "cost": "cost: 13",
       "type": "type: CardType.ACTIVE"
     },
-    "card-promo-mercurian-alloys": {
-      "source": "src/server/cards/promo/MercurianAlloys.ts",
-      "cost": "cost: 3",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-meltworks": {
-      "source": "src/server/cards/promo/Meltworks.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.BUILDING]",
-      "type": "type: CardType.ACTIVE"
+    "card-promo-law-suit": {
+      "source": "src/server/cards/promo/LawSuit.ts",
+      "cost": "cost: 2",
+      "tags": "tags: [Tag.EARTH]",
+      "type": "type: CardType.EVENT",
+      "victoryPoints": "victoryPoints: 'special'"
     },
     "card-promo-meat-industry": {
       "source": "src/server/cards/promo/MeatIndustry.ts",
@@ -2226,18 +2213,12 @@
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
     },
-    "card-promo-mohole-lake": {
-      "source": "src/server/cards/promo/MoholeLake.ts",
-      "cost": "cost: 31",
-      "tags": "tags: [Tag.BUILDING]",
+    "card-promo-mercurian-alloys": {
+      "source": "src/server/cards/promo/MercurianAlloys.ts",
+      "cost": "cost: 3",
+      "tags": "tags: [Tag.SPACE]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
       "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-outdoor-sports": {
-      "source": "src/server/cards/promo/OutdoorSports.ts",
-      "cost": "cost: 8",
-      "requirements": "requirements: [{cities: 1, all, nextTo}, {oceans: 1}]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-neptunian-power-consultants": {
       "source": "src/server/cards/promo/NeptunianPowerConsultants.ts",
@@ -2254,6 +2235,19 @@
       "requirements": "requirements: {cities: 4, all}",
       "type": "type: CardType.AUTOMATED"
     },
+    "card-promo-outdoor-sports": {
+      "source": "src/server/cards/promo/OutdoorSports.ts",
+      "cost": "cost: 8",
+      "requirements": "requirements: [{cities: 1, all, nextTo}, {oceans: 1}]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-mohole-lake": {
+      "source": "src/server/cards/promo/MoholeLake.ts",
+      "cost": "cost: 31",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
     "card-promo-orbital-cleanup": {
       "source": "src/server/cards/promo/OrbitalCleanup.ts",
       "cost": "cost: 14",
@@ -2261,16 +2255,34 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 2"
     },
+    "card-promo-meltworks": {
+      "source": "src/server/cards/promo/Meltworks.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-promo-public-baths": {
+      "source": "src/server/cards/promo/PublicBaths.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.BUILDING]",
+      "requirements": "requirements: {oceans: 6}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-promo-potatoes": {
       "source": "src/server/cards/promo/Potatoes.ts",
       "cost": "cost: 2",
       "tags": "tags: [Tag.PLANT]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-promo-project-inspection": {
-      "source": "src/server/cards/promo/ProjectInspection.ts",
-      "cost": "cost: 0",
-      "type": "type: CardType.EVENT"
+    "card-promo-penguins": {
+      "source": "src/server/cards/promo/Penguins.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.ANIMAL]",
+      "requirements": "requirements: {oceans: 8}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
     "card-promo-public-plans": {
       "source": "src/server/cards/promo/PublicPlans.ts",
@@ -2284,14 +2296,10 @@
       "requirements": "requirements: {oxygen: 4}",
       "type": "type: CardType.ACTIVE"
     },
-    "card-promo-penguins": {
-      "source": "src/server/cards/promo/Penguins.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.ANIMAL]",
-      "requirements": "requirements: {oceans: 8}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+    "card-promo-project-inspection": {
+      "source": "src/server/cards/promo/ProjectInspection.ts",
+      "cost": "cost: 0",
+      "type": "type: CardType.EVENT"
     },
     "card-promo-protected-growth": {
       "source": "src/server/cards/promo/ProtectedGrowth.ts",
@@ -2300,20 +2308,43 @@
       "requirements": "requirements: {oxygen: 7, max}",
       "type": "type: CardType.EVENT"
     },
-    "card-promo-public-baths": {
-      "source": "src/server/cards/promo/PublicBaths.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.BUILDING]",
-      "requirements": "requirements: {oceans: 6}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
     "card-promo-rego-plastics": {
       "source": "src/server/cards/promo/RegoPlastics.ts",
       "cost": "cost: 10",
       "tags": "tags: [Tag.BUILDING]",
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-self-replicating-robots": {
+      "source": "src/server/cards/promo/SelfReplicatingRobots.ts",
+      "cost": "cost: 7",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-promo-small-asteroid": {
+      "source": "src/server/cards/promo/SmallAsteroid.ts",
+      "cost": "cost: 10",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
+    },
+    "card-promo-robot-pollinators": {
+      "source": "src/server/cards/promo/RobotPollinators.ts",
+      "cost": "cost: 9",
+      "requirements": "requirements: {oxygen: 4}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-promo-snow-algae": {
+      "source": "src/server/cards/promo/SnowAlgae.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.PLANT]",
+      "requirements": "requirements: {oceans: 2}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-promo-soil-enrichment": {
+      "source": "src/server/cards/promo/SoilEnrichment.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.MICROBE, Tag.PLANT]",
+      "type": "type: CardType.EVENT"
     },
     "card-promo-saturn-surfing": {
       "source": "src/server/cards/promo/SaturnSurfing.ts",
@@ -2323,49 +2354,18 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-promo-robot-pollinators": {
-      "source": "src/server/cards/promo/RobotPollinators.ts",
-      "cost": "cost: 9",
-      "requirements": "requirements: {oxygen: 4}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-promo-st-joseph-of-cupertino-mission": {
-      "source": "src/server/cards/promo/StJosephOfCupertinoMission.ts",
-      "cost": "cost: 7",
-      "type": "type: CardType.ACTIVE",
-      "victoryPoints": "victoryPoints: 'special'"
-    },
-    "card-promo-self-replicating-robots": {
-      "source": "src/server/cards/promo/SelfReplicatingRobots.ts",
-      "cost": "cost: 7",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 2}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-soil-enrichment": {
-      "source": "src/server/cards/promo/SoilEnrichment.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.MICROBE, Tag.PLANT]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-promo-small-asteroid": {
-      "source": "src/server/cards/promo/SmallAsteroid.ts",
-      "cost": "cost: 10",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
-    },
-    "card-promo-snow-algae": {
-      "source": "src/server/cards/promo/SnowAlgae.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.PLANT]",
-      "requirements": "requirements: {oceans: 2}",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-promo-solar-logistics": {
       "source": "src/server/cards/promo/SolarLogistics.ts",
       "cost": "cost: 20",
       "tags": "tags: [Tag.EARTH, Tag.SPACE]",
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
+    },
+    "card-promo-st-joseph-of-cupertino-mission": {
+      "source": "src/server/cards/promo/StJosephOfCupertinoMission.ts",
+      "cost": "cost: 7",
+      "type": "type: CardType.ACTIVE",
+      "victoryPoints": "victoryPoints: 'special'"
     },
     "card-promo-stanford-torus": {
       "source": "src/server/cards/promo/StanfordTorus.ts",
@@ -2374,11 +2374,12 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-promo-topsoil-contract": {
-      "source": "src/server/cards/promo/TopsoilContract.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.MICROBE, Tag.EARTH]",
-      "type": "type: CardType.ACTIVE"
+    "card-promo-supermarkets": {
+      "source": "src/server/cards/promo/Supermarkets.ts",
+      "cost": "cost: 9",
+      "requirements": "requirements: {cities: 2, all}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-static-harvesting": {
       "source": "src/server/cards/promo/StaticHarvesting.ts",
@@ -2387,24 +2388,24 @@
       "requirements": "requirements: { oceans: 3, max: true, }",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-promo-teslaract": {
-      "source": "src/server/cards/promo/Teslaract.ts",
-      "cost": "cost: 14",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+    "card-promo-topsoil-contract": {
+      "source": "src/server/cards/promo/TopsoilContract.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.MICROBE, Tag.EARTH]",
       "type": "type: CardType.ACTIVE"
-    },
-    "card-promo-supermarkets": {
-      "source": "src/server/cards/promo/Supermarkets.ts",
-      "cost": "cost: 9",
-      "requirements": "requirements: {cities: 2, all}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-supercapacitors": {
       "source": "src/server/cards/promo/Supercapacitors.ts",
       "cost": "cost: 4",
       "tags": "tags: [Tag.POWER, Tag.BUILDING]",
       "type": "type: CardType.ACTIVE"
+    },
+    "card-promo-sterling-vents": {
+      "source": "src/server/cards/promo/SterlingVents.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-promo-sub-crust-measurements": {
       "source": "src/server/cards/promo/SubCrustMeasurements.ts",
@@ -2414,10 +2415,17 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-promo-sterling-vents": {
-      "source": "src/server/cards/promo/SterlingVents.ts",
-      "cost": "cost: 5",
+    "card-promo-teslaract": {
+      "source": "src/server/cards/promo/Teslaract.ts",
+      "cost": "cost: 14",
       "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-turmoil-diaspora-movement": {
+      "source": "src/server/cards/turmoil/DiasporaMovement.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.JOVIAN]",
+      "requirements": "requirements: {party: PartyName.REDS}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
@@ -2429,18 +2437,12 @@
       "resourceType": "resourceType: CardResource.ANIMAL",
       "victoryPoints": "victoryPoints: 'special'"
     },
-    "card-turmoil-event-analysts": {
-      "source": "src/server/cards/turmoil/EventAnalysts.ts",
-      "cost": "cost: 5",
-      "tags": "tags: [Tag.SCIENCE]",
-      "requirements": "requirements: {party: PartyName.SCIENTISTS}",
-      "type": "type: CardType.ACTIVE"
-    },
-    "card-turmoil-banned-delegate": {
-      "source": "src/server/cards/turmoil/BannedDelegate.ts",
-      "cost": "cost: 0",
-      "requirements": "requirements: {chairman: true}",
-      "type": "type: CardType.EVENT"
+    "card-turmoil-aerial-lenses": {
+      "source": "src/server/cards/turmoil/AerialLenses.ts",
+      "cost": "cost: 2",
+      "requirements": "requirements: {party: PartyName.KELVINISTS}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: -1"
     },
     "card-promo-weather-balloons": {
       "source": "src/server/cards/promo/WeatherBalloons.ts",
@@ -2449,6 +2451,12 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.FLOATER"
     },
+    "card-turmoil-banned-delegate": {
+      "source": "src/server/cards/turmoil/BannedDelegate.ts",
+      "cost": "cost: 0",
+      "requirements": "requirements: {chairman: true}",
+      "type": "type: CardType.EVENT"
+    },
     "card-turmoil-cultural-metropolis": {
       "source": "src/server/cards/turmoil/CulturalMetropolis.ts",
       "cost": "cost: 20",
@@ -2456,26 +2464,18 @@
       "requirements": "requirements: {party: PartyName.UNITY}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-turmoil-diaspora-movement": {
-      "source": "src/server/cards/turmoil/DiasporaMovement.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.JOVIAN]",
-      "requirements": "requirements: {party: PartyName.REDS}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-turmoil-aerial-lenses": {
-      "source": "src/server/cards/turmoil/AerialLenses.ts",
-      "cost": "cost: 2",
-      "requirements": "requirements: {party: PartyName.KELVINISTS}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: -1"
-    },
     "card-turmoil-gmo-contract": {
       "source": "src/server/cards/turmoil/GMOContract.ts",
       "cost": "cost: 3",
       "tags": "tags: [Tag.MICROBE, Tag.SCIENCE]",
       "requirements": "requirements: {party: PartyName.GREENS}",
+      "type": "type: CardType.ACTIVE"
+    },
+    "card-turmoil-event-analysts": {
+      "source": "src/server/cards/turmoil/EventAnalysts.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.SCIENCE]",
+      "requirements": "requirements: {party: PartyName.SCIENTISTS}",
       "type": "type: CardType.ACTIVE"
     },
     "card-turmoil-martian-media-center": {
@@ -2485,27 +2485,25 @@
       "requirements": "requirements: {party: PartyName.MARS}",
       "type": "type: CardType.ACTIVE"
     },
+    "card-turmoil-pr-office": {
+      "source": "src/server/cards/turmoil/PROffice.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.EARTH]",
+      "requirements": "requirements: {party: PartyName.UNITY}",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-turmoil-political-alliance": {
+      "source": "src/server/cards/turmoil/PoliticalAlliance.ts",
+      "cost": "cost: 4",
+      "requirements": "requirements: {partyLeader: 2}",
+      "type": "type: CardType.EVENT"
+    },
     "card-turmoil-sponsored-mohole": {
       "source": "src/server/cards/turmoil/SponsoredMohole.ts",
       "cost": "cost: 5",
       "tags": "tags: [Tag.BUILDING]",
       "requirements": "requirements: {party: PartyName.KELVINISTS}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-turmoil-parliament-hall": {
-      "source": "src/server/cards/turmoil/ParliamentHall.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.BUILDING]",
-      "requirements": "requirements: {party: PartyName.MARS}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
-    },
-    "card-turmoil-red-tourism-wave": {
-      "source": "src/server/cards/turmoil/RedTourismWave.ts",
-      "cost": "cost: 3",
-      "tags": "tags: [Tag.EARTH]",
-      "requirements": "requirements: {party: PartyName.REDS}",
-      "type": "type: CardType.EVENT"
     },
     "card-turmoil-public-celebrations": {
       "source": "src/server/cards/turmoil/PublicCelebrations.ts",
@@ -2515,23 +2513,33 @@
       "type": "type: CardType.EVENT",
       "victoryPoints": "victoryPoints: 2"
     },
+    "card-turmoil-red-tourism-wave": {
+      "source": "src/server/cards/turmoil/RedTourismWave.ts",
+      "cost": "cost: 3",
+      "tags": "tags: [Tag.EARTH]",
+      "requirements": "requirements: {party: PartyName.REDS}",
+      "type": "type: CardType.EVENT"
+    },
+    "card-turmoil-parliament-hall": {
+      "source": "src/server/cards/turmoil/ParliamentHall.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.BUILDING]",
+      "requirements": "requirements: {party: PartyName.MARS}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
+    },
     "card-turmoil-recruitment": {
       "source": "src/server/cards/turmoil/Recruitment.ts",
       "cost": "cost: 2",
       "type": "type: CardType.EVENT"
     },
-    "card-turmoil-political-alliance": {
-      "source": "src/server/cards/turmoil/PoliticalAlliance.ts",
-      "cost": "cost: 4",
-      "requirements": "requirements: {partyLeader: 2}",
-      "type": "type: CardType.EVENT"
-    },
-    "card-turmoil-pr-office": {
-      "source": "src/server/cards/turmoil/PROffice.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.EARTH]",
-      "requirements": "requirements: {party: PartyName.UNITY}",
-      "type": "type: CardType.AUTOMATED"
+    "card-venus-aerial-mappers": {
+      "source": "src/server/cards/venusNext/AerialMappers.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.VENUS]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-turmoil-supported-research": {
       "source": "src/server/cards/turmoil/SupportedResearch.ts",
@@ -2539,21 +2547,6 @@
       "tags": "tags: [Tag.SCIENCE]",
       "requirements": "requirements: {party: PartyName.SCIENTISTS}",
       "type": "type: CardType.AUTOMATED"
-    },
-    "card-turmoil-wildlife-dome": {
-      "source": "src/server/cards/turmoil/WildlifeDome.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.ANIMAL, Tag.PLANT, Tag.BUILDING]",
-      "requirements": "requirements: {party: PartyName.GREENS}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-venus-atmoscoop": {
-      "source": "src/server/cards/venusNext/Atmoscoop.ts",
-      "cost": "cost: 22",
-      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
-      "requirements": "requirements: {tag: Tag.SCIENCE, count: 3}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
     },
     "card-venus-atalanta-planitia-lab": {
       "source": "src/server/cards/venusNext/AtalantaPlanitiaLab.ts",
@@ -2570,13 +2563,12 @@
       "type": "type: CardType.EVENT",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-venus-aerial-mappers": {
-      "source": "src/server/cards/venusNext/AerialMappers.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.VENUS]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER",
-      "victoryPoints": "victoryPoints: 1"
+    "card-turmoil-wildlife-dome": {
+      "source": "src/server/cards/turmoil/WildlifeDome.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.ANIMAL, Tag.PLANT, Tag.BUILDING]",
+      "requirements": "requirements: {party: PartyName.GREENS}",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-turmoil-vote-of-no-confidence": {
       "source": "src/server/cards/turmoil/VoteOfNoConfidence.ts",
@@ -2590,24 +2582,13 @@
       "tags": "tags: [Tag.VENUS]",
       "type": "type: CardType.EVENT"
     },
-    "card-venus-corroder-suits": {
-      "source": "src/server/cards/venusNext/CorroderSuits.ts",
-      "cost": "cost: 8",
-      "tags": "tags: [Tag.VENUS]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-venus-dirigibles": {
-      "source": "src/server/cards/venusNext/Dirigibles.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.VENUS]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER"
-    },
-    "card-venus-comet-for-venus": {
-      "source": "src/server/cards/venusNext/CometForVenus.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SPACE]",
-      "type": "type: CardType.EVENT"
+    "card-venus-atmoscoop": {
+      "source": "src/server/cards/venusNext/Atmoscoop.ts",
+      "cost": "cost: 22",
+      "tags": "tags: [Tag.JOVIAN, Tag.SPACE]",
+      "requirements": "requirements: {tag: Tag.SCIENCE, count: 3}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-venus-dawn-city": {
       "source": "src/server/cards/venusNext/DawnCity.ts",
@@ -2616,6 +2597,20 @@
       "requirements": "requirements: {tag: Tag.SCIENCE, count: 4}",
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 3"
+    },
+    "card-venus-dirigibles": {
+      "source": "src/server/cards/venusNext/Dirigibles.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.VENUS]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER"
+    },
+    "card-venus-deuterium-export": {
+      "source": "src/server/cards/venusNext/DeuteriumExport.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.SPACE, Tag.VENUS, Tag.POWER]",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.FLOATER"
     },
     "card-venus-floating-habs": {
       "source": "src/server/cards/venusNext/FloatingHabs.ts",
@@ -2626,12 +2621,11 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
-    "card-venus-deuterium-export": {
-      "source": "src/server/cards/venusNext/DeuteriumExport.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.SPACE, Tag.VENUS, Tag.POWER]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER"
+    "card-venus-corroder-suits": {
+      "source": "src/server/cards/venusNext/CorroderSuits.ts",
+      "cost": "cost: 8",
+      "tags": "tags: [Tag.VENUS]",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-venus-extremophiles": {
       "source": "src/server/cards/venusNext/Extremophiles.ts",
@@ -2641,6 +2635,12 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.MICROBE",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 3}"
+    },
+    "card-venus-comet-for-venus": {
+      "source": "src/server/cards/venusNext/CometForVenus.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.SPACE]",
+      "type": "type: CardType.EVENT"
     },
     "card-venus-extractor-balloons": {
       "source": "src/server/cards/venusNext/ExtractorBalloons.ts",
@@ -2655,6 +2655,14 @@
       "tags": "tags: [Tag.VENUS]",
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.FLOATER"
+    },
+    "card-venus-freyja-biodomes": {
+      "source": "src/server/cards/venusNext/FreyjaBiodomes.ts",
+      "cost": "cost: 14",
+      "tags": "tags: [Tag.PLANT, Tag.VENUS]",
+      "requirements": "requirements: {venus: 10}",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-venus-io-sulphur-research": {
       "source": "src/server/cards/venusNext/IoSulphurResearch.ts",
@@ -2675,25 +2683,11 @@
       "tags": "tags: [Tag.CITY, Tag.BUILDING]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-venus-giant-solar-shade": {
-      "source": "src/server/cards/venusNext/GiantSolarShade.ts",
-      "cost": "cost: 27",
-      "tags": "tags: [Tag.SPACE, Tag.VENUS]",
-      "type": "type: CardType.AUTOMATED"
-    },
     "card-venus-hydrogen-to-venus": {
       "source": "src/server/cards/venusNext/HydrogenToVenus.ts",
       "cost": "cost: 11",
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.EVENT"
-    },
-    "card-venus-freyja-biodomes": {
-      "source": "src/server/cards/venusNext/FreyjaBiodomes.ts",
-      "cost": "cost: 14",
-      "tags": "tags: [Tag.PLANT, Tag.VENUS]",
-      "requirements": "requirements: {venus: 10}",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
     },
     "card-venus-ishtar-mining": {
       "source": "src/server/cards/venusNext/IshtarMining.ts",
@@ -2701,6 +2695,19 @@
       "tags": "tags: [Tag.VENUS]",
       "requirements": "requirements: {venus: 8}",
       "type": "type: CardType.AUTOMATED"
+    },
+    "card-venus-giant-solar-shade": {
+      "source": "src/server/cards/venusNext/GiantSolarShade.ts",
+      "cost": "cost: 27",
+      "tags": "tags: [Tag.SPACE, Tag.VENUS]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-venus-luxury-foods": {
+      "source": "src/server/cards/venusNext/LuxuryFoods.ts",
+      "cost": "cost: 8",
+      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 2"
     },
     "card-venus-maxwell-base": {
       "source": "src/server/cards/venusNext/MaxwellBase.ts",
@@ -2710,47 +2717,12 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 3"
     },
-    "card-venus-local-shading": {
-      "source": "src/server/cards/venusNext/LocalShading.ts",
-      "cost": "cost: 4",
-      "tags": "tags: [Tag.VENUS]",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.FLOATER"
-    },
-    "card-venus-luxury-foods": {
-      "source": "src/server/cards/venusNext/LuxuryFoods.ts",
-      "cost": "cost: 8",
-      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
     "card-venus-jet-stream-microscrappers": {
       "source": "src/server/cards/venusNext/JetStreamMicroscrappers.ts",
       "cost": "cost: 12",
       "tags": "tags: [Tag.VENUS]",
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.FLOATER"
-    },
-    "card-venus-luna-metropolis": {
-      "source": "src/server/cards/venusNext/LunaMetropolis.ts",
-      "cost": "cost: 21",
-      "tags": "tags: [Tag.CITY, Tag.SPACE, Tag.EARTH]",
-      "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 2"
-    },
-    "card-venus-omnicourt": {
-      "source": "src/server/cards/venusNext/Omnicourt.ts",
-      "cost": "cost: 11",
-      "tags": "tags: [Tag.BUILDING]",
-      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-venus-mining-quota": {
-      "source": "src/server/cards/venusNext/MiningQuota.ts",
-      "cost": "cost: 5",
-      "tags": "tags: [Tag.BUILDING]",
-      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
-      "type": "type: CardType.AUTOMATED"
     },
     "card-venus-neutralizer-factory": {
       "source": "src/server/cards/venusNext/NeutralizerFactory.ts",
@@ -2759,34 +2731,33 @@
       "requirements": "requirements: {venus: 10}",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-venus-solarnet": {
-      "source": "src/server/cards/venusNext/Solarnet.ts",
-      "cost": "cost: 7",
-      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
+    "card-venus-luna-metropolis": {
+      "source": "src/server/cards/venusNext/LunaMetropolis.ts",
+      "cost": "cost: 21",
+      "tags": "tags: [Tag.CITY, Tag.SPACE, Tag.EARTH]",
       "type": "type: CardType.AUTOMATED",
-      "victoryPoints": "victoryPoints: 1"
+      "victoryPoints": "victoryPoints: 2"
     },
-    "card-venus-orbital-reflectors": {
-      "source": "src/server/cards/venusNext/OrbitalReflectors.ts",
-      "cost": "cost: 26",
-      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
+    "card-venus-mining-quota": {
+      "source": "src/server/cards/venusNext/MiningQuota.ts",
+      "cost": "cost: 5",
+      "tags": "tags: [Tag.BUILDING]",
+      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-venus-sister-planet-support": {
-      "source": "src/server/cards/venusNext/SisterPlanetSupport.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.VENUS, Tag.EARTH]",
-      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}]",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-venus-stratospheric-birds": {
-      "source": "src/server/cards/venusNext/StratosphericBirds.ts",
-      "cost": "cost: 12",
-      "tags": "tags: [Tag.VENUS, Tag.ANIMAL]",
-      "requirements": "requirements: {venus: 12}",
+    "card-venus-local-shading": {
+      "source": "src/server/cards/venusNext/LocalShading.ts",
+      "cost": "cost: 4",
+      "tags": "tags: [Tag.VENUS]",
       "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+      "resourceType": "resourceType: CardResource.FLOATER"
+    },
+    "card-venus-omnicourt": {
+      "source": "src/server/cards/venusNext/Omnicourt.ts",
+      "cost": "cost: 11",
+      "tags": "tags: [Tag.BUILDING]",
+      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-venus-stratopolis": {
       "source": "src/server/cards/venusNext/Stratopolis.ts",
@@ -2797,12 +2768,12 @@
       "resourceType": "resourceType: CardResource.FLOATER",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 3}"
     },
-    "card-venus-spin-inducing-asteroid": {
-      "source": "src/server/cards/venusNext/SpinInducingAsteroid.ts",
-      "cost": "cost: 16",
-      "tags": "tags: [Tag.SPACE]",
-      "requirements": "requirements: {venus: 10, max}",
-      "type": "type: CardType.EVENT"
+    "card-venus-sister-planet-support": {
+      "source": "src/server/cards/venusNext/SisterPlanetSupport.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.VENUS, Tag.EARTH]",
+      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}]",
+      "type": "type: CardType.AUTOMATED"
     },
     "card-venus-rotator-impacts": {
       "source": "src/server/cards/venusNext/RotatorImpacts.ts",
@@ -2812,6 +2783,15 @@
       "type": "type: CardType.ACTIVE",
       "resourceType": "resourceType: CardResource.ASTEROID"
     },
+    "card-venus-stratospheric-birds": {
+      "source": "src/server/cards/venusNext/StratosphericBirds.ts",
+      "cost": "cost: 12",
+      "tags": "tags: [Tag.VENUS, Tag.ANIMAL]",
+      "requirements": "requirements: {venus: 12}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+    },
     "card-venus-sponsored-academies": {
       "source": "src/server/cards/venusNext/SponsoredAcademies.ts",
       "cost": "cost: 9",
@@ -2819,33 +2799,31 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-venus-sulphur-eating-bacteria": {
-      "source": "src/server/cards/venusNext/SulphurEatingBacteria.ts",
-      "cost": "cost: 6",
-      "tags": "tags: [Tag.VENUS, Tag.MICROBE]",
-      "requirements": "requirements: {venus: 6}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.MICROBE"
+    "card-venus-spin-inducing-asteroid": {
+      "source": "src/server/cards/venusNext/SpinInducingAsteroid.ts",
+      "cost": "cost: 16",
+      "tags": "tags: [Tag.SPACE]",
+      "requirements": "requirements: {venus: 10, max}",
+      "type": "type: CardType.EVENT"
     },
-    "card-venus-thermophiles": {
-      "source": "src/server/cards/venusNext/Thermophiles.ts",
-      "cost": "cost: 9",
-      "tags": "tags: [Tag.VENUS, Tag.MICROBE]",
-      "requirements": "requirements: {venus: 6}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.MICROBE"
+    "card-venus-orbital-reflectors": {
+      "source": "src/server/cards/venusNext/OrbitalReflectors.ts",
+      "cost": "cost: 26",
+      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-venus-solarnet": {
+      "source": "src/server/cards/venusNext/Solarnet.ts",
+      "cost": "cost: 7",
+      "requirements": "requirements: [{tag: Tag.VENUS}, {tag: Tag.EARTH}, {tag: Tag.JOVIAN}]",
+      "type": "type: CardType.AUTOMATED",
+      "victoryPoints": "victoryPoints: 1"
     },
     "card-venus-terraforming-contract": {
       "source": "src/server/cards/venusNext/TerraformingContract.ts",
       "cost": "cost: 8",
       "tags": "tags: [Tag.EARTH]",
       "requirements": "requirements: {tr: 25}",
-      "type": "type: CardType.AUTOMATED"
-    },
-    "card-venus-sulphur-exports": {
-      "source": "src/server/cards/venusNext/SulphurExports.ts",
-      "cost": "cost: 21",
-      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
       "type": "type: CardType.AUTOMATED"
     },
     "card-venus-venus-governor": {
@@ -2855,18 +2833,33 @@
       "requirements": "requirements: {tag: Tag.VENUS, count: 2}",
       "type": "type: CardType.AUTOMATED"
     },
+    "card-venus-sulphur-exports": {
+      "source": "src/server/cards/venusNext/SulphurExports.ts",
+      "cost": "cost: 21",
+      "tags": "tags: [Tag.VENUS, Tag.SPACE]",
+      "type": "type: CardType.AUTOMATED"
+    },
+    "card-venus-thermophiles": {
+      "source": "src/server/cards/venusNext/Thermophiles.ts",
+      "cost": "cost: 9",
+      "tags": "tags: [Tag.VENUS, Tag.MICROBE]",
+      "requirements": "requirements: {venus: 6}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.MICROBE"
+    },
     "card-venus-venus-soils": {
       "source": "src/server/cards/venusNext/VenusSoils.ts",
       "cost": "cost: 20",
       "tags": "tags: [Tag.VENUS, Tag.PLANT]",
       "type": "type: CardType.AUTOMATED"
     },
-    "card-venus-venus-magnetizer": {
-      "source": "src/server/cards/venusNext/VenusMagnetizer.ts",
-      "cost": "cost: 7",
-      "tags": "tags: [Tag.VENUS]",
-      "requirements": "requirements: {venus: 10}",
-      "type": "type: CardType.ACTIVE"
+    "card-venus-sulphur-eating-bacteria": {
+      "source": "src/server/cards/venusNext/SulphurEatingBacteria.ts",
+      "cost": "cost: 6",
+      "tags": "tags: [Tag.VENUS, Tag.MICROBE]",
+      "requirements": "requirements: {venus: 6}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.MICROBE"
     },
     "card-venus-venus-waystation": {
       "source": "src/server/cards/venusNext/VenusWaystation.ts",
@@ -2875,22 +2868,12 @@
       "type": "type: CardType.ACTIVE",
       "victoryPoints": "victoryPoints: 1"
     },
-    "card-venus-venusian-animals": {
-      "source": "src/server/cards/venusNext/VenusianAnimals.ts",
-      "cost": "cost: 15",
-      "tags": "tags: [Tag.VENUS, Tag.ANIMAL, Tag.SCIENCE]",
-      "requirements": "requirements: {venus: 18}",
-      "type": "type: CardType.ACTIVE",
-      "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
-    },
-    "prelude-biofuels": {
-      "source": "src/server/cards/prelude/Biofuels.ts",
-      "tags": "tags: [Tag.MICROBE]"
-    },
-    "prelude-aquifer-turbines": {
-      "source": "src/server/cards/prelude/AquiferTurbines.ts",
-      "tags": "tags: [Tag.POWER]"
+    "card-venus-venus-magnetizer": {
+      "source": "src/server/cards/venusNext/VenusMagnetizer.ts",
+      "cost": "cost: 7",
+      "tags": "tags: [Tag.VENUS]",
+      "requirements": "requirements: {venus: 10}",
+      "type": "type: CardType.ACTIVE"
     },
     "card-venus-venusian-insects": {
       "source": "src/server/cards/venusNext/VenusianInsects.ts",
@@ -2901,9 +2884,18 @@
       "resourceType": "resourceType: CardResource.MICROBE",
       "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
-    "prelude-acquired-space-agency": {
-      "source": "src/server/cards/prelude/AcquiredSpaceAgency.ts",
-      "unreadable": "no field declared in the constructor"
+    "prelude-allied-banks": {
+      "source": "src/server/cards/prelude/AlliedBanks.ts",
+      "tags": "tags: [Tag.EARTH]"
+    },
+    "card-venus-venusian-animals": {
+      "source": "src/server/cards/venusNext/VenusianAnimals.ts",
+      "cost": "cost: 15",
+      "tags": "tags: [Tag.VENUS, Tag.ANIMAL, Tag.SCIENCE]",
+      "requirements": "requirements: {venus: 18}",
+      "type": "type: CardType.ACTIVE",
+      "resourceType": "resourceType: CardResource.ANIMAL",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
     },
     "card-venus-venusian-plants": {
       "source": "src/server/cards/venusNext/VenusianPlants.ts",
@@ -2913,27 +2905,47 @@
       "type": "type: CardType.AUTOMATED",
       "victoryPoints": "victoryPoints: 1"
     },
+    "prelude-acquired-space-agency": {
+      "source": "src/server/cards/prelude/AcquiredSpaceAgency.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
+    "prelude-aquifer-turbines": {
+      "source": "src/server/cards/prelude/AquiferTurbines.ts",
+      "tags": "tags: [Tag.POWER]"
+    },
+    "prelude-biofuels": {
+      "source": "src/server/cards/prelude/Biofuels.ts",
+      "tags": "tags: [Tag.MICROBE]"
+    },
     "card-venus-water-to-venus": {
       "source": "src/server/cards/venusNext/WaterToVenus.ts",
       "cost": "cost: 9",
       "tags": "tags: [Tag.SPACE]",
       "type": "type: CardType.EVENT"
     },
-    "prelude-allied-banks": {
-      "source": "src/server/cards/prelude/AlliedBanks.ts",
-      "tags": "tags: [Tag.EARTH]"
+    "prelude-biolab": {
+      "source": "src/server/cards/prelude/Biolab.ts",
+      "tags": "tags: [Tag.SCIENCE]"
     },
-    "prelude-business-empire": {
-      "source": "src/server/cards/prelude/BusinessEmpire.ts",
-      "tags": "tags: [Tag.EARTH]"
+    "prelude-donation": {
+      "source": "src/server/cards/prelude/Donation.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "prelude-biosphere-support": {
       "source": "src/server/cards/prelude/BiosphereSupport.ts",
       "tags": "tags: [Tag.PLANT]"
     },
-    "prelude-biolab": {
-      "source": "src/server/cards/prelude/Biolab.ts",
-      "tags": "tags: [Tag.SCIENCE]"
+    "prelude-eccentric-sponsor": {
+      "source": "src/server/cards/prelude/EccentricSponsor.ts",
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
+    },
+    "prelude-business-empire": {
+      "source": "src/server/cards/prelude/BusinessEmpire.ts",
+      "tags": "tags: [Tag.EARTH]"
+    },
+    "prelude-dome-farming": {
+      "source": "src/server/cards/prelude/DomeFarming.ts",
+      "tags": "tags: [Tag.PLANT, Tag.BUILDING]"
     },
     "prelude-early-settlement": {
       "source": "src/server/cards/prelude/EarlySettlement.ts",
@@ -2943,37 +2955,17 @@
       "source": "src/server/cards/prelude/EcologyExperts.ts",
       "tags": "tags: [Tag.PLANT, Tag.MICROBE]"
     },
-    "prelude-eccentric-sponsor": {
-      "source": "src/server/cards/prelude/EccentricSponsor.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "prelude-donation": {
-      "source": "src/server/cards/prelude/Donation.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "prelude-dome-farming": {
-      "source": "src/server/cards/prelude/DomeFarming.ts",
-      "tags": "tags: [Tag.PLANT, Tag.BUILDING]"
-    },
-    "prelude-great-aquifer": {
-      "source": "src/server/cards/prelude/GreatAquifer.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "prelude-galilean-mining": {
-      "source": "src/server/cards/prelude/GalileanMining.ts",
-      "tags": "tags: [Tag.JOVIAN]"
-    },
-    "prelude-experimental-forest": {
-      "source": "src/server/cards/prelude/ExperimentalForest.ts",
-      "tags": "tags: [Tag.PLANT]"
-    },
     "prelude-io-research-outpost": {
       "source": "src/server/cards/prelude/IoResearchOutpost.ts",
       "tags": "tags: [Tag.JOVIAN, Tag.SCIENCE]"
     },
+    "prelude-great-aquifer": {
+      "source": "src/server/cards/prelude/GreatAquifer.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
     "prelude-huge-asteroid": {
       "source": "src/server/cards/prelude/HugeAsteroid.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "prelude-martian-industries": {
       "source": "src/server/cards/prelude/MartianIndustries.ts",
@@ -2981,34 +2973,34 @@
     },
     "prelude-loan": {
       "source": "src/server/cards/prelude/Loan.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "prelude-metal-rich-asteroid": {
       "source": "src/server/cards/prelude/MetalRichAsteroid.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
-    "prelude-mohole-excavation": {
-      "source": "src/server/cards/prelude/MoholeExcavation.ts",
+    "prelude-experimental-forest": {
+      "source": "src/server/cards/prelude/ExperimentalForest.ts",
+      "tags": "tags: [Tag.PLANT]"
+    },
+    "prelude-galilean-mining": {
+      "source": "src/server/cards/prelude/GalileanMining.ts",
+      "tags": "tags: [Tag.JOVIAN]"
+    },
+    "prelude-mohole": {
+      "source": "src/server/cards/prelude/Mohole.ts",
       "tags": "tags: [Tag.BUILDING]"
     },
-    "prelude-mining-operations": {
-      "source": "src/server/cards/prelude/MiningOperations.ts",
-      "tags": "tags: [Tag.BUILDING]"
-    },
-    "prelude-power-generation": {
-      "source": "src/server/cards/prelude/PowerGeneration.ts",
-      "tags": "tags: [Tag.POWER]"
+    "prelude-metals-company": {
+      "source": "src/server/cards/prelude/MetalsCompany.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "prelude-polar-industries": {
       "source": "src/server/cards/prelude/PolarIndustries.ts",
       "tags": "tags: [Tag.BUILDING]"
     },
-    "prelude-metals-company": {
-      "source": "src/server/cards/prelude/MetalsCompany.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "prelude-mohole": {
-      "source": "src/server/cards/prelude/Mohole.ts",
+    "prelude-mining-operations": {
+      "source": "src/server/cards/prelude/MiningOperations.ts",
       "tags": "tags: [Tag.BUILDING]"
     },
     "prelude-orbital-construction-yard": {
@@ -3017,48 +3009,52 @@
     },
     "prelude-nitrogen-shipment": {
       "source": "src/server/cards/prelude/NitrogenShipment.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
-    "prelude-research-network": {
-      "source": "src/server/cards/prelude/ResearchNetwork.ts",
-      "tags": "tags: [Tag.WILD]"
+    "prelude-mohole-excavation": {
+      "source": "src/server/cards/prelude/MoholeExcavation.ts",
+      "tags": "tags: [Tag.BUILDING]"
     },
-    "prelude-society-support": {
-      "source": "src/server/cards/prelude/SocietySupport.ts",
-      "unreadable": "no field declared in the constructor"
+    "prelude-power-generation": {
+      "source": "src/server/cards/prelude/PowerGeneration.ts",
+      "tags": "tags: [Tag.POWER]"
     },
-    "prelude-self-sufficient-settlement": {
-      "source": "src/server/cards/prelude/SelfSufficientSettlement.ts",
-      "tags": "tags: [Tag.BUILDING, Tag.CITY]"
+    "prelude-supplier": {
+      "source": "src/server/cards/prelude/Supplier.ts",
+      "tags": "tags: [Tag.POWER]"
     },
     "prelude-unmi-contractor": {
       "source": "src/server/cards/prelude/UNMIContractor.ts",
       "tags": "tags: [Tag.EARTH]"
     },
-    "prelude-smelting-plant": {
-      "source": "src/server/cards/prelude/SmeltingPlant.ts",
-      "tags": "tags: [Tag.BUILDING]"
+    "prelude-research-network": {
+      "source": "src/server/cards/prelude/ResearchNetwork.ts",
+      "tags": "tags: [Tag.WILD]"
     },
     "prelude-supply-drop": {
       "source": "src/server/cards/prelude/SupplyDrop.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
-    "prelude-supplier": {
-      "source": "src/server/cards/prelude/Supplier.ts",
-      "tags": "tags: [Tag.POWER]"
+    "prelude-society-support": {
+      "source": "src/server/cards/prelude/SocietySupport.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "card-prelude2-applied-science": {
       "source": "src/server/cards/prelude2/AppliedScience.ts",
       "tags": "tags: [Tag.WILD]",
       "resourceType": "resourceType: CardResource.SCIENCE"
     },
+    "prelude-self-sufficient-settlement": {
+      "source": "src/server/cards/prelude/SelfSufficientSettlement.ts",
+      "tags": "tags: [Tag.BUILDING, Tag.CITY]"
+    },
+    "prelude-smelting-plant": {
+      "source": "src/server/cards/prelude/SmeltingPlant.ts",
+      "tags": "tags: [Tag.BUILDING]"
+    },
     "card-prelude2-colony-trade-hub": {
       "source": "src/server/cards/prelude2/ColonyTradeHub.ts",
       "tags": "tags: [Tag.SPACE]"
-    },
-    "card-prelude2-corridors-of-power": {
-      "source": "src/server/cards/prelude2/CorridorsOfPower.ts",
-      "tags": "tags: [Tag.EARTH]"
     },
     "card-prelude2-atmospheric-enhancers": {
       "source": "src/server/cards/prelude2/AtmosphericEnhancers.ts",
@@ -3069,13 +3065,13 @@
       "tags": "tags: [Tag.EARTH]",
       "resourceType": "resourceType: CardResource.DIRECTOR"
     },
-    "card-prelude2-high-circles": {
-      "source": "src/server/cards/prelude2/HighCircles.ts",
+    "card-prelude2-corridors-of-power": {
+      "source": "src/server/cards/prelude2/CorridorsOfPower.ts",
       "tags": "tags: [Tag.EARTH]"
     },
     "card-prelude2-focused-organization": {
       "source": "src/server/cards/prelude2/FocusedOrganization.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "card-prelude2-early-colonization": {
       "source": "src/server/cards/prelude2/EarlyColonization.ts",
@@ -3086,11 +3082,9 @@
       "tags": "tags: [Tag.SPACE]",
       "resourceType": "resourceType: CardResource.FLOATER"
     },
-    "card-prelude2-main-belt-asteroids": {
-      "source": "src/server/cards/prelude2/MainBeltAsteroids.ts",
-      "tags": "tags: [Tag.SPACE]",
-      "resourceType": "resourceType: CardResource.ASTEROID",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
+    "card-prelude2-high-circles": {
+      "source": "src/server/cards/prelude2/HighCircles.ts",
+      "tags": "tags: [Tag.EARTH]"
     },
     "card-prelude2-industrial-complex": {
       "source": "src/server/cards/prelude2/IndustrialComplex.ts",
@@ -3100,46 +3094,40 @@
       "source": "src/server/cards/prelude2/PlanetaryAlliance.ts",
       "tags": "tags: [Tag.EARTH, Tag.JOVIAN, Tag.VENUS]"
     },
-    "card-prelude2-preservation-program": {
-      "source": "src/server/cards/prelude2/PreservationProgram.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-prelude2-recession": {
-      "source": "src/server/cards/prelude2/Recession.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-prelude2-project-eden": {
-      "source": "src/server/cards/prelude2/ProjectEden.ts",
-      "tags": "tags: [Tag.CITY, Tag.PLANT]"
+    "card-prelude2-main-belt-asteroids": {
+      "source": "src/server/cards/prelude2/MainBeltAsteroids.ts",
+      "tags": "tags: [Tag.SPACE]",
+      "resourceType": "resourceType: CardResource.ASTEROID",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
     },
     "card-prelude2-old-mining-colony": {
       "source": "src/server/cards/prelude2/OldMiningColony.ts",
       "tags": "tags: [Tag.SPACE]"
+    },
+    "card-prelude2-recession": {
+      "source": "src/server/cards/prelude2/Recession.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
+    "card-prelude2-preservation-program": {
+      "source": "src/server/cards/prelude2/PreservationProgram.ts",
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
+    },
+    "card-prelude2-project-eden": {
+      "source": "src/server/cards/prelude2/ProjectEden.ts",
+      "tags": "tags: [Tag.CITY, Tag.PLANT]"
     },
     "card-prelude2-nobel-prize": {
       "source": "src/server/cards/prelude2/NobelPrize.ts",
       "tags": "tags: [Tag.WILD]",
       "victoryPoints": "victoryPoints: 2"
     },
-    "card-prelude2-rise-to-power": {
-      "source": "src/server/cards/prelude2/RiseToPower.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-prelude2-world-government-advisor": {
-      "source": "src/server/cards/prelude2/WorldGovernmentAdvisor.ts",
-      "tags": "tags: [Tag.EARTH]"
-    },
-    "card-prelude2-suitable-infrastructure": {
-      "source": "src/server/cards/prelude2/SuitableInfrastructure.ts",
-      "tags": "tags: [Tag.BUILDING]"
-    },
     "card-prelude2-terraforming-deal": {
       "source": "src/server/cards/prelude2/TerraformingDeal.ts",
       "tags": "tags: [Tag.EARTH]"
     },
-    "card-prelude2-soil-bacteria": {
-      "source": "src/server/cards/prelude2/SoilBacteria.ts",
-      "tags": "tags: [Tag.MICROBE]"
+    "card-prelude2-rise-to-power": {
+      "source": "src/server/cards/prelude2/RiseToPower.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
     },
     "card-prelude2-venus-l1-shade": {
       "source": "src/server/cards/prelude2/VenusL1Shade.ts",
@@ -3149,255 +3137,307 @@
       "source": "src/server/cards/prelude2/SpaceLanes.ts",
       "tags": "tags: [Tag.SPACE]"
     },
+    "card-prelude2-soil-bacteria": {
+      "source": "src/server/cards/prelude2/SoilBacteria.ts",
+      "tags": "tags: [Tag.MICROBE]"
+    },
     "card-prelude2-venus-contract": {
       "source": "src/server/cards/prelude2/VenusContract.ts",
       "tags": "tags: [Tag.VENUS]"
     },
-    "card-promo-albedo-plants": {
-      "source": "src/server/cards/promo/AlbedoPlants.ts",
-      "tags": "tags: [Tag.PLANT]"
+    "card-prelude2-suitable-infrastructure": {
+      "source": "src/server/cards/prelude2/SuitableInfrastructure.ts",
+      "tags": "tags: [Tag.BUILDING]"
     },
-    "card-promo-double-down": {
-      "source": "src/server/cards/promo/DoubleDown.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-promo-head-start": {
-      "source": "src/server/cards/promo/HeadStart.ts",
-      "unreadable": "no field declared in the constructor"
+    "card-prelude2-world-government-advisor": {
+      "source": "src/server/cards/prelude2/WorldGovernmentAdvisor.ts",
+      "tags": "tags: [Tag.EARTH]"
     },
     "card-promo-corporate-archives": {
       "source": "src/server/cards/promo/CorporateArchives.ts",
       "tags": "tags: [Tag.SCIENCE]"
     },
+    "card-promo-albedo-plants": {
+      "source": "src/server/cards/promo/AlbedoPlants.ts",
+      "tags": "tags: [Tag.PLANT]"
+    },
     "card-promo-merger": {
       "source": "src/server/cards/promo/Merger.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-promo-established-methods": {
-      "source": "src/server/cards/promo/EstablishedMethods.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "card-promo-giant-solar-collector": {
-      "source": "src/server/cards/promo/GiantSolarCollector.ts",
-      "tags": "tags: [Tag.POWER, Tag.SPACE]"
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
     },
     "card-promo-anti-desertification-techniques": {
       "source": "src/server/cards/promo/AntidesertificationTechniques.ts",
       "tags": "tags: [Tag.MICROBE, Tag.PLANT]"
     },
+    "card-promo-head-start": {
+      "source": "src/server/cards/promo/HeadStart.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
+    "card-promo-double-down": {
+      "source": "src/server/cards/promo/DoubleDown.ts",
+      "unreadable": "declares nothing in its constructor (values are positional or in code)"
+    },
+    "card-promo-giant-solar-collector": {
+      "source": "src/server/cards/promo/GiantSolarCollector.ts",
+      "tags": "tags: [Tag.POWER, Tag.SPACE]"
+    },
+    "card-promo-established-methods": {
+      "source": "src/server/cards/promo/EstablishedMethods.ts",
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
     "card-promo-new-partner": {
       "source": "src/server/cards/promo/NewPartner.ts",
-      "unreadable": "no field declared in the constructor"
+      "unreadable": "prints no cost, tags or points; declares only a behavior"
+    },
+    "corp-ic": {
+      "source": "src/server/cards/corporation/InterplanetaryCinematics.ts",
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 30"
+    },
+    "corp-inventrix": {
+      "source": "src/server/cards/corporation/Inventrix.ts",
+      "tags": "tags: [Tag.SCIENCE]",
+      "startingMegaCredits": "startingMegaCredits: 45"
+    },
+    "corp-helion": {
+      "source": "src/server/cards/corporation/Helion.ts",
+      "tags": "tags: [Tag.SPACE]",
+      "startingMegaCredits": "startingMegaCredits: 42"
+    },
+    "corp-credicor": {
+      "source": "src/server/cards/corporation/CrediCor.ts",
+      "startingMegaCredits": "startingMegaCredits: 57"
     },
     "card-promo-strategic-base-planning": {
       "source": "src/server/cards/promo/StrategicBasePlanning.ts",
       "tags": "tags: [Tag.CITY, Tag.BUILDING, Tag.SPACE]"
     },
-    "corp-inventrix": {
-      "source": "src/server/cards/corporation/Inventrix.ts",
-      "tags": "tags: [Tag.SCIENCE]"
-    },
-    "corp-ic": {
-      "source": "src/server/cards/corporation/InterplanetaryCinematics.ts",
-      "tags": "tags: [Tag.BUILDING]"
-    },
-    "corp-helion": {
-      "source": "src/server/cards/corporation/Helion.ts",
-      "tags": "tags: [Tag.SPACE]"
-    },
-    "corp-credicor": {
-      "source": "src/server/cards/corporation/CrediCor.ts",
-      "unreadable": "no field declared in the constructor"
+    "corp-ecoline": {
+      "source": "src/server/cards/corporation/EcoLine.ts",
+      "tags": "tags: [Tag.PLANT]",
+      "startingMegaCredits": "startingMegaCredits: 36"
     },
     "corp-beginner": {
       "source": "src/server/cards/corporation/BeginnerCorporation.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "corp-ecoline": {
-      "source": "src/server/cards/corporation/EcoLine.ts",
-      "tags": "tags: [Tag.PLANT]"
-    },
-    "corp-mining-guild": {
-      "source": "src/server/cards/corporation/MiningGuild.ts",
-      "tags": "tags: [Tag.BUILDING, Tag.BUILDING]"
-    },
-    "corp-phobolog": {
-      "source": "src/server/cards/corporation/PhoboLog.ts",
-      "tags": "tags: [Tag.SPACE]"
-    },
-    "corp-teractor": {
-      "source": "src/server/cards/corporation/Teractor.ts",
-      "tags": "tags: [Tag.EARTH]"
+      "startingMegaCredits": "startingMegaCredits: 42"
     },
     "corp-saturn": {
       "source": "src/server/cards/corporation/SaturnSystems.ts",
-      "tags": "tags: [Tag.JOVIAN]"
+      "tags": "tags: [Tag.JOVIAN]",
+      "startingMegaCredits": "startingMegaCredits: 42"
     },
-    "corp-tharsis": {
-      "source": "src/server/cards/corporation/TharsisRepublic.ts",
-      "tags": "tags: [Tag.BUILDING]"
-    },
-    "corp-unmi": {
-      "source": "src/server/cards/corporation/UnitedNationsMarsInitiative.ts",
-      "tags": "tags: [Tag.EARTH]"
-    },
-    "corp-thorgate": {
-      "source": "src/server/cards/corporation/Thorgate.ts",
-      "tags": "tags: [Tag.POWER]"
+    "corp-mining-guild": {
+      "source": "src/server/cards/corporation/MiningGuild.ts",
+      "tags": "tags: [Tag.BUILDING, Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 30"
     },
     "card-colonies-aridor": {
       "source": "src/server/cards/colonies/Aridor.ts",
-      "unreadable": "no field declared in the constructor"
+      "startingMegaCredits": "startingMegaCredits: 40"
     },
-    "corp-cheung-shing": {
-      "source": "src/server/cards/prelude/CheungShingMARS.ts",
-      "tags": "tags: [Tag.BUILDING]"
+    "corp-thorgate": {
+      "source": "src/server/cards/corporation/Thorgate.ts",
+      "tags": "tags: [Tag.POWER]",
+      "startingMegaCredits": "startingMegaCredits: 48"
     },
-    "card-colonies-polyphemos": {
-      "source": "src/server/cards/colonies/Polyphemos.ts",
-      "unreadable": "no field declared in the constructor"
+    "corp-phobolog": {
+      "source": "src/server/cards/corporation/PhoboLog.ts",
+      "tags": "tags: [Tag.SPACE]",
+      "startingMegaCredits": "startingMegaCredits: 23"
     },
-    "card-colonies-stormcraft-incorporated": {
-      "source": "src/server/cards/colonies/StormCraftIncorporated.ts",
-      "tags": "tags: [Tag.JOVIAN]",
-      "resourceType": "resourceType: CardResource.FLOATER"
+    "corp-teractor": {
+      "source": "src/server/cards/corporation/Teractor.ts",
+      "tags": "tags: [Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 60"
     },
-    "card-colonies-poseidon": {
-      "source": "src/server/cards/colonies/Poseidon.ts",
-      "unreadable": "no field declared in the constructor"
+    "corp-unmi": {
+      "source": "src/server/cards/corporation/UnitedNationsMarsInitiative.ts",
+      "tags": "tags: [Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 40"
     },
-    "corp-point-luna": {
-      "source": "src/server/cards/prelude/PointLuna.ts",
-      "tags": "tags: [Tag.SPACE, Tag.EARTH]"
-    },
-    "corp-robinson": {
-      "source": "src/server/cards/prelude/RobinsonIndustries.ts",
-      "unreadable": "no field declared in the constructor"
-    },
-    "corp-valley-trust": {
-      "source": "src/server/cards/prelude/ValleyTrust.ts",
-      "tags": "tags: [Tag.EARTH]"
+    "corp-tharsis": {
+      "source": "src/server/cards/corporation/TharsisRepublic.ts",
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 40"
     },
     "card-colonies-arklight": {
       "source": "src/server/cards/colonies/Arklight.ts",
       "tags": "tags: [Tag.ANIMAL]",
       "resourceType": "resourceType: CardResource.ANIMAL",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}"
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 2}",
+      "startingMegaCredits": "startingMegaCredits: 45"
     },
-    "card-prelude2-ecotec": {
-      "source": "src/server/cards/prelude2/Ecotec.ts",
-      "tags": "tags: [Tag.MICROBE, Tag.PLANT]"
+    "corp-point-luna": {
+      "source": "src/server/cards/prelude/PointLuna.ts",
+      "tags": "tags: [Tag.SPACE, Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 38"
     },
-    "corp-vitor": {
-      "source": "src/server/cards/prelude/Vitor.ts",
-      "tags": "tags: [Tag.EARTH]"
+    "card-colonies-polyphemos": {
+      "source": "src/server/cards/colonies/Polyphemos.ts",
+      "startingMegaCredits": "startingMegaCredits: 50"
     },
-    "card-promo-arcadian-communities": {
-      "source": "src/server/cards/promo/ArcadianCommunities.ts",
-      "unreadable": "no field declared in the constructor"
+    "card-colonies-stormcraft-incorporated": {
+      "source": "src/server/cards/colonies/StormCraftIncorporated.ts",
+      "tags": "tags: [Tag.JOVIAN]",
+      "resourceType": "resourceType: CardResource.FLOATER",
+      "startingMegaCredits": "startingMegaCredits: 48"
+    },
+    "corp-robinson": {
+      "source": "src/server/cards/prelude/RobinsonIndustries.ts",
+      "startingMegaCredits": "startingMegaCredits: 47"
+    },
+    "card-colonies-poseidon": {
+      "source": "src/server/cards/colonies/Poseidon.ts",
+      "startingMegaCredits": "startingMegaCredits: 45"
+    },
+    "corp-valley-trust": {
+      "source": "src/server/cards/prelude/ValleyTrust.ts",
+      "tags": "tags: [Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 37"
+    },
+    "corp-cheung-shing": {
+      "source": "src/server/cards/prelude/CheungShingMARS.ts",
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 44"
     },
     "card-prelude2-palladin-shipping": {
       "source": "src/server/cards/prelude2/PalladinShipping.ts",
-      "tags": "tags: [Tag.SPACE]"
+      "tags": "tags: [Tag.SPACE]",
+      "startingMegaCredits": "startingMegaCredits: 36"
     },
     "card-prelude2-nirgal-enterprises": {
       "source": "src/server/cards/prelude2/NirgalEnterprises.ts",
-      "tags": "tags: [Tag.POWER, Tag.PLANT, Tag.BUILDING]"
+      "tags": "tags: [Tag.POWER, Tag.PLANT, Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 30"
     },
-    "card-prelude2-sagitta-frontier-services": {
-      "source": "src/server/cards/prelude2/SagittaFrontierServices.ts",
-      "unreadable": "no field declared in the constructor"
+    "card-prelude2-ecotec": {
+      "source": "src/server/cards/prelude2/Ecotec.ts",
+      "tags": "tags: [Tag.MICROBE, Tag.PLANT]",
+      "startingMegaCredits": "startingMegaCredits: 42"
+    },
+    "card-promo-arcadian-communities": {
+      "source": "src/server/cards/promo/ArcadianCommunities.ts",
+      "startingMegaCredits": "startingMegaCredits: 40"
     },
     "card-prelude2-spire": {
       "source": "src/server/cards/prelude2/Spire.ts",
       "tags": "tags: [Tag.CITY, Tag.EARTH]",
-      "resourceType": "resourceType: CardResource.SCIENCE"
+      "resourceType": "resourceType: CardResource.SCIENCE",
+      "startingMegaCredits": "startingMegaCredits: 50"
+    },
+    "corp-vitor": {
+      "source": "src/server/cards/prelude/Vitor.ts",
+      "tags": "tags: [Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 48, // It's 45 + 3 when this corp is played"
+    },
+    "card-prelude2-sagitta-frontier-services": {
+      "source": "src/server/cards/prelude2/SagittaFrontierServices.ts",
+      "startingMegaCredits": "startingMegaCredits: 31"
     },
     "card-promo-astrodrill": {
       "source": "src/server/cards/promo/Astrodrill.ts",
       "tags": "tags: [Tag.SPACE]",
-      "resourceType": "resourceType: CardResource.ASTEROID"
+      "resourceType": "resourceType: CardResource.ASTEROID",
+      "startingMegaCredits": "startingMegaCredits: 35"
     },
-    "card-promo-splice": {
-      "source": "src/server/cards/promo/Splice.ts",
-      "tags": "tags: [Tag.MICROBE]"
-    },
-    "card-promo-factorum": {
-      "source": "src/server/cards/promo/Factorum.ts",
-      "tags": "tags: [Tag.POWER, Tag.BUILDING]"
-    },
-    "card-promo-pharmacy-union": {
-      "source": "src/server/cards/promo/PharmacyUnion.ts",
-      "resourceType": "resourceType: CardResource.DISEASE"
+    "card-promo-mons-insurance": {
+      "source": "src/server/cards/promo/MonsInsurance.ts",
+      "startingMegaCredits": "startingMegaCredits: 48"
     },
     "card-promo-poldertech-dutch": {
       "source": "src/server/cards/promo/PolderTechDutch.ts",
-      "tags": "tags: [Tag.EARTH]"
+      "tags": "tags: [Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 35"
     },
     "card-promo-philares": {
       "source": "src/server/cards/promo/Philares.ts",
-      "tags": "tags: [Tag.BUILDING]"
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 47"
+    },
+    "card-promo-factorum": {
+      "source": "src/server/cards/promo/Factorum.ts",
+      "tags": "tags: [Tag.POWER, Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 37"
+    },
+    "card-promo-splice": {
+      "source": "src/server/cards/promo/Splice.ts",
+      "tags": "tags: [Tag.MICROBE]",
+      "startingMegaCredits": "startingMegaCredits: 44"
     },
     "card-promo-kuiper-cooperative": {
       "source": "src/server/cards/promo/KuiperCooperative.ts",
       "tags": "tags: [Tag.SPACE, Tag.SPACE]",
-      "resourceType": "resourceType: CardResource.ASTEROID"
-    },
-    "card-promo-mons-insurance": {
-      "source": "src/server/cards/promo/MonsInsurance.ts",
-      "unreadable": "no field declared in the constructor"
+      "resourceType": "resourceType: CardResource.ASTEROID",
+      "startingMegaCredits": "startingMegaCredits: 33"
     },
     "card-promo-recyclon": {
       "source": "src/server/cards/promo/Recyclon.ts",
       "tags": "tags: [Tag.MICROBE, Tag.BUILDING]",
-      "resourceType": "resourceType: CardResource.MICROBE"
+      "resourceType": "resourceType: CardResource.MICROBE",
+      "startingMegaCredits": "startingMegaCredits: 38"
+    },
+    "card-promo-pharmacy-union": {
+      "source": "src/server/cards/promo/PharmacyUnion.ts",
+      "resourceType": "resourceType: CardResource.DISEASE",
+      "startingMegaCredits": "startingMegaCredits: 54"
+    },
+    "card-turmoil-lakefront-resorts": {
+      "source": "src/server/cards/turmoil/LakefrontResorts.ts",
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 54"
+    },
+    "card-turmoil-terralabs-research": {
+      "source": "src/server/cards/turmoil/TerralabsResearch.ts",
+      "tags": "tags: [Tag.SCIENCE, Tag.EARTH]",
+      "startingMegaCredits": "startingMegaCredits: 14"
+    },
+    "card-promo-tycho-magnetics": {
+      "source": "src/server/cards/promo/TychoMagnetics.ts",
+      "tags": "tags: [Tag.POWER, Tag.SCIENCE]",
+      "startingMegaCredits": "startingMegaCredits: 42"
+    },
+    "card-turmoil-pristar": {
+      "source": "src/server/cards/turmoil/Pristar.ts",
+      "resourceType": "resourceType: CardResource.PRESERVATION",
+      "victoryPoints": "victoryPoints: {resourcesHere: {}}",
+      "startingMegaCredits": "startingMegaCredits: 53"
     },
     "card-venus-celestic": {
       "source": "src/server/cards/venusNext/Celestic.ts",
       "tags": "tags: [Tag.VENUS]",
       "resourceType": "resourceType: CardResource.FLOATER",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 3}"
-    },
-    "card-promo-tycho-magnetics": {
-      "source": "src/server/cards/promo/TychoMagnetics.ts",
-      "tags": "tags: [Tag.POWER, Tag.SCIENCE]"
-    },
-    "card-turmoil-lakefront-resorts": {
-      "source": "src/server/cards/turmoil/LakefrontResorts.ts",
-      "tags": "tags: [Tag.BUILDING]"
+      "victoryPoints": "victoryPoints: {resourcesHere: {}, per: 3}",
+      "startingMegaCredits": "startingMegaCredits: 42"
     },
     "card-turmoil-septem-tribus": {
       "source": "src/server/cards/turmoil/SeptumTribus.ts",
-      "tags": "tags: [Tag.WILD]"
-    },
-    "card-venus-aphrodite": {
-      "source": "src/server/cards/venusNext/Aphrodite.ts",
-      "tags": "tags: [Tag.PLANT, Tag.VENUS]"
-    },
-    "card-turmoil-pristar": {
-      "source": "src/server/cards/turmoil/Pristar.ts",
-      "resourceType": "resourceType: CardResource.PRESERVATION",
-      "victoryPoints": "victoryPoints: {resourcesHere: {}}"
+      "tags": "tags: [Tag.WILD]",
+      "startingMegaCredits": "startingMegaCredits: 36"
     },
     "card-turmoil-utopia-invest": {
       "source": "src/server/cards/turmoil/UtopiaInvest.ts",
-      "tags": "tags: [Tag.BUILDING]"
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 40"
     },
-    "card-turmoil-terralabs-research": {
-      "source": "src/server/cards/turmoil/TerralabsResearch.ts",
-      "tags": "tags: [Tag.SCIENCE, Tag.EARTH]"
-    },
-    "card-venus-viron": {
-      "source": "src/server/cards/venusNext/Viron.ts",
-      "tags": "tags: [Tag.MICROBE]"
+    "card-venus-aphrodite": {
+      "source": "src/server/cards/venusNext/Aphrodite.ts",
+      "tags": "tags: [Tag.PLANT, Tag.VENUS]",
+      "startingMegaCredits": "startingMegaCredits: 47"
     },
     "card-venus-manutech": {
       "source": "src/server/cards/venusNext/Manutech.ts",
-      "tags": "tags: [Tag.BUILDING]"
+      "tags": "tags: [Tag.BUILDING]",
+      "startingMegaCredits": "startingMegaCredits: 35"
     },
     "card-venus-morning-star-inc": {
       "source": "src/server/cards/venusNext/MorningStarInc.ts",
-      "tags": "tags: [Tag.VENUS]"
+      "tags": "tags: [Tag.VENUS]",
+      "startingMegaCredits": "startingMegaCredits: 50"
+    },
+    "card-venus-viron": {
+      "source": "src/server/cards/venusNext/Viron.ts",
+      "tags": "tags: [Tag.MICROBE]",
+      "startingMegaCredits": "startingMegaCredits: 48"
     }
   }
 }

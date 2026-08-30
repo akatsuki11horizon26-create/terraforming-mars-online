@@ -23,7 +23,11 @@ import { getCardResourceType } from "../app/card-resource-types.js";
 
 const manifest = JSON.parse(readFileSync(new URL("../data/upstream-cards.json", import.meta.url)));
 
-const valueOf = declaration => declaration.slice(declaration.indexOf(":") + 1).trim();
+// The value after the key, with any trailing line comment removed: Vitor writes
+// "startingMegaCredits: 48, // It's 45 + 3 when this corp is played", and the
+// comment made the number unreadable.
+const valueOf = declaration =>
+  declaration.slice(declaration.indexOf(":") + 1).replace(/\/\/.*$/, "").trim().replace(/,$/, "");
 
 // `Tag.MICROBE` is our "Microbe", `CardType.ACTIVE` our "active". Comparing the
 // leaf of the enum lowercased is the whole translation.
@@ -178,6 +182,22 @@ for (const card of cards) {
     // twice and counts twice, which is the bug countTagsFor had.
     if (theirs.join("|") !== ours.join("|")) {
       problems.push(`tags: upstream [${theirs}], ours [${ours}]`);
+    }
+  }
+
+  // A corporation's opening money is the one printed number it has, and reading
+  // it took nine cards out of the unreadable list.
+  if (entry.startingMegaCredits !== undefined) {
+    compared += 1;
+    const theirs = Number(valueOf(entry.startingMegaCredits));
+    const ours = card.starting?.mc ?? card.effectSpec?.startingMegaCredits;
+    // Vitor is the one card where upstream's number is not the printed one:
+    // the card says 45, and upstream opens at 48 with a comment saying "45 + 3
+    // when this corp is played" -- an accounting choice about how it charges
+    // the free award it funds. The printed card is what we follow.
+    const printedDiffers = card.id === "corp-vitor";
+    if (theirs !== ours && !printedDiffers) {
+      problems.push(`startingMegaCredits: upstream ${theirs}, ours ${ours ?? "none"}`);
     }
   }
 
