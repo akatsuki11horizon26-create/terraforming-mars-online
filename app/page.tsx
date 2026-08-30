@@ -149,6 +149,7 @@ interface PlayerRecord {
   researchCards?: string[];
   playedProjects?: string[];
   playedEvents?: string[];
+  selectedPreludeIds?: string[];
   corporationId?: string;
   steel?: number;
   titanium?: number;
