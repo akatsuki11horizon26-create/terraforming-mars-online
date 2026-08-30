@@ -99,6 +99,13 @@ jobs:
         # per-1, per and per+1 of whatever it counts.
         run: node scripts/audit-card-scoring.mjs
 
+      - name: Playability against upstream
+        # The reference implementation's own tests, run against our engine. A
+        # requirement can be transcribed perfectly and still read wrongly, and
+        # only playing the exact board its authors chose says which. Seven cases
+        # are a known baseline; more is a regression.
+        run: node scripts/audit-playable-against-upstream.mjs
+
       - name: Empty spec registry
         # A card whose catalogue entry promises nothing passes every other audit
         # while doing nothing at all. This makes each one say by name why it has

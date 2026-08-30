@@ -3470,11 +3470,25 @@ test("cards that watch what gets played fire once per matching tag", async () =>
     const other = state.players.find(player => player.id !== "player");
     other.playedProjects = theirs ?? [];
     other.mc = 100;
+    // A card that takes production off somebody is unplayable when nobody has
+    // any to lose, so the opponent is given a step of each -- what is being
+    // measured here is the watcher, not the attack.
+    for (const field of ["plantsProd", "energyProd", "heatProd", "steelProd", "titaniumProd", "mcProd"]) {
+      other[field] = 3;
+    }
     // Wide open parameters so the cards under test are not gated.
     state.oceans = 8;
     state.oxygen = 14;
     state.temperature = 8;
     state.venus = 30;
+    // Ecological Zone wants a greenery already down. A tile is not what this
+    // test measures, so one is simply placed.
+    const free = Object.values(state.board).find(
+      cell => cell.tileType === "empty" && !cell.isOceanOnly && !cell.reservedFor
+    );
+    if (free) {
+      state.board[`${free.q},${free.r}`] = { ...free, tileType: "forest", placedBy: "player" };
+    }
     return state;
   };
 
@@ -3499,15 +3513,39 @@ test("cards that watch what gets played fire once per matching tag", async () =>
   assert.equal(grown.state.pendingChoice, null, "nothing to ask about");
 
   // A card that DOES hold them asks which, and the answer can be the card.
-  const animalCard = ALL_CARDS.find(card =>
-    (card.resourceType ?? getCardResourceType(card.id)) === "animal" &&
-    (card.tags ?? []).includes("Animal")
-  );
+  // The card must ask nothing of its own, or its question comes first and the
+  // watcher's is still queued behind it. Birds attacks production and asks
+  // whose; a card that places a tile asks where. Either way Viral Enhancers
+  // never gets a word in, so the card is chosen by asking the engine what it
+  // actually does rather than by listing the shapes to avoid.
+  const animalCard = ALL_CARDS.find(card => {
+    if ((card.resourceType ?? getCardResourceType(card.id)) !== "animal") return false;
+    // Exactly one tag Viral Enhancers watches, so it fires exactly once and the
+    // answer below is one resource rather than one per matching tag.
+    const watched = (card.tags ?? []).filter(
+      tag => tag === "Animal" || tag === "Plant" || tag === "Microbe"
+    );
+    if (watched.length !== 1 || watched[0] !== "Animal") return false;
+    const trial = rig([]);
+    getPlayer(trial, "player").hand = [card.id];
+    if (!getCardPlayableStatus(card, trial).playable) return false;
+    const alone = executeGameCommand(trial, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+    });
+    return alone.ok && !alone.state.pendingChoice;
+  });
+  assert.ok(animalCard, "an animal card that asks nothing of its own");
   const asked = play(rig(["card-base-viral-enhancers"]), animalCard.id);
   assert.equal(asked.state.pendingChoice?.kind, "viral-enhancers");
   const onCard = asked.state.pendingChoice.options.find(option => option.id === "resource");
+  // Pets brings an animal of its own, so what Viral Enhancers is worth is the
+  // difference the answer makes rather than the total sitting on the card.
+  const beforeAnswer = getPlayer(asked.state, "player").cardResources?.[animalCard.id] ?? 0;
   const settled = resolvePendingChoice(asked.state, onCard.id, asked.state.logs, "player");
-  assert.equal(getPlayer(settled.state, "player").cardResources?.[animalCard.id], 1);
+  assert.equal(
+    (getPlayer(settled.state, "player").cardResources?.[animalCard.id] ?? 0) - beforeAnswer,
+    1
+  );
 
   // Ecological Zone counts the tags rather than the card: two matching tags on
   // one card pay it twice.
@@ -3518,8 +3556,24 @@ test("cards that watch what gets played fire once per matching tag", async () =>
     });
     if (!card) continue;
     const zone = play(rig(["card-base-ecological-zone"]), card.id);
+    // A card that stops to ask something of its own leaves the watcher's
+    // resource queued behind the question, so the questions are answered before
+    // the count is read.
+    let settledZone = zone.state;
+    let zoneAsked = 0;
+    while (settledZone.pendingChoice && zoneAsked < 4) {
+      const choice = settledZone.pendingChoice;
+      const option = choice.options?.[0];
+      if (!option) break;
+      const answered = executeGameCommand(settledZone, {
+        type: COMMAND.RESOLVE_PENDING, playerId: choice.ownerPlayerId, optionId: option.id
+      });
+      if (!answered.ok || answered.state.pendingChoice === choice) break;
+      settledZone = answered.state;
+      zoneAsked += 1;
+    }
     assert.equal(
-      getPlayer(zone.state, "player").cardResources?.["card-base-ecological-zone"] ?? 0,
+      getPlayer(settledZone, "player").cardResources?.["card-base-ecological-zone"] ?? 0,
       wanted,
       `${card.name} carries ${wanted} matching tags`
     );

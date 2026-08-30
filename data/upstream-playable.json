@@ -1,0 +1,3341 @@
+{
+  "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "cards": {
+    "card-base-algae": {
+      "spec": "tests/cards/base/Algae.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "p-ai-central": {
+      "spec": "tests/cards/base/AICentral.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if not enough science tags to play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 2
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if no energy production",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            },
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-advanced-ecosystems": {
+      "spec": "tests/cards/base/AdvancedEcosystems.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if tag requirements is unmet",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-ants": {
+      "spec": "tests/cards/base/Ants.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without oxygen",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-anti-gravity-technology": {
+      "spec": "tests/cards/base/AntiGravityTechnology.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 6
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 7
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-artificial-lake": {
+      "spec": "tests/cards/base/ArtificialLake.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-beam-from-a-thorium-asteroid": {
+      "spec": "tests/cards/base/BeamFromAThoriumAsteroid.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without a Jovian tag",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-asteroid-mining-consortium": {
+      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no titanium production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play if player has titanium production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-archaebacteria": {
+      "spec": "tests/cards/base/ArchaeBacteria.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -12
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-arctic-algae": {
+      "spec": "tests/cards/base/ArcticAlgae.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -10
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-birds": {
+      "spec": "tests/cards/base/Birds.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without oxygen",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-building-industries": {
+      "spec": "tests/cards/base/BuildingIndustries.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-business-network": {
+      "spec": "tests/cards/base/BusinessNetwork.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        },
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -5
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-black-polar-dust": {
+      "spec": "tests/cards/base/BlackPolarDust.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-bushes": {
+      "spec": "tests/cards/base/Bushes.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -10
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-breathing-filters": {
+      "spec": "tests/cards/base/BreathingFilters.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-biomass-combustors": {
+      "spec": "tests/cards/base/BiomassCombustors.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no one has plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-colonizer-training-camp": {
+      "spec": "tests/cards/base/ColonizerTrainingCamp.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-caretaker-contract": {
+      "spec": "tests/cards/base/CaretakerContract.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play or act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 0
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-commercial-district": {
+      "spec": "tests/cards/base/CommercialDistrict.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-carbonate-processing": {
+      "spec": "tests/cards/base/CarbonateProcessing.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-cloud-seeding": {
+      "spec": "tests/cards/base/CloudSeeding.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if cannot reduce M€ production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Cannot play if ocean requirements not met",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            },
+            {
+              "kind": "production",
+              "resource": "heat",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Cannot play if no one has heat production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            },
+            {
+              "kind": "production",
+              "resource": "heat",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-capital": {
+      "spec": "tests/cards/base/Capital.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without 2 energy production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 4
+            },
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Cannot play if oceans requirement not met",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 4
+            },
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-decomposers": {
+      "spec": "tests/cards/base/Decomposers.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-corporate-stronghold": {
+      "spec": "tests/cards/base/CorporateStronghold.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-domed-crater": {
+      "spec": "tests/cards/base/DomedCrater.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 8
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-dust-seals": {
+      "spec": "tests/cards/base/DustSeals.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-cupola-city": {
+      "spec": "tests/cards/base/CupolaCity.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 10
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-designed-microorganisms": {
+      "spec": "tests/cards/base/DesignedMicroOrganisms.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -12
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-ecological-zone": {
+      "spec": "tests/cards/base/EcologicalZone.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-electro-catapult": {
+      "spec": "tests/cards/base/ElectroCatapult.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Cannot play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 9
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-farming": {
+      "spec": "tests/cards/base/Farming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-fish": {
+      "spec": "tests/cards/base/Fish.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-eos-chasma-national-park": {
+      "spec": "tests/cards/base/EOSChasmaNationalPark.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-extreme-cold-fungus": {
+      "spec": "tests/cards/base/ExtremeColdFungus.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -8
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -12
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-ghg-producing-bacteria": {
+      "spec": "tests/cards/base/GHGProducingBacteria.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-flooding": {
+      "spec": "tests/cards/base/Flooding.spec.ts",
+      "cases": [
+        {
+          "title": "Does not suggest to remove money if oceans are already maxed",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 9
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-food-factory": {
+      "spec": "tests/cards/base/FoodFactory.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-fuel-factory": {
+      "spec": "tests/cards/base/FuelFactory.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-gene-repair": {
+      "spec": "tests/cards/base/GeneRepair.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 2
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-fusion-power": {
+      "spec": "tests/cards/base/FusionPower.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "power": 1
+              }
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-ghg-factories": {
+      "spec": "tests/cards/base/GHGFactories.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-herbivores": {
+      "spec": "tests/cards/base/Herbivores.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if nobody has plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 8
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-great-escarpment-consortium": {
+      "spec": "tests/cards/base/GreatEscarpmentConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without steel production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play if player has steel production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "steel",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-heat-trappers": {
+      "spec": "tests/cards/base/HeatTrappers.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if nobody has heat production",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-great-dam": {
+      "spec": "tests/cards/base/GreatDam.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-grass": {
+      "spec": "tests/cards/base/Grass.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -16
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-hackers": {
+      "spec": "tests/cards/base/Hackers.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-heather": {
+      "spec": "tests/cards/base/Heather.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-immigrant-city": {
+      "spec": "tests/cards/base/ImmigrantCity.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play at -4 M€ production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Cannot play with 0 energy on Tharsis (no energy production space)",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-ice-cap-melting": {
+      "spec": "tests/cards/base/IceCapMelting.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-industrial-center": {
+      "spec": "tests/cards/base/IndustrialCenter.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play or act",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-interstellar-colony-ship": {
+      "spec": "tests/cards/base/InterstellarColonyShip.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-insects": {
+      "spec": "tests/cards/base/Insects.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-lake-marineris": {
+      "spec": "tests/cards/base/LakeMarineris.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 0
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-livestock": {
+      "spec": "tests/cards/base/Livestock.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 9
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too low",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 8
+            },
+            {
+              "kind": "production",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "plants",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 9
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-lightning-harvest": {
+      "spec": "tests/cards/base/LightningHarvest.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-lichen": {
+      "spec": "tests/cards/base/Lichen.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -24
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-kelp-farming": {
+      "spec": "tests/cards/base/KelpFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-mass-converter": {
+      "spec": "tests/cards/base/MassConverter.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 4
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 5
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-magnetic-field-dome": {
+      "spec": "tests/cards/base/MagneticFieldDome.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-magnetic-field-generators": {
+      "spec": "tests/cards/base/MagneticFieldGenerators.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-mangrove": {
+      "spec": "tests/cards/base/Mangrove.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-lunar-beam": {
+      "spec": "tests/cards/base/LunarBeam.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-methane-from-titan": {
+      "spec": "tests/cards/base/MethaneFromTitan.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-mining-area": {
+      "spec": "tests/cards/base/MiningArea.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "p-moss": {
+      "spec": "tests/cards/base/Moss.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without enough oceans",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if have no plants",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 0
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-natural-preserve": {
+      "spec": "tests/cards/base/NaturalPreserve.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-nuclear-power": {
+      "spec": "tests/cards/base/NuclearPower.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-noctis-city": {
+      "spec": "tests/cards/base/NoctisCity.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-nitrophilic-moss": {
+      "spec": "tests/cards/base/NitrophilicMoss.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without enough oceans",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 2
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if not enough plants",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            },
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-noctis-farming": {
+      "spec": "tests/cards/base/NoctisFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -20
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-open-city": {
+      "spec": "tests/cards/base/OpenCity.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too low",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 11
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 12
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-plantation": {
+      "spec": "tests/cards/base/Plantation.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 1
+              }
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-permafrost-extraction": {
+      "spec": "tests/cards/base/PermafrostExtraction.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -8
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-predators": {
+      "spec": "tests/cards/base/Predators.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 11
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-rad-suits": {
+      "spec": "tests/cards/base/RadSuits.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-quantum-extractor": {
+      "spec": "tests/cards/base/QuantumExtractor.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 4
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-rad-chem-factory": {
+      "spec": "tests/cards/base/RadChemFactory.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-power-supply-consortium": {
+      "spec": "tests/cards/base/PowerSupplyConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without power tags",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play - no targets",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "power": 2
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-shuttles": {
+      "spec": "tests/cards/base/Shuttles.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too low",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            },
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-search-for-life": {
+      "spec": "tests/cards/base/SearchForLife.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-robotic-workforce": {
+      "spec": "tests/cards/base/RoboticWorkforce.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no building cards to copy",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-small-animals": {
+      "spec": "tests/cards/base/SmallAnimals.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if no one has plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-soil-factory": {
+      "spec": "tests/cards/base/SoilFactory.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-symbiotic-fungus": {
+      "spec": "tests/cards/base/SymbioticFungus.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-tectonic-stress-power": {
+      "spec": "tests/cards/base/TectonicStressPower.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-strip-mine": {
+      "spec": "tests/cards/base/StripMine.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-underground-city": {
+      "spec": "tests/cards/base/UndergroundCity.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-urbanized-area": {
+      "spec": "tests/cards/base/UrbanizedArea.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-base-tundra-farming": {
+      "spec": "tests/cards/base/TundraFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-trees": {
+      "spec": "tests/cards/base/Trees.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-windmills": {
+      "spec": "tests/cards/base/Windmills.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-water-splitting-plant": {
+      "spec": "tests/cards/base/WaterSplittingPlant.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-worms": {
+      "spec": "tests/cards/base/Worms.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-wave-power": {
+      "spec": "tests/cards/base/WavePower.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-zeppelins": {
+      "spec": "tests/cards/base/Zeppelins.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-red-spot-observatory": {
+      "spec": "tests/cards/colonies/RedSpotObservatory.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 2
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "science": 3
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-martian-zoo": {
+      "spec": "tests/cards/colonies/MartianZoo.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-colonies-space-port": {
+      "spec": "tests/cards/colonies/SpacePort.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without colony",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-colonies-sub-zero-salt-fish": {
+      "spec": "tests/cards/colonies/SubZeroSaltFish.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if no one has plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 2
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-prelude-martian-survey": {
+      "spec": "tests/cards/prelude/MartianSurvey.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude-space-hotels": {
+      "spec": "tests/cards/prelude/SpaceHotels.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "earth": 1
+              }
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "earth": 2
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude-psychrophiles": {
+      "spec": "tests/cards/prelude/Psychrophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -18
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -20
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude2-soil-studies": {
+      "spec": "tests/cards/prelude2/SoilStudies.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -2
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-prelude2-ishtar-expedition": {
+      "spec": "tests/cards/prelude2/IshtarExpedition.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 8
+            },
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude2-venus-trade-hub": {
+      "spec": "tests/cards/prelude2/VenusTradeHub.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "venus": 1
+              }
+            },
+            {
+              "kind": "tags",
+              "tags": {
+                "venus": 2
+              }
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude2-wg-project": {
+      "spec": "tests/cards/prelude2/WGProject.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-asteroid-deflection-system": {
+      "spec": "tests/cards/promo/AsteroidDeflectionSystem.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-crash-site-cleanup": {
+      "spec": "tests/cards/promo/CrashSiteCleanup.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-dusk-laser-mining": {
+      "spec": "tests/cards/promo/DuskLaserMining.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if not enough science tags",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-diversity-support": {
+      "spec": "tests/cards/promo/DiversitySupport.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-great-dam-promo": {
+      "spec": "tests/cards/promo/GreatDamPromo.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without meeting requirements",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-law-suit": {
+      "spec": "tests/cards/promo/LawSuit.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no resources or production reduced this turn",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-magnetic-field-generators-promo": {
+      "spec": "tests/cards/promo/MagneticFieldGeneratorsPromo.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without enough energy production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-orbital-cleanup": {
+      "spec": "tests/cards/promo/OrbitalCleanup.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if cannot decrease MC production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-mercurian-alloys": {
+      "spec": "tests/cards/promo/MercurianAlloys.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if not enough science tags available",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-potatoes": {
+      "spec": "tests/cards/promo/Potatoes.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-penguins": {
+      "spec": "tests/cards/promo/Penguins.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 7
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 8
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-robot-pollinators": {
+      "spec": "tests/cards/promo/RobotPollinators.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if oxygen level too low",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-self-replicating-robots": {
+      "spec": "tests/cards/promo/SelfReplicatingRobots.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-red-ships": {
+      "spec": "tests/cards/promo/RedShips.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-public-baths": {
+      "spec": "tests/cards/promo/PublicBaths.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-snow-algae": {
+      "spec": "tests/cards/promo/SnowAlgae.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-sub-crust-measurements": {
+      "spec": "tests/cards/promo/SubCrustMeasurements.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if not enough science tags",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-solar-logistics": {
+      "spec": "tests/cards/promo/SolarLogistics.spec.ts",
+      "cases": [
+        {
+          "title": "Card Effects Work - titanium",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 0
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-supermarkets": {
+      "spec": "tests/cards/promo/Supermarkets.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-turmoil-aerial-lenses": {
+      "spec": "tests/cards/turmoil/AerialLenses.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-turmoil-cultural-metropolis": {
+      "spec": "tests/cards/turmoil/CulturalMetropolis.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without two delegate in unity or unity ruling",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-turmoil-red-tourism-wave": {
+      "spec": "tests/cards/turmoil/RedTourismWave.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-freyja-biodomes": {
+      "spec": "tests/cards/venusNext/FreyjaBiodomes.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if Venus requirement not met",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 8
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-floating-habs": {
+      "spec": "tests/cards/venusNext/FloatingHabs.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-extremophiles": {
+      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-maxwell-base": {
+      "spec": "tests/cards/venusNext/MaxwellBase.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not play if Venus requirement not met",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-rotator-impacts": {
+      "spec": "tests/cards/venusNext/RotatorImpacts.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 16
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 14
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-stratospheric-birds": {
+      "spec": "tests/cards/venusNext/StratosphericBirds.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no floater",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-sulphur-eating-bacteria": {
+      "spec": "tests/cards/venusNext/SulphurEatingBacteria.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-thermophiles": {
+      "spec": "tests/cards/venusNext/Thermophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-stratopolis": {
+      "spec": "tests/cards/venusNext/Stratopolis.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-venus-spin-inducing-asteroid": {
+      "spec": "tests/cards/venusNext/SpinInducingAsteroid.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-venusian-animals": {
+      "spec": "tests/cards/venusNext/VenusianAnimals.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 16
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 18
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-venusian-plants": {
+      "spec": "tests/cards/venusNext/VenusianPlants.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 14
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play - multiple targets",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 16
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-venusian-insects": {
+      "spec": "tests/cards/venusNext/VenusianInsects.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 12
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-venus-magnetizer": {
+      "spec": "tests/cards/venusNext/VenusMagnetizer.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 8
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-business-empire": {
+      "spec": "tests/cards/prelude/BusinessEmpire.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-aquifer-turbines": {
+      "spec": "tests/cards/prelude/AquiferTurbines.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-biosphere-support": {
+      "spec": "tests/cards/prelude/BiosphereSupport.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-huge-asteroid": {
+      "spec": "tests/cards/prelude/HugeAsteroid.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-galilean-mining": {
+      "spec": "tests/cards/prelude/GalileanMining.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "prelude-loan": {
+      "spec": "tests/cards/prelude/Loan.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-prelude2-main-belt-asteroids": {
+      "spec": "tests/cards/prelude2/MainBeltAsteroids.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 5
+            }
+          ],
+          "expected": true
+        }
+      ]
+    }
+  }
+}

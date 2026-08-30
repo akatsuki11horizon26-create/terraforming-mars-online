@@ -711,10 +711,14 @@ test("Vitor's discount reaches a dynamic victory point card", async () => {
   state.phase = "action";
   state.oxygen = 14;
   const [me] = state.players.map(player => player.id);
+  // Birds takes TWO plant production steps off somebody, and a card cannot be
+  // played when its own effect has nowhere to land -- so the opponent needs
+  // both steps to lose before the discount can be measured at all.
   state.players = state.players.map(player => ({
     ...player,
     corporationId: player.id === me ? "corp-vitor" : null,
     mc: 200,
+    plantsProd: player.id === me ? 0 : 2,
     actionsRemaining: 2,
     turnStep: "start",
     hand: player.id === me ? [birds.id] : []
@@ -726,10 +730,32 @@ test("Vitor's discount reaches a dynamic victory point card", async () => {
     type: COMMAND.PLAY_CARD, playerId: me, cardId: birds.id
   });
   assert.equal(played.ok, true);
+
+  // Birds stops to ask whose production to take, and the rebate is paid when
+  // that question is answered -- so the money has not moved until it is.
+  let settled = played.state;
+  let asked = 0;
+  while (settled.pendingChoice && asked < 4) {
+    const choice = settled.pendingChoice;
+    const option =
+      choice.options?.find(entry => entry.targetPlayerId && entry.targetPlayerId !== me) ??
+      choice.options?.[0];
+    const answered = executeGameCommand(settled, {
+      type: COMMAND.RESOLVE_PENDING, playerId: choice.ownerPlayerId, optionId: option.id
+    });
+    if (!answered.ok || answered.state.pendingChoice === choice) break;
+    settled = answered.state;
+    asked += 1;
+  }
+  // "When you play a card with a non-negative VP icon, gain 3 M€." It is a
+  // rebate, not a discount: the card costs what it prints and three come back.
+  // The old assertion said "costs three less" and passed only because the play
+  // was refused before any money moved -- Birds takes two plant production
+  // steps, and nobody in the rig had them to lose.
   assert.equal(
-    before - getPlayer(played.state, me).mc,
+    before - getPlayer(settled, me).mc,
     birds.cost - 3,
-    "the card costs three less than printed"
+    "the printed cost went out and three came back"
   );
 });
 
@@ -1740,8 +1766,12 @@ test("the bot rates a card scoring per resource above one scoring nothing", asyn
       !card.victoryPoints && !card.victoryPointSpec && !card.specialVictoryKind &&
       card.type === "automated" && card.cost <= 12
   );
+  // Birds takes two plant production steps off an opponent, and a card whose
+  // effect has nowhere to land is not playable at all -- so it never reaches
+  // the bot's list without somebody holding those steps.
   state.players = state.players.map(player => ({
     ...player, mc: 100, actionsRemaining: 2, turnStep: "start",
+    plantsProd: player.id === me ? 0 : 2,
     hand: player.id === me ? ["card-base-birds", plain.id] : []
   }));
   state.currentPlayerId = me;

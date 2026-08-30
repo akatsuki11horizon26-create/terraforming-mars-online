@@ -21,6 +21,12 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-indentured-workers", "Indentured Workers", 0, [], "event", "この世代に次にプレイするカードのコストが8 MC減少。", { cardDiscount: { amount: 8, nextCardOnly: true } }, { victoryPoints: -1 }),
   project("card-colonies-conscription", "Conscription", 5, ["Earth"], "event", "地球タグ2枚以上が必要。この世代に次にプレイするカードのコストが16 MC減少。", { cardDiscount: { amount: 16, nextCardOnly: true } }, { victoryPoints: -1, requires: { tags: { Earth: 2 } }, reqText: "地球タグ2枚以上" }),
   project("card-promo-soil-enrichment", "Soil Enrichment", 6, ["Microbe", "Plant"], "event", "自分の任意のカードから微生物1個を支払い、植物を5獲得。", {}, { effectSpec: { behavior: { removeResourcesFromAnyCard: { type: "Microbe" } } } }),
+  // Two cards whose cost is stated in their own text and missing from the
+  // generated spec, because upstream spends the plants in bespokePlay and
+  // guards the play in bespokeCanPlay. Both halves were absent: the plants were
+  // never taken, and a player with none could play the card anyway.
+  project("card-base-nitrophilic-moss", "Nitrophilic Moss", 8, ["Plant"], "automated", "海洋タイル3枚以上と、植物を2失うことが必要。植物生産量+2。", {}, { requires: { oceans: 3 }, reqText: "海洋3枚以上", effectSpec: { behavior: { spend: { plants: 2 }, production: { plants: 2 } } } }),
+  project("card-promo-potatoes", "Potatoes", 2, ["Plant"], "automated", "植物を2失う。MC生産量+2。", {}, { effectSpec: { behavior: { spend: { plants: 2 }, production: { megacredits: 2 } } } }),
   // "Raise your TR 1 step for each Jovian tag you have, INCLUDING THIS." The
   // card carries a Jovian tag, so it always pays at least one.
   project("card-base-terraforming-ganymede", "Terraforming Ganymede", 33, ["Jovian", "Space"], "automated", "自分のジョビアンタグ1つにつきTR+1（このカードを含む）。", {}, { victoryPoints: 2, effectSpec: { behavior: { tr: { tag: "jovian" } } } }),

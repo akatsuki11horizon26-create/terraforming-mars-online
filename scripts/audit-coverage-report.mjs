@@ -47,6 +47,8 @@ Verified:
   audit-card-scoring     every variable-VP card pays what its spec declares at
                          0, per-1, per and per+1 of whatever it counts, with
                          "all" shapes split across both players
+  audit-playable-        the reference implementation's own requirement cases,
+    against-upstream     run against our engine on the boards its authors chose
   audit-empty-spec-      every card with no effectSpec says by name why it has
     registry             none, so a card cannot go quietly dead
   audit-cards-against-   our cost, tags, requirements, type and resource type
@@ -71,6 +73,9 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
+  whether a tile a card places has anywhere legal to go. Upstream decides that
+    in bespokeCanPlay and refuses the play; we do not, which is seven of the
+    known differences in the playability audit
   whether a card's BEHAVIOUR matches the real card. Its printed values are
     compared with upstream; what it does when played is not, because upstream
     expresses that as behavior objects, bespoke play() methods and class

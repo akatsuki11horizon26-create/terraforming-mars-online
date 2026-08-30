@@ -711,6 +711,12 @@ const PRODUCTION_KEYS = {
   heat: "heatProd",
 };
 
+// Only M€ production may go negative, and only this far. Every other track
+// floors at zero. The reference calls the same number minMegacredits, and it
+// decides both what a reduction may take and whether a card may be played at
+// all, so it is named once rather than written out at each of those places.
+export const MIN_MC_PRODUCTION = -5;
+
 export function applyProduction(state, production) {
   Object.entries(production ?? {}).forEach(([resource, amount]) => {
     const key = PRODUCTION_KEYS[resource];
@@ -718,7 +724,7 @@ export function applyProduction(state, production) {
     // floors at zero, so a card that reduces production can never push a player
     // into producing a negative amount.
     if (!key) return;
-    const floor = resource === "mc" ? -5 : 0;
+    const floor = resource === "mc" ? MIN_MC_PRODUCTION : 0;
     state[key] = Math.max(floor, state[key] + amount);
   });
 }
@@ -7128,6 +7134,51 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
       playable: false,
       reason: "この世代に自分を攻撃したプレイヤーがいません。"
     };
+  }
+
+  // "Decrease any PLANT production 1 step" is part of the card, so a board where
+  // nobody has a step to lose makes it unplayable -- a card must be able to
+  // carry out what it says. This was written per-card below, which meant every
+  // card whose spec said the same thing and whose id nobody had thought of was
+  // playable for nothing. Reading the spec covers all of them, and the next one.
+  const attack = card.effectSpec?.behavior?.decreaseAnyProduction;
+  if (attack?.type) {
+    const field = `${SOURCE_RESOURCE_MAP[attack.type] ?? attack.type}Prod`;
+    const count = attack.count ?? 1;
+    // Megacredit production alone may go negative, down to -5, so the owner of
+    // the lowest is still a legal target there.
+    const floor = field === "mcProd" ? MIN_MC_PRODUCTION : 0;
+    const reachable = (state.players ?? []).some(player => (player[field] ?? 0) - count >= floor);
+    if (!reachable) {
+      return { playable: false, reason: "減少させられる生産量がありません。" };
+    }
+  }
+
+  // A card that spends megacredits as part of its own effect -- Business Empire
+  // pays 6, Huge Asteroid pays 5 -- cannot be played by a player who does not
+  // hold them. The amount was recorded and spent, and nothing ever checked it
+  // first, so the payment simply drove the balance negative.
+  const spendMc = getCardEffect(card)?.payMc ?? 0;
+  if (spendMc > 0 && (getCurrentPlayer(state)?.mc ?? 0) < spendMc) {
+    return { playable: false, reason: "MCが不足しています。" };
+  }
+
+  // A production the card takes from its own owner is a cost like any other:
+  // Business Network lowers M€ production a step, and a player already at the
+  // floor of -5 cannot pay it. The reference decides this with canAdjust, which
+  // compares each resource against its own floor -- -5 for M€ production, zero
+  // for the rest -- and refuses the play rather than clamping.
+  const ownCost = card.effectSpec?.behavior?.production;
+  if (ownCost && typeof ownCost === "object") {
+    const seat = getCurrentPlayer(state);
+    for (const [resource, amount] of Object.entries(ownCost)) {
+      if (typeof amount !== "number" || amount >= 0) continue;
+      const field = `${SOURCE_RESOURCE_MAP[resource] ?? resource}Prod`;
+      const floor = field === "mcProd" ? MIN_MC_PRODUCTION : 0;
+      if ((seat?.[field] ?? 0) + amount < floor) {
+        return { playable: false, reason: "生産量が不足しています。" };
+      }
+    }
   }
 
   if (
