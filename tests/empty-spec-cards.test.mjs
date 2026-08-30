@@ -1361,3 +1361,57 @@ test("A card action does not replay the card's play effect", () => {
   // Two floaters, one spent: one left. Not three.
   assert.equal(getPlayer(done.state, "player").cardResources[id], 1);
 });
+
+test("Board of Directors draws a prelude, to discard or to pay for", () => {
+  // "Draw 1 prelude card: either discard it, or pay 12 M€ and remove 1 director
+  // resource here to play it." The last of the cards whose action lived only in
+  // its text.
+  const id = "card-prelude2-board-of-directors";
+  const card = PRELUDES.find(entry => entry.id === id);
+  const start = (mc, directors) => {
+    const state = rig();
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = null;
+    seat.mc = mc;
+    seat.mcProd = 0;
+    seat.actionsRemaining = 2;
+    seat.selectedPreludeIds = [id];
+    seat.playedProjects = [];
+    seat.cardResources = { [id]: directors };
+    // A prelude whose effect is easy to read on top of the deck.
+    state.preludeDeck = [
+      "prelude-allied-banks",
+      ...state.preludeDeck.filter(entry => entry !== "prelude-allied-banks")
+    ];
+    return state;
+  };
+
+  assert.equal(getCardActionStatus(start(50, 0), card).playable, false, "no director to spend");
+
+  const state = start(50, 4);
+  const deckBefore = state.preludeDeck.length;
+  const drawn = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  assert.equal(drawn.state.pendingChoice?.kind, "board-of-directors");
+  assert.equal(drawn.state.preludeDeck.length, deckBefore - 1, "the prelude left the deck");
+
+  // Discarding costs nothing but the action.
+  const thrown = executeGameCommand(drawn.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "discard"
+  });
+  assert.equal(getPlayer(thrown.state, "player").mc, 50);
+  assert.equal(getPlayer(thrown.state, "player").cardResources[id], 4);
+
+  // Playing it costs 12 M€ and a director, and the prelude happens.
+  const played = executeGameCommand(drawn.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "play"
+  });
+  const after = getPlayer(played.state, "player");
+  assert.equal(after.cardResources[id], 3, "one director spent");
+  assert.equal(after.mcProd, 4, "Allied Banks raised M€ production four steps");
+  assert.equal(after.mc, 50 - 12 + 3, "twelve paid, and its three gained");
+});

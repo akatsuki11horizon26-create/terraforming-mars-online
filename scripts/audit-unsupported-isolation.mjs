@@ -5,16 +5,10 @@
 // the deck, still drawn, still bought, and then does nothing when its owner
 // tries to use it. sol's point exactly -- a debt ledger is not a decision.
 //
-// This names the gap rather than closing it. Three of the six can still be
-// drawn or chosen, and keeping them out of the pools is a product decision
-// about what a game contains -- removing preludes changed which ones the seeded
-// deals produce, and two existing tests that trusted the deal broke. That is
-// the user's call, not a thing to slip in under a card fix.
-//
-// What the audit does gate is the list itself: a card that starts working while
-// still listed fails, so the register cannot quietly go stale.
-//
-// BASELINE is the number reachable today. It may fall and must not rise.
+// The list is empty: every card is implemented. The gate stays, because it is
+// what makes emptiness mean something -- a card added here must be kept out of
+// every deck, corporation pool and prelude pool, and one that starts working
+// while still listed fails.
 //
 // Usage: node scripts/audit-unsupported-isolation.mjs [--list]
 import { getInitialState, getPlayer, getCardActionStatus } from "../app/game-logic.js";
@@ -23,8 +17,6 @@ import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-conte
 // Cards whose action our engine cannot offer, each with what implementing it
 // would take. They are kept out of play until that happens.
 export const UNSUPPORTED = {
-  "card-prelude2-board-of-directors":
-    "draw a prelude, then discard it or pay 12 M€ to play it",
 };
 
 const cards = [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS];

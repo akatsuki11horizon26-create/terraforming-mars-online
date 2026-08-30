@@ -374,6 +374,7 @@ const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
 const TITAN_FLOATING_LAUNCH_PAD_ID = "card-colonies-titan-floating-launch-pad";
+const BOARD_OF_DIRECTORS_ID = "card-prelude2-board-of-directors";
 
 // "Spend 12 M€ to raise Venus 1 step. This cost is REDUCED BY 1 FOR EACH VENUS
 // TAG you have." The card carries a Venus tag itself, so it never costs 12.
@@ -3448,6 +3449,35 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "board-of-directors": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      const drawnId = option.cardId;
+      if (option.id === "discard") {
+        next.preludeDiscard = [...(next.preludeDiscard ?? []), drawnId];
+        nextLogs = addLog(nextLogs, "system", "Board of Directors: 引いたプレリュードを捨てました。");
+        break;
+      }
+      const seatBefore = next.currentPlayerId;
+      next.currentPlayerId = owner;
+      next.mc = (next.mc ?? 0) - 12;
+      next.selectedPreludeIds = [...(next.selectedPreludeIds ?? []), drawnId];
+      changeCardResource(next, {
+        ownerPlayerId: owner,
+        cardId: BOARD_OF_DIRECTORS_ID,
+        delta: -1
+      });
+      const prelude = PRELUDES.find(item => item.id === drawnId);
+      const played = resolvePreludeEffects(next, [prelude], 0, nextLogs, seatBefore);
+      Object.assign(next, played.state);
+      nextLogs = played.logs;
+      next.currentPlayerId = seatBefore;
+      if (played.pending) {
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
+      break;
+    }
+
     case "titan-launch-pad": {
       const owner = choice.ownerPlayerId ?? actorId;
       if (option.id === "trade") {
@@ -4987,6 +5017,21 @@ export function getCardActionStatus(state, card) {
   }
   // A full Venus scale does NOT forbid the action -- the reference warns and
   // lets the player go ahead, the same as a full ocean track.
+  // "Draw 1 prelude card" -- so there has to be one to draw, and a director to
+  // spend if it is to be played. Upstream warns rather than refusing when the
+  // money is short: drawing and discarding is still a legal use.
+  if (card.id === BOARD_OF_DIRECTORS_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    if ((seat?.cardResources?.[card.id] ?? 0) <= 0) {
+      return { playable: false, reason: "ディレクター資源がありません。" };
+    }
+    return (state.preludeDeck ?? []).length > 0
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "引けるプレリュードがありません。" };
+  }
   // Its action is written into the engine rather than declared, so the generic
   // gate below would refuse it for having no action at all.
   if (card.id === TITAN_FLOATING_LAUNCH_PAD_ID) {
@@ -5150,6 +5195,40 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  // "Draw 1 prelude card: either discard it, or pay 12 M€ and remove 1 director
+  // resource here to play it." The prelude is drawn face up and the choice is
+  // made with it in hand, so the draw happens now and the question follows.
+  if (card.id === BOARD_OF_DIRECTORS_ID) {
+    const [drawnId, ...rest] = nextState.preludeDeck ?? [];
+    if (!drawnId) return { state, logs, playable: false };
+    nextState.preludeDeck = rest;
+    const drawn = PRELUDES.find(item => item.id === drawnId);
+    const held = nextState.cardResources?.[card.id] ?? 0;
+    const affordable = (nextState.mc ?? 0) >= 12 && held > 0;
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `board-of-directors:${nextState.currentPlayerId}`,
+      kind: "board-of-directors",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: `【${drawn?.name ?? drawnId}】を引きました。どうしますか。`,
+      optional: false,
+      options: [
+        ...(affordable
+          ? [{ id: "play", cardId: drawnId, label: `MC12とディレクター1個で【${drawn?.name ?? drawnId}】をプレイする` }]
+          : []),
+        { id: "discard", cardId: drawnId, label: "捨てる" }
+      ],
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "board-of-directors",
+        consumedAction: true,
+        paid: true
+      }
+    };
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
 
   // "Add 1 floater to a Jovian card, or remove 1 floater here to trade for
   // free." The floater half is the card's declared behaviour and is left to the
