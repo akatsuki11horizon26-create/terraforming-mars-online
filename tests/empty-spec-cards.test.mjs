@@ -5,13 +5,14 @@ import {
   getPlayer,
   getCardActionStatus,
   getCardPlayableStatus,
+  countActiveTags,
+  applyPreludes,
   getAdjacentCells,
   ALL_CARDS
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
-import { applyPreludes } from "../app/game-logic.js";
-import { PRELUDES } from "../app/official-content.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
+import { PRELUDES } from "../app/official-content.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
 // a hand-written method upstream rather than a declarative block, so the
@@ -778,4 +779,36 @@ test("Factorum offers only the half the board allows", () => {
     type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "energy"
   });
   assert.equal(getPlayer(answered.state, "player").energyProd, 1);
+});
+
+// The two cards the skip ledger found with no owner at all: no upstream oracle
+// mentions them, and no contract audit measures what they do.
+test("Research Coordination is a Wild tag and nothing else", () => {
+  // Its whole rule is the tag it carries, which the tag counter already
+  // honours -- so the thing to check is that the tag is there and counts.
+  // Its id says prelude, but it is played as a project.
+  const id = "card-prelude-research-coordination";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+  assert.deepEqual(card.tags, ["Wild"]);
+
+  const state = rig([id]);
+  getPlayer(state, "player").selectedPreludeIds = [];
+
+  const counted = countActiveTags(state, "player", "Wild");
+  assert.equal(counted, 1, "the wild tag is counted while the prelude is in play");
+});
+
+test("Preservation Program raises the terraform rating five steps", () => {
+  const id = "card-prelude2-preservation-program";
+  const state = rig();
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "prelude";
+  seat.preludeOptions = [id, "prelude-allied-banks"];
+  seat.mc = 50;
+  const before = seat.tr;
+
+  const resolved = applyPreludes(state, [id, "prelude-allied-banks"], "player");
+  const after = getPlayer(resolved.state ?? resolved, "player");
+  assert.equal(after.tr - before, 5, "five steps, and Allied Banks brings none");
 });

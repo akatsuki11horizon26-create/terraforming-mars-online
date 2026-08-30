@@ -230,6 +230,12 @@ const CURATED_PRELUDE_OVERRIDES = [
   // "Add 2 floaters to ANY card, or remove any number of floaters here to gain
   // that many of one standard resource." Shipped with an empty effectSpec, so
   // the card was a Space tag and an action that never appeared.
+  // "Raise your TR 5 steps" plus an ongoing half: skip the first TR you gain in
+  // each generation's action phase. Upstream declares tr: {tr: 5} at the top
+  // level, which is not a behavior key, so the generated spec was never read
+  // and the card raised nothing at all. The ongoing half is registered as
+  // unimplemented rather than silently absent.
+  prelude("card-prelude2-preservation-program", "Preservation Program", "TR+5。効果: 各世代のアクションフェイズで最初に得るTRは得られない。", { tr: 5 }, { tags: [] }),
   prelude("card-prelude2-floating-trade-hub", "Floating Trade Hub", "アクション: 任意のカードにフローターを2個追加する、またはこのカードのフローターを任意の数取り除き、同じ数の標準資源を獲得する。", {}, { tags: ["Space"], resourceType: "floater", effectSpec: { action: { or: { autoSelect: true, behaviors: [
     { title: "Remove a floater here to gain a titanium", spend: { resourcesHere: 1 }, stock: { titanium: 1 } },
     { title: "Add 2 floaters to any card", addResourcesToAnyCard: { count: 2, type: "Floater" } }

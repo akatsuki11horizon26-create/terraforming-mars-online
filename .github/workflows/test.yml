@@ -118,6 +118,12 @@ jobs:
         # checks the arithmetic; this checks the answer.
         run: node scripts/audit-vp-cases-against-upstream.mjs
 
+      - name: Skip ledger
+        # Read one at a time each oracle's skips look small; together they are
+        # 335 upstream blocks across 210 cards, plus 245 cards no oracle
+        # mentions at all. Every one of them must be owned by something else.
+        run: node scripts/audit-skip-ledger.mjs
+
       - name: Bespoke method inventory
         # 174 cards whose behaviour upstream writes by hand -- the shape the
         # catalogue generator cannot copy, and where nineteen dead cards have

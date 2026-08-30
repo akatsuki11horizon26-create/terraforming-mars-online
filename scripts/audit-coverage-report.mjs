@@ -54,6 +54,9 @@ Verified:
   audit-vp-cases-        and the same again for what a card is worth: the spec
     against-upstream     comparison checks the declaration, the boundary sweep
                          checks the arithmetic, this checks the answer
+  audit-skip-ledger      every card the upstream oracles could not speak for --
+                         335 dropped blocks across 210 cards, plus 245 no
+                         oracle mentions -- is owned by a test or an audit
   audit-bespoke-         174 cards whose behaviour upstream writes by hand: a
     inventory            card given an action there must have one here, or say
                          what implementing it would take
@@ -84,10 +87,9 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
-  the upstream test blocks the three oracle builders could not read -- 164 for
-    playability, 80 for actions, 91 for scoring. Each is named with a reason in
-    its manifest rather than counted, because a builder that discards half the
-    corpus and then reports no skips says the audit is complete when it is not
+  what those 335 dropped upstream blocks actually assert. The skip ledger says
+    every card they concern is measured by something else; it does not say the
+    something else asks the same question the dropped block did
   the difference between a cost the player must be able to pay and one that
     simply takes what it can. Upstream distinguishes them with a "lose" key; we
     now read it, but only for the cards whose spec carries it

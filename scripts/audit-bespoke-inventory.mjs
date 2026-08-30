@@ -35,6 +35,13 @@ const UNREACHABLE = {
   "card-promo-arcadian-communities": "place a community marker as a first action"
 };
 
+// Ongoing halves of cards whose play effect works, and whose watching half does
+// not. Named here rather than left silent, because a card that does most of
+// what it says reads as working.
+export const PARTIAL = {
+  "card-prelude2-preservation-program": "skip the first TR gained each generation"
+};
+
 // Refused for a board reason rather than a missing action. The rig cannot hand
 // these what they need without becoming a different question: a city holding a
 // cathedral, a card holding what they eat, a rating already raised this
