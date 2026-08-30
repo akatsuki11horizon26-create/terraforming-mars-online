@@ -78,6 +78,10 @@ Not verified:
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
+  the upstream test blocks the three oracle builders could not read -- 164 for
+    playability, 80 for actions, 91 for scoring. Each is named with a reason in
+    its manifest rather than counted, because a builder that discards half the
+    corpus and then reports no skips says the audit is complete when it is not
   whether a tile a card places has anywhere legal to go. Upstream decides that
     in bespokeCanPlay and refuses the play; we do not, which is seven of the
     known differences in the playability audit

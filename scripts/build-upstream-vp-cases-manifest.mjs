@@ -118,11 +118,21 @@ const readOne = async card => {
   if (!response.ok) { stats.noSpec += 1; return; }
   const found = casesIn(await response.text());
   const kept = found.filter(entry => !entry.dropped);
-  stats.dropped += found.length - kept.length;
-  if (kept.length === 0) return;
-  stats.cards += 1;
+  const dropped = found.filter(entry => entry.dropped);
+  stats.dropped += dropped.length;
+  if (kept.length === 0 && dropped.length === 0) return;
+  if (kept.length > 0) stats.cards += 1;
   stats.kept += kept.length;
-  manifest[card.id] = { spec: specPath, cases: kept };
+  // Dropped blocks are recorded by name, not merely counted. A manifest that
+  // reports no skips while its builder threw away half the corpus says the
+  // audit is complete when it is not.
+  manifest[card.id] = {
+    spec: specPath,
+    cases: kept,
+    ...(dropped.length > 0
+      ? { unread: dropped.map(entry => ({ title: entry.title, reason: entry.reason ?? "setup not understood" })) }
+      : {})
+  };
 };
 
 for (let index = 0; index < cards.length; index += CONCURRENCY) {

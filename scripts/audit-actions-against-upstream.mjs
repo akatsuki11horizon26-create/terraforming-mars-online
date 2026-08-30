@@ -139,10 +139,19 @@ for (const [cardId, entry] of Object.entries(manifest.cards)) {
   }
 }
 
+const unread = Object.values(manifest.cards).reduce(
+  (sum, entry) => sum + (entry.unread ?? []).length,
+  0
+);
+
 console.log(`upstream action cases run (${manifest.ref.slice(0, 7)}): ${passed.length + wrong.length}`);
 console.log(`  agree    : ${passed.length}`);
 console.log(`  differ   : ${wrong.length}`);
 console.log(`skipped    : ${skipped.length}`);
+// The cases the builder could not read are named in the manifest rather than
+// merely counted. Printing the number here is what stops "differ: 0" from
+// reading as "every case upstream wrote about actions passes".
+console.log(`not extracted: ${unread} upstream blocks the builder could not read`);
 
 for (const [card, title, problem] of wrong) {
   console.log(`\nDIFFERS ${card.id}  ${card.name}`);

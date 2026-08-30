@@ -1,6 +1,26 @@
 {
   "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
   "cards": {
+    "card-base-advanced-ecosystems": {
+      "spec": "tests/cards/base/AdvancedEcosystems.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "p-ai-central": {
+      "spec": "tests/cards/base/AICentral.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-anti-gravity-technology": {
       "spec": "tests/cards/base/AntiGravityTechnology.spec.ts",
       "cases": [
@@ -8,6 +28,46 @@
           "title": "Should play",
           "steps": [],
           "expected": 3
+        }
+      ]
+    },
+    "card-base-ants": {
+      "spec": "tests/cards/base/Ants.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-artificial-lake": {
+      "spec": "tests/cards/base/ArtificialLake.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-asteroid-mining-consortium": {
+      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-asteroid-mining": {
+      "spec": "tests/cards/base/AsteroidMining.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -21,13 +81,33 @@
         }
       ]
     },
-    "card-base-asteroid-mining-consortium": {
-      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
-      "cases": [
+    "card-base-bribed-committee": {
+      "spec": "tests/cards/base/BribedCommittee.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Gives victory points",
-          "steps": [],
-          "expected": 1
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-biomass-combustors": {
+      "spec": "tests/cards/base/BiomassCombustors.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-birds": {
+      "spec": "tests/cards/base/Birds.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -47,6 +127,26 @@
         }
       ]
     },
+    "card-base-callisto-penal-mines": {
+      "spec": "tests/cards/base/CallistoPenalMines.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "p-capital": {
+      "spec": "tests/cards/base/Capital.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-colonizer-training-camp": {
       "spec": "tests/cards/base/ColonizerTrainingCamp.spec.ts",
       "cases": [
@@ -63,6 +163,56 @@
         }
       ]
     },
+    "card-base-commercial-district": {
+      "spec": "tests/cards/base/CommercialDistrict.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-corporate-stronghold": {
+      "spec": "tests/cards/base/CorporateStronghold.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-decomposers": {
+      "spec": "tests/cards/base/Decomposers.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-earth-catapult": {
+      "spec": "tests/cards/base/EarthCatapult.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-domed-crater": {
+      "spec": "tests/cards/base/DomedCrater.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-dust-seals": {
       "spec": "tests/cards/base/DustSeals.spec.ts",
       "cases": [
@@ -70,6 +220,50 @@
           "title": "Should play",
           "steps": [],
           "expected": 1
+        }
+      ]
+    },
+    "card-base-energy-tapping": {
+      "spec": "tests/cards/base/EnergyTapping.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Playable in solo mode",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-ecological-zone": {
+      "spec": "tests/cards/base/EcologicalZone.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-electro-catapult": {
+      "spec": "tests/cards/base/ElectroCatapult.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-eos-chasma-national-park": {
+      "spec": "tests/cards/base/EOSChasmaNationalPark.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - single target",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -89,6 +283,36 @@
         }
       ]
     },
+    "card-base-food-factory": {
+      "spec": "tests/cards/base/FoodFactory.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-flooding": {
+      "spec": "tests/cards/base/Flooding.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-ganymede-colony": {
+      "spec": "tests/cards/base/GanymedeColony.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-gene-repair": {
       "spec": "tests/cards/base/GeneRepair.spec.ts",
       "cases": [
@@ -99,6 +323,16 @@
         }
       ]
     },
+    "card-base-great-dam": {
+      "spec": "tests/cards/base/GreatDam.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-heat-trappers": {
       "spec": "tests/cards/base/HeatTrappers.spec.ts",
       "cases": [
@@ -106,6 +340,42 @@
           "title": "Gives victory points",
           "steps": [],
           "expected": -1
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should be playable in solo mode",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-herbivores": {
+      "spec": "tests/cards/base/Herbivores.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should add resources",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-immigration-shuttles": {
+      "spec": "tests/cards/base/ImmigrationShuttles.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-indentured-workers": {
+      "spec": "tests/cards/base/IndenturedWorkers.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -119,6 +389,16 @@
         }
       ]
     },
+    "card-base-io-mining-industries": {
+      "spec": "tests/cards/base/IoMiningIndustries.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-large-convoy": {
       "spec": "tests/cards/base/LargeConvoy.spec.ts",
       "cases": [
@@ -126,6 +406,46 @@
           "title": "Should play without animal cards",
           "steps": [],
           "expected": 2
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play with multiple animal targets",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play without oceans",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-kelp-farming": {
+      "spec": "tests/cards/base/KelpFarming.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-lagrange-observatory": {
+      "spec": "tests/cards/base/LagrangeObservatory.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-lake-marineris": {
+      "spec": "tests/cards/base/LakeMarineris.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -146,6 +466,16 @@
         }
       ]
     },
+    "card-base-livestock": {
+      "spec": "tests/cards/base/Livestock.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "p-mars-university": {
       "spec": "tests/cards/base/MarsUniversity.spec.ts",
       "cases": [
@@ -153,6 +483,26 @@
           "title": "Gives victory point",
           "steps": [],
           "expected": 1
+        }
+      ]
+    },
+    "card-base-mangrove": {
+      "spec": "tests/cards/base/Mangrove.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-medical-lab": {
+      "spec": "tests/cards/base/MedicalLab.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -172,13 +522,23 @@
         }
       ]
     },
-    "card-base-olympus-conference": {
-      "spec": "tests/cards/base/OlympusConference.spec.ts",
-      "cases": [
+    "card-base-miranda-resort": {
+      "spec": "tests/cards/base/MirandaResort.spec.ts",
+      "cases": [],
+      "unread": [
         {
           "title": "Should play",
-          "steps": [],
-          "expected": 1
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-nuclear-zone": {
+      "spec": "tests/cards/base/NuclearZone.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -195,6 +555,56 @@
             }
           ],
           "expected": 1
+        }
+      ]
+    },
+    "card-base-natural-preserve": {
+      "spec": "tests/cards/base/NaturalPreserve.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-olympus-conference": {
+      "spec": "tests/cards/base/OlympusConference.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-base-open-city": {
+      "spec": "tests/cards/base/OpenCity.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-pets": {
+      "spec": "tests/cards/base/Pets.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-phobos-space-haven": {
+      "spec": "tests/cards/base/PhobosSpaceHaven.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -218,6 +628,56 @@
         }
       ]
     },
+    "card-base-rad-suits": {
+      "spec": "tests/cards/base/RadSuits.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-rover-construction": {
+      "spec": "tests/cards/base/RoverConstruction.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-research": {
+      "spec": "tests/cards/base/Research.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-shuttles": {
+      "spec": "tests/cards/base/Shuttles.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "p-solar-power": {
+      "spec": "tests/cards/base/SolarPower.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-small-animals": {
       "spec": "tests/cards/base/SmallAnimals.spec.ts",
       "cases": [
@@ -233,6 +693,16 @@
         }
       ]
     },
+    "card-base-soil-factory": {
+      "spec": "tests/cards/base/SoilFactory.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-space-elevator": {
       "spec": "tests/cards/base/SpaceElevator.spec.ts",
       "cases": [
@@ -240,6 +710,16 @@
           "title": "Should play",
           "steps": [],
           "expected": 2
+        }
+      ]
+    },
+    "card-base-space-station": {
+      "spec": "tests/cards/base/SpaceStation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -258,6 +738,16 @@
         }
       ]
     },
+    "card-base-terraforming-ganymede": {
+      "spec": "tests/cards/base/TerraformingGanymede.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-tectonic-stress-power": {
       "spec": "tests/cards/base/TectonicStressPower.spec.ts",
       "cases": [
@@ -265,6 +755,16 @@
           "title": "play",
           "steps": [],
           "expected": 1
+        }
+      ]
+    },
+    "card-base-tropical-resort": {
+      "spec": "tests/cards/base/TropicalResort.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -300,6 +800,36 @@
         }
       ]
     },
+    "card-base-vesta-shipyard": {
+      "spec": "tests/cards/base/VestaShipyard.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-trans-neptune-probe": {
+      "spec": "tests/cards/base/TransNeptuneProbe.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-wave-power": {
+      "spec": "tests/cards/base/WavePower.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-water-import-from-europa": {
       "spec": "tests/cards/base/WaterImportFromEuropa.spec.ts",
       "cases": [
@@ -326,11 +856,175 @@
         }
       ]
     },
+    "card-base-zeppelins": {
+      "spec": "tests/cards/base/Zeppelins.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-cryo-sleep": {
+      "spec": "tests/cards/colonies/CryoSleep.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-community-services": {
+      "spec": "tests/cards/colonies/CommunityServices.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Wild Tags",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-earth-elevator": {
+      "spec": "tests/cards/colonies/EarthElevator.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-conscription": {
+      "spec": "tests/cards/colonies/Conscription.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-ecology-research": {
+      "spec": "tests/cards/colonies/EcologyResearch.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play without targets",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-jovian-lanterns": {
+      "spec": "tests/cards/colonies/JovianLanterns.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-molecular-printing": {
+      "spec": "tests/cards/colonies/MolecularPrinting.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-quantum-communications": {
+      "spec": "tests/cards/colonies/QuantumCommunications.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-red-spot-observatory": {
+      "spec": "tests/cards/colonies/RedSpotObservatory.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-sub-zero-salt-fish": {
+      "spec": "tests/cards/colonies/SubZeroSaltFish.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-sky-docks": {
+      "spec": "tests/cards/colonies/SkyDocks.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-refugee-camps": {
+      "spec": "tests/cards/colonies/RefugeeCamps.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-titan-air-scrapping": {
+      "spec": "tests/cards/colonies/TitanAirScrapping.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act - both actions possible",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-colonies-titan-floating-launch-pad": {
       "spec": "tests/cards/colonies/TitanFloatingLaunchPad.spec.ts",
       "cases": [
         {
           "title": "Should act",
+          "steps": [],
+          "expected": 1
+        }
+      ]
+    },
+    "card-prelude-house-printing": {
+      "spec": "tests/cards/prelude/HousePrinting.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-prelude-martian-survey": {
+      "spec": "tests/cards/prelude/MartianSurvey.spec.ts",
+      "cases": [
+        {
+          "title": "Should play",
           "steps": [],
           "expected": 1
         }
@@ -346,13 +1040,37 @@
         }
       ]
     },
-    "card-prelude-martian-survey": {
-      "spec": "tests/cards/prelude/MartianSurvey.spec.ts",
-      "cases": [
+    "card-promo-asteroid-hollowing": {
+      "spec": "tests/cards/promo/AsteroidHollowing.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should give victory points",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-cutting-edge-technology": {
+      "spec": "tests/cards/promo/CuttingEdgeTechnology.spec.ts",
+      "cases": [],
+      "unread": [
         {
           "title": "Should play",
-          "steps": [],
-          "expected": 1
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-great-dam-promo": {
+      "spec": "tests/cards/promo/GreatDamPromo.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Works with Ares",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -366,6 +1084,26 @@
         }
       ]
     },
+    "card-promo-interplanetary-trade": {
+      "spec": "tests/cards/promo/InterplanetaryTrade.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should give victory points",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-jovian-embassy": {
+      "spec": "tests/cards/promo/JovianEmbassy.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-promo-orbital-cleanup": {
       "spec": "tests/cards/promo/OrbitalCleanup.spec.ts",
       "cases": [
@@ -373,6 +1111,16 @@
           "title": "Should give victory points",
           "steps": [],
           "expected": 2
+        }
+      ]
+    },
+    "card-promo-penguins": {
+      "spec": "tests/cards/promo/Penguins.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should give victory points",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -396,12 +1144,67 @@
         }
       ]
     },
+    "card-promo-sub-crust-measurements": {
+      "spec": "tests/cards/promo/SubCrustMeasurements.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-st-joseph-of-cupertino-mission": {
+      "spec": "tests/cards/promo/StJosephOfCupertinoMission.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "getVictoryPoints counts cathedrals placed by any player",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-promo-stanford-torus": {
       "spec": "tests/cards/promo/StanfordTorus.spec.ts",
       "cases": [
         {
           "title": "Should give victory points",
           "steps": [],
+          "expected": 2
+        }
+      ]
+    },
+    "card-promo-supermarkets": {
+      "spec": "tests/cards/promo/Supermarkets.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-atalanta-planitia-lab": {
+      "spec": "tests/cards/venusNext/AtalantaPlanitiaLab.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-extremophiles": {
+      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Gives victory points",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 7
+            }
+          ],
           "expected": 2
         }
       ]
@@ -421,18 +1224,33 @@
         }
       ]
     },
-    "card-venus-extremophiles": {
-      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
-      "cases": [
+    "card-venus-luxury-foods": {
+      "spec": "tests/cards/venusNext/LuxuryFoods.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Gives victory points",
-          "steps": [
-            {
-              "kind": "cardResource",
-              "amount": 7
-            }
-          ],
-          "expected": 2
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-stratospheric-birds": {
+      "spec": "tests/cards/venusNext/StratosphericBirds.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-venusian-animals": {
+      "spec": "tests/cards/venusNext/VenusianAnimals.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -448,6 +1266,54 @@
             }
           ],
           "expected": 3
+        }
+      ]
+    },
+    "card-venus-venus-waystation": {
+      "spec": "tests/cards/venusNext/VenusWaystation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-prelude2-main-belt-asteroids": {
+      "spec": "tests/cards/prelude2/MainBeltAsteroids.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should act automatically to itself",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should effect from other sources",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-arklight": {
+      "spec": "tests/cards/colonies/Arklight.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-celestic": {
+      "spec": "tests/cards/venusNext/Celestic.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     }

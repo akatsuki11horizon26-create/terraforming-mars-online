@@ -1,6 +1,20 @@
 {
   "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
   "cards": {
+    "card-base-ants": {
+      "spec": "tests/cards/base/Ants.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should action with multiple valid targets",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Respects protected habitats",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
     "card-base-aquifer-pumping": {
       "spec": "tests/cards/base/AquiferPumping.spec.ts",
       "cases": [
@@ -10,7 +24,7 @@
           "expected": false
         },
         {
-          "title": "Can use steel to pay",
+          "title": "Can use steel to pay [1]",
           "steps": [
             {
               "kind": "stock",
@@ -19,6 +33,22 @@
             }
           ],
           "expected": false
+        },
+        {
+          "title": "Can use steel to pay [2]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 6
+            },
+            {
+              "kind": "stock",
+              "resource": "steel",
+              "amount": 1
+            }
+          ],
+          "expected": true
         },
         {
           "title": "Can act if can pay even after oceans are maxed",
@@ -35,6 +65,16 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot act if cannot afford reds tax",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Steel does not satisfy the reds tax",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -72,6 +112,20 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Cannot act if cannot afford reds tax",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Do not double-account heat with Helion using Reds tax",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Can use Stormcraft Incorporated",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "card-base-development-center": {
@@ -93,6 +147,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-base-equatorial-magnetizer": {
@@ -113,6 +173,12 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -151,6 +217,16 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "acts approprite when reds are in power and player has no money",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "card-base-martian-rails": {
@@ -177,6 +253,46 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not act without energy",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Ignores cities off Mars",
+          "reason": "setup became unreadable mid-block"
+        }
+      ]
+    },
+    "card-base-physics-complex": {
+      "spec": "tests/cards/base/PhysicsComplex.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 6
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not act",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -205,6 +321,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-base-power-infrastructure": {
@@ -221,21 +343,15 @@
           ],
           "expected": true
         }
-      ]
-    },
-    "card-base-physics-complex": {
-      "spec": "tests/cards/base/PhysicsComplex.spec.ts",
-      "cases": [
+      ],
+      "unread": [
+        {
+          "title": "Can not act",
+          "reason": "no readable checkpoint"
+        },
         {
           "title": "Should act",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "energy",
-              "amount": 6
-            }
-          ],
-          "expected": true
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -246,6 +362,89 @@
           "title": "Can not play",
           "steps": [],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Respects pets",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Respects Bioengineering Enclosure",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Can remove from own Bioengineering Enclosure",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Respects protected habitats",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "p-search-for-life": {
+      "spec": "tests/cards/base/SearchForLife.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no MC [1]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 0
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not act if no MC [2]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 0
+            },
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot act when the deck is empty",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-base-security-fleet": {
+      "spec": "tests/cards/base/SecurityFleet.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no titanium",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -274,63 +473,11 @@
           ],
           "expected": true
         }
-      ]
-    },
-    "p-search-for-life": {
-      "spec": "tests/cards/base/SearchForLife.spec.ts",
-      "cases": [
-        {
-          "title": "Can not act if no MC",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "megacredits",
-              "amount": 0
-            }
-          ],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-security-fleet": {
-      "spec": "tests/cards/base/SecurityFleet.spec.ts",
-      "cases": [
-        {
-          "title": "Can not act if no titanium",
-          "steps": [],
-          "expected": false
-        },
+      ],
+      "unread": [
         {
           "title": "Should act",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "titanium",
-              "amount": 1
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-space-elevator": {
-      "spec": "tests/cards/base/SpaceElevator.spec.ts",
-      "cases": [
-        {
-          "title": "Can not act if no steel",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should act",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "steel",
-              "amount": 1
-            }
-          ],
-          "expected": true
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -358,6 +505,39 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
+      ]
+    },
+    "card-base-space-elevator": {
+      "spec": "tests/cards/base/SpaceElevator.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act if no steel",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "steel",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -396,6 +576,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-base-underground-detonations": {
@@ -422,6 +608,12 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -476,6 +668,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-colonies-floater-technology": {
@@ -507,6 +705,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-colonies-red-spot-observatory": {
@@ -516,6 +720,12 @@
           "title": "Should act",
           "steps": [],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -538,6 +748,12 @@
           "steps": [],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-colonies-titan-air-scrapping": {
@@ -547,6 +763,16 @@
           "title": "Can not act",
           "steps": [],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act - both actions possible",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act automatically when only one action possible",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -560,29 +786,23 @@
         }
       ]
     },
-    "card-promo-asteroid-deflection-system": {
-      "spec": "tests/cards/promo/AsteroidDeflectionSystem.spec.ts",
-      "cases": [
+    "card-prelude2-ceres-tech-market": {
+      "spec": "tests/cards/prelude2/CeresTechMarket.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Should act",
-          "steps": [],
-          "expected": true
+          "title": "play ",
+          "reason": "no readable checkpoint"
         }
       ]
     },
-    "card-promo-bio-printing-facility": {
-      "spec": "tests/cards/promo/BioPrintingFacility.spec.ts",
-      "cases": [
+    "card-prelude2-cloud-tourism": {
+      "spec": "tests/cards/prelude2/CloudTourism.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not act",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": false
+          "title": "play ",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -627,6 +847,42 @@
         }
       ]
     },
+    "card-promo-bio-printing-facility": {
+      "spec": "tests/cards/promo/BioPrintingFacility.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-asteroid-deflection-system": {
+      "spec": "tests/cards/promo/AsteroidDeflectionSystem.spec.ts",
+      "cases": [
+        {
+          "title": "Should act",
+          "steps": [],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Cannot act when the deck is empty",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
     "card-promo-comet-aiming": {
       "spec": "tests/cards/promo/CometAiming.spec.ts",
       "cases": [
@@ -646,15 +902,61 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act - single action choice, single target",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Can spend resource to place ocean if oceans are maxed",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-promo-directed-heat-usage": {
+      "spec": "tests/cards/promo/DirectedHeatUsage.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canAct",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "card-promo-directed-impactors": {
       "spec": "tests/cards/promo/DirectedImpactors.spec.ts",
       "cases": [
         {
-          "title": "Should act - single action choice, single target",
+          "title": "Should act - single action choice, single target [1]",
           "steps": [],
           "expected": false
+        },
+        {
+          "title": "Should act - single action choice, single target [2]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 3
+            },
+            {
+              "kind": "stock",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act - single action choice, single target",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Can still spend resource even if temperature is max",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -672,6 +974,70 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Can not act",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Can act when sufficient MC resources available",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Can act when sufficient MC (using heat) resources available",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act and provide options when enough MC resources and energy production available",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-promo-icy-impactors": {
+      "spec": "tests/cards/promo/IcyImpactors.spec.ts",
+      "cases": [
+        {
+          "title": "Can not act [1]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 9
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can not act [2]",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 9
+            },
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 10
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can spend resource to place ocean if oceans are maxed",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Compatible with Whales",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Compatible with Whales when you are not the starting player",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "card-promo-hi-tech-lab": {
@@ -682,21 +1048,25 @@
           "steps": [],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "can act with small deck",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
-    "card-promo-icy-impactors": {
-      "spec": "tests/cards/promo/IcyImpactors.spec.ts",
-      "cases": [
+    "card-promo-mars-nomads": {
+      "spec": "tests/cards/promo/MarsNomads.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not act",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "megacredits",
-              "amount": 9
-            }
-          ],
-          "expected": false
+          "title": "action gains bonus",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -725,6 +1095,12 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
       ]
     },
     "card-promo-penguins": {
@@ -734,6 +1110,12 @@
           "title": "Should act",
           "steps": [],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -745,13 +1127,39 @@
           "steps": [],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
+        }
+      ]
+    },
+    "card-promo-teslaract": {
+      "spec": "tests/cards/promo/Teslaract.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canAct",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-promo-vermin": {
+      "spec": "tests/cards/promo/Vermin.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "action",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "card-venus-extractor-balloons": {
       "spec": "tests/cards/venusNext/ExtractorBalloons.spec.ts",
       "cases": [
         {
-          "title": "Can act",
+          "title": "Can act [1]",
           "steps": [
             {
               "kind": "cardResource",
@@ -759,6 +1167,38 @@
             }
           ],
           "expected": true
+        },
+        {
+          "title": "Can act [2]",
+          "steps": [
+            {
+              "kind": "cardResource",
+              "amount": 1
+            },
+            {
+              "kind": "cardResource",
+              "amount": 2
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-maxwell-base": {
+      "spec": "tests/cards/venusNext/MaxwellBase.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act - single target",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act - multiple targets",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "can Play - for a Venus card with an unusual resource",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -769,6 +1209,12 @@
           "title": "Should act",
           "steps": [],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "setup became unreadable mid-block"
         }
       ]
     },
@@ -827,6 +1273,44 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should act - only add resource",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Should act - only spend resource",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Should allow to raise Venus level only",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Should not allow to raise Venus level if Venus level is maxed out",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-prelude2-main-belt-asteroids": {
+      "spec": "tests/cards/prelude2/MainBeltAsteroids.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act automatically to itself",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-prelude2-world-government-advisor": {
+      "spec": "tests/cards/prelude2/WorldGovernmentAdvisor.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canAct - game is at maximum",
+          "reason": "no readable checkpoint"
+        }
       ]
     },
     "corp-unmi": {
@@ -842,6 +1326,20 @@
             }
           ],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not act if not enough MC",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Should act",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Helion + UNMI",
+          "reason": "no readable checkpoint"
         }
       ]
     },
@@ -869,6 +1367,54 @@
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can act",
+          "reason": "setup became unreadable mid-block"
+        },
+        {
+          "title": "Helion + Robinson Industries",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-prelude2-palladin-shipping": {
+      "spec": "tests/cards/prelude2/PalladinShipping.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canAct",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-promo-factorum": {
+      "spec": "tests/cards/promo/Factorum.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Factorum + Helion",
+          "reason": "no readable checkpoint"
+        }
+      ]
+    },
+    "card-venus-viron": {
+      "spec": "tests/cards/venusNext/Viron.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should act",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Cannot act once Viron is used",
+          "reason": "no readable checkpoint"
+        },
+        {
+          "title": "Works with active preludes",
+          "reason": "no readable checkpoint"
         }
       ]
     }

@@ -148,6 +148,13 @@ console.log(`upstream playability cases run (${manifest.ref.slice(0, 7)}): ${pas
 console.log(`  agree    : ${passed.length}`);
 console.log(`  differ   : ${wrong.length}`);
 console.log(`skipped    : ${skipped.length}`);
+// Named in the manifest rather than merely counted: printing it here is what
+// stops "differ: 0" from reading as "every case upstream wrote passes".
+console.log(
+  `not extracted: ${Object.values(manifest.cards).reduce(
+    (sum, entry) => sum + (entry.unread ?? []).length, 0
+  )} upstream blocks the builder could not read`
+);
 
 for (const [card, title, problem] of wrong) {
   console.log(`\nDIFFERS ${card.id}  ${card.name}`);

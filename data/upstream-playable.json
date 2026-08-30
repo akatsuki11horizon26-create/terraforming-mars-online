@@ -1,16 +1,6 @@
 {
   "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
   "cards": {
-    "card-base-algae": {
-      "spec": "tests/cards/base/Algae.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
     "p-ai-central": {
       "spec": "tests/cards/base/AICentral.spec.ts",
       "cases": [
@@ -62,6 +52,22 @@
         }
       ]
     },
+    "card-base-algae": {
+      "spec": "tests/cards/base/Algae.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-advanced-ecosystems": {
       "spec": "tests/cards/base/AdvancedEcosystems.spec.ts",
       "cases": [
@@ -75,32 +81,11 @@
           "steps": [],
           "expected": false
         }
-      ]
-    },
-    "card-base-ants": {
-      "spec": "tests/cards/base/Ants.spec.ts",
-      "cases": [
+      ],
+      "unread": [
         {
-          "title": "Can not play without oxygen",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 3
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 4
-            }
-          ],
-          "expected": true
+          "title": "Can play with two wild tags",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -133,41 +118,27 @@
         }
       ]
     },
-    "card-base-artificial-lake": {
-      "spec": "tests/cards/base/ArtificialLake.spec.ts",
+    "card-base-ants": {
+      "spec": "tests/cards/base/Ants.spec.ts",
       "cases": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-beam-from-a-thorium-asteroid": {
-      "spec": "tests/cards/base/BeamFromAThoriumAsteroid.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play without a Jovian tag",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-asteroid-mining-consortium": {
-      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play if no titanium production",
-          "steps": [],
+          "title": "Can not play without oxygen",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
           "expected": false
         },
         {
-          "title": "Can play if player has titanium production",
+          "title": "Should play",
           "steps": [
             {
-              "kind": "production",
-              "resource": "titanium",
-              "amount": 1
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
             }
           ],
           "expected": true
@@ -206,6 +177,67 @@
         }
       ]
     },
+    "card-base-asteroid-mining-consortium": {
+      "spec": "tests/cards/base/AsteroidMiningConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no titanium production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play if player has titanium production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "titanium",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-artificial-lake": {
+      "spec": "tests/cards/base/ArtificialLake.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot place ocean if all oceans are already placed",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Cannot place ocean if all land spaces are occupied",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can still play if oceans are maxed but no land spaces are available",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-beam-from-a-thorium-asteroid": {
+      "spec": "tests/cards/base/BeamFromAThoriumAsteroid.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without a Jovian tag",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-birds": {
       "spec": "tests/cards/base/Birds.spec.ts",
       "cases": [
@@ -214,47 +246,11 @@
           "steps": [],
           "expected": false
         }
-      ]
-    },
-    "card-base-building-industries": {
-      "spec": "tests/cards/base/BuildingIndustries.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        },
+      ],
+      "unread": [
         {
           "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-business-network": {
-      "spec": "tests/cards/base/BusinessNetwork.spec.ts",
-      "cases": [
-        {
-          "title": "Should play",
-          "steps": [],
-          "expected": true
-        },
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "megacredits",
-              "amount": -5
-            }
-          ],
-          "expected": false
+          "reason": "setup not understood"
         }
       ]
     },
@@ -274,24 +270,33 @@
         }
       ]
     },
-    "card-base-bushes": {
-      "spec": "tests/cards/base/Bushes.spec.ts",
+    "card-base-biomass-combustors": {
+      "spec": "tests/cards/base/BiomassCombustors.spec.ts",
       "cases": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should play",
+          "title": "Cannot play if no one has plant production",
           "steps": [
             {
               "kind": "parameter",
-              "parameter": "temperature",
-              "value": -10
+              "parameter": "oxygen",
+              "value": 6
             }
           ],
-          "expected": true
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot play if oxygen requirement not met",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can play in solo mode if oxygen requirement is met",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -316,54 +321,11 @@
         }
       ]
     },
-    "card-base-biomass-combustors": {
-      "spec": "tests/cards/base/BiomassCombustors.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play if no one has plant production",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 6
-            }
-          ],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-colonizer-training-camp": {
-      "spec": "tests/cards/base/ColonizerTrainingCamp.spec.ts",
+    "card-base-bushes": {
+      "spec": "tests/cards/base/Bushes.spec.ts",
       "cases": [
         {
           "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 6
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 5
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-caretaker-contract": {
-      "spec": "tests/cards/base/CaretakerContract.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play or act",
           "steps": [],
           "expected": false
         },
@@ -373,15 +335,15 @@
             {
               "kind": "parameter",
               "parameter": "temperature",
-              "value": 0
+              "value": -10
             }
           ],
           "expected": true
         }
       ]
     },
-    "card-base-commercial-district": {
-      "spec": "tests/cards/base/CommercialDistrict.spec.ts",
+    "card-base-building-industries": {
+      "spec": "tests/cards/base/BuildingIndustries.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -401,24 +363,34 @@
         }
       ]
     },
-    "card-base-carbonate-processing": {
-      "spec": "tests/cards/base/CarbonateProcessing.spec.ts",
+    "card-base-business-contacts": {
+      "spec": "tests/cards/base/BusinessContacts.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot draw when the deck is empty",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-business-network": {
+      "spec": "tests/cards/base/BusinessNetwork.spec.ts",
       "cases": [
         {
-          "title": "Can not play",
+          "title": "Should play",
           "steps": [],
-          "expected": false
+          "expected": true
         },
         {
-          "title": "Should play",
+          "title": "Can not play",
           "steps": [
             {
               "kind": "production",
-              "resource": "energy",
-              "amount": 1
+              "resource": "megacredits",
+              "amount": -5
             }
           ],
-          "expected": true
+          "expected": false
         }
       ]
     },
@@ -489,6 +461,39 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play - auto select if single target",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-colonizer-training-camp": {
+      "spec": "tests/cards/base/ColonizerTrainingCamp.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": true
+        }
       ]
     },
     "p-capital": {
@@ -542,10 +547,26 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
-    "card-base-decomposers": {
-      "spec": "tests/cards/base/Decomposers.spec.ts",
+    "card-base-ceo-s-favorite-project": {
+      "spec": "tests/cards/base/CEOsFavoriteProject.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-commercial-district": {
+      "spec": "tests/cards/base/CommercialDistrict.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -556,9 +577,51 @@
           "title": "Should play",
           "steps": [
             {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-caretaker-contract": {
+      "spec": "tests/cards/base/CaretakerContract.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play or act",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
               "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 3
+              "parameter": "temperature",
+              "value": 0
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-carbonate-processing": {
+      "spec": "tests/cards/base/CarbonateProcessing.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
             }
           ],
           "expected": true
@@ -582,64 +645,6 @@
               "amount": 1
             }
           ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-domed-crater": {
-      "spec": "tests/cards/base/DomedCrater.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play without energy production",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Can not play if oxygen level too high",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            },
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 8
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-dust-seals": {
-      "spec": "tests/cards/base/DustSeals.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oceans",
-              "value": 4
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [],
           "expected": true
         }
       ]
@@ -681,6 +686,33 @@
         }
       ]
     },
+    "card-base-decomposers": {
+      "spec": "tests/cards/base/Decomposers.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should get triggered by EcoExperts if played together",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-designed-microorganisms": {
       "spec": "tests/cards/base/DesignedMicroOrganisms.spec.ts",
       "cases": [
@@ -719,13 +751,61 @@
         }
       ]
     },
-    "card-base-ecological-zone": {
-      "spec": "tests/cards/base/EcologicalZone.spec.ts",
+    "card-base-dust-seals": {
+      "spec": "tests/cards/base/DustSeals.spec.ts",
       "cases": [
         {
-          "title": "Cannot play",
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-domed-crater": {
+      "spec": "tests/cards/base/DomedCrater.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
           "steps": [],
           "expected": false
+        },
+        {
+          "title": "Can not play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 8
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
         }
       ]
     },
@@ -753,6 +833,88 @@
           ],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-energy-tapping": {
+      "spec": "tests/cards/base/EnergyTapping.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "play - no targets",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-eos-chasma-national-park": {
+      "spec": "tests/cards/base/EOSChasmaNationalPark.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -14
+            }
+          ],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - single target",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-ecological-zone": {
+      "spec": "tests/cards/base/EcologicalZone.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should get triggered by EcoExperts if played together",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-fish": {
+      "spec": "tests/cards/base/Fish.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play - auto select if single target",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - multiple targets",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-base-farming": {
@@ -773,32 +935,6 @@
             }
           ],
           "expected": true
-        }
-      ]
-    },
-    "card-base-fish": {
-      "spec": "tests/cards/base/Fish.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-eos-chasma-national-park": {
-      "spec": "tests/cards/base/EOSChasmaNationalPark.spec.ts",
-      "cases": [
-        {
-          "title": "Can play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "temperature",
-              "value": -14
-            }
-          ],
-          "expected": false
         }
       ]
     },
@@ -829,38 +965,6 @@
         }
       ]
     },
-    "card-base-ghg-producing-bacteria": {
-      "spec": "tests/cards/base/GHGProducingBacteria.spec.ts",
-      "cases": [
-        {
-          "title": "Can play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 3
-            }
-          ],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-flooding": {
-      "spec": "tests/cards/base/Flooding.spec.ts",
-      "cases": [
-        {
-          "title": "Does not suggest to remove money if oceans are already maxed",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oceans",
-              "value": 9
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
     "card-base-food-factory": {
       "spec": "tests/cards/base/FoodFactory.spec.ts",
       "cases": [
@@ -876,6 +980,22 @@
               "kind": "production",
               "resource": "plants",
               "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-flooding": {
+      "spec": "tests/cards/base/Flooding.spec.ts",
+      "cases": [
+        {
+          "title": "Does not suggest to remove money if oceans are already maxed",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 9
             }
           ],
           "expected": true
@@ -970,50 +1090,40 @@
         }
       ]
     },
-    "card-base-herbivores": {
-      "spec": "tests/cards/base/Herbivores.spec.ts",
+    "card-base-ghg-producing-bacteria": {
+      "spec": "tests/cards/base/GHGProducingBacteria.spec.ts",
       "cases": [
         {
-          "title": "Can not play if nobody has plant production",
+          "title": "Can play",
           "steps": [
             {
               "kind": "parameter",
               "parameter": "oxygen",
-              "value": 8
+              "value": 3
             }
           ],
           "expected": false
         }
       ]
     },
-    "card-base-great-escarpment-consortium": {
-      "spec": "tests/cards/base/GreatEscarpmentConsortium.spec.ts",
+    "card-base-hackers": {
+      "spec": "tests/cards/base/Hackers.spec.ts",
       "cases": [
         {
-          "title": "Cannot play without steel production",
+          "title": "Can not play",
           "steps": [],
           "expected": false
         },
         {
-          "title": "Can play if player has steel production",
+          "title": "Should play",
           "steps": [
             {
               "kind": "production",
-              "resource": "steel",
+              "resource": "energy",
               "amount": 1
             }
           ],
           "expected": true
-        }
-      ]
-    },
-    "card-base-heat-trappers": {
-      "spec": "tests/cards/base/HeatTrappers.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play if nobody has heat production",
-          "steps": [],
-          "expected": false
         }
       ]
     },
@@ -1044,6 +1154,27 @@
         }
       ]
     },
+    "card-base-great-escarpment-consortium": {
+      "spec": "tests/cards/base/GreatEscarpmentConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without steel production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Can play if player has steel production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "steel",
+              "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
     "card-base-grass": {
       "spec": "tests/cards/base/Grass.spec.ts",
       "cases": [
@@ -1065,27 +1196,6 @@
         }
       ]
     },
-    "card-base-hackers": {
-      "spec": "tests/cards/base/Hackers.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
     "card-base-heather": {
       "spec": "tests/cards/base/Heather.spec.ts",
       "cases": [
@@ -1101,6 +1211,77 @@
               "kind": "parameter",
               "parameter": "temperature",
               "value": -14
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-heat-trappers": {
+      "spec": "tests/cards/base/HeatTrappers.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if nobody has heat production",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should be playable in solo mode",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - auto select if single target",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-herbivores": {
+      "spec": "tests/cards/base/Herbivores.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if nobody has plant production",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 8
+            }
+          ],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not play if oxygen level too low",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - auto select if single target",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should be playable in solo mode",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-ice-cap-melting": {
+      "spec": "tests/cards/base/IceCapMelting.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": 2
             }
           ],
           "expected": true
@@ -1136,26 +1317,11 @@
           "steps": [],
           "expected": false
         }
-      ]
-    },
-    "card-base-ice-cap-melting": {
-      "spec": "tests/cards/base/IceCapMelting.spec.ts",
-      "cases": [
+      ],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "temperature",
-              "value": 2
-            }
-          ],
-          "expected": true
+          "title": "Tharsis can play at -5 M€ production",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1164,16 +1330,6 @@
       "cases": [
         {
           "title": "Can not play or act",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-interstellar-colony-ship": {
-      "spec": "tests/cards/base/InterstellarColonyShip.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
           "steps": [],
           "expected": false
         }
@@ -1200,6 +1356,26 @@
         }
       ]
     },
+    "card-base-insulation": {
+      "spec": "tests/cards/base/Insulation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-interstellar-colony-ship": {
+      "spec": "tests/cards/base/InterstellarColonyShip.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
     "card-base-lake-marineris": {
       "spec": "tests/cards/base/LakeMarineris.spec.ts",
       "cases": [
@@ -1215,6 +1391,48 @@
               "kind": "parameter",
               "parameter": "temperature",
               "value": 0
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-kelp-farming": {
+      "spec": "tests/cards/base/KelpFarming.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "p-lichen": {
+      "spec": "tests/cards/base/Lichen.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "temperature",
+              "value": -24
             }
           ],
           "expected": true
@@ -1269,6 +1487,16 @@
         }
       ]
     },
+    "card-base-lava-flows": {
+      "spec": "tests/cards/base/LavaFlows.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot play if no available spaces",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-base-lightning-harvest": {
       "spec": "tests/cards/base/LightningHarvest.spec.ts",
       "cases": [
@@ -1291,29 +1519,24 @@
         }
       ]
     },
-    "p-lichen": {
-      "spec": "tests/cards/base/Lichen.spec.ts",
+    "card-base-lunar-beam": {
+      "spec": "tests/cards/base/LunarBeam.spec.ts",
       "cases": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should play",
+          "title": "Can play",
           "steps": [
             {
-              "kind": "parameter",
-              "parameter": "temperature",
-              "value": -24
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
             }
           ],
-          "expected": true
+          "expected": false
         }
       ]
     },
-    "card-base-kelp-farming": {
-      "spec": "tests/cards/base/KelpFarming.spec.ts",
+    "card-base-magnetic-field-dome": {
+      "spec": "tests/cards/base/MagneticFieldDome.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -1324,9 +1547,9 @@
           "title": "Should play",
           "steps": [
             {
-              "kind": "parameter",
-              "parameter": "oceans",
-              "value": 6
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
             }
           ],
           "expected": true
@@ -1362,24 +1585,13 @@
         }
       ]
     },
-    "card-base-magnetic-field-dome": {
-      "spec": "tests/cards/base/MagneticFieldDome.spec.ts",
+    "card-base-mangrove": {
+      "spec": "tests/cards/base/Mangrove.spec.ts",
       "cases": [
         {
           "title": "Can not play",
           "steps": [],
           "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 2
-            }
-          ],
-          "expected": true
         }
       ]
     },
@@ -1404,32 +1616,6 @@
         }
       ]
     },
-    "card-base-mangrove": {
-      "spec": "tests/cards/base/Mangrove.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-base-lunar-beam": {
-      "spec": "tests/cards/base/LunarBeam.spec.ts",
-      "cases": [
-        {
-          "title": "Can play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "megacredits",
-              "amount": -4
-            }
-          ],
-          "expected": false
-        }
-      ]
-    },
     "card-base-methane-from-titan": {
       "spec": "tests/cards/base/MethaneFromTitan.spec.ts",
       "cases": [
@@ -1448,6 +1634,16 @@
             }
           ],
           "expected": true
+        }
+      ]
+    },
+    "card-base-mining-rights": {
+      "spec": "tests/cards/base/MiningRights.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot play if no available spaces",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1512,79 +1708,11 @@
           ],
           "expected": true
         }
-      ]
-    },
-    "card-base-natural-preserve": {
-      "spec": "tests/cards/base/NaturalPreserve.spec.ts",
-      "cases": [
+      ],
+      "unread": [
         {
-          "title": "Cannot play if oxygen level too high",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 5
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Can play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 4
-            }
-          ],
-          "expected": true
-        },
-        {
-          "title": "Should play",
-          "steps": [],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-nuclear-power": {
-      "spec": "tests/cards/base/NuclearPower.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "megacredits",
-              "amount": -4
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-noctis-city": {
-      "spec": "tests/cards/base/NoctisCity.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play without energy production",
-          "steps": [],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": true
+          "title": "Can play with 0 plants if have Viral Enhancers",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1639,6 +1767,37 @@
           ],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Can play with 1 plant if have Viral Enhancers",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-nuclear-power": {
+      "spec": "tests/cards/base/NuclearPower.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
       ]
     },
     "card-base-noctis-farming": {
@@ -1656,6 +1815,27 @@
               "kind": "parameter",
               "parameter": "temperature",
               "value": -20
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-noctis-city": {
+      "spec": "tests/cards/base/NoctisCity.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without energy production",
+          "steps": [],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
             }
           ],
           "expected": true
@@ -1701,6 +1881,44 @@
             }
           ],
           "expected": true
+        }
+      ]
+    },
+    "card-base-natural-preserve": {
+      "spec": "tests/cards/base/NaturalPreserve.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if oxygen level too high",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 5
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot play if no spaces available",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1758,13 +1976,58 @@
         }
       ]
     },
-    "card-base-rad-suits": {
-      "spec": "tests/cards/base/RadSuits.spec.ts",
+    "card-base-power-supply-consortium": {
+      "spec": "tests/cards/base/PowerSupplyConsortium.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play without power tags",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Can play - no targets",
+          "steps": [
+            {
+              "kind": "tags",
+              "tags": {
+                "power": 2
+              }
+            }
+          ],
+          "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can play - single target",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-rad-chem-factory": {
+      "spec": "tests/cards/base/RadChemFactory.spec.ts",
       "cases": [
         {
           "title": "Can not play",
           "steps": [],
           "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": true
         }
       ]
     },
@@ -1797,52 +2060,29 @@
         }
       ]
     },
-    "card-base-rad-chem-factory": {
-      "spec": "tests/cards/base/RadChemFactory.spec.ts",
+    "card-base-rad-suits": {
+      "spec": "tests/cards/base/RadSuits.spec.ts",
       "cases": [
         {
           "title": "Can not play",
           "steps": [],
           "expected": false
-        },
+        }
+      ],
+      "unread": [
         {
           "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": true
+          "reason": "setup not understood"
         }
       ]
     },
-    "card-base-power-supply-consortium": {
-      "spec": "tests/cards/base/PowerSupplyConsortium.spec.ts",
-      "cases": [
+    "card-base-research-outpost": {
+      "spec": "tests/cards/base/ResearchOutpost.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Cannot play without power tags",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 3
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Can play - no targets",
-          "steps": [
-            {
-              "kind": "tags",
-              "tags": {
-                "power": 2
-              }
-            }
-          ],
-          "expected": true
+          "title": "Can not play if no spaces available",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1894,6 +2134,38 @@
         }
       ]
     },
+    "card-base-robotic-workforce": {
+      "spec": "tests/cards/base/RoboticWorkforce.spec.ts",
+      "cases": [
+        {
+          "title": "Cannot play if no building cards to copy",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Cannot play when production must go down",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Cannot play when any production must go down",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should work with Heat Trappers",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should work with Specialized Settlement",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should work with Specialized Settlement, if when is energy",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "p-search-for-life": {
       "spec": "tests/cards/base/SearchForLife.spec.ts",
       "cases": [
@@ -1921,16 +2193,6 @@
         }
       ]
     },
-    "card-base-robotic-workforce": {
-      "spec": "tests/cards/base/RoboticWorkforce.spec.ts",
-      "cases": [
-        {
-          "title": "Cannot play if no building cards to copy",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
     "card-base-small-animals": {
       "spec": "tests/cards/base/SmallAnimals.spec.ts",
       "cases": [
@@ -1944,6 +2206,16 @@
             }
           ],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not play if oxygen level too low",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -1962,6 +2234,33 @@
               "kind": "production",
               "resource": "energy",
               "amount": 1
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-strip-mine": {
+      "spec": "tests/cards/base/StripMine.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "energy",
+              "amount": 2
             }
           ],
           "expected": true
@@ -1999,33 +2298,6 @@
         }
       ]
     },
-    "card-base-strip-mine": {
-      "spec": "tests/cards/base/StripMine.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 1
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "energy",
-              "amount": 2
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
     "card-base-underground-city": {
       "spec": "tests/cards/base/UndergroundCity.spec.ts",
       "cases": [
@@ -2053,16 +2325,6 @@
         }
       ]
     },
-    "card-base-urbanized-area": {
-      "spec": "tests/cards/base/UrbanizedArea.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play without energy production",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
     "card-base-tundra-farming": {
       "spec": "tests/cards/base/TundraFarming.spec.ts",
       "cases": [
@@ -2081,6 +2343,26 @@
             }
           ],
           "expected": true
+        }
+      ]
+    },
+    "card-base-urbanized-area": {
+      "spec": "tests/cards/base/UrbanizedArea.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play without energy production",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not play without available space between two cities",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2105,30 +2387,13 @@
         }
       ]
     },
-    "card-base-windmills": {
-      "spec": "tests/cards/base/Windmills.spec.ts",
-      "cases": [
+    "card-base-virus": {
+      "spec": "tests/cards/base/Virus.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 6
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 7
-            }
-          ],
-          "expected": true
+          "title": "Works in solo mode",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2147,60 +2412,6 @@
               "kind": "parameter",
               "parameter": "oceans",
               "value": 2
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-worms": {
-      "spec": "tests/cards/base/Worms.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 3
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 4
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-base-wave-power": {
-      "spec": "tests/cards/base/WavePower.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oceans",
-              "value": 2
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oceans",
-              "value": 3
             }
           ],
           "expected": true
@@ -2234,6 +2445,175 @@
         }
       ]
     },
+    "card-base-wave-power": {
+      "spec": "tests/cards/base/WavePower.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 2
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oceans",
+              "value": 3
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-base-windmills": {
+      "spec": "tests/cards/base/Windmills.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 6
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 7
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-air-raid": {
+      "spec": "tests/cards/colonies/AirRaid.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play: no floater",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can not play: no opponent has 5+ M€",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Works in solo mode",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-base-worms": {
+      "spec": "tests/cards/base/Worms.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-colonies-corona-extractor": {
+      "spec": "tests/cards/colonies/CoronaExtractor.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-luna-governor": {
+      "spec": "tests/cards/colonies/LunaGovernor.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-heavy-taxation": {
+      "spec": "tests/cards/colonies/HeavyTaxation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-market-manipulation": {
+      "spec": "tests/cards/colonies/MarketManipulation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-minority-refuge": {
+      "spec": "tests/cards/colonies/MinorityRefuge.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "can play with low MC production when Luna is in play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-martian-zoo": {
+      "spec": "tests/cards/colonies/MartianZoo.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-colonies-red-spot-observatory": {
       "spec": "tests/cards/colonies/RedSpotObservatory.spec.ts",
       "cases": [
@@ -2263,13 +2643,13 @@
         }
       ]
     },
-    "card-colonies-martian-zoo": {
-      "spec": "tests/cards/colonies/MartianZoo.spec.ts",
-      "cases": [
+    "card-colonies-sky-docks": {
+      "spec": "tests/cards/colonies/SkyDocks.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2287,6 +2667,16 @@
           ],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Can not play without energy production",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-colonies-sub-zero-salt-fish": {
@@ -2302,6 +2692,80 @@
             }
           ],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can not play if temperature requirement not met",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-prelude-lava-tube-settlement": {
+      "spec": "tests/cards/prelude/LavaTubeSettlement.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot play without energy production",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Cannot play if no volcanic spaces left",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Play on Hellas",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Play on Utopia Planitia",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-warp-drive": {
+      "spec": "tests/cards/colonies/WarpDrive.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-trading-colony": {
+      "spec": "tests/cards/colonies/TradingColony.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can play if there are available colony tiles to build on",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-colonies-urban-decomposers": {
+      "spec": "tests/cards/colonies/UrbanDecomposers.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play if player has no city",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can not play if player has no colony",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play without targets",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2398,6 +2862,20 @@
         }
       ]
     },
+    "card-prelude2-colonial-envoys": {
+      "spec": "tests/cards/prelude2/ColonialEnvoys.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play, not in power",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can play - 0 colonies, 0 delegates",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-prelude2-soil-studies": {
       "spec": "tests/cards/prelude2/SoilStudies.spec.ts",
       "cases": [
@@ -2435,6 +2913,36 @@
         }
       ]
     },
+    "card-prelude2-ghg-shipment": {
+      "spec": "tests/cards/prelude2/GhgShipment.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-prelude2-sponsoring-nation": {
+      "spec": "tests/cards/prelude2/SponsoringNation.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-prelude2-summit-logistics": {
+      "spec": "tests/cards/prelude2/SummitLogistics.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-prelude2-venus-trade-hub": {
       "spec": "tests/cards/prelude2/VenusTradeHub.spec.ts",
       "cases": [
@@ -2468,6 +2976,30 @@
         }
       ]
     },
+    "card-prelude2-unexpected-application": {
+      "spec": "tests/cards/prelude2/UnexpectedApplication.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Does not expect itself to be the discarded card",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-aqueduct-systems": {
+      "spec": "tests/cards/promo/AqueductSystems.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can play when a city is adjacent to an ocean",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-promo-asteroid-deflection-system": {
       "spec": "tests/cards/promo/AsteroidDeflectionSystem.spec.ts",
       "cases": [
@@ -2489,6 +3021,26 @@
         }
       ]
     },
+    "card-promo-diversity-support": {
+      "spec": "tests/cards/promo/DiversitySupport.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Works with corruption",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-promo-crash-site-cleanup": {
       "spec": "tests/cards/promo/CrashSiteCleanup.spec.ts",
       "cases": [
@@ -2496,6 +3048,26 @@
           "title": "Can not play",
           "steps": [],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can play if removed plants from another player this generation",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can play if removed plants from neutral player in solo mode",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-cyberia-systems": {
+      "spec": "tests/cards/promo/CyberiaSystems.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot play without two building cards",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2513,15 +3085,15 @@
           ],
           "expected": false
         }
-      ]
-    },
-    "card-promo-diversity-support": {
-      "spec": "tests/cards/promo/DiversitySupport.spec.ts",
-      "cases": [
+      ],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
+          "title": "Can not play if no energy production",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2535,13 +3107,13 @@
         }
       ]
     },
-    "card-promo-law-suit": {
-      "spec": "tests/cards/promo/LawSuit.spec.ts",
-      "cases": [
+    "card-promo-harvest": {
+      "spec": "tests/cards/promo/Harvest.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Cannot play if no resources or production reduced this turn",
-          "steps": [],
-          "expected": false
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2572,24 +3144,33 @@
         }
       ]
     },
-    "card-promo-orbital-cleanup": {
-      "spec": "tests/cards/promo/OrbitalCleanup.spec.ts",
+    "card-promo-law-suit": {
+      "spec": "tests/cards/promo/LawSuit.spec.ts",
       "cases": [
         {
-          "title": "Can not play if cannot decrease MC production",
-          "steps": [
-            {
-              "kind": "production",
-              "resource": "megacredits",
-              "amount": -4
-            }
-          ],
+          "title": "Cannot play if no resources or production reduced this turn",
+          "steps": [],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can play if resources removed this turn by other player",
+          "reason": "setup not understood"
         },
         {
-          "title": "Should play",
-          "steps": [],
-          "expected": true
+          "title": "Can play if production decreased this turn by other player",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-kaguya-tech": {
+      "spec": "tests/cards/promo/KaguyaTech.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2601,32 +3182,37 @@
           "steps": [],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
-    "card-promo-potatoes": {
-      "spec": "tests/cards/promo/Potatoes.spec.ts",
-      "cases": [
+    "card-promo-project-inspection": {
+      "spec": "tests/cards/promo/ProjectInspection.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "plants",
-              "amount": 1
-            }
-          ],
-          "expected": false
+          "title": "Can not play if no actions played this turn",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can not play if available actions can not act",
+          "reason": "setup not understood"
         },
         {
           "title": "Should play",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "plants",
-              "amount": 2
-            }
-          ],
-          "expected": true
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can be used to play Playwrights into another available event card",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can be used to play Odyssey into another available event card",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2657,50 +3243,67 @@
         }
       ]
     },
-    "card-promo-robot-pollinators": {
-      "spec": "tests/cards/promo/RobotPollinators.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play if oxygen level too low",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 1
-            }
-          ],
-          "expected": false
-        }
-      ]
-    },
-    "card-promo-self-replicating-robots": {
-      "spec": "tests/cards/promo/SelfReplicatingRobots.spec.ts",
+    "card-promo-potatoes": {
+      "spec": "tests/cards/promo/Potatoes.spec.ts",
       "cases": [
         {
           "title": "Can not play",
-          "steps": [],
-          "expected": false
-        }
-      ]
-    },
-    "card-promo-red-ships": {
-      "spec": "tests/cards/promo/RedShips.spec.ts",
-      "cases": [
-        {
-          "title": "canPlay",
           "steps": [
             {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 3
-            },
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 1
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
             {
-              "kind": "parameter",
-              "parameter": "oxygen",
-              "value": 4
+              "kind": "stock",
+              "resource": "plants",
+              "amount": 2
             }
           ],
           "expected": true
+        }
+      ],
+      "unread": [
+        {
+          "title": "Can play with 1 plant if have Viral Enhancers",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-orbital-cleanup": {
+      "spec": "tests/cards/promo/OrbitalCleanup.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if cannot decrease MC production",
+          "steps": [
+            {
+              "kind": "production",
+              "resource": "megacredits",
+              "amount": -4
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-new-holland": {
+      "spec": "tests/cards/promo/NewHolland.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2731,6 +3334,73 @@
         }
       ]
     },
+    "card-promo-red-ships": {
+      "spec": "tests/cards/promo/RedShips.spec.ts",
+      "cases": [
+        {
+          "title": "canPlay",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 3
+            },
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 4
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-promo-robot-pollinators": {
+      "spec": "tests/cards/promo/RobotPollinators.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play if oxygen level too low",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "oxygen",
+              "value": 1
+            }
+          ],
+          "expected": false
+        }
+      ]
+    },
+    "card-promo-soil-enrichment": {
+      "spec": "tests/cards/promo/SoilEnrichment.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canplay ",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "play with only one eligible card",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-self-replicating-robots": {
+      "spec": "tests/cards/promo/SelfReplicatingRobots.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-promo-snow-algae": {
       "spec": "tests/cards/promo/SnowAlgae.spec.ts",
       "cases": [
@@ -2758,13 +3428,29 @@
         }
       ]
     },
-    "card-promo-sub-crust-measurements": {
-      "spec": "tests/cards/promo/SubCrustMeasurements.spec.ts",
+    "card-promo-sterling-vents": {
+      "spec": "tests/cards/promo/SterlingVents.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-promo-supermarkets": {
+      "spec": "tests/cards/promo/Supermarkets.spec.ts",
       "cases": [
         {
-          "title": "Can not play if not enough science tags",
+          "title": "Can not play",
           "steps": [],
           "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2784,23 +3470,61 @@
         }
       ]
     },
-    "card-promo-supermarkets": {
-      "spec": "tests/cards/promo/Supermarkets.spec.ts",
+    "card-promo-sub-crust-measurements": {
+      "spec": "tests/cards/promo/SubCrustMeasurements.spec.ts",
       "cases": [
         {
-          "title": "Can not play",
+          "title": "Can not play if not enough science tags",
           "steps": [],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
-    "card-turmoil-aerial-lenses": {
-      "spec": "tests/cards/turmoil/AerialLenses.spec.ts",
-      "cases": [
+    "card-turmoil-banned-delegate": {
+      "spec": "tests/cards/turmoil/BannedDelegate.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can play",
-          "steps": [],
-          "expected": false
+          "title": "Cannot play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Removes duplicates",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-diaspora-movement": {
+      "spec": "tests/cards/turmoil/DiasporaMovement.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-gmo-contract": {
+      "spec": "tests/cards/turmoil/GMOContract.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2818,6 +3542,142 @@
           ],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Can not play without energy production",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can not play without 2 delegates available",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can not play without an available city space",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-parliament-hall": {
+      "spec": "tests/cards/turmoil/ParliamentHall.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-martian-media-center": {
+      "spec": "tests/cards/turmoil/MartianMediaCenter.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-aerial-lenses": {
+      "spec": "tests/cards/turmoil/AerialLenses.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [],
+          "expected": false
+        }
+      ]
+    },
+    "card-turmoil-event-analysts": {
+      "spec": "tests/cards/turmoil/EventAnalysts.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-recruitment": {
+      "spec": "tests/cards/turmoil/Recruitment.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-political-alliance": {
+      "spec": "tests/cards/turmoil/PoliticalAlliance.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can not play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-vote-of-no-confidence": {
+      "spec": "tests/cards/turmoil/VoteOfNoConfidence.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "canPlay when Reds are in power",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-pr-office": {
+      "spec": "tests/cards/turmoil/PROffice.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-public-celebrations": {
+      "spec": "tests/cards/turmoil/PublicCelebrations.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-sponsored-mohole": {
+      "spec": "tests/cards/turmoil/SponsoredMohole.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-turmoil-wildlife-dome": {
+      "spec": "tests/cards/turmoil/WildlifeDome.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play: reds",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-turmoil-red-tourism-wave": {
@@ -2827,6 +3687,112 @@
           "title": "Can play",
           "steps": [],
           "expected": false
+        }
+      ]
+    },
+    "card-turmoil-supported-research": {
+      "spec": "tests/cards/turmoil/SupportedResearch.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-aerosport-tournament": {
+      "spec": "tests/cards/venusNext/AerosportTournament.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-atmoscoop": {
+      "spec": "tests/cards/venusNext/Atmoscoop.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Cannot play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play - no targets",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-atalanta-planitia-lab": {
+      "spec": "tests/cards/venusNext/AtalantaPlanitiaLab.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-dawn-city": {
+      "spec": "tests/cards/venusNext/DawnCity.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-extremophiles": {
+      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-floating-habs": {
+      "spec": "tests/cards/venusNext/FloatingHabs.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [],
+          "expected": false
+        }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-ishtar-mining": {
+      "spec": "tests/cards/venusNext/IshtarMining.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-gyropolis": {
+      "spec": "tests/cards/venusNext/Gyropolis.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2860,25 +3826,21 @@
           ],
           "expected": false
         }
-      ]
-    },
-    "card-venus-floating-habs": {
-      "spec": "tests/cards/venusNext/FloatingHabs.spec.ts",
-      "cases": [
+      ],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
+          "title": "Should play - single target",
+          "reason": "setup not understood"
         }
       ]
     },
-    "card-venus-extremophiles": {
-      "spec": "tests/cards/venusNext/Extremophiles.spec.ts",
-      "cases": [
+    "card-venus-neutralizer-factory": {
+      "spec": "tests/cards/venusNext/NeutralizerFactory.spec.ts",
+      "cases": [],
+      "unread": [
         {
-          "title": "Can not play",
-          "steps": [],
-          "expected": false
+          "title": "Should play",
+          "reason": "setup not understood"
         }
       ]
     },
@@ -2930,6 +3892,16 @@
         }
       ]
     },
+    "card-venus-omnicourt": {
+      "spec": "tests/cards/venusNext/Omnicourt.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
     "card-venus-rotator-impacts": {
       "spec": "tests/cards/venusNext/RotatorImpacts.spec.ts",
       "cases": [
@@ -2960,6 +3932,62 @@
           "steps": [],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Works with MSI corporation",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-luxury-foods": {
+      "spec": "tests/cards/venusNext/LuxuryFoods.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-mining-quota": {
+      "spec": "tests/cards/venusNext/MiningQuota.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-sister-planet-support": {
+      "spec": "tests/cards/venusNext/SisterPlanetSupport.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-solarnet": {
+      "spec": "tests/cards/venusNext/Solarnet.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-sponsored-academies": {
+      "spec": "tests/cards/venusNext/SponsoredAcademies.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-venus-stratospheric-birds": {
@@ -2976,37 +4004,40 @@
           ],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Cannot play if Venus requirement not met",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Edge case: only one card has floaters, and it is not Dirigibles",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Edge case: Dirigibles with no other floater cards",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Allow spending all floaters from Dirigibles if there is at least one other card with a floater",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can play with discounts and single Dirigibles floater",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-venus-sulphur-eating-bacteria": {
       "spec": "tests/cards/venusNext/SulphurEatingBacteria.spec.ts",
-      "cases": [
-        {
-          "title": "Can not play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "venus",
-              "value": 4
-            }
-          ],
-          "expected": false
-        },
-        {
-          "title": "Should play",
-          "steps": [
-            {
-              "kind": "parameter",
-              "parameter": "venus",
-              "value": 6
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
-    "card-venus-thermophiles": {
-      "spec": "tests/cards/venusNext/Thermophiles.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -3040,6 +4071,12 @@
           "steps": [],
           "expected": false
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
       ]
     },
     "card-venus-spin-inducing-asteroid": {
@@ -3061,10 +4098,16 @@
           "steps": [],
           "expected": true
         }
+      ],
+      "unread": [
+        {
+          "title": "Should play with Morning Star",
+          "reason": "setup not understood"
+        }
       ]
     },
-    "card-venus-venusian-animals": {
-      "spec": "tests/cards/venusNext/VenusianAnimals.spec.ts",
+    "card-venus-thermophiles": {
+      "spec": "tests/cards/venusNext/Thermophiles.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -3072,7 +4115,7 @@
             {
               "kind": "parameter",
               "parameter": "venus",
-              "value": 16
+              "value": 4
             }
           ],
           "expected": false
@@ -3083,7 +4126,44 @@
             {
               "kind": "parameter",
               "parameter": "venus",
-              "value": 18
+              "value": 6
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-terraforming-contract": {
+      "spec": "tests/cards/venusNext/TerraformingContract.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "card-venus-venus-magnetizer": {
+      "spec": "tests/cards/venusNext/VenusMagnetizer.spec.ts",
+      "cases": [
+        {
+          "title": "Can not play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 8
+            }
+          ],
+          "expected": false
+        },
+        {
+          "title": "Should play",
+          "steps": [
+            {
+              "kind": "parameter",
+              "parameter": "venus",
+              "value": 10
             }
           ],
           "expected": true
@@ -3155,8 +4235,8 @@
         }
       ]
     },
-    "card-venus-venus-magnetizer": {
-      "spec": "tests/cards/venusNext/VenusMagnetizer.spec.ts",
+    "card-venus-venusian-animals": {
+      "spec": "tests/cards/venusNext/VenusianAnimals.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -3164,7 +4244,7 @@
             {
               "kind": "parameter",
               "parameter": "venus",
-              "value": 8
+              "value": 16
             }
           ],
           "expected": false
@@ -3175,7 +4255,33 @@
             {
               "kind": "parameter",
               "parameter": "venus",
-              "value": 10
+              "value": 18
+            }
+          ],
+          "expected": true
+        }
+      ]
+    },
+    "card-venus-venus-governor": {
+      "spec": "tests/cards/venusNext/VenusGovernor.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Should play",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "prelude-aquifer-turbines": {
+      "spec": "tests/cards/prelude/AquiferTurbines.spec.ts",
+      "cases": [
+        {
+          "title": "Can play",
+          "steps": [
+            {
+              "kind": "stock",
+              "resource": "megacredits",
+              "amount": 3
             }
           ],
           "expected": true
@@ -3209,22 +4315,6 @@
         }
       ]
     },
-    "prelude-aquifer-turbines": {
-      "spec": "tests/cards/prelude/AquiferTurbines.spec.ts",
-      "cases": [
-        {
-          "title": "Can play",
-          "steps": [
-            {
-              "kind": "stock",
-              "resource": "megacredits",
-              "amount": 3
-            }
-          ],
-          "expected": true
-        }
-      ]
-    },
     "prelude-biosphere-support": {
       "spec": "tests/cards/prelude/BiosphereSupport.spec.ts",
       "cases": [
@@ -3246,8 +4336,30 @@
         }
       ]
     },
-    "prelude-huge-asteroid": {
-      "spec": "tests/cards/prelude/HugeAsteroid.spec.ts",
+    "prelude-ecology-experts": {
+      "spec": "tests/cards/prelude/EcologyExperts.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "Can Play",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "Can Play, with global parameter requirements",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "canplay Livestock, which requres global parameter and production",
+          "reason": "setup not understood"
+        },
+        {
+          "title": "canplay Guerilla Ecologists, which requires plants, player has Manutech",
+          "reason": "setup not understood"
+        }
+      ]
+    },
+    "prelude-galilean-mining": {
+      "spec": "tests/cards/prelude/GalileanMining.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -3273,8 +4385,8 @@
         }
       ]
     },
-    "prelude-galilean-mining": {
-      "spec": "tests/cards/prelude/GalileanMining.spec.ts",
+    "prelude-huge-asteroid": {
+      "spec": "tests/cards/prelude/HugeAsteroid.spec.ts",
       "cases": [
         {
           "title": "Can not play",
@@ -3318,6 +4430,16 @@
           "title": "Should play",
           "steps": [],
           "expected": true
+        }
+      ]
+    },
+    "card-prelude2-old-mining-colony": {
+      "spec": "tests/cards/prelude2/OldMiningColony.spec.ts",
+      "cases": [],
+      "unread": [
+        {
+          "title": "canPlay",
+          "reason": "setup not understood"
         }
       ]
     },

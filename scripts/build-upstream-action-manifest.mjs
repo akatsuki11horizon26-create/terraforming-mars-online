@@ -83,8 +83,13 @@ function casesIn(text) {
     const title = block[2];
     if (!body.split("\n").some(line => ASSERTION.test(line.trim()))) continue;
 
+    // EVERY canAct assertion in the block is a checkpoint, not just the first.
+    // A block usually asks twice -- once with nothing, once after being handed
+    // what the action needs -- and keeping only the first drops the half that
+    // says the action becomes available. Each checkpoint carries the setup that
+    // had accumulated by the time it was reached.
     const steps = [];
-    let expected = null;
+    const checkpoints = [];
     let understood = true;
     for (const raw of body.split("\n")) {
       const line = raw.trim();
@@ -92,24 +97,35 @@ function casesIn(text) {
 
       const assertion = line.match(ASSERTION);
       if (assertion) {
-        // Everything before the FIRST canAct assertion is its setup. A block
-        // that then takes the action and asks again is testing the once-a-
-        // generation limit, which is a different question and not kept here.
-        expected = assertion[1] === "is.true" || assertion[1] === "to.be.true";
-        break;
+        checkpoints.push({
+          steps: steps.map(step => ({ ...step })),
+          expected: assertion[1] === "is.true" || assertion[1] === "to.be.true"
+        });
+        continue;
       }
       if (/^expect\(/.test(line)) continue;
 
+      // A line this cannot read changes what every LATER checkpoint means, so
+      // the block stops here and keeps only the ones already reached.
       const step = readSetupLine(line);
       if (!step) { understood = false; break; }
       if (step.kind !== "noop") steps.push(step);
     }
 
-    if (!understood || expected === null) {
-      cases.push({ title, dropped: true });
+    if (checkpoints.length === 0) {
+      cases.push({ title, dropped: true, reason: "no readable checkpoint" });
       continue;
     }
-    cases.push({ title, steps, expected });
+    for (const [index, checkpoint] of checkpoints.entries()) {
+      cases.push({
+        title: checkpoints.length > 1 ? `${title} [${index + 1}]` : title,
+        steps: checkpoint.steps,
+        expected: checkpoint.expected
+      });
+    }
+    if (!understood) {
+      cases.push({ title, dropped: true, reason: "setup became unreadable mid-block" });
+    }
   }
   return cases;
 }
@@ -125,11 +141,21 @@ const readOne = async card => {
   if (!response.ok) { stats.noSpec += 1; return; }
   const found = casesIn(await response.text());
   const kept = found.filter(entry => !entry.dropped);
-  stats.dropped += found.length - kept.length;
-  if (kept.length === 0) return;
-  stats.cards += 1;
+  const dropped = found.filter(entry => entry.dropped);
+  stats.dropped += dropped.length;
+  if (kept.length === 0 && dropped.length === 0) return;
+  if (kept.length > 0) stats.cards += 1;
   stats.kept += kept.length;
-  manifest[card.id] = { spec: specPath, cases: kept };
+  // Dropped blocks are recorded by name and reason, not merely counted. A
+  // manifest that reports "skipped: 0" while its builder threw away half the
+  // corpus says the audit is complete when it is not.
+  manifest[card.id] = {
+    spec: specPath,
+    cases: kept,
+    ...(dropped.length > 0
+      ? { unread: dropped.map(entry => ({ title: entry.title, reason: entry.reason })) }
+      : {})
+  };
 };
 
 for (let index = 0; index < cards.length; index += CONCURRENCY) {
