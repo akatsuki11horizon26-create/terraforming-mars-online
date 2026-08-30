@@ -1447,9 +1447,18 @@ export function getLegalCommands(state, playerId) {
     commands.push({ type: COMMAND.PLAY_CARD, playerId, cardId, ...(payment ? { payment } : {}) });
   }
 
+  // A prelude's action counts too, and its type is "prelude" rather than
+  // "active" -- listing only active projects left four prelude actions
+  // unreachable for the bot however well the engine knew them.
   for (const cardId of actor.playedProjects ?? []) {
     const card = ALL_CARDS.find(item => item.id === cardId);
     if (!card || card.type !== "active") continue;
+    if (!getCardActionStatus(state, card).playable) continue;
+    commands.push({ type: COMMAND.USE_CARD_ACTION, playerId, cardId });
+  }
+  for (const cardId of actor.selectedPreludeIds ?? []) {
+    const card = PRELUDES.find(item => item.id === cardId);
+    if (!card?.effectSpec?.action) continue;
     if (!getCardActionStatus(state, card).playable) continue;
     commands.push({ type: COMMAND.USE_CARD_ACTION, playerId, cardId });
   }

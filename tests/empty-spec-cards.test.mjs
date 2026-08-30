@@ -1025,3 +1025,31 @@ test("A branch that puts resources on another card asks which one", async () => 
     );
   }
 });
+
+test("A prelude's action is offered, not just a project's", async () => {
+  // The engine knew these actions and nothing listed them: the UI walked
+  // playedProjects, and the bot required type "active", which a prelude never
+  // is. Four prelude actions were unreachable through either.
+  const { getLegalCommands } = await import("../app/game-command.js");
+  const withActions = PRELUDES.filter(prelude => prelude.effectSpec?.action);
+  assert.ok(withActions.length >= 4, "preludes that carry an action");
+
+  const id = "card-prelude2-floating-trade-hub";
+  const state = rig();
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "complete";
+  seat.corporationId = null;
+  seat.mc = 50;
+  seat.actionsRemaining = 2;
+  seat.selectedPreludeIds = [id];
+  seat.playedProjects = [];
+  seat.cardResources = { [id]: 3 };
+  seat.hand = [];
+
+  const offered = getLegalCommands(state, "player")
+    .filter(command => command.type === COMMAND.USE_CARD_ACTION)
+    .map(command => command.cardId);
+  assert.ok(offered.includes(id), "the prelude's action is on the list");
+});

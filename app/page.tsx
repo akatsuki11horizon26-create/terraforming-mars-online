@@ -1472,9 +1472,23 @@ export default function Home() {
 
   const playedCardCount = seatPlayedProjects.length;
 
-  const activeCards = useMemo(() => seatPlayedProjects
-    .map(id => ALL_CARDS.find(card => card.id === id))
-    .filter((card): card is Card => Boolean(card && getCardEffect(card).action)), [seatPlayedProjects]);
+  // A prelude can carry an action too -- Floating Trade Hub and World Government
+  // Advisor both do -- and listing only playedProjects left those unreachable
+  // however well the engine knew them.
+  const seatPreludeIds = useMemo(
+    () =>
+      (activeState.players?.find(p => p.id === currentPlayerId)?.selectedPreludeIds ??
+        activeState.selectedPreludeIds ??
+        []) as string[],
+    [activeState, currentPlayerId]
+  );
+
+  const activeCards = useMemo(() => [
+    ...seatPlayedProjects.map(id => ALL_CARDS.find(card => card.id === id)),
+    ...seatPreludeIds.map(id => PRELUDES.find(card => card.id === id))
+  ]
+    .filter((card): card is Card => Boolean(card && getCardEffect(card as Card).action)),
+  [seatPlayedProjects, seatPreludeIds]);
 
   const { playable: canPlaySelected, reason: playDisableReason } = selectedCard
     ? getCardPlayableStatus(selectedCard, activeState, steelUsed, titaniumUsed)
