@@ -486,6 +486,103 @@ const CORPORATION_ACTIONS = {
       return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
     }
   },
+  // "Increase your energy production 1 step IF YOU HAVE NO ENERGY RESOURCES, or
+  // spend 3 M€ to draw a building card." Which half is on offer depends on the
+  // board, so both are collected and the player is asked only when both apply.
+  "card-promo-factorum": {
+    label: "Factorum: アクションを実行しました。",
+    blocked: actor =>
+      (actor.energy ?? 0) === 0 || (actor.mc ?? 0) >= 3
+        ? null
+        : "エネルギーを持っていて、MCも3ありません。",
+    run(state, command) {
+      const actor = getPlayer(state, command.playerId);
+      const options = [];
+      if ((actor.energy ?? 0) === 0) {
+        options.push({ id: "energy", label: "エネルギー生産量 +1" });
+      }
+      if ((actor.mc ?? 0) >= 3) {
+        options.push({ id: "draw", label: "MC3を支払い、建材カードを1枚引く" });
+      }
+      if (options.length === 0) {
+        return fail(state, ERROR.ACTION_REFUSED, "実行できる選択肢がありません。");
+      }
+      state.pendingChoice = {
+        id: `factorum:${command.playerId}`,
+        kind: "factorum",
+        ownerPlayerId: command.playerId,
+        prompt: "Factorum: どちらを実行しますか。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: "corporation",
+          sourceId: "card-promo-factorum",
+          stage: "factorum",
+          consumedAction: true,
+          paid: true
+        }
+      };
+      return { ok: true, state, events: [], pendingAction: state.pendingChoice };
+    }
+  },
+  // "Gain 2 M€ for each party where you have at least 1 delegate."
+  "card-turmoil-septem-tribus": {
+    label: "Septem Tribus: 代表者のいる政党1つにつきMC2を獲得しました。",
+    blocked: (actor, state) => (state.turmoil ? null : "Turmoilが有効ではありません。"),
+    run(state, command) {
+      const parties = Object.values(state.turmoil?.parties ?? {}).filter(party =>
+        (party.delegates ?? []).includes(command.playerId)
+      ).length;
+      const gained = parties * 2;
+      state.players = state.players.map(player =>
+        player.id === command.playerId ? { ...player, mc: (player.mc ?? 0) + gained } : player
+      );
+      return finishAction(
+        state,
+        command,
+        `Septem Tribus: 代表者のいる${parties}政党につきMC ${gained} を獲得しました。`
+      );
+    }
+  },
+  // "Use a blue card action that has already been used this generation." The
+  // same rule as Project Inspection, which frees a used action rather than
+  // performing it, so the player may take it again with an action of their own.
+  "card-venus-viron": {
+    label: "Viron: 使用済みのカードアクションを再度使用できます。",
+    blocked: actor =>
+      (actor.usedCardActions ?? []).some(id => id !== CORPORATION_ACTION_ID)
+        ? null
+        : "この世代に使用したカードアクションがありません。",
+    run(state, command) {
+      const actor = getPlayer(state, command.playerId);
+      const options = (actor.usedCardActions ?? [])
+        .filter(id => id !== CORPORATION_ACTION_ID)
+        .map(cardId => ({
+          id: cardId,
+          cardId,
+          label: ALL_CARDS.find(item => item.id === cardId)?.name ?? cardId
+        }));
+      if (options.length === 0) {
+        return fail(state, ERROR.ACTION_REFUSED, "使用済みのカードアクションがありません。");
+      }
+      state.pendingChoice = {
+        id: `project-inspection:${command.playerId}`,
+        kind: "project-inspection",
+        ownerPlayerId: command.playerId,
+        prompt: "もう一度使用するカードアクションを選んでください。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: "corporation",
+          sourceId: "card-venus-viron",
+          stage: "project-inspection",
+          consumedAction: true,
+          paid: true
+        }
+      };
+      return { ok: true, state, events: [], pendingAction: state.pendingChoice };
+    }
+  },
   // "Spend any amount of energy to draw that many cards. Keep 1, discard the
   // rest." Identical to Hi-Tech Lab, whose amount-choice and keep-one question
   // are keyed on the stage rather than the card, so both share them.

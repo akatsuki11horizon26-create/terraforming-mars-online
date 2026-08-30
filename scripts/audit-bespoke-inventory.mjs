@@ -14,6 +14,7 @@
 // Usage: node scripts/audit-bespoke-inventory.mjs [--list]
 import { readFileSync } from "node:fs";
 import { getInitialState, getPlayer, getCardActionStatus } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
 
 const inventory = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json", import.meta.url)));
@@ -29,14 +30,20 @@ const UNREACHABLE = {
   "card-promo-saturn-surfing": "spend a floater to gain a M€ per floater here, max 5",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization": "discard a card and a standard resource for one of each",
-  "card-prelude2-world-government-advisor": "raise a global parameter with no rating and no bonus"
+  "card-prelude2-world-government-advisor": "raise a global parameter with no rating and no bonus",
+  "card-promo-astrodrill": "spend an asteroid for a standard resource, or take one from any card",
+  "card-promo-arcadian-communities": "place a community marker as a first action"
 };
 
-// Cards refused for a board reason rather than a missing action: the rig has no
-// city with a cathedral, and no card holding what they want to eat.
+// Refused for a board reason rather than a missing action. The rig cannot hand
+// these what they need without becoming a different question: a city holding a
+// cathedral, a card holding what they eat, a rating already raised this
+// generation, a card action already used. Each is covered by its own test.
 const BOARD_DEPENDENT = new Set([
   "card-promo-st-joseph-of-cupertino-mission",
-  "card-promo-self-replicating-robots"
+  "card-promo-self-replicating-robots",
+  "corp-unmi",
+  "card-venus-viron"
 ]);
 
 const rig = cardId => {
@@ -77,11 +84,23 @@ for (const [cardId, entry] of Object.entries(inventory.cards)) {
   if (!entry.methods.includes("canAct") && !entry.methods.includes("action")) continue;
   const card = cards.find(item => item.id === cardId);
   if (!card) continue;
-  // A corporation's action is its own command, not getCardActionStatus.
-  if (CORPORATIONS.some(item => item.id === cardId)) continue;
   if (BOARD_DEPENDENT.has(cardId)) continue;
 
-  const usable = getCardActionStatus(rig(cardId), card)?.playable ?? false;
+  // A corporation's action is its own command rather than getCardActionStatus,
+  // and skipping them left four dead corporation actions unexamined.
+  let usable;
+  if (CORPORATIONS.some(item => item.id === cardId)) {
+    const state = rig(cardId);
+    const seat = getPlayer(state, "player");
+    seat.corporationId = cardId;
+    seat.playedProjects = [];
+    usable = executeGameCommand(state, {
+      type: COMMAND.CORPORATION_ACTION,
+      playerId: "player"
+    }).ok;
+  } else {
+    usable = getCardActionStatus(rig(cardId), card)?.playable ?? false;
+  }
   if (usable) {
     reachable.push(cardId);
     if (UNREACHABLE[cardId]) {

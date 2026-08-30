@@ -700,3 +700,82 @@ test("Teslaract trades a step of energy production for a step of plants", () => 
   getPlayer(broke, "player").energyProd = 0;
   assert.equal(getCardActionStatus(broke, card).playable, false);
 });
+
+// Three corporation actions the bespoke inventory could not see, because it
+// asked getCardActionStatus -- which a corporation's action never reaches.
+test("Septem Tribus pays two M€ per party holding a delegate of yours", async () => {
+  const state = rig();
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-turmoil-septem-tribus";
+  seat.mc = 10;
+  seat.actionsRemaining = 2;
+
+  const parties = Object.keys(state.turmoil.parties);
+  state.turmoil.parties[parties[0]].delegates = ["player"];
+  state.turmoil.parties[parties[1]].delegates = ["player", "player2"];
+  state.turmoil.parties[parties[2]].delegates = ["player2"];
+
+  const used = executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.equal(used.ok, true);
+  // Two parties hold one of the player's delegates; the third holds only an
+  // opponent's and pays nothing.
+  assert.equal(getPlayer(used.state, "player").mc, 14);
+});
+
+test("Viron frees a used card action, the way Project Inspection does", () => {
+  const state = rig(["card-base-ants"]);
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-venus-viron";
+  seat.usedCardActions = ["card-base-ants"];
+  seat.actionsRemaining = 2;
+
+  const used = executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.equal(used.ok, true);
+  assert.equal(used.state.pendingChoice?.kind, "project-inspection");
+
+  const answered = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "card-base-ants"
+  });
+  assert.equal(answered.ok, true);
+  // Ants is free to act again. The corporation's own action is spent, which is
+  // why the list is not empty.
+  const freed = getPlayer(answered.state, "player").usedCardActions;
+  assert.equal(freed.includes("card-base-ants"), false);
+});
+
+test("Factorum offers only the half the board allows", () => {
+  const offer = (energy, mc) => {
+    const state = rig();
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "card-promo-factorum";
+    seat.energy = energy;
+    seat.mc = mc;
+    seat.energyProd = 0;
+    seat.actionsRemaining = 2;
+    const used = executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+    if (!used.ok) return null;
+    return used.state.pendingChoice.options.map(option => option.id);
+  };
+
+  // "Increase energy production IF YOU HAVE NO ENERGY RESOURCES, or spend 3 M€
+  // to draw a building card." Each half stands on its own condition.
+  assert.deepEqual(offer(0, 0), ["energy"]);
+  assert.deepEqual(offer(5, 10), ["draw"]);
+  assert.deepEqual(offer(0, 10), ["energy", "draw"]);
+  assert.equal(offer(5, 0), null, "neither half applies");
+
+  const state = rig();
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-promo-factorum";
+  seat.energy = 0;
+  seat.mc = 0;
+  seat.energyProd = 0;
+  seat.actionsRemaining = 2;
+  const used = executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  const answered = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "energy"
+  });
+  assert.equal(getPlayer(answered.state, "player").energyProd, 1);
+});

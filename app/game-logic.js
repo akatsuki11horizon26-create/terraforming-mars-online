@@ -3301,6 +3301,26 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "factorum": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      if (option.id === "energy") {
+        next.players = next.players.map(player =>
+          player.id === owner ? { ...player, energyProd: (player.energyProd ?? 0) + 1 } : player
+        );
+        nextLogs = addLog(nextLogs, "system", "Factorum: エネルギー生産量 +1");
+      } else {
+        next.players = next.players.map(player =>
+          player.id === owner ? { ...player, mc: (player.mc ?? 0) - 3 } : player
+        );
+        const seat = next.currentPlayerId;
+        next.currentPlayerId = owner;
+        drawCards(next, 1, "Building");
+        next.currentPlayerId = seat;
+        nextLogs = addLog(nextLogs, "system", "Factorum: MC -3、建材カードを1枚引きました。");
+      }
+      break;
+    }
+
     case "project-inspection": {
       const owner = choice.ownerPlayerId ?? actorId;
       next.players = next.players.map(player =>
