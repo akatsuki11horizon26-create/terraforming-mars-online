@@ -27,6 +27,9 @@ const CURATED_PROJECT_OVERRIDES = [
   // play it, which the reference refuses because the reserved Noctis space
   // carries no energy bonus to cover the loss.
   project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
+  // "Spend 1 energy production to gain 1 plant production." Upstream builds the
+  // action by hand, so the generated spec carried only the TR half.
+  project("card-promo-teslaract", "Teslaract", 14, ["Power", "Building"], "active", "TR+1。アクション: エネルギー生産量-1と引き換えに植物生産量+1。", {}, { effectSpec: { behavior: { tr: 1 }, action: { production: { energy: -1, plants: 1 } } } }),
   // "Gain 1 M€ per empty area adjacent to your tiles." Upstream counts them in
   // bespokePlay, so the generated spec carried only the production half and the
   // money was never paid. Red Tourism Wave already declares the same count.

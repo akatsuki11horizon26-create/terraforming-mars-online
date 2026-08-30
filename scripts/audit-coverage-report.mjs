@@ -54,6 +54,9 @@ Verified:
   audit-vp-cases-        and the same again for what a card is worth: the spec
     against-upstream     comparison checks the declaration, the boundary sweep
                          checks the arithmetic, this checks the answer
+  audit-bespoke-         174 cards whose behaviour upstream writes by hand: a
+    inventory            card given an action there must have one here, or say
+                         what implementing it would take
   audit-unspecced-       the seven cards the reference ships no test file for
     cards                each name the local test that owns them, since all
                          three upstream oracles are blind to them

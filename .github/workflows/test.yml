@@ -118,6 +118,13 @@ jobs:
         # checks the arithmetic; this checks the answer.
         run: node scripts/audit-vp-cases-against-upstream.mjs
 
+      - name: Bespoke method inventory
+        # 174 cards whose behaviour upstream writes by hand -- the shape the
+        # catalogue generator cannot copy, and where nineteen dead cards have
+        # come from. A card given an action upstream must have one here, or say
+        # what it would take.
+        run: node scripts/audit-bespoke-inventory.mjs
+
       - name: Cards with no upstream oracle
         # Seven cards the reference ships no test file for, so all three upstream
         # oracles are blind to them. Each must name the local test that owns it.

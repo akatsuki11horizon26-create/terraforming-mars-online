@@ -679,3 +679,24 @@ test("The five remaining unspecced cards do what their text says", async () => {
   assert.ok(ALL_CARDS.find(card => card.id === "card-colonies-pioneer-settlement"));
   assert.ok(ALL_CARDS.find(card => card.id === "card-promo-martian-lumber-corp"));
 });
+
+test("Teslaract trades a step of energy production for a step of plants", () => {
+  // Upstream builds this action by hand, so the generated spec carried only
+  // the rating step and the action did not exist.
+  const id = "card-promo-teslaract";
+  const card = ALL_CARDS.find(entry => entry.id === id);
+
+  const state = rig([id]);
+  const seat = getPlayer(state, "player");
+  seat.energyProd = 2;
+  seat.plantsProd = 0;
+  const used = takeAction(state, id, undefined);
+  const after = getPlayer(used, "player");
+  assert.equal(after.energyProd, 1);
+  assert.equal(after.plantsProd, 1);
+
+  // And the production it costs has to be there to spend.
+  const broke = rig([id]);
+  getPlayer(broke, "player").energyProd = 0;
+  assert.equal(getCardActionStatus(broke, card).playable, false);
+});

@@ -1,0 +1,1166 @@
+{
+ "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+ "cards": {
+  "card-base-artificial-lake": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/base/ArtificialLake.ts"
+  },
+  "card-base-asteroid-mining-consortium": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/AsteroidMiningConsortium.ts"
+  },
+  "card-base-arctic-algae": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/base/ArcticAlgae.ts"
+  },
+  "card-base-decomposers": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Decomposers.ts"
+  },
+  "card-base-ecological-zone": {
+   "methods": [
+    "bespokeCanPlay",
+    "onCardPlayed",
+    "onNonCardTagAdded",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/EcologicalZone.ts"
+  },
+  "card-base-energy-tapping": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/EnergyTapping.ts"
+  },
+  "card-base-extreme-cold-fungus": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/base/ExtremeColdFungus.ts"
+  },
+  "card-base-flooding": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Flooding.ts"
+  },
+  "card-base-immigrant-city": {
+   "methods": [
+    "bespokeCanPlay",
+    "onTilePlaced",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/ImmigrantCity.ts"
+  },
+  "card-base-hired-raiders": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/HiredRaiders.ts"
+  },
+  "card-base-imported-hydrogen": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/ImportedHydrogen.ts"
+  },
+  "card-base-great-escarpment-consortium": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/GreatEscarpmentConsortium.ts"
+  },
+  "card-base-hackers": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Hackers.ts"
+  },
+  "card-base-herbivores": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/base/Herbivores.ts"
+  },
+  "card-base-insulation": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Insulation.ts"
+  },
+  "card-base-industrial-center": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/IndustrialCenter.ts"
+  },
+  "card-base-large-convoy": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/LargeConvoy.ts"
+  },
+  "card-base-land-claim": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/LandClaim.ts"
+  },
+  "p-mars-university": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/base/MarsUniversity.ts"
+  },
+  "card-base-media-group": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/base/MediaGroup.ts"
+  },
+  "card-base-noctis-city": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/NoctisCity.ts"
+  },
+  "card-base-optimal-aerobraking": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/base/OptimalAerobraking.ts"
+  },
+  "card-base-nitrogen-rich-asteroid": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/NitrogenRichAsteroid.ts"
+  },
+  "card-base-olympus-conference": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/base/OlympusConference.ts"
+  },
+  "p-moss": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Moss.ts"
+  },
+  "card-base-nitrophilic-moss": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/NitrophilicMoss.ts"
+  },
+  "card-base-pets": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/base/Pets.ts"
+  },
+  "card-base-power-infrastructure": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/base/PowerInfrastructure.ts"
+  },
+  "card-base-power-supply-consortium": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/PowerSupplyConsortium.ts"
+  },
+  "card-base-sabotage": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Sabotage.ts"
+  },
+  "card-base-rover-construction": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/base/RoverConstruction.ts"
+  },
+  "card-base-robotic-workforce": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/RoboticWorkforce.ts"
+  },
+  "p-search-for-life": {
+   "methods": [
+    "getVictoryPoints",
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/base/SearchForLife.ts"
+  },
+  "card-base-terraforming-ganymede": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/TerraformingGanymede.ts"
+  },
+  "card-base-standard-technology": {
+   "methods": [
+    "onStandardProject"
+   ],
+   "source": "src/server/cards/base/StandardTechnology.ts"
+  },
+  "card-base-urbanized-area": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/UrbanizedArea.ts"
+  },
+  "card-base-virus": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/base/Virus.ts"
+  },
+  "card-base-viral-enhancers": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/base/ViralEnhancers.ts"
+  },
+  "card-colonies-air-raid": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/AirRaid.ts"
+  },
+  "card-colonies-community-services": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/CommunityServices.ts"
+  },
+  "card-colonies-ice-moon-colony": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/colonies/IceMoonColony.ts"
+  },
+  "card-colonies-ecology-research": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/EcologyResearch.ts"
+  },
+  "card-colonies-market-manipulation": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/MarketManipulation.ts"
+  },
+  "card-colonies-martian-zoo": {
+   "methods": [
+    "onCardPlayed",
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/colonies/MartianZoo.ts"
+  },
+  "card-colonies-minority-refuge": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/MinorityRefuge.ts"
+  },
+  "card-colonies-quantum-communications": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/QuantumCommunications.ts"
+  },
+  "card-colonies-pioneer-settlement": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/PioneerSettlement.ts"
+  },
+  "card-colonies-productive-outpost": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/colonies/ProductiveOutpost.ts"
+  },
+  "card-colonies-jupiter-floating-station": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/colonies/JupiterFloatingStation.ts"
+  },
+  "card-colonies-spin-off-department": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/colonies/SpinoffDepartment.ts"
+  },
+  "card-colonies-urban-decomposers": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/colonies/UrbanDecomposers.ts"
+  },
+  "card-colonies-titan-floating-launch-pad": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/colonies/TitanFloatingLaunchPad.ts"
+  },
+  "card-colonies-titan-shuttles": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/colonies/TitanShuttles.ts"
+  },
+  "card-prelude-lava-tube-settlement": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/LavaTubeSettlement.ts"
+  },
+  "card-prelude2-ceres-tech-market": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/CeresTechMarket.ts"
+  },
+  "card-prelude2-frontier-town": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/FrontierTown.ts"
+  },
+  "card-prelude2-special-permit": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/SpecialPermit.ts"
+  },
+  "card-prelude2-cloud-tourism": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/CloudTourism.ts"
+  },
+  "card-prelude2-l1-trade-terminal": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/L1TradeTerminal.ts"
+  },
+  "card-prelude2-red-appeasement": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/RedAppeasement.ts"
+  },
+  "card-prelude2-wg-project": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/WGProject.ts"
+  },
+  "card-prelude2-venus-orbital-survey": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/VenusOrbitalSurvey.ts"
+  },
+  "card-prelude2-venus-shuttles": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/VenusShuttles.ts"
+  },
+  "card-promo-advertising": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/promo/Advertising.ts"
+  },
+  "card-promo-asteroid-deflection-system": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/AsteroidDeflectionSystem.ts"
+  },
+  "card-promo-aqueduct-systems": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/promo/AqueductSystems.ts"
+  },
+  "card-promo-asteroid-rights": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/AsteroidRights.ts"
+  },
+  "card-promo-cyberia-systems": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/CyberiaSystems.ts"
+  },
+  "card-promo-astra-mechanica": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/AstraMechanica.ts"
+  },
+  "card-promo-carbon-nanosystems": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/promo/CarbonNanosystems.ts"
+  },
+  "card-promo-floyd-continuum": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/FloydContinuum.ts"
+  },
+  "card-promo-energy-market": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/EnergyMarket.ts"
+  },
+  "card-promo-crash-site-cleanup": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/CrashSiteCleanup.ts"
+  },
+  "card-promo-interplanetary-trade": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/InterplanetaryTrade.ts"
+  },
+  "card-promo-hi-tech-lab": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/HiTechLab.ts"
+  },
+  "card-promo-great-dam-promo": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/GreatDamPromo.ts"
+  },
+  "card-promo-hermetic-order-of-mars": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/HermeticOrderofMars.ts"
+  },
+  "card-promo-law-suit": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay",
+    "getVictoryPoints"
+   ],
+   "source": "src/server/cards/promo/LawSuit.ts"
+  },
+  "card-promo-hospitals": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/promo/Hospitals.ts"
+  },
+  "card-promo-kaguya-tech": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/KaguyaTech.ts"
+  },
+  "card-promo-martian-lumber-corp": {
+   "methods": [
+    "bespokePlay",
+    "onDiscard"
+   ],
+   "source": "src/server/cards/promo/MartianLumberCorp.ts"
+  },
+  "card-promo-mohole-lake": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/MoholeLake.ts"
+  },
+  "card-promo-outdoor-sports": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/promo/OutdoorSports.ts"
+  },
+  "card-promo-neptunian-power-consultants": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/promo/NeptunianPowerConsultants.ts"
+  },
+  "card-promo-meat-industry": {
+   "methods": [
+    "onResourceAdded"
+   ],
+   "source": "src/server/cards/promo/MeatIndustry.ts"
+  },
+  "card-promo-new-holland": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/promo/NewHolland.ts"
+  },
+  "card-promo-mars-nomads": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay",
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/MarsNomads.ts"
+  },
+  "card-promo-self-replicating-robots": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/SelfReplicatingRobots.ts"
+  },
+  "card-promo-project-inspection": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/ProjectInspection.ts"
+  },
+  "card-promo-saturn-surfing": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/SaturnSurfing.ts"
+  },
+  "card-promo-public-plans": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/PublicPlans.ts"
+  },
+  "card-promo-red-ships": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/RedShips.ts"
+  },
+  "card-promo-st-joseph-of-cupertino-mission": {
+   "methods": [
+    "canAct",
+    "action",
+    "getVictoryPoints"
+   ],
+   "source": "src/server/cards/promo/StJosephOfCupertinoMission.ts"
+  },
+  "card-promo-potatoes": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/Potatoes.ts"
+  },
+  "card-promo-topsoil-contract": {
+   "methods": [
+    "onResourceAdded"
+   ],
+   "source": "src/server/cards/promo/TopsoilContract.ts"
+  },
+  "card-promo-teslaract": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/Teslaract.ts"
+  },
+  "card-promo-soil-enrichment": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/promo/SoilEnrichment.ts"
+  },
+  "card-turmoil-cultural-metropolis": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/turmoil/CulturalMetropolis.ts"
+  },
+  "card-turmoil-red-tourism-wave": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/turmoil/RedTourismWave.ts"
+  },
+  "card-turmoil-gmo-contract": {
+   "methods": [
+    "onNonCardTagAdded",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/turmoil/GMOContract.ts"
+  },
+  "card-promo-vermin": {
+   "methods": [
+    "getVictoryPoints",
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/promo/Vermin.ts"
+  },
+  "card-turmoil-banned-delegate": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/turmoil/BannedDelegate.ts"
+  },
+  "card-turmoil-recruitment": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/turmoil/Recruitment.ts"
+  },
+  "card-turmoil-vote-of-no-confidence": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/turmoil/VoteOfNoConfidence.ts"
+  },
+  "card-venus-atmoscoop": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/Atmoscoop.ts"
+  },
+  "card-venus-air-scrapping-expedition": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/AirScrappingExpedition.ts"
+  },
+  "card-venus-io-sulphur-research": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/IoSulphurResearch.ts"
+  },
+  "card-venus-comet-for-venus": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/CometForVenus.ts"
+  },
+  "card-venus-luxury-foods": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/venusNext/LuxuryFoods.ts"
+  },
+  "card-venus-freyja-biodomes": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/FreyjaBiodomes.ts"
+  },
+  "card-venus-sponsored-academies": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/SponsoredAcademies.ts"
+  },
+  "card-venus-sulphur-eating-bacteria": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/venusNext/SulphurEatingBacteria.ts"
+  },
+  "card-venus-stratospheric-birds": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/StratosphericBirds.ts"
+  },
+  "card-venus-venusian-animals": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/venusNext/VenusianAnimals.ts"
+  },
+  "card-venus-venusian-plants": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/venusNext/VenusianPlants.ts"
+  },
+  "prelude-aquifer-turbines": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/AquiferTurbines.ts"
+  },
+  "prelude-business-empire": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/BusinessEmpire.ts"
+  },
+  "prelude-ecology-experts": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/EcologyExperts.ts"
+  },
+  "prelude-galilean-mining": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/GalileanMining.ts"
+  },
+  "prelude-eccentric-sponsor": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/EccentricSponsor.ts"
+  },
+  "prelude-huge-asteroid": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude/HugeAsteroid.ts"
+  },
+  "card-prelude2-board-of-directors": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/BoardOfDirectors.ts"
+  },
+  "card-prelude2-atmospheric-enhancers": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/AtmosphericEnhancers.ts"
+  },
+  "card-prelude2-high-circles": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/HighCircles.ts"
+  },
+  "card-prelude2-early-colonization": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/EarlyColonization.ts"
+  },
+  "card-prelude2-focused-organization": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/FocusedOrganization.ts"
+  },
+  "card-prelude2-planetary-alliance": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/PlanetaryAlliance.ts"
+  },
+  "card-prelude2-nobel-prize": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/NobelPrize.ts"
+  },
+  "card-prelude2-floating-trade-hub": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/FloatingTradeHub.ts"
+  },
+  "card-prelude2-industrial-complex": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/IndustrialComplex.ts"
+  },
+  "card-prelude2-old-mining-colony": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/OldMiningColony.ts"
+  },
+  "card-prelude2-recession": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/Recession.ts"
+  },
+  "card-prelude2-main-belt-asteroids": {
+   "methods": [
+    "onResourceAdded",
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/MainBeltAsteroids.ts"
+  },
+  "card-prelude2-project-eden": {
+   "methods": [
+    "bespokeCanPlay"
+   ],
+   "source": "src/server/cards/prelude2/ProjectEden.ts"
+  },
+  "card-prelude2-preservation-program": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/prelude2/PreservationProgram.ts"
+  },
+  "card-promo-double-down": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/DoubleDown.ts"
+  },
+  "card-prelude2-world-government-advisor": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude2/WorldGovernmentAdvisor.ts"
+  },
+  "card-promo-albedo-plants": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/promo/AlbedoPlants.ts"
+  },
+  "card-promo-head-start": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/HeadStart.ts"
+  },
+  "card-prelude2-soil-bacteria": {
+   "methods": [
+    "onNonCardTagAdded",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude2/SoilBacteria.ts"
+  },
+  "corp-ic": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/corporation/InterplanetaryCinematics.ts"
+  },
+  "corp-credicor": {
+   "methods": [
+    "onCardPlayed",
+    "onStandardProject"
+   ],
+   "source": "src/server/cards/corporation/CrediCor.ts"
+  },
+  "corp-helion": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/corporation/Helion.ts"
+  },
+  "card-promo-established-methods": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/EstablishedMethods.ts"
+  },
+  "card-promo-strategic-base-planning": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/StrategicBasePlanning.ts"
+  },
+  "card-promo-new-partner": {
+   "methods": [
+    "bespokeCanPlay",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/NewPartner.ts"
+  },
+  "card-promo-merger": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/Merger.ts"
+  },
+  "corp-mining-guild": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/corporation/MiningGuild.ts"
+  },
+  "card-colonies-aridor": {
+   "methods": [
+    "bespokePlay",
+    "initialAction",
+    "onNonCardTagAdded",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/colonies/Aridor.ts"
+  },
+  "corp-unmi": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/corporation/UnitedNationsMarsInitiative.ts"
+  },
+  "corp-tharsis": {
+   "methods": [
+    "onTilePlaced",
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/corporation/TharsisRepublic.ts"
+  },
+  "card-promo-astrodrill": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/Astrodrill.ts"
+  },
+  "corp-valley-trust": {
+   "methods": [
+    "initialAction"
+   ],
+   "source": "src/server/cards/prelude/ValleyTrust.ts"
+  },
+  "corp-point-luna": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude/PointLuna.ts"
+  },
+  "card-prelude2-spire": {
+   "methods": [
+    "initialAction",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude2/Spire.ts"
+  },
+  "card-prelude2-sagitta-frontier-services": {
+   "methods": [
+    "bespokePlay",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude2/SagittaFrontierServices.ts"
+  },
+  "corp-robinson": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/prelude/RobinsonIndustries.ts"
+  },
+  "corp-vitor": {
+   "methods": [
+    "initialAction",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude/Vitor.ts"
+  },
+  "card-prelude2-palladin-shipping": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/prelude2/PalladinShipping.ts"
+  },
+  "card-colonies-arklight": {
+   "methods": [
+    "onNonCardTagAdded",
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/colonies/Arklight.ts"
+  },
+  "card-promo-arcadian-communities": {
+   "methods": [
+    "initialAction",
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/ArcadianCommunities.ts"
+  },
+  "card-prelude2-ecotec": {
+   "methods": [
+    "onCardPlayed",
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/prelude2/Ecotec.ts"
+  },
+  "card-promo-philares": {
+   "methods": [
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/promo/Philares.ts"
+  },
+  "card-promo-mons-insurance": {
+   "methods": [
+    "bespokePlay"
+   ],
+   "source": "src/server/cards/promo/MonsInsurance.ts"
+  },
+  "card-promo-recyclon": {
+   "methods": [
+    "onCardPlayed"
+   ],
+   "source": "src/server/cards/promo/Recyclon.ts"
+  },
+  "card-promo-poldertech-dutch": {
+   "methods": [
+    "initialAction",
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/promo/PolderTechDutch.ts"
+  },
+  "card-promo-pharmacy-union": {
+   "methods": [
+    "onNonCardTagAdded"
+   ],
+   "source": "src/server/cards/promo/PharmacyUnion.ts"
+  },
+  "card-turmoil-septem-tribus": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/turmoil/SeptumTribus.ts"
+  },
+  "card-promo-factorum": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/Factorum.ts"
+  },
+  "card-venus-celestic": {
+   "methods": [
+    "initialAction"
+   ],
+   "source": "src/server/cards/venusNext/Celestic.ts"
+  },
+  "card-turmoil-lakefront-resorts": {
+   "methods": [
+    "bespokePlay",
+    "onDiscard",
+    "onTilePlaced"
+   ],
+   "source": "src/server/cards/turmoil/LakefrontResorts.ts"
+  },
+  "card-promo-tycho-magnetics": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/promo/TychoMagnetics.ts"
+  },
+  "card-venus-viron": {
+   "methods": [
+    "canAct",
+    "action"
+   ],
+   "source": "src/server/cards/venusNext/Viron.ts"
+  },
+  "card-turmoil-pristar": {
+   "methods": [
+    "onProductionPhase"
+   ],
+   "source": "src/server/cards/turmoil/Pristar.ts"
+  }
+ }
+}
