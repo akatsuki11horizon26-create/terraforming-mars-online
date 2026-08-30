@@ -962,3 +962,66 @@ test("Asteroid Rights spends a M€ to place, or an asteroid to collect", () => 
   assert.equal(placed.mc, 9, "the third branch pays a M€");
   assert.ok(placed.asteroids > 3, "and puts an asteroid somewhere");
 });
+
+test("A branch that puts resources on another card asks which one", async () => {
+  // Written for Local Heat Trapping alone by card id, so every other action
+  // branch saying the same thing took its payment and placed nothing at all.
+  // Thirteen cards declare it, and the reference asks in all of them.
+  const { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } = await import("../app/official-content.js");
+  const everything = [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS];
+  const affected = everything.filter(card =>
+    (card.effectSpec?.action?.or?.behaviors ?? []).some(branch => branch.addResourcesToAnyCard)
+  );
+  assert.ok(affected.length >= 13, "the cards that place through a branch");
+
+  for (const card of affected) {
+    const branches = card.effectSpec.action.or.behaviors;
+    const index = branches.findIndex(branch => branch.addResourcesToAnyCard);
+    const placing = branches[index].addResourcesToAnyCard;
+    // A branch that names no resource type and demands an eligible card --
+    // Applied Science's does both -- has nothing to place when none is in play,
+    // and placing nothing is then the right answer.
+    if (!placing.type && placing.mustHaveCard) continue;
+
+    const state = rig();
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.titanium = 20;
+    seat.heat = 20;
+    const host = ALL_CARDS.find(entry =>
+      entry.id !== card.id &&
+      (entry.resourceType ?? getCardResourceType(entry.id)) === String(placing.type).toLowerCase()
+    );
+    seat.playedProjects = [card.id, ...(host ? [host.id] : [])];
+    seat.selectedPreludeIds = [card.id];
+    seat.cardResources = { [card.id]: 5 };
+
+    const used = executeGameCommand(state, {
+      type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: card.id, card
+    });
+    if (!used.ok) continue;
+
+    let settled = used.state;
+    if (settled.pendingChoice?.kind === "effect-branch") {
+      const option = settled.pendingChoice.options.find(entry => Number(entry.id) === index);
+      if (!option) continue;
+      settled = executeGameCommand(settled, {
+        type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: option.id
+      }).state;
+    }
+
+    // Either it asks where the resources go, or there was exactly one legal card
+    // and they went there. What must not happen is neither. The total across
+    // every card is what says they landed: a branch that spends from this card
+    // to place elsewhere moves resources rather than adding them.
+    const asked = settled.pendingChoice?.kind === "any-card-resource";
+    const after = getPlayer(settled, "player").cardResources ?? {};
+    const landed = Object.entries(after).some(
+      ([cardId, count]) => cardId !== card.id && count > 0
+    );
+    assert.ok(
+      asked || landed,
+      `${card.id}: paid for the branch and placed nothing`
+    );
+  }
+});

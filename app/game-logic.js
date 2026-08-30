@@ -3877,15 +3877,29 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         // settled values are copied back rather than rebinding.
         Object.assign(next, crossed.state);
         nextLogs = addLog(crossed.logs, "system", `選択: ${option.label}`);
-        if (card.id === LOCAL_HEAT_TRAPPING_ID && Number(option.id) === 1) {
-          const target = buildResourceChoice(next, { type: "Animal", count: 2 }, {
+        // A branch that puts resources on ANOTHER card has to ask which one.
+        // This was written for Local Heat Trapping alone, so every other branch
+        // saying the same thing took the payment and placed nothing at all --
+        // thirteen cards, Asteroid Rights and Mohole Lake among them.
+        const placing = branch.addResourcesToAnyCard;
+        if (placing?.type) {
+          const target = buildResourceChoice(next, {
+            type: placing.type,
+            count: placing.count ?? 1,
+            tag: placing.tag,
+            excludeCardId: placing.excludeThis ? card.id : undefined
+          }, {
             ...choice.continuation,
             cards: ALL_CARDS,
             getResourceType: getCardResourceType
           });
           if (target?.autoTarget) {
             applyResourceToCard(next, target.autoTarget, target.count);
-            nextLogs = addLog(nextLogs, "system", `${target.autoTarget.label}に動物を${target.count}個置きました。`);
+            nextLogs = addLog(
+              nextLogs,
+              "system",
+              `${target.autoTarget.label}に${placing.type}を${target.count}個置きました。`
+            );
           } else if (target) {
             next.pendingChoice = target;
             next.logs = nextLogs;
