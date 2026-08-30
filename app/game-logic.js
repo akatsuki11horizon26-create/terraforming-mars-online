@@ -936,6 +936,7 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
   if (typeof raw.productionFloor === "number") effect.productionFloor = raw.productionFloor;
   if (raw.stock) addNormalizedStock(effect, raw.stock, unsupported);
   if (raw.global) {
+    if (raw.global.noRating === true) effect.noRating = true;
     if (typeof raw.global.temperature === "number") effect.temperatureSteps = (effect.temperatureSteps ?? 0) + raw.global.temperature;
     if (typeof raw.global.oxygen === "number") effect.oxygenSteps = (effect.oxygenSteps ?? 0) + raw.global.oxygen;
     if (typeof raw.global.venus === "number") effect.venusSteps = (effect.venusSteps ?? 0) + raw.global.venus;
@@ -1261,7 +1262,9 @@ function applyEffect(state, effect, logs, options = {}) {
     // temperature and oxygen tracks do.
     const beforeVenus = nextState.venus ?? 0;
     nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
-    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.venus - beforeVenus) / 2), "card");
+    if (!effect.noRating) {
+      increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.venus - beforeVenus) / 2), "card");
+    }
     // Aphrodite and anything else watching the scale reacts to a card's step
     // just as it does to the World Government's.
     grantParameterRaisedCardEffects(nextState, "venus", (nextState.venus - beforeVenus) / 2);
@@ -1378,15 +1381,23 @@ function applyEffect(state, effect, logs, options = {}) {
     );
   }
 
+  // World Government Advisor raises a parameter the way the Solar Phase does:
+  // the world moves, and the player is paid nothing for it. Everywhere else a
+  // step of temperature or oxygen carries a rating step with it.
+  const paysRating = !effect.noRating;
   if (effect.temperatureSteps) {
     const before = nextState.temperature;
     nextState.temperature = Math.min(8, nextState.temperature + effect.temperatureSteps * 2);
-    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.temperature - before) / 2), "card");
+    if (paysRating) {
+      increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.temperature - before) / 2), "card");
+    }
   }
   if (effect.oxygenSteps) {
     const before = nextState.oxygen;
     nextState.oxygen = Math.min(14, nextState.oxygen + effect.oxygenSteps);
-    increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, nextState.oxygen - before), "card");
+    if (paysRating) {
+      increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, nextState.oxygen - before), "card");
+    }
   }
   if (effect.offBoardCity) {
     // Kept off state.board on purpose: everything that counts cities, checks
@@ -2984,6 +2995,29 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      // The count is chosen first, then which cards go -- the payout is fixed by
+      // the number, and the choice of cards is the player's.
+      if (choice.continuation.stage === "ceres-tech-market") {
+        const target = choice.ownerPlayerId ?? actorId;
+        if (amount <= 0) { next.pendingChoice = null; break; }
+        const hand = (getPlayer(next, target)?.hand ?? []).filter(
+          id => id !== choice.continuation.sourceId
+        );
+        const picking = buildDiscardChoice(next, hand, {
+          ...choice.continuation,
+          stage: "ceres-tech-market-pick",
+          remaining: amount,
+          optional: false,
+          prompt: `捨てるカードを選んでください（あと${amount}枚、1枚につきMC2）。`
+        }, ALL_CARDS);
+        if (picking) {
+          next.pendingChoice = picking;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: picking };
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "public-plans") {
         next.players = next.players.map(player =>
           player.id === target ? { ...player, mc: (player.mc ?? 0) + amount } : player
@@ -3504,7 +3538,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // cards go is the player's decision, so they are asked one at a time and
       // may stop whenever they like -- the question is optional, and declining
       // ends it.
-      if (choice.continuation.stage === "ceres-tech-market") {
+      if (choice.continuation.stage === "ceres-tech-market-pick") {
         const target = choice.ownerPlayerId ?? actorId;
         const discardedId = option.cardId ?? option.id;
         const seatBefore = next.currentPlayerId;
@@ -3519,12 +3553,14 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           "system",
           `Ceres Tech Market: 【${gone?.name ?? discardedId}】を捨てて MC +2`
         );
+        const left = (choice.continuation.remaining ?? 1) - 1;
         const hand = getPlayer(next, target)?.hand ?? [];
-        if (hand.length > 0) {
+        if (left > 0 && hand.length > 0) {
           const again = buildDiscardChoice(next, hand, {
             ...choice.continuation,
-            optional: true,
-            prompt: "Ceres Tech Market: さらに捨てるカードを選んでください（1枚につきMC2）。"
+            remaining: left,
+            optional: false,
+            prompt: `捨てるカードを選んでください（あと${left}枚、1枚につきMC2）。`
           }, ALL_CARDS);
           if (again) {
             next.pendingChoice = again;
@@ -4800,20 +4836,22 @@ export function applyCardAction(state, card, logs, branchIndex) {
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
 
-  // "Discard any number of cards from your hand to gain 2 M€ for each." Which
-  // cards go is the player's decision, so they are asked one at a time and may
-  // stop whenever they like.
+  // "Discard any number of cards from your hand to gain 2 M€ for each." How many
+  // is asked once rather than card by card: a full hand asked one at a time is
+  // forty questions, and the playtest's own guard trips at sixty.
   if (card.id === CERES_TECH_MARKET_ID) {
     const hand = (nextState.hand ?? []).filter(id => id !== card.id);
-    const choice = buildDiscardChoice(nextState, hand, {
+    const choice = buildAmountChoice(nextState, {
       stage: "ceres-tech-market",
+      max: hand.length,
+      allowZero: true,
       sourceKind: "card-action",
       sourceId: card.id,
       consumedAction: true,
       paid: true,
-      optional: true,
-      prompt: "Ceres Tech Market: 捨てるカードを選んでください（1枚につきMC2）。"
-    }, ALL_CARDS);
+      prompt: "捨てる手札の枚数を選んでください（1枚につきMC2）。",
+      labelFor: amount => `${amount}枚捨てる / MC +${amount * 2}`
+    });
     if (!choice) return { state, logs, playable: false };
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.pendingChoice = choice;

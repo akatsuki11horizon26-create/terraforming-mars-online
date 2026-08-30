@@ -908,20 +908,27 @@ test("Ceres Tech Market pays two M€ for each card discarded", () => {
     type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
   });
   assert.equal(used.ok, true);
-  assert.equal(used.state.pendingChoice?.kind, "discard-card");
+  // How many goes first -- a full hand asked one card at a time is forty
+  // questions -- and then which cards, since the payout is fixed by the number
+  // but the choice of cards is the player's.
+  assert.equal(used.state.pendingChoice?.kind, "amount");
 
-  // It asks one card at a time and keeps asking, so the player chooses how many
-  // to let go rather than committing to a number up front.
-  let settled = used.state;
-  for (let round = 0; round < 2; round += 1) {
+  const two = used.state.pendingChoice.options.find(option => /^2/.test(option.label));
+  let settled = executeGameCommand(used.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: two.id
+  }).state;
+
+  let rounds = 0;
+  while (settled.pendingChoice && rounds < 6) {
     const choice = settled.pendingChoice;
-    if (!choice) break;
     const answered = executeGameCommand(settled, {
       type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: choice.options[0].id
     });
-    if (!answered.ok) break;
+    if (!answered.ok || answered.state.pendingChoice === choice) break;
     settled = answered.state;
+    rounds += 1;
   }
+  assert.equal(rounds, 2, "two cards picked");
   const after = getPlayer(settled, "player");
   assert.equal(after.mc, 4, "two cards, two M€ each");
   assert.equal(after.hand.length, 1);

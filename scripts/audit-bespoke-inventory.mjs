@@ -27,7 +27,6 @@ const UNREACHABLE = {
   "card-promo-asteroid-rights": "three-way choice ending in a production step or titanium",
   "card-prelude2-board-of-directors": "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization": "discard a card and a standard resource for one of each",
-  "card-prelude2-world-government-advisor": "raise a global parameter with no rating and no bonus",
   "card-promo-astrodrill": "spend an asteroid for a standard resource, or take one from any card",
   "card-promo-arcadian-communities": "place a community marker as a first action"
 };

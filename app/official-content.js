@@ -247,6 +247,14 @@ const CURATED_PRELUDE_OVERRIDES = [
   // level, which is not a behavior key, so the generated spec was never read
   // and the card raised nothing at all. The ongoing half is registered as
   // unimplemented rather than silently absent.
+  // "Raise 1 global parameter without getting any TR or other bonuses." Upstream
+  // runs a temporary Solar Phase for it, which is the World Government's own
+  // move -- the world advances and nobody is paid for it.
+  prelude("card-prelude2-world-government-advisor", "World Government Advisor", "TR+2。カードを1枚引く。アクション: グローバルパラメータを1つ上げる（TRやボーナスは得られない）。", {}, { tags: ["Earth"], effectSpec: { behavior: { tr: 2, drawCard: 1 }, action: { or: { autoSelect: false, behaviors: [
+    { title: "Raise the temperature 1 step, gaining nothing", global: { temperature: 1, noRating: true } },
+    { title: "Raise the oxygen 1 step, gaining nothing", global: { oxygen: 1, noRating: true } },
+    { title: "Raise Venus 1 step, gaining nothing", global: { venus: 1, noRating: true } }
+  ] } } } }),
   prelude("card-prelude2-preservation-program", "Preservation Program", "TR+5。効果: 各世代のアクションフェイズで最初に得るTRは得られない。", { tr: 5 }, { tags: [] }),
   prelude("card-prelude2-floating-trade-hub", "Floating Trade Hub", "アクション: 任意のカードにフローターを2個追加する、またはこのカードのフローターを任意の数取り除き、同じ数の標準資源を獲得する。", {}, { tags: ["Space"], resourceType: "floater", effectSpec: { action: { or: { autoSelect: true, behaviors: [
     { title: "Remove a floater here to gain a titanium", spend: { resourcesHere: 1 }, stock: { titanium: 1 } },
