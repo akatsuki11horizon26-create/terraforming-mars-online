@@ -903,8 +903,14 @@ const HANDLERS = {
       return fail(state, ERROR.CARD_NOT_OWNED, "そのカードを場に出していません。");
     }
     // A prelude's type is "prelude", never "active", so the type alone cannot
-    // decide this: what settles it is whether the card declares an action.
-    if (card.type !== "active" && !card.effectSpec?.action) {
+    // decide this. Nor can a declared action: a few cards -- Focused
+    // Organization among them -- have theirs written into the engine instead,
+    // so the engine's own answer is what settles it.
+    if (
+      card.type !== "active" &&
+      !card.effectSpec?.action &&
+      !getCardActionStatus(state, card).playable
+    ) {
       return fail(state, ERROR.CARD_NOT_ACTIVE, "そのカードにアクションはありません。");
     }
     const status = getCardActionStatus(state, card);

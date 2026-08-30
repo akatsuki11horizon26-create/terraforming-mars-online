@@ -54,6 +54,7 @@ import {
   buildResourceRemovalChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  STANDARD_RESOURCES,
   buildAmountChoice,
   buildCorrosiveRainChoice,
   buildEventDiscardChoice,
@@ -74,7 +75,7 @@ import {
 } from "./global-events.js";
 export { missingGlobalEventEffects, playableGlobalEvents };
 
-export { STANDARD_RESOURCES } from "./pending-choice.js";
+export { STANDARD_RESOURCES };
 export { getCardResourceType };
 import {
   DELEGATE_RESERVE_COST,
@@ -370,6 +371,7 @@ const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
+const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
@@ -3411,6 +3413,33 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    // Spend the chosen resource, then ask which card to discard.
+    case "focused-organization": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      const seatBefore = next.currentPlayerId;
+      next.currentPlayerId = owner;
+      next[option.resource] = Math.max(0, (next[option.resource] ?? 0) - 1);
+      const hand = next.hand ?? [];
+      next.currentPlayerId = seatBefore;
+      nextLogs = addLog(nextLogs, "system", `Focused Organization: ${option.label} -1`);
+
+      const discarding = buildDiscardChoice(next, hand, {
+        sourceKind: "card-action",
+        sourceId: FOCUSED_ORGANIZATION_ID,
+        stage: "focused-organization-discard",
+        consumedAction: false,
+        paid: true,
+        optional: false,
+        prompt: "捨てるカードを選んでください。"
+      }, ALL_CARDS);
+      if (discarding) {
+        next.pendingChoice = discarding;
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: discarding };
+      }
+      break;
+    }
+
     case "astrodrill": {
       const owner = choice.ownerPlayerId ?? actorId;
       const seatBefore = next.currentPlayerId;
@@ -3664,6 +3693,36 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // cards go is the player's decision, so they are asked one at a time and
       // may stop whenever they like -- the question is optional, and declining
       // ends it.
+      if (choice.continuation.stage === "focused-organization-discard") {
+        const owner = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        next.currentPlayerId = owner;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        drawCards(next, 1);
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Focused Organization: 【${gone?.name ?? discardedId}】を捨てて1枚引きました。`
+        );
+        const gaining = buildStandardResourceChoice(next, 1, {
+          sourceKind: "card-action",
+          sourceId: FOCUSED_ORGANIZATION_ID,
+          stage: "standard-resource",
+          consumedAction: false,
+          paid: true
+        });
+        if (gaining) {
+          next.pendingChoice = gaining;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: gaining };
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "ceres-tech-market-pick") {
         const target = choice.ownerPlayerId ?? actorId;
         const discardedId = option.cardId ?? option.id;
@@ -4855,6 +4914,18 @@ export function getCardActionStatus(state, card) {
       ? { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" }
       : { playable: true, reason: "" };
   }
+  if (card.id === FOCUSED_ORGANIZATION_ID) {
+    const seat = getCurrentPlayer(state);
+    if ((seat?.usedCardActions ?? []).includes(card.id)) {
+      return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
+    }
+    if ((seat?.hand ?? []).length === 0) {
+      return { playable: false, reason: "捨てられる手札がありません。" };
+    }
+    return STANDARD_RESOURCES.some(resource => (seat?.[resource.id] ?? 0) > 0)
+      ? { playable: true, reason: "" }
+      : { playable: false, reason: "支払える標準資源がありません。" };
+  }
   if (card.id === CERES_TECH_MARKET_ID) {
     const seat = getCurrentPlayer(state);
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
@@ -4989,6 +5060,34 @@ export function applyCardAction(state, card, logs, branchIndex) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
+
+  // "Discard 1 card and spend 1 standard resource to draw 1 card and gain 1
+  // standard resource." Four steps, each its own question: what to spend, what
+  // to discard, then the draw and what to gain.
+  if (card.id === FOCUSED_ORGANIZATION_ID) {
+    const seat = getCurrentPlayer(nextState);
+    const spendable = STANDARD_RESOURCES.filter(resource => (seat?.[resource.id] ?? 0) > 0);
+    if (spendable.length === 0 || (seat?.hand ?? []).length === 0) {
+      return { state, logs, playable: false };
+    }
+    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
+    nextState.pendingChoice = {
+      id: `focused-organization:${nextState.currentPlayerId}`,
+      kind: "focused-organization",
+      ownerPlayerId: nextState.currentPlayerId,
+      prompt: "支払う標準資源を選んでください。",
+      optional: false,
+      options: spendable.map(resource => ({ id: resource.id, label: resource.label, resource: resource.id })),
+      continuation: {
+        sourceKind: "card-action",
+        sourceId: card.id,
+        stage: "focused-organization-spend",
+        consumedAction: true,
+        paid: true
+      }
+    };
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  }
 
   // "Discard any number of cards from your hand to gain 2 M€ for each." How many
   // is asked once rather than card by card: a full hand asked one at a time is

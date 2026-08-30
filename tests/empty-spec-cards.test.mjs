@@ -1181,3 +1181,59 @@ test("Astrodrill offers three things, and the third only when it can pay", () =>
     "the asteroid landed on some card"
   );
 });
+
+test("Focused Organization trades a card and a resource for one of each", () => {
+  // "Discard 1 card and spend 1 standard resource to draw 1 card and gain 1
+  // standard resource." Four questions in a row: what to spend, what to
+  // discard, and -- after the draw -- what to gain.
+  const id = "card-prelude2-focused-organization";
+  const card = PRELUDES.find(entry => entry.id === id);
+  const start = (steel, handSize) => {
+    const state = rig();
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = null;
+    seat.mc = 0;
+    seat.steel = steel;
+    seat.titanium = 0;
+    seat.plants = 0;
+    seat.energy = 0;
+    seat.heat = 0;
+    seat.actionsRemaining = 2;
+    seat.selectedPreludeIds = [id];
+    seat.playedProjects = [];
+    seat.hand = state.deck.slice(0, handSize);
+    return state;
+  };
+
+  assert.equal(getCardActionStatus(start(0, 2), card).playable, false, "nothing to spend");
+  assert.equal(getCardActionStatus(start(3, 0), card).playable, false, "nothing to discard");
+
+  const state = start(3, 2);
+  let step = executeGameCommand(state, {
+    type: COMMAND.USE_CARD_ACTION, playerId: "player", cardId: id, card
+  });
+  assert.equal(step.state.pendingChoice?.kind, "focused-organization");
+  // Only what the player actually holds is on offer.
+  assert.deepEqual(step.state.pendingChoice.options.map(o => o.id), ["steel"]);
+
+  let settled = executeGameCommand(step.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "steel"
+  }).state;
+  assert.equal(settled.pendingChoice?.kind, "discard-card");
+
+  settled = executeGameCommand(settled, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: settled.pendingChoice.options[0].id
+  }).state;
+  assert.equal(settled.pendingChoice?.kind, "standard-resource");
+
+  const done = executeGameCommand(settled, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "heat"
+  });
+  const after = getPlayer(done.state, "player");
+  assert.equal(after.steel, 2, "one steel paid");
+  assert.equal(after.heat, 1, "one heat gained");
+  assert.equal(after.hand.length, 2, "one discarded and one drawn");
+});
