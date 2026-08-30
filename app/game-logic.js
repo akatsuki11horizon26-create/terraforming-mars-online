@@ -3411,6 +3411,57 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
     }
 
+    case "astrodrill": {
+      const owner = choice.ownerPlayerId ?? actorId;
+      const seatBefore = next.currentPlayerId;
+      next.currentPlayerId = owner;
+      if (option.id === "titanium") {
+        changeCardResource(next, {
+          ownerPlayerId: owner,
+          cardId: "card-promo-astrodrill",
+          delta: -1
+        });
+        next.titanium = (next.titanium ?? 0) + 3;
+        next.currentPlayerId = seatBefore;
+        nextLogs = addLog(nextLogs, "system", "Astrodrill: 小惑星 -1、チタン +3");
+        break;
+      }
+      next.currentPlayerId = seatBefore;
+      if (option.id === "standard") {
+        const picking = buildStandardResourceChoice(next, 1, {
+          sourceKind: "corporation",
+          sourceId: "card-promo-astrodrill",
+          stage: "standard-resource",
+          consumedAction: false,
+          paid: true
+        });
+        if (picking) {
+          next.pendingChoice = picking;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: picking };
+        }
+        break;
+      }
+      const target = buildResourceChoice(next, { type: "Asteroid", count: 1 }, {
+        sourceKind: "corporation",
+        sourceId: "card-promo-astrodrill",
+        stage: "astrodrill-place",
+        consumedAction: false,
+        paid: true,
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType
+      });
+      if (target?.autoTarget) {
+        applyResourceToCard(next, target.autoTarget, target.count);
+        nextLogs = addLog(nextLogs, "system", `Astrodrill: ${target.autoTarget.label}に小惑星を1個置きました。`);
+      } else if (target) {
+        next.pendingChoice = target;
+        next.logs = nextLogs;
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: target };
+      }
+      break;
+    }
+
     case "factorum": {
       const owner = choice.ownerPlayerId ?? actorId;
       if (option.id === "energy") {

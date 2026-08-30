@@ -548,6 +548,39 @@ const CORPORATION_ACTIONS = {
       return { ok: true, state, events: [], pendingAction: state.pendingChoice };
     }
   },
+  // "Add an asteroid to ANY card, OR gain any standard resource, OR remove an
+  // asteroid from this card to gain 3 titanium."
+  "card-promo-astrodrill": {
+    label: "Astrodrill: アクションを実行しました。",
+    blocked: () => null,
+    run(state, command) {
+      const actor = getPlayer(state, command.playerId);
+      const held = actor.cardResources?.["card-promo-astrodrill"] ?? 0;
+      const options = [
+        { id: "add", label: "任意のカードに小惑星を1個追加する" },
+        { id: "standard", label: "標準資源を1個獲得する" },
+        ...(held > 0
+          ? [{ id: "titanium", label: "このカードの小惑星を1個支払い、チタンを3獲得する" }]
+          : [])
+      ];
+      state.pendingChoice = {
+        id: `astrodrill:${command.playerId}`,
+        kind: "astrodrill",
+        ownerPlayerId: command.playerId,
+        prompt: "Astrodrill: どれを実行しますか。",
+        optional: false,
+        options,
+        continuation: {
+          sourceKind: "corporation",
+          sourceId: "card-promo-astrodrill",
+          stage: "astrodrill",
+          consumedAction: true,
+          paid: true
+        }
+      };
+      return { ok: true, state, events: [], pendingAction: state.pendingChoice };
+    }
+  },
   // "Place a community on a non-reserved area ADJACENT TO ONE OF YOUR TILES OR
   // MARKED AREAS." A community is a land-claim marker: it reserves the space for
   // its owner, which the placement rules already honour.

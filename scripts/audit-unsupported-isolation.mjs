@@ -31,8 +31,6 @@ export const UNSUPPORTED = {
     "draw a prelude, then discard it or pay 12 M€ to play it",
   "card-prelude2-focused-organization":
     "discard a card and a standard resource for one of each",
-  "card-promo-astrodrill":
-    "spend an asteroid for a standard resource, or take one from any card",
 };
 
 const cards = [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS];

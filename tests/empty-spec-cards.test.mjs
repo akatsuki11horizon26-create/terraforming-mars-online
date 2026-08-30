@@ -1138,3 +1138,46 @@ test("Building on your own community pays three M€", async () => {
   assert.ok(build(id) >= 3, "the community pays three");
   assert.equal(build(id) - build("card-base-land-claim"), 3);
 });
+
+test("Astrodrill offers three things, and the third only when it can pay", () => {
+  const id = "card-promo-astrodrill";
+  const other = ALL_CARDS.find(card => card.resourceType === "asteroid");
+  const start = held => {
+    const state = rig([other.id]);
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.corporationId = id;
+    seat.mc = 50;
+    seat.titanium = 0;
+    seat.actionsRemaining = 2;
+    seat.cardResources = { [id]: held, [other.id]: 0 };
+    return state;
+  };
+
+  const empty = executeGameCommand(start(0), { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.deepEqual(empty.state.pendingChoice.options.map(o => o.id), ["add", "standard"]);
+
+  const stocked = executeGameCommand(start(2), { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.deepEqual(stocked.state.pendingChoice.options.map(o => o.id), ["add", "standard", "titanium"]);
+
+  // "Remove an asteroid resource from this card to gain 3 titanium."
+  const sold = executeGameCommand(stocked.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "titanium"
+  });
+  const after = getPlayer(sold.state, "player");
+  assert.equal(after.cardResources[id], 1);
+  assert.equal(after.titanium, 3);
+
+  // "Add an asteroid resource to ANY card."
+  const placing = executeGameCommand(
+    executeGameCommand(start(2), { type: COMMAND.CORPORATION_ACTION, playerId: "player" }).state,
+    { type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: "add" }
+  );
+  const placed = getPlayer(settle(placing.state), "player").cardResources ?? {};
+  assert.ok(
+    (placed[other.id] ?? 0) > 0 || (placed[id] ?? 0) > 2,
+    "the asteroid landed on some card"
+  );
+});
