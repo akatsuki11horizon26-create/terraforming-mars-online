@@ -20,7 +20,7 @@ import {
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
-import { PRELUDES } from "../app/official-content.js";
+import { PRELUDES, OFFICIAL_PROJECTS, CORPORATIONS } from "../app/official-content.js";
 import { JAPANESE_TEXT } from "../app/japanese-text.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
@@ -1853,4 +1853,19 @@ test("Lakefront Resorts' ocean bonus follows the corporation in and out of play"
 
   assert.equal(rig("card-turmoil-lakefront-resorts"), 3, "3 M€ while the corporation is in play");
   assert.equal(rig(null), 2, "the printed 2 M€ without it");
+});
+
+test("a card that has an action or a discount says so", () => {
+  // 57 cards carried an action or a card discount the engine ran and the text
+  // never mentioned: Caretaker Contract read "requires 0°C or warmer" and said
+  // nothing about spending 8 heat for a TR, Restricted Area showed a tile and
+  // hid its action. They all worked. The player had no way to know.
+  const silent = [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS].filter(card => {
+    const text = JAPANESE_TEXT[card.id]?.effectText ?? "";
+    const action = Boolean(card.effectSpec?.action);
+    const discount = Boolean(card.effectSpec?.cardDiscount);
+    return (action && !/アクション|効果:/.test(text)) ||
+           (discount && !/コスト|割引|軽減/.test(text));
+  });
+  assert.deepEqual(silent.map(card => card.id), [], "these cards never mention what they do");
 });
