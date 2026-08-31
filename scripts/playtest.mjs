@@ -13,8 +13,6 @@ import {
   PRELUDES,
   completeSetupPurchase,
   cloneGameState,
-  applyCardEffect,
-  applyCardAction,
   getCardActionStatus,
   getCardPlayableStatus,
   getCardPaymentCost,
