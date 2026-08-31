@@ -378,6 +378,7 @@ const PHILARES_ID = "card-promo-philares";
 const NEPTUNIAN_ID = "card-promo-neptunian-power-consultants";
 const RECYCLON_ID = "card-promo-recyclon";
 const ECOTEC_ID = "card-prelude2-ecotec";
+const PHARMACY_UNION_ID = "card-promo-pharmacy-union";
 const PRISTAR_ID = "card-turmoil-pristar";
 const NEPTUNIAN_COST = 5;
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
@@ -6352,6 +6353,58 @@ export function applyCorporationTriggers(state, card, logs) {
           paid: true
         }
       });
+    }
+  }
+
+  // Pharmacy Union: "when ANY player plays a microbe tag, add a disease here and
+  // lose up to 4 M€", and separately, when its OWNER plays a science tag, trade
+  // a disease for a TR -- or, with none on the card, turn it face down for 3 TR
+  // and nothing after that.
+  if (microbes > 0) {
+    for (const holder of nextState.players) {
+      const corporation = corporationFor(holder);
+      if (!corporation?.effects?.diseaseOnMicrobe) continue;
+      if (holder.pharmacyUnionDisabled) continue;
+      changeCardResource(nextState, {
+        ownerPlayerId: holder.id,
+        cardId: PHARMACY_UNION_ID,
+        delta: microbes
+      });
+      const cost = Math.min(holder.mc ?? 0, microbes * corporation.effects.diseaseOnMicrobe);
+      nextState.players = nextState.players.map(player =>
+        player.id === holder.id ? { ...player, mc: (player.mc ?? 0) - cost } : player
+      );
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `Pharmacy Union: ${holder.name} に疾病 +${microbes}、MC -${cost}`
+      );
+    }
+  }
+
+  const pharmacyCorp = getCorporation(nextState);
+  const scienceTags = countWatchedTags(card, ["Science"]);
+  if (pharmacyCorp?.effects?.scienceDiseaseTrade && scienceTags > 0 && !nextState.pharmacyUnionDisabled) {
+    for (let i = 0; i < scienceTags; i++) {
+      if (nextState.pharmacyUnionDisabled) break;
+      const held = nextState.cardResources?.[PHARMACY_UNION_ID] ?? 0;
+      if (held > 0) {
+        changeCardResource(nextState, {
+          ownerPlayerId: nextState.id,
+          cardId: PHARMACY_UNION_ID,
+          delta: -1
+        });
+        increaseTerraformRating(nextState, nextState.id, 1, "card");
+        nextLogs = addLog(nextLogs, "system", "Pharmacy Union: 疾病を1個取り除き TR +1");
+      } else {
+        // Face down for the rest of the game: nothing on it fires again.
+        nextState.players = nextState.players.map(player =>
+          player.id === nextState.id ? { ...player, pharmacyUnionDisabled: true } : player
+        );
+        nextState.pharmacyUnionDisabled = true;
+        increaseTerraformRating(nextState, nextState.id, 3, "card");
+        nextLogs = addLog(nextLogs, "system", "Pharmacy Union: カードを裏返して TR +3");
+      }
     }
   }
 

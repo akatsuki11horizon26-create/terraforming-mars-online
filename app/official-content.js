@@ -251,6 +251,11 @@ const CURATED_CORPORATION_OVERRIDES = [
   // "When you play a bio tag, gain 1 plant or add a microbe to ANY card."
   // Asked once per tag; with no microbe card in play the plant is automatic.
   corporation("card-prelude2-ecotec", "EcoTec", ["Microbe", "Plant"], { mc: 42, production: { plants: 1 } }, "42MCを所持した状態で開始する。植物生産量+1。効果: 生物タグ（動物・植物・微生物）をプレイするたびに、植物を1獲得するか、任意のカードに微生物を1個置く。", { bioTagChoice: 1 }),
+  // "When any player plays a microbe tag, add a disease here and lose up to
+  // 4 M€. When YOU play a science tag: remove a disease for 1 TR if one is
+  // here, otherwise turn this card face down for 3 TR." Once face down it does
+  // nothing further, which is why the flag has to be stored.
+  corporation("card-promo-pharmacy-union", "Pharmacy Union", ["Microbe"], { mc: 54 }, "54MCを所持した状態で開始する。科学タグのカードを1枚引く。効果: 誰かが微生物タグをプレイするたびに、このカードに疾病を1個置き、最大4MCを失う。効果: 自分が科学タグをプレイしたとき、このカードの疾病を1個取り除いてTR+1。疾病が無ければ、このカードを裏返して（以後効果なし）TR+3。", { diseaseOnMicrobe: 4, scienceDiseaseTrade: true }),
   // "When any ocean tile is placed, increase your M€ production 1 step. Your
   // bonus for placing adjacent to oceans is 3 M€ instead of 2 M€." Both halves
   // were missing: the card was 54 M€ and nothing else.

@@ -2212,3 +2212,45 @@ test("our catalogue covers the upstream expansions it claims", () => {
 
   assert.deepEqual(missing, [], "upstream cards in our expansions that we do not have");
 });
+
+test("Pharmacy Union trades diseases for rating, then turns face down", () => {
+  const id = "card-promo-pharmacy-union";
+  const microbe = ALL_CARDS.find(c => (c.tags ?? []).includes("Microbe") && !(c.tags ?? []).includes("Science") && c.type !== "event");
+  const science = ALL_CARDS.find(c => (c.tags ?? []).includes("Science") && !(c.tags ?? []).includes("Microbe") && c.type !== "event");
+
+  const rig = () => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = id;
+    seat.mc = 54;
+    seat.tr = 20;
+    seat.cardResources = {};
+    return { ...state, ...seat };
+  };
+
+  // A microbe tag puts a disease on the card and takes up to 4 M€.
+  let view = applyCorporationTriggers(rig(), microbe, []).state;
+  let seat = getPlayer(view, "player");
+  assert.equal(seat.cardResources[id], 1);
+  assert.equal(seat.mc, 50);
+
+  // A science tag then trades that disease for a terraforming step.
+  view = applyCorporationTriggers({ ...view, ...seat }, science, []).state;
+  seat = getPlayer(view, "player");
+  assert.equal(seat.cardResources[id], 0);
+  assert.equal(seat.tr, 21);
+
+  // With no disease on it, a science tag turns the card face down for 3 TR --
+  // and nothing on it fires again after that.
+  let bare = applyCorporationTriggers(rig(), science, []).state;
+  let bareSeat = getPlayer(bare, "player");
+  assert.equal(bareSeat.tr, 23, "three steps rather than one");
+  assert.equal(bareSeat.pharmacyUnionDisabled, true);
+
+  bare = applyCorporationTriggers({ ...bare, ...bareSeat }, microbe, []).state;
+  bareSeat = getPlayer(bare, "player");
+  assert.equal(bareSeat.cardResources[id] ?? 0, 0, "face down takes no more diseases");
+  assert.equal(bareSeat.mc, 54, "and costs nothing further");
+});
