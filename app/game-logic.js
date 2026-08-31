@@ -528,10 +528,17 @@ export function corporationFor(player) {
 // The corporation a player is playing. With Merger they may hold two, and the
 // effects of both apply, so the object handed back carries the merged effects:
 // every reader of `corporation.effects` then sees both without knowing about it.
-function getCorporation(state) {
+// Some callers hand in a state with the current player's fields flattened onto
+// it, and some hand in a plain game state, so the corporation is read from
+// whichever carries it. Reading only the flattened field is why a trigger that
+// fires from the command layer could silently never fire.
+function getCorporation(state, playerId) {
+  const seat = playerId
+    ? getPlayer(state, playerId)
+    : (state.corporationId ? state : getCurrentPlayer(state));
   return corporationFor({
-    corporationId: state.corporationId,
-    mergedCorporationId: state.mergedCorporationId
+    corporationId: seat?.corporationId,
+    mergedCorporationId: seat?.mergedCorporationId
   });
 }
 
@@ -6286,6 +6293,11 @@ function countWatchedTags(card, tags) {
 export function applyCorporationTriggers(state, card, logs) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
+  // Some callers flatten the current player onto the state and some do not, so
+  // `nextState.id` is only sometimes the player. Resolving the seat once here
+  // is what every effect below writes against: reading the flattened field
+  // directly is why three corporations worked in a test and not in a game.
+  const actingSeatId = nextState.id ?? nextState.currentPlayerId;
 
   // The owner's own plays, one firing per matching tag. Anything that needs an
   // answer is queued rather than asked immediately, so several watchers on one
@@ -6374,7 +6386,7 @@ export function applyCorporationTriggers(state, card, logs) {
     const held = nextState.cardResources?.[recyclonCorp.id] ?? 0;
     if (held < 2) {
       changeCardResource(nextState, {
-        ownerPlayerId: nextState.id,
+        ownerPlayerId: actingSeatId,
         cardId: recyclonCorp.id,
         delta: recyclonCorp.effects.buildingMicrobe
       });
@@ -6383,7 +6395,7 @@ export function applyCorporationTriggers(state, card, logs) {
       queued.push({
         id: makeChoiceId("recyclon-microbe", recyclonCorp.id, nextState.id),
         kind: "amount",
-        ownerPlayerId: nextState.id,
+        ownerPlayerId: actingSeatId,
         prompt: "Recyclon: 微生物を1個置きますか、それとも微生物2個を取り除いて植物生産量+1にしますか。",
         optional: false,
         options: [
@@ -6435,7 +6447,7 @@ export function applyCorporationTriggers(state, card, logs) {
       const held = nextState.cardResources?.[PHARMACY_UNION_ID] ?? 0;
       if (held > 0) {
         changeCardResource(nextState, {
-          ownerPlayerId: nextState.id,
+          ownerPlayerId: actingSeatId,
           cardId: PHARMACY_UNION_ID,
           delta: -1
         });
@@ -6549,7 +6561,7 @@ export function applyCorporationTriggers(state, card, logs) {
     const paying = (card.tags ?? []).filter(tag => tag === "Animal" || tag === "Plant").length;
     if (paying > 0) {
       changeCardResource(nextState, {
-        ownerPlayerId: nextState.id,
+        ownerPlayerId: actingSeatId,
         cardId: corporation.id,
         delta: paying * corporation.effects.animalPlantResource
       });
@@ -6562,7 +6574,7 @@ export function applyCorporationTriggers(state, card, logs) {
     const tagCount = (card.tags ?? []).length + (card.type === "event" ? 1 : 0);
     if (tagCount >= corporation.effects.multiTagScience) {
       changeCardResource(nextState, {
-        ownerPlayerId: nextState.id,
+        ownerPlayerId: actingSeatId,
         cardId: corporation.id,
         delta: 1
       });

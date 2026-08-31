@@ -2330,3 +2330,60 @@ test("Double Down copies a prelude's payout but not its questions", () => {
     .filter(cell => ["ocean", "city", "forest"].includes(cell.tileType)).length;
   assert.equal(tiles, 3, "the original's three; the copy places none (known gap)");
 });
+
+test("every corporation trigger fires on the path a player actually uses", () => {
+  // Arklight, Recyclon and Spire were tested by spreading the player onto the
+  // state -- `{ ...state, ...seat }` -- which gives applyCorporationTriggers a
+  // shape the command layer never produces. All three read state.corporationId
+  // and state.id directly, so all three did nothing in a real game while their
+  // tests passed. This plays through executeGameCommand, which is what the
+  // browser does, so the flattened shape cannot hide the fault again.
+  const playable = tag => ALL_CARDS.find(card =>
+    (card.tags ?? []).includes(tag) && card.type !== "event" && (card.requirements ?? []).length === 0
+  );
+  const twoTags = ALL_CARDS.find(card =>
+    (card.tags ?? []).length >= 2 && card.type !== "event" && (card.requirements ?? []).length === 0
+  );
+
+  const play = (corporationId, donor) => {
+    const state = getInitialState({
+      playerCount: 1, colonies: true, promo: true, prelude: true, turmoil: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = corporationId;
+    seat.mc = 300;
+    seat.actionsRemaining = 20;
+    seat.cardResources = {};
+    seat.mcProd = 0;
+    seat.seenTagTypes = [];
+    seat.hand = [donor.id];
+    const result = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: donor.id
+    });
+    assert.equal(result.ok, true, `${corporationId} could not play ${donor.id}`);
+    return getPlayer(result.state, "player");
+  };
+
+  assert.equal(
+    play("card-colonies-arklight", playable("Animal")).cardResources["card-colonies-arklight"], 1,
+    "Arklight takes an animal for an animal tag"
+  );
+  assert.equal(
+    play("card-promo-recyclon", playable("Building")).cardResources["card-promo-recyclon"], 1,
+    "Recyclon takes a microbe for a building tag"
+  );
+  assert.equal(
+    play("card-prelude2-spire", twoTags).cardResources["card-prelude2-spire"], 1,
+    "Spire takes a science resource for a two-tag card"
+  );
+  assert.equal(
+    play("card-colonies-aridor", playable("Building")).mcProd, 1,
+    "Aridor pays for a tag type it has not seen"
+  );
+  assert.equal(
+    play("card-promo-pharmacy-union", playable("Microbe")).cardResources["card-promo-pharmacy-union"], 1,
+    "Pharmacy Union takes a disease for a microbe tag"
+  );
+});
