@@ -20,3 +20,19 @@ export const CARD_ICON_GLYPHS = {
   award: "🏆", vp: "★", multiplier_white: "×",
   ignore_global_requirements: "⊘", one: "1", special_tile: "⬢"
 };
+
+// A tag icon and a card-resource icon each carry which one they mean, so they
+// are drawn as the specific thing rather than a generic "a tag": a card asking
+// for three Plant tags and one asking for three Science tags print differently.
+export const CARD_TAG_GLYPHS = {
+  earth: "🌍", animal: "🐾", plant: "🌱", microbe: "🦠",
+  space: "🚀", event: "→", building: "🏗", science: "🔬",
+  power: "⚡", jovian: "🪐", venus: "♀", city: "🏙"
+};
+
+export const CARD_RESOURCE_GLYPHS = {
+  Microbe: "🦠", Animal: "🐾", Science: "🔬", Fighter: "⚔",
+  Floater: "🎈", Camp: "⛺", Director: "👔", Asteroid: "☄",
+  Graphene: "◇", Disease: "☣", "Hydroelectric resource": "💧",
+  Preservation: "🛡"
+};

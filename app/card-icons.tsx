@@ -2,7 +2,7 @@
 
 import React from "react";
 import { CARD_ICON_ROWS } from "./card-icon-rows";
-import { CARD_ICON_GLYPHS } from "./card-icon-glyphs";
+import { CARD_ICON_GLYPHS, CARD_TAG_GLYPHS, CARD_RESOURCE_GLYPHS } from "./card-icon-glyphs";
 
 // The icon row a card prints, above its Japanese text rather than instead of it.
 //
@@ -29,7 +29,12 @@ type Token = {
 
 const label = (token: Token): string => {
   if (token.s) return SYMBOL_TEXT[token.s] ?? token.s;
-  const glyph = (CARD_ICON_GLYPHS as Record<string, string>)[token.i ?? ""] ?? "?";
+  // A tag or a card resource says which one it means; drawing the generic icon
+  // loses the difference between "three plant tags" and "three science tags".
+  const specific =
+    (token.i === "tag" && token.t && (CARD_TAG_GLYPHS as Record<string, string>)[token.t]) ||
+    (token.i === "resource" && token.r && (CARD_RESOURCE_GLYPHS as Record<string, string>)[token.r]);
+  const glyph = specific || (CARD_ICON_GLYPHS as Record<string, string>)[token.i ?? ""] || "?";
   const count = token.n !== undefined && token.n !== -1 ? String(token.n) : "";
   return `${count}${glyph}`;
 };

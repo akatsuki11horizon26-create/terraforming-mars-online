@@ -25,7 +25,7 @@ import { getCardResourceType } from "../app/card-resource-types.js";
 import { PRELUDES, OFFICIAL_PROJECTS, CORPORATIONS } from "../app/official-content.js";
 import { JAPANESE_TEXT } from "../app/japanese-text.js";
 import { CARD_ICON_ROWS } from "../app/card-icon-rows.js";
-import { CARD_ICON_GLYPHS } from "../app/card-icon-glyphs.js";
+import { CARD_ICON_GLYPHS, CARD_TAG_GLYPHS, CARD_RESOURCE_GLYPHS } from "../app/card-icon-glyphs.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
 // a hand-written method upstream rather than a declarative block, so the
@@ -2151,4 +2151,29 @@ test("the icon rows carry the amounts upstream prints", () => {
   const plants = flat.filter(token => token.i === "plants");
   assert.equal(plants.length, 2, "the ongoing two and the printed one");
   assert.ok(plants.some(token => token.n === 2), "two for an ocean");
+});
+
+test("every tag and card resource the icons name has its own glyph", () => {
+  // A tag icon and a card-resource icon carry which one they mean. Falling back
+  // to the generic picture loses the difference between a card asking for three
+  // plant tags and one asking for three science tags.
+  const tags = new Set();
+  const resources = new Set();
+  const walk = token => {
+    if (Array.isArray(token)) return token.forEach(walk);
+    if (!token || typeof token !== "object") return;
+    if (token.i === "tag" && token.t) tags.add(token.t);
+    if (token.i === "resource" && token.r) resources.add(token.r);
+    for (const value of Object.values(token)) walk(value);
+  };
+  walk(Object.values(CARD_ICON_ROWS));
+
+  assert.deepEqual(
+    [...tags].filter(tag => !(tag in CARD_TAG_GLYPHS)), [],
+    "these tags would draw as a generic tag"
+  );
+  assert.deepEqual(
+    [...resources].filter(resource => !(resource in CARD_RESOURCE_GLYPHS)), [],
+    "these card resources would draw as a generic marker"
+  );
 });
