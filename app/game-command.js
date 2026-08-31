@@ -55,7 +55,8 @@ import {
   CORPORATIONS,
   LAW_SUIT_ID,
   communitySpaceOptions,
-  communityChoice
+  communityChoice,
+  armPreservationProgram,
 } from "./game-logic.js";
 import { buildTileChoice, buildAmountChoice } from "./pending-choice.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
@@ -1424,6 +1425,7 @@ const HANDLERS = {
         actionsRemaining: 2,
         turnStep: "start"
       }));
+      armPreservationProgram(next);
       next.logs = addLog(next.logs, "system", "全員の購入が完了しました。アクションフェーズを開始します。");
     }
     return { ok: true, state: next, events: [] };

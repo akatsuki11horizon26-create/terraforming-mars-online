@@ -500,6 +500,14 @@ for (const [id, name] of Object.entries(CURATED_NAMES)) {
   named += 1;
 }
 
+// The same goes for their effect text. Emitting only the name left those cards
+// rendering a blank rules box: the player was dealt a card that said nothing
+// about what it does.
+for (const [id, text] of Object.entries(CURATED_EFFECTS)) {
+  if (entries[id]?.effectText) continue;
+  entries[id] = { ...(entries[id] ?? {}), effectText: localizeResidualTerms(text) };
+}
+
 const body = Object.entries(entries)
   .sort((a, b) => a[0].localeCompare(b[0]))
   .map(([id, record]) => `  ${JSON.stringify(id)}: ${JSON.stringify(record)}`)

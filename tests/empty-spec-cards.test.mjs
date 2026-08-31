@@ -8,11 +8,15 @@ import {
   countActiveTags,
   applyPreludes,
   getAdjacentCells,
+  increaseTerraformRating,
+  placeTileAt,
+  armPreservationProgram,
   ALL_CARDS
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
 import { PRELUDES } from "../app/official-content.js";
+import { JAPANESE_TEXT } from "../app/japanese-text.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
 // a hand-written method upstream rather than a declarative block, so the
@@ -1414,4 +1418,86 @@ test("Board of Directors draws a prelude, to discard or to pay for", () => {
   assert.equal(after.cardResources[id], 3, "one director spent");
   assert.equal(after.mcProd, 4, "Allied Banks raised M€ production four steps");
   assert.equal(after.mc, 50 - 12 + 3, "twelve paid, and its three gained");
+});
+
+test("Preservation Program eats the first TR of each generation's action phase", () => {
+  const id = "card-prelude2-preservation-program";
+
+  const start = () => {
+    const state = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.setupStep = "complete";
+    seat.selectedPreludeIds = [id];
+    armPreservationProgram(state);
+    return state;
+  };
+
+  const state = start();
+  const base = getPlayer(state, "player").tr;
+
+  increaseTerraformRating(state, "player", 1, "card");
+  assert.equal(getPlayer(state, "player").tr, base, "the first rating is cancelled");
+
+  increaseTerraformRating(state, "player", 1, "card");
+  assert.equal(getPlayer(state, "player").tr, base + 1, "the second one lands");
+
+  // Only one step of a multi-step raise is eaten, not the whole raise.
+  armPreservationProgram(state);
+  increaseTerraformRating(state, "player", 3, "card");
+  assert.equal(getPlayer(state, "player").tr, base + 3, "three steps became two");
+
+  // Upstream gates on the action phase, so production neither spends the block
+  // nor is stopped by it.
+  armPreservationProgram(state);
+  state.phase = "production";
+  const held = getPlayer(state, "player").tr;
+  increaseTerraformRating(state, "player", 1, "card");
+  assert.equal(getPlayer(state, "player").tr, held + 1, "production is not blocked");
+  assert.equal(getPlayer(state, "player").preservationProgram, true, "and did not spend it");
+
+  // A player without the prelude is untouched.
+  const other = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+  other.phase = "action";
+  armPreservationProgram(other);
+  const plain = getPlayer(other, "player").tr;
+  increaseTerraformRating(other, "player", 1, "card");
+  assert.equal(getPlayer(other, "player").tr, plain + 1);
+});
+
+test("Arctic Algae gains 2 plants for an ocean laid by anyone", () => {
+  const id = "card-base-arctic-algae";
+  const state = getInitialState({ playerCount: 2, seed: 4 });
+  state.phase = "action";
+  const me = state.players[0].id;
+  const foe = state.players[1].id;
+  getPlayer(state, me).playedProjects = [id];
+  getPlayer(state, me).plants = 0;
+
+  const free = Object.values(state.board).filter(c => c.isOceanOnly && c.tileType === "empty");
+
+  placeTileAt(state, free[0], "ocean", foe);
+  assert.equal(getPlayer(state, me).plants, 2, "an opponent's ocean pays");
+
+  placeTileAt(state, free[1], "ocean", me);
+  assert.equal(getPlayer(state, me).plants, 4, "and so does your own");
+
+  // The World Government keeps the placement's own bonuses, but the rules name
+  // Arctic Algae as a card its tile still triggers.
+  placeTileAt(state, free[2], "ocean", null, null, { worldGovernment: true });
+  assert.equal(getPlayer(state, me).plants, 6, "the World Government's ocean triggers it too");
+
+  // A greenery is not an ocean.
+  const land = Object.values(state.board).find(c => !c.isOceanOnly && c.tileType === "empty");
+  placeTileAt(state, land, "greenery", foe);
+  assert.equal(getPlayer(state, me).plants, 6, "only oceans");
+});
+
+test("every card a player can be dealt says what it does", () => {
+  // Nineteen cards rendered a blank rules box: the generator emitted names for
+  // ids outside full-card-catalog.js but not their effect text, so a player was
+  // dealt a card with nothing written on it.
+  const blank = ALL_CARDS.filter(card => !(JAPANESE_TEXT[card.id]?.effectText ?? "").trim());
+  assert.deepEqual(blank.map(card => card.id), [], "these cards render an empty rules box");
 });

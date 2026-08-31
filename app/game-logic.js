@@ -369,6 +369,7 @@ const MARKET_MANIPULATION_ID = "card-colonies-market-manipulation";
 const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
+const PRESERVATION_PROGRAM_ID = "card-prelude2-preservation-program";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
@@ -1589,7 +1590,7 @@ export function advanceSetupTurn(state) {
     actionsRemaining: 2,
     turnStep: "start"
   }));
-  return next;
+  return armPreservationProgram(next);
 }
 
 export function getPreludeCost(prelude) {
@@ -4477,11 +4478,9 @@ export function legalCellsFor(state, tileType, playerId, placementRule = null) {
 //
 // The rules do let cards trigger off this ("Other cards may be triggered by
 // this though, i.e. Arctic Algae or the new corporation Aphrodite"), and the
-// tile-laid hook is deliberately left outside the flag so it keeps firing.
-// Note that no ocean trigger exists yet to fire: grantCityPlacementCardEffects
-// returns early for anything but a city, and Arctic Algae is modelled as a
-// one-off `stock: {plants: 1}` rather than an ongoing effect. Wiring those up
-// is separate work; this placement will feed them once they exist.
+// tile-laid hook is deliberately left outside the flag so it keeps firing:
+// TILE_PLACED_EFFECTS gives Arctic Algae its 2 plants for an ocean laid by
+// anyone, this one included.
 export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}) {
   const worldGovernment = options.worldGovernment === true;
   const finalGreenery = options.finalGreenery === true;
@@ -4836,11 +4835,45 @@ export function applyWorldGovernmentParameter(state, parameter, logs) {
 //
 // `reason` says WHY the rating moved, because the levy does not apply to all of
 // them -- only to terraforming a player chooses to do on their turn.
+// Preservation Program re-arms as each action phase opens. Upstream stores the
+// flag on the player and sets it from trThisGeneration === 0; the reset it
+// really models is "once per generation", which is this moment.
+export function armPreservationProgram(state) {
+  state.players = state.players.map(player =>
+    (player.selectedPreludeIds ?? []).includes(PRESERVATION_PROGRAM_ID)
+      ? { ...player, preservationProgram: true }
+      : player
+  );
+  return state;
+}
+
 export function increaseTerraformRating(state, playerId, steps, reason = "action") {
-  const amount = Math.trunc(steps);
+  let amount = Math.trunc(steps);
   if (!amount) return 0;
 
   const targetId = playerId ?? state.currentPlayerId;
+
+  // Preservation Program: "the first time you would raise your TR each
+  // generation, you don't." The reference counts only the action phase, so a
+  // rating from production or the solar phase neither spends the block nor is
+  // stopped by it, and the flag clears once used -- one step per generation,
+  // not one per turn.
+  if (amount > 0 && state.phase === "action") {
+    const holder = getPlayer(state, targetId);
+    if (holder?.preservationProgram) {
+      amount -= 1;
+      state.players = state.players.map(player =>
+        player.id === targetId ? { ...player, preservationProgram: false } : player
+      );
+      state.logs = addLog(
+        state.logs ?? [],
+        "system",
+        `${holder.name}: Preservation Program により TR 1 が打ち消されました。`
+      );
+      if (amount === 0) return 0;
+    }
+  }
+
   state.players = state.players.map(player =>
     player.id === targetId ? { ...player, tr: Math.max(0, player.tr + amount) } : player
   );

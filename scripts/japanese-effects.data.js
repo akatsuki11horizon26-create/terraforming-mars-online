@@ -1,12 +1,31 @@
 // Japanese effect text for cards whose wording the rule-based translator in
 // generate-japanese-text.mjs cannot reach. These are one-off phrasings where a
 // rule per card would buy nothing over writing the sentence out.
-// 320 entries.
+// 339 entries.
 
 export const CURATED_JAPANESE_EFFECTS = {
+  "p-ai-central": "科学タグ3枚以上が必要。エネルギー生産量-1。アクション: カードを2枚引く。",
+  "p-asteroid": "気温を1段階上げ、チタンを2獲得。任意のプレイヤーの植物を最大3個取り除く。",
+  "p-big-asteroid": "気温を2段階上げ、チタンを4獲得。任意のプレイヤーの植物を最大4個取り除く。",
+  "p-capital": "海洋タイル4枚以上が必要。このタイルを置く。エネルギー生産量-2、MC生産量+5。",
+  "p-comet": "気温を1段階上げ、海洋タイルを1枚置く。任意のプレイヤーの植物を最大3個取り除く。",
+  "p-geothermal-power": "エネルギー生産量+2。",
+  "p-giant-ice-asteroid": "気温を2段階上げ、海洋タイルを2枚置く。任意のプレイヤーの植物を最大6個取り除く。",
+  "p-greenhouses": "場にある都市タイル1枚につき植物を1獲得。",
+  "p-ice-asteroid": "海洋タイルを2枚置く。",
+  "p-lichen": "気温-24°C以上が必要。植物生産量+1。",
+  "p-mars-university": "効果: このカードを含め、科学タグを持つカードをプレイした際、手札を1枚捨てて、カードを1枚引いてもよい。",
+  "p-mine": "建材生産量+1。",
+  "p-moss": "海洋タイル3枚以上と植物1個の支払いが必要。植物生産量+1。",
+  "p-plantation": "科学タグ2枚以上が必要。緑地タイルを1枚置き、酸素を1段階上げる。",
+  "p-power-plant": "エネルギー生産量+1。",
+  "p-search-for-life": "酸素6%以下であること。アクション: MCを1支払い、山札の一番上のカードを公開する。そのカードが微生物タグを持つ場合、このカードに科学資源を1個置く。ここに科学資源が1個以上あれば3点。",
+  "p-solar-power": "エネルギー生産量+1。",
+  "p-steelworks": "アクション: エネルギーを4支払い、建材を2獲得し、酸素を1段階上げる。",
+  "p-titanium-mine": "チタン生産量+1。",
   "card-base-advanced-ecosystems": "植物タグ、微生物タグ、動物タグが必要。",
   "card-base-algae": "海洋タイル5枚以上が必要。植物を1獲得し、植物生産量+2。",
-  "card-base-arctic-algae": "気温-12度以下でなければプレイできない。植物を1獲得。",
+  "card-base-arctic-algae": "気温-12度以下でなければプレイできない。植物を1獲得。効果: 誰かが海洋タイルを配置するたびに、植物を2獲得する。",
   "card-base-artificial-lake": "気温-6度以上が必要。海洋タイル用に予約されていない場所に海洋タイルを1枚置く。",
   "card-base-artificial-photosynthesis": "植物生産量+1、またはエネルギー生産量+2。",
   "card-base-asteroid-mining-consortium": "自分がチタン生産量を持っていることが必要。任意のプレイヤーのチタン生産量-1、自分のチタン生産量+1。",
