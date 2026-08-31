@@ -1477,6 +1477,21 @@ export function applyCorporation(state, corporationId, playerId) {
   nextState.corporationId = corporationId;
   nextState.corporationOptions = [];
   nextState.setupStep = "projects";
+  // Aridor pays for tag types it has not seen. Upstream seeds that set from
+  // whatever is already on the tableau when the corporation is chosen, so a tag
+  // that was in play first is not a discovery -- without this it pays again.
+  if (corporation.effects?.diverseTagProduction) {
+    const already = new Set();
+    for (const cardId of nextState.playedProjects ?? []) {
+      const played = ALL_CARDS.find(item => item.id === cardId);
+      if (!played || played.type === "event") continue;
+      for (const tag of played.tags ?? []) if (tag !== "Wild") already.add(tag);
+    }
+    nextState.seenTagTypes = [...already];
+    nextState.players = nextState.players.map(player =>
+      player.id === actorId ? { ...player, seenTagTypes: [...already] } : player
+    );
+  }
   nextState.mc = corporation.starting.mc;
   ["steel", "titanium", "plants", "energy", "heat"].forEach(resource => {
     nextState[resource] = corporation.starting[resource] ?? 0;

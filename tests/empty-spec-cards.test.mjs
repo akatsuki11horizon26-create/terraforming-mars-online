@@ -10,6 +10,7 @@ import {
   getAdjacentCells,
   increaseTerraformRating,
   applyCorporationTriggers,
+  applyCorporation,
   applyCorporationInitialAction,
   resolvePendingChoice,
   DECLINE_CHOICE,
@@ -1797,4 +1798,59 @@ test("a tile is not laid on a space something else already took", () => {
     Object.values(after.board).filter(c => c.tileType === "ocean").length,
     after.oceans
   );
+});
+
+test("Aridor does not pay for tags that were already on the tableau", () => {
+  // Upstream's bespokePlay seeds the seen-tag set from whatever is in play when
+  // the corporation is chosen, so a tag that was there first is not a discovery.
+  const donor = ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.type !== "event");
+  const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationOptions = ["card-colonies-aridor"];
+  seat.playedProjects = [donor.id];
+
+  const chosen = applyCorporation(state, "card-colonies-aridor");
+  assert.deepEqual(getPlayer(chosen, "player").seenTagTypes, donor.tags, "the tableau seeds the set");
+
+  const after = getPlayer(chosen, "player");
+  const view = { ...chosen, ...after, mcProd: 0 };
+  const again = applyCorporationTriggers(view, donor, []).state;
+  assert.equal(again.mcProd, 0, "a tag that was already in play pays nothing");
+});
+
+test("Lakefront Resorts' ocean bonus follows the corporation in and out of play", () => {
+  // Upstream stores oceanBonus on the player in bespokePlay and puts it back to
+  // 2 in onDiscard. Reading it from the corporation means both happen at once:
+  // a seat without the corporation is back to the printed 2 M€.
+  const rig = corporationId => {
+    const state = getInitialState({ playerCount: 2, turmoil: true, seed: 4 });
+    state.phase = "action";
+    const me = state.players[0].id;
+    // Through applyCorporation rather than by planting the id: that is the path
+    // upstream's bespokePlay runs on, and staging the state skips it.
+    let current = state;
+    if (corporationId) {
+      getPlayer(current, me).corporationOptions = [corporationId];
+      current.currentPlayerId = me;
+      current = applyCorporation(current, corporationId);
+      current.phase = "action";
+    }
+    Object.assign(state, current);
+    const oceans = Object.values(state.board).filter(c => c.isOceanOnly && c.tileType === "empty");
+    placeTileAt(state, oceans[0], "ocean", me);
+    const spot = Object.values(state.board).find(cell =>
+      !cell.isOceanOnly &&
+      cell.tileType === "empty" &&
+      getAdjacentCells(cell.q, cell.r)
+        .filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "ocean").length === 1
+    );
+    const before = getPlayer(state, me).mc;
+    placeTileAt(state, spot, "city", me);
+    return getPlayer(state, me).mc - before;
+  };
+
+  assert.equal(rig("card-turmoil-lakefront-resorts"), 3, "3 M€ while the corporation is in play");
+  assert.equal(rig(null), 2, "the printed 2 M€ without it");
 });
