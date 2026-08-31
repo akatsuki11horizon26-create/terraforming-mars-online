@@ -9,6 +9,10 @@ import {
   applyPreludes,
   getAdjacentCells,
   increaseTerraformRating,
+  applyCorporationTriggers,
+  applyCorporationInitialAction,
+  resolvePendingChoice,
+  DECLINE_CHOICE,
   placeTileAt,
   armPreservationProgram,
   ALL_CARDS
@@ -1500,4 +1504,297 @@ test("every card a player can be dealt says what it does", () => {
   // dealt a card with nothing written on it.
   const blank = ALL_CARDS.filter(card => !(JAPANESE_TEXT[card.id]?.effectText ?? "").trim());
   assert.deepEqual(blank.map(card => card.id), [], "these cards render an empty rules box");
+});
+
+// Six corporations shipped with nothing but their starting money: their
+// effects object was empty, so the engine had nothing to read and the ability
+// printed on the card simply never happened. The card could be chosen, and then
+// did nothing for the rest of the game.
+
+test("Lakefront Resorts pays for every ocean and raises the adjacency bonus", () => {
+  const state = getInitialState({ playerCount: 2, turmoil: true, seed: 4 });
+  state.phase = "action";
+  const me = state.players[0].id;
+  const foe = state.players[1].id;
+  getPlayer(state, me).corporationId = "card-turmoil-lakefront-resorts";
+
+  const oceans = Object.values(state.board).filter(c => c.isOceanOnly && c.tileType === "empty");
+  placeTileAt(state, oceans[0], "ocean", foe);
+  assert.equal(getPlayer(state, me).mcProd, 1, "an opponent's ocean pays too");
+  placeTileAt(state, oceans[1], "ocean", me);
+  assert.equal(getPlayer(state, me).mcProd, 2, "and so does your own");
+
+  const spot = Object.values(state.board).find(cell =>
+    !cell.isOceanOnly &&
+    cell.tileType === "empty" &&
+    getAdjacentCells(cell.q, cell.r)
+      .filter(pos => state.board[`${pos.q},${pos.r}`]?.tileType === "ocean").length === 1
+  );
+  const before = getPlayer(state, me).mc;
+  placeTileAt(state, spot, "city", me);
+  assert.equal(getPlayer(state, me).mc - before, 3, "one adjacent ocean is worth 3 M€, not 2");
+});
+
+test("Aridor pays for each new tag type, not for repeats", () => {
+  const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-colonies-aridor";
+  seat.mcProd = 0;
+  seat.seenTagTypes = [];
+
+  const single = tag => ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.tags[0] === tag && c.type !== "event");
+  const building = single("Building");
+  const otherBuilding = ALL_CARDS.find(c => c !== building && (c.tags ?? []).length === 1 && c.tags[0] === "Building" && c.type !== "event");
+  const science = single("Science");
+  const event = ALL_CARDS.find(c => c.type === "event" && (c.tags ?? []).length > 0);
+  const wild = ALL_CARDS.find(c => (c.tags ?? []).includes("Wild"));
+
+  let view = { ...state, ...seat };
+  view = applyCorporationTriggers(view, building, []).state;
+  assert.equal(view.mcProd, 1, "a first Building pays");
+  view = applyCorporationTriggers(view, otherBuilding, []).state;
+  assert.equal(view.mcProd, 1, "a second Building does not");
+  view = applyCorporationTriggers(view, science, []).state;
+  assert.equal(view.mcProd, 2, "a new type does");
+
+  // "Event cards do not count", and a wild tag is not a type of its own.
+  const beforeEvent = view.mcProd;
+  view = applyCorporationTriggers(view, event, []).state;
+  assert.equal(view.mcProd, beforeEvent, "an event never pays");
+  if (wild) {
+    view = applyCorporationTriggers(view, wild, []).state;
+    assert.ok(!view.seenTagTypes.includes("Wild"), "a wild tag is not a tag type");
+  }
+});
+
+test("Spire collects a science resource from cards with two tags", () => {
+  const state = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-prelude2-spire";
+  seat.cardResources = {};
+
+  const oneTag = ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.type !== "event");
+  const twoTags = ALL_CARDS.find(c => (c.tags ?? []).length === 2 && c.type !== "event");
+  const oneTagEvent = ALL_CARDS.find(c => c.type === "event" && (c.tags ?? []).length === 1);
+
+  let view = { ...state, ...seat };
+  view = applyCorporationTriggers(view, oneTag, []).state;
+  assert.equal(view.cardResources["card-prelude2-spire"] ?? 0, 0, "one tag is not enough");
+  view = applyCorporationTriggers(view, twoTags, []).state;
+  assert.equal(view.cardResources["card-prelude2-spire"], 1, "two tags pay");
+  // An event counts as one tag more than it prints.
+  view = applyCorporationTriggers(view, oneTagEvent, []).state;
+  assert.equal(view.cardResources["card-prelude2-spire"], 2, "a one-tag event counts as two");
+});
+
+test("Philares pays for a new adjacency whoever placed the tile", () => {
+  const rig = () => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    getPlayer(state, state.players[0].id).corporationId = "card-promo-philares";
+    let first = null;
+    let neighbourKey = null;
+    for (const cell of Object.values(state.board)) {
+      if (cell.isOceanOnly || cell.tileType !== "empty") continue;
+      for (const pos of getAdjacentCells(cell.q, cell.r)) {
+        const key = `${pos.q},${pos.r}`;
+        const neighbour = state.board[key];
+        if (neighbour && neighbour.tileType === "empty" && !neighbour.isOceanOnly) {
+          first = cell;
+          neighbourKey = key;
+          break;
+        }
+      }
+      if (first) break;
+    }
+    return { state, first, neighbourKey };
+  };
+
+  const me = "player";
+  const foe = "player2";
+
+  // The owner places next to an opponent's tile.
+  const a = rig();
+  placeTileAt(a.state, a.first, "city", foe);
+  assert.equal(a.state.pendingChoice, null, "one tile alone is not an adjacency");
+  placeTileAt(a.state, a.state.board[a.neighbourKey], "city", me);
+  assert.equal(a.state.pendingChoice?.kind, "standard-resource");
+  assert.equal(a.state.pendingChoice.ownerPlayerId, me);
+
+  // The opponent places next to the owner's tile: same payout, and it goes to
+  // the owner rather than to whoever placed.
+  const b = rig();
+  placeTileAt(b.state, b.first, "city", me);
+  placeTileAt(b.state, b.state.board[b.neighbourKey], "city", foe);
+  assert.equal(b.state.pendingChoice?.ownerPlayerId, me, "the owner is asked, not the placer");
+  // The seat still belongs to the opponent who placed. They may not answer a
+  // question that is not theirs, and when the owner does, the resource follows
+  // the owner rather than whoever's turn it happens to be.
+  b.state.currentPlayerId = foe;
+  const before = getPlayer(b.state, me).steel;
+  const foeBefore = getPlayer(b.state, foe).steel;
+  const refused = resolvePendingChoice(b.state, "steel", [], foe);
+  assert.equal(refused.status, "pending", "the placer cannot answer the owner's question");
+  const resolved = resolvePendingChoice(b.state, "steel", [], me);
+  assert.equal(getPlayer(resolved.state, me).steel, before + 1, "the owner gains it");
+  assert.equal(getPlayer(resolved.state, foe).steel, foeBefore, "the placer does not");
+});
+
+test("Neptunian Power Consultants offers its ocean deal only when affordable", () => {
+  const id = "card-promo-neptunian-power-consultants";
+  const rig = (mc, steel) => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    const seat = getPlayer(state, state.players[0].id);
+    seat.playedProjects = [id];
+    seat.mc = mc;
+    seat.steel = steel;
+    seat.energyProd = 0;
+    seat.cardResources = {};
+    const ocean = Object.values(state.board).find(c => c.isOceanOnly && c.tileType === "empty");
+    placeTileAt(state, ocean, "ocean", state.players[1].id);
+    return state;
+  };
+
+  assert.equal(rig(2, 0).pendingChoice, null, "no offer when it cannot be paid");
+
+  const paying = rig(10, 0);
+  assert.equal(paying.pendingChoice?.optional, true, "the offer may be declined");
+  const paid = resolvePendingChoice(paying, "pay", [], "player");
+  const after = getPlayer(paid.state, "player");
+  assert.equal(after.mc, 5);
+  assert.equal(after.energyProd, 1);
+  assert.equal(after.cardResources[id], 1);
+
+  // Steel covers what cash cannot, and no change is given.
+  const mixed = resolvePendingChoice(rig(3, 5), "pay", [], "player");
+  const spent = getPlayer(mixed.state, "player");
+  assert.equal(spent.mc, 0, "cash goes first");
+  assert.equal(spent.steel, 4, "one steel covers the remaining 2 M€");
+
+  const declined = resolvePendingChoice(rig(20, 0), DECLINE_CHOICE, [], "player");
+  assert.equal(getPlayer(declined.state, "player").mc, 20, "declining costs nothing");
+  assert.equal(getPlayer(declined.state, "player").energyProd, 0);
+});
+
+test("Luxury Foods needs all three of its tags", () => {
+  const card = ALL_CARDS.find(entry => entry.id === "card-venus-luxury-foods");
+  const only = tag => ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.tags[0] === tag && c.type !== "event");
+  const venus = only("Venus");
+  const earth = only("Earth");
+  const jovian = only("Jovian");
+
+  const rig = played => {
+    const state = getInitialState({ playerCount: 2, venus: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 100;
+    seat.playedProjects = played;
+    return state;
+  };
+
+  assert.equal(getCardPlayableStatus(card, rig([])).playable, false);
+  assert.equal(getCardPlayableStatus(card, rig([venus.id])).playable, false);
+  assert.equal(getCardPlayableStatus(card, rig([venus.id, earth.id])).playable, false, "two of three is not enough");
+  assert.equal(getCardPlayableStatus(card, rig([venus.id, earth.id, jovian.id])).playable, true);
+  assert.equal(card.victoryPoints, 2);
+});
+
+test("a corporation first action that asks a question does not hang setup", () => {
+  // Only two stages knew how to unpark setup after their own question, so any
+  // new one -- Aridor's colony tile, Spire's discard -- left the game parked on
+  // a setupContinuation that nothing would ever clear.
+  const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").corporationId = "card-colonies-aridor";
+
+  const asked = applyCorporationInitialAction(state, []).state;
+  assert.equal(asked.pendingChoice?.continuation?.stage, "aridor-add-colony");
+  asked.setupContinuation = { stage: "prelude-setup", seatBefore: "player" };
+
+  const answered = resolvePendingChoice(asked, asked.pendingChoice.options[0].id, [], "player");
+  assert.equal(answered.state.setupContinuation, null, "setup is unparked");
+  assert.equal(answered.state.pendingChoice, null);
+});
+
+test("Aridor adds a colony tile from the ones nobody is using", () => {
+  const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").corporationId = "card-colonies-aridor";
+
+  const spareBefore = state.colonies.unusedTileIds.length;
+  const inPlayBefore = state.colonies.tilesInPlay.length;
+  assert.ok(spareBefore > 0, "the tiles that did not make the cut are kept");
+
+  const asked = applyCorporationInitialAction(state, []).state;
+  const added = resolvePendingChoice(asked, asked.pendingChoice.options[0].id, [], "player").state;
+  assert.equal(added.colonies.tilesInPlay.length, inPlayBefore + 1);
+  assert.equal(added.colonies.unusedTileIds.length, spareBefore - 1);
+});
+
+test("Spire draws four and discards three as its first action", () => {
+  const state = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-prelude2-spire";
+  seat.hand = [];
+
+  let current = applyCorporationInitialAction(state, []).state;
+  assert.equal(getPlayer(current, "player").hand.length, 4, "four drawn");
+  for (let i = 0; i < 3; i++) {
+    assert.ok(current.pendingChoice, `still asking at discard ${i + 1}`);
+    current = resolvePendingChoice(current, current.pendingChoice.options[0].id, [], "player").state;
+  }
+  assert.equal(getPlayer(current, "player").hand.length, 1, "three discarded");
+  assert.equal(current.pendingChoice, null);
+});
+
+test("Philares places a greenery as its first action", () => {
+  const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").corporationId = "card-promo-philares";
+
+  const done = applyCorporationInitialAction(state, []).state;
+  assert.equal(Object.values(done.board).filter(c => c.tileType === "forest").length, 1);
+  assert.equal(done.oxygen, 1, "the greenery raises oxygen");
+});
+
+test("a tile is not laid on a space something else already took", () => {
+  // A question asked earlier can be answered after the space is gone. Laying a
+  // city over an ocean lost that ocean while the counter kept counting it.
+  const state = getInitialState({ playerCount: 2, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const ocean = Object.values(state.board).find(c => c.isOceanOnly && c.tileType === "empty");
+  placeTileAt(state, ocean, "ocean", "player");
+
+  const key = `${ocean.q},${ocean.r}`;
+  const counterBefore = state.oceans;
+  const stale = {
+    id: "stale-tile-choice",
+    kind: "tile-placement",
+    ownerPlayerId: "player",
+    prompt: "",
+    optional: false,
+    options: [{ id: key, targetCellKey: key, label: "" }],
+    continuation: { sourceKind: "card", sourceId: null, stage: "tile", consumedAction: false, paid: true }
+  };
+  state.pendingChoice = stale;
+  const after = resolvePendingChoice(state, key, [], "player").state;
+
+  assert.equal(after.board[key].tileType, "ocean", "the ocean stays");
+  assert.equal(after.oceans, counterBefore, "and the counter still matches the board");
+  assert.equal(
+    Object.values(after.board).filter(c => c.tileType === "ocean").length,
+    after.oceans
+  );
 });

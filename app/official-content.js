@@ -239,6 +239,20 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("card-promo-poldertech-dutch", "PolderTECH Dutch", ["Earth"], { mc: 35 }, "35MCを所持した状態で開始する。最初のアクションとして、隣接する海洋タイルと緑地タイルを配置する（緑地の配置制限を無視）。酸素+1。", { firstPolderTiles: true }),
   corporation("card-promo-splice", "Splice", ["Microbe"], { mc: 44 }, "44MCを所持した状態で開始する。最初のアクションとして、微生物タグのカードを1枚公開するまでカードを公開し続ける。効果: 誰かが微生物タグをプレイするたびMC2。", { firstTagDraw: "Microbe" }),
   corporation("card-venus-celestic", "Celestic", ["Venus"], { mc: 42 }, "最初のアクションでフローターのカードを2枚引く。アクション: フローターを1個置く。フローター3個ごとに1VP。", { firstFloaterDraw: 2 }),
+  // "When any ocean tile is placed, increase your M€ production 1 step. Your
+  // bonus for placing adjacent to oceans is 3 M€ instead of 2 M€." Both halves
+  // were missing: the card was 54 M€ and nothing else.
+  corporation("card-turmoil-lakefront-resorts", "Lakefront Resorts", ["Building"], { mc: 54 }, "54MCを所持した状態で開始する。効果: 海洋タイルが配置されるたびにMC生産量+1。海洋タイルに隣接して配置したときのボーナスがMC2ではなくMC3になる。", { oceanProduction: 1, oceanBonus: 3 }),
+  // "When you get a new type of tag in play, increase your M€ production 1
+  // step." Event cards and wild tags do not count, and the tags already on the
+  // tableau when Aridor is chosen seed the set rather than paying out.
+  corporation("card-colonies-aridor", "Aridor", [], { mc: 40 }, "40MCを所持した状態で開始する。最初のアクションとして、任意の植民地タイルを1枚追加で配置する。効果: 場に出ていない種類のタグを新たに得るたびにMC生産量+1（イベントカードは数えない）。", { firstColonyTile: true, diverseTagProduction: 1 }),
+  // "When you play a card with at least 2 tags, including this, add 1 science
+  // resource here." An event counts as one extra tag on top of its own.
+  corporation("card-prelude2-spire", "Spire", ["City", "Earth"], { mc: 50 }, "50MCを所持した状態で開始する。最初のアクションとして、カードを4枚引き、その後手札を3枚捨てる。効果: タグを2つ以上持つカード（このカードを含む）をプレイするたびに、このカードに科学資源を1個置く。効果: 標準プロジェクトの支払いに、このカードの科学資源を1個につきMC2として使用できる。", { firstDrawThenDiscard: { draw: 4, discard: 3 }, multiTagScience: 2 }),
+  // "Each new adjacency between your tile and an opponent's tile gives you a
+  // standard resource of your choice, regardless of who just placed a tile."
+  corporation("card-promo-philares", "Philares", ["Building"], { mc: 47 }, "47MCを所持した状態で開始する。最初のアクションとして、緑地タイルを1枚配置し、酸素を1段階上げる。効果: 自分のタイルと相手のタイルが新たに隣接するたびに、どちらが配置した場合でも、好きな標準資源を1個獲得する。", { firstGreenery: true, adjacencyResource: true }),
 ];
 
 const prelude = (id, name, effectText, effect, extra = {}) => ({ id, name, effectText, effect, tags: extra.tags ?? [], ...extra });

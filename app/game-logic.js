@@ -54,6 +54,7 @@ import {
   buildResourceRemovalChoice,
   buildDiscardChoice,
   buildStandardResourceChoice,
+  makeChoiceId,
   STANDARD_RESOURCES,
   buildAmountChoice,
   buildCorrosiveRainChoice,
@@ -124,6 +125,7 @@ import {
   countColonies,
   createColoniesState,
   selectSoloColonies,
+  addColonyTile,
   getColonyTile,
   MAX_COLONY_TRACK_POSITION,
   trade as tradeWithColony
@@ -372,6 +374,9 @@ const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const PRESERVATION_PROGRAM_ID = "card-prelude2-preservation-program";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
+const PHILARES_ID = "card-promo-philares";
+const NEPTUNIAN_ID = "card-promo-neptunian-power-consultants";
+const NEPTUNIAN_COST = 5;
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
 const TITAN_FLOATING_LAUNCH_PAD_ID = "card-colonies-titan-floating-launch-pad";
@@ -594,6 +599,10 @@ export function cloneGameState(state) {
       selectedPreludeIds: [...(player.selectedPreludeIds ?? [])],
       hand: [...(player.hand ?? [])],
       playedProjects: [...(player.playedProjects ?? [])],
+      // Aridor's set of tag types already seen. It is stored rather than derived
+      // because a tag that leaves play must not pay out a second time when it
+      // comes back.
+      seenTagTypes: [...(player.seenTagTypes ?? [])],
       playedEvents: [...(player.playedEvents ?? [])],
       cardResources: { ...(player.cardResources ?? {}) },
       cardPlacements: { ...(player.cardPlacements ?? {}) },
@@ -2003,6 +2012,60 @@ export function applyCorporationInitialAction(state, logs) {
       return { state: nextState, logs: nextLogs };
     }
   }
+  // Aridor: "as your first action, put an additional Colony Tile of your choice
+  // into play." It comes from the tiles that were dealt but not used.
+  if (corporation.effects.firstColonyTile) {
+    const spare = (nextState.colonies?.unusedTileIds ?? []).map(tileId => ({
+      id: tileId,
+      name: getColonyTile(tileId)?.name ?? tileId
+    }));
+    const choice = spare.length > 0
+      ? buildColonyChoice(nextState, {}, {
+          sourceKind: "corporation",
+          sourceId: corporation.id,
+          stage: "aridor-add-colony",
+          consumedAction: false,
+          paid: true
+        }, spare)
+      : null;
+    if (choice) {
+      choice.prompt = "追加で場に出す植民地タイルを選んでください。";
+      choice.continuation.stage = "aridor-add-colony";
+      nextState.pendingChoice = choice;
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: 追加の植民地タイルを選びます。`);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs };
+    }
+  }
+  // Spire: "draw 4 cards, then discard 3 cards from your hand."
+  if (corporation.effects.firstDrawThenDiscard) {
+    const { draw, discard } = corporation.effects.firstDrawThenDiscard;
+    drawCards(nextState, draw);
+    const choice = buildDiscardChoice(nextState, [...(nextState.hand ?? [])], {
+      sourceKind: "corporation",
+      sourceId: corporation.id,
+      stage: "spire-first-discard",
+      consumedAction: false,
+      paid: true,
+      remaining: discard,
+      optional: false,
+      prompt: `捨てるカードを選んでください（あと${discard}枚）。`
+    }, ALL_CARDS);
+    if (choice) {
+      nextState.pendingChoice = choice;
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: カードを${draw}枚引きました。${discard}枚捨てます。`);
+      nextState.logs = nextLogs;
+      return { state: nextState, logs: nextLogs };
+    }
+  }
+  // Philares: "place a greenery tile and raise the oxygen 1 step." placeTile
+  // runs the oxygen step itself, the same as any other greenery.
+  if (corporation.effects.firstGreenery) {
+    const placed = placeTile(nextState, "forest");
+    if (placed) {
+      nextLogs = addLog(nextLogs, "system", `${corporation.name}: 初期アクションで緑地を配置しました。`);
+    }
+  }
   if (corporation.effects.firstCity) {
     // placeTileAt pays the city effects now, so adding them here as well is
     // what made the opening city worth twice what every later one was.
@@ -3071,6 +3134,35 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "neptunian-ocean") {
+        const payerId = choice.ownerPlayerId ?? actorId;
+        const payer = getPlayer(next, payerId);
+        const worth = getSteelValue(next);
+        // Steel covers what cash cannot, rounded up: no change is given.
+        const fromSteel = Math.min(
+          payer?.steel ?? 0,
+          Math.ceil(Math.max(0, NEPTUNIAN_COST - (payer?.mc ?? 0)) / worth)
+        );
+        const fromCash = Math.max(0, NEPTUNIAN_COST - fromSteel * worth);
+        next.players = next.players.map(player =>
+          player.id === payerId
+            ? {
+                ...player,
+                mc: player.mc - fromCash,
+                steel: (player.steel ?? 0) - fromSteel,
+                energyProd: (player.energyProd ?? 0) + 1
+              }
+            : player
+        );
+        changeCardResource(next, { ownerPlayerId: payerId, cardId: NEPTUNIAN_ID, delta: 1 });
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Neptunian Power Consultants: MC${fromCash}と建材${fromSteel}を支払い、エネルギー生産量+1と水力発電資源+1。`
+        );
+        next.pendingChoice = null;
+        break;
+      }
       // The count is chosen first, then which cards go -- the payout is fixed by
       // the number, and the choice of cards is the player's.
       if (choice.continuation.stage === "ceres-tech-market") {
@@ -3838,6 +3930,34 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         next.pendingChoice = null;
         break;
       }
+      if (choice.continuation.stage === "spire-first-discard") {
+        const target = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        next.currentPlayerId = target;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(nextLogs, "system", `Spire: 【${gone?.name ?? discardedId}】を捨てました。`);
+        const left = (choice.continuation.remaining ?? 1) - 1;
+        const hand = getPlayer(next, target)?.hand ?? [];
+        if (left > 0 && hand.length > 0) {
+          const again = buildDiscardChoice(next, hand, {
+            ...choice.continuation,
+            remaining: left,
+            optional: false,
+            prompt: `捨てるカードを選んでください（あと${left}枚）。`
+          }, ALL_CARDS);
+          if (again) {
+            next.pendingChoice = again;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: again };
+          }
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "project-eden-discard") {
         const target = choice.ownerPlayerId ?? actorId;
         const discardedId = option.cardId ?? option.id;
@@ -3937,6 +4057,17 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           cardId: TITAN_FLOATING_LAUNCH_PAD_ID,
           delta: -1
         });
+        break;
+      }
+      // Aridor adds a tile to the board rather than settling one.
+      if (choice.continuation.stage === "aridor-add-colony") {
+        const added = addColonyTile(next.colonies, option.targetTileId);
+        if (added.ok) {
+          next.colonies = added.colonies;
+          nextLogs = addLog(nextLogs, "system", `Aridor: 植民地【${option.label}】が場に追加されました。`);
+        } else {
+          nextLogs = addLog(nextLogs, "system", added.reason);
+        }
         break;
       }
       const allowDuplicates = Boolean(choice.continuation.payload?.allowDuplicates);
@@ -4205,7 +4336,15 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         choice.continuation.stage === "world-government-ocean" ||
         choice.continuation.stage === "global-event-ocean";
       const finalGreenery = choice.continuation.stage === "final-greenery";
-      if (cell) {
+      // The options were legal when the question was asked. A question that
+      // waits -- through another player's turn, or through the rest of setup --
+      // can be answered after something else has taken the space, and laying a
+      // tile over an ocean loses that ocean while the counter keeps it.
+      const stillFree = cell && (cell.tileType === "empty" || !cell.tileType);
+      if (cell && !stillFree) {
+        nextLogs = addLog(nextLogs, "system", "その場所には既にタイルが置かれています。");
+      }
+      if (stillFree) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
           worldGovernment: byWorldGovernment,
           finalGreenery,
@@ -4443,6 +4582,25 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   // the phase that was waiting on it resumes.
   const advanced = advanceChoiceQueue(next, nextLogs);
   advanced.state.logs = advanced.logs;
+
+  // A corporation's first action that stopped to ask something parked setup on
+  // the question. Two stages used to unpark it themselves, which meant every
+  // new question asked during setup hung the game: Aridor's colony tile and
+  // Spire's discard both did. Resuming here covers whatever asks next -- but
+  // only for the corporation's own question. A prelude resolving in the same
+  // window asks its own things, and unparking setup on one of those advances
+  // the turn while the prelude is still mid-list.
+  const resume = advanced.state.setupContinuation;
+  if (!advanced.pending &&
+      resume?.stage === "prelude-setup" &&
+      choice.continuation.sourceKind === "corporation") {
+    advanced.state.setupContinuation = null;
+    advanced.state.currentPlayerId = resume.seatBefore;
+    const resumed = advanceSetupTurn(advanced.state);
+    resumed.logs = advanced.logs;
+    return { status: "resolved", state: resumed, logs: advanced.logs };
+  }
+
   return {
     status: advanced.pending ? "pending" : "resolved",
     state: advanced.state,
@@ -4541,7 +4699,10 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
       // adjacent to the space just covered.
       const adjacentOceans = countAdjacentOceans(cell.q, cell.r, state.board);
       if (adjacentOceans > 0) {
-        const bonus = adjacentOceans * OCEAN_ADJACENCY_BONUS;
+        // Lakefront Resorts pays 3 M€ per adjacent ocean instead of 2.
+        const perOcean = corporationFor(getPlayer(state, ownerId))?.effects?.oceanBonus
+          ?? OCEAN_ADJACENCY_BONUS;
+        const bonus = adjacentOceans * perOcean;
         state.players = state.players.map(p =>
           p.id === ownerId ? { ...p, mc: p.mc + bonus } : p
         );
@@ -4552,6 +4713,9 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
     }
     // Cards that watch for a tile being laid fire either way.
     grantCityPlacementCardEffects(state, tileType);
+    grantTilePlacedCorporationEffects(state, tileType);
+    grantPhilaresAdjacency(state, cell, ownerId);
+    offerNeptunianOcean(state, tileType);
   }
 
   // TR follows the parameter actually moving. At the cap the track is clamped,
@@ -6023,6 +6187,35 @@ export function applyCorporationTriggers(state, card, logs) {
     drawCards(nextState, corporation.effects.earthDraw);
     nextLogs = addLog(nextLogs, "system", "Point Luna: Earthタグ効果でカードを1枚引きました。");
   }
+  // Aridor: "when you get a NEW TYPE of tag in play". Events never count, and a
+  // wild tag is not a type, so neither can be what makes a type new.
+  if (corporation.effects.diverseTagProduction && card.type !== "event") {
+    const seen = new Set(nextState.seenTagTypes ?? []);
+    let gained = 0;
+    for (const tag of card.tags ?? []) {
+      if (tag === "Wild" || seen.has(tag)) continue;
+      seen.add(tag);
+      gained += 1;
+    }
+    if (gained > 0) {
+      nextState.seenTagTypes = [...seen];
+      nextState.mcProd = (nextState.mcProd ?? 0) + gained * corporation.effects.diverseTagProduction;
+      nextLogs = addLog(nextLogs, "system", `Aridor: 新種のタグ${gained}種類により MC生産量 +${gained * corporation.effects.diverseTagProduction}`);
+    }
+  }
+  // Spire: "when you play a card with at least 2 tags, including this". An
+  // event counts as one tag more than it prints.
+  if (corporation.effects.multiTagScience) {
+    const tagCount = (card.tags ?? []).length + (card.type === "event" ? 1 : 0);
+    if (tagCount >= corporation.effects.multiTagScience) {
+      changeCardResource(nextState, {
+        ownerPlayerId: nextState.id,
+        cardId: corporation.id,
+        delta: 1
+      });
+      nextLogs = addLog(nextLogs, "system", "Spire: 科学資源 +1");
+    }
+  }
   return { state: nextState, logs: nextLogs };
 }
 
@@ -7478,6 +7671,93 @@ const TILE_PLACED_EFFECTS = [
     apply: player => ({ ...player, plants: (player.plants ?? 0) + 2 })
   }
 ];
+
+// Corporations that watch a tile the same way TILE_PLACED_EFFECTS watches one.
+// They cannot live in that table because a corporation is not in playedProjects.
+// Philares: "each new adjacency between your tile and an opponent's tile gives
+// you a standard resource of your choice, regardless of who just placed a
+// tile." The tile just laid is one end of every new adjacency, so the count is
+// how many neighbouring tiles belong to the other side -- read from the placer's
+// point of view when the owner placed, and from the owner's when someone else
+// did. Unowned tiles (the neutral player's, the World Government's) are neither.
+function philaresAdjacencyCount(state, cell, ownerId, placerId) {
+  return getAdjacentCells(cell.q, cell.r)
+    .map(pos => state.board[`${pos.q},${pos.r}`])
+    .filter(neighbour => neighbour?.tileType && neighbour.tileType !== "empty" && neighbour.placedBy)
+    .filter(neighbour =>
+      ownerId === placerId
+        ? neighbour.placedBy !== ownerId
+        : neighbour.placedBy === ownerId
+    ).length;
+}
+
+function grantPhilaresAdjacency(state, cell, placerId) {
+  if (!placerId) return;
+  for (const player of state.players) {
+    if (!corporationFor(player)?.effects?.adjacencyResource) continue;
+    const count = philaresAdjacencyCount(state, cell, player.id, placerId);
+    if (count === 0) continue;
+    const choice = buildStandardResourceChoice(state, count, {
+      sourceKind: "corporation",
+      sourceId: PHILARES_ID,
+      stage: "standard-resource",
+      consumedAction: false,
+      paid: true
+    });
+    if (!choice) continue;
+    choice.ownerPlayerId = player.id;
+    choice.prompt = `Philares: 獲得する標準資源を選んでください（${count}個）。`;
+    openOrEnqueuePendingChoice(state, choice);
+  }
+}
+
+// Neptunian Power Consultants: "when any ocean is placed, you MAY pay 5 M€
+// (steel may be used) to raise energy production 1 step and add 1 hydroelectric
+// resource here." The offer is optional and is only made when it can be paid.
+function offerNeptunianOcean(state, tileType) {
+  if (tileType !== "ocean") return;
+  for (const player of state.players) {
+    if (!(player.playedProjects ?? []).includes(NEPTUNIAN_ID)) continue;
+    const worth = getSteelValue(state);
+    if ((player.mc ?? 0) + (player.steel ?? 0) * worth < NEPTUNIAN_COST) continue;
+    openOrEnqueuePendingChoice(state, {
+      id: makeChoiceId("neptunian-ocean", NEPTUNIAN_ID, player.id),
+      kind: "amount",
+      ownerPlayerId: player.id,
+      prompt: `Neptunian Power Consultants: MC${NEPTUNIAN_COST}（建材可）を支払って、エネルギー生産量+1と水力発電資源1個を得ますか。`,
+      optional: true,
+      options: [{ id: "pay", label: `MC${NEPTUNIAN_COST}を支払う`, amount: NEPTUNIAN_COST }],
+      continuation: {
+        sourceKind: "card-effect",
+        sourceId: NEPTUNIAN_ID,
+        stage: "neptunian-ocean",
+        consumedAction: false,
+        paid: false
+      }
+    });
+  }
+}
+
+function grantTilePlacedCorporationEffects(state, tileType) {
+  if (tileType !== "ocean") return;
+  for (const player of state.players) {
+    const effects = corporationFor(player)?.effects;
+    if (!effects) continue;
+    // "When any ocean tile is placed, increase your M€ production 1 step."
+    if (effects.oceanProduction) {
+      state.players = state.players.map(entry =>
+        entry.id === player.id
+          ? { ...entry, mcProd: (entry.mcProd ?? 0) + effects.oceanProduction }
+          : entry
+      );
+      state.logs = addLog(
+        state.logs ?? [],
+        "system",
+        `${player.name}: Lakefront Resorts により MC生産量 +${effects.oceanProduction}`
+      );
+    }
+  }
+}
 
 function grantCityPlacementCardEffects(state, tileType) {
   for (const effect of TILE_PLACED_EFFECTS) {

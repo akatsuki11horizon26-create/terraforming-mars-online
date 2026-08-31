@@ -86,7 +86,37 @@ export function createColoniesState(playerIds, shuffledTileIds, options = {}) {
     usedFleets[playerId] = 0;
   }
 
-  return { tilesInPlay: inPlay, tiles, fleets, usedFleets };
+  // The tiles that did not make the cut are kept rather than dropped: Aridor
+  // adds one of them to play as its first action.
+  return {
+    tilesInPlay: inPlay,
+    unusedTileIds: shuffledTileIds.slice(count),
+    tiles,
+    fleets,
+    usedFleets
+  };
+}
+
+// Aridor: "put an additional Colony Tile of your choice into play." The tile
+// comes from the ones nobody is using, and enters exactly as a set-up tile
+// does -- inactive if it is one of the colonies that waits for a resource.
+export function addColonyTile(colonies, tileId) {
+  const unused = colonies?.unusedTileIds ?? [];
+  if (!unused.includes(tileId)) return { colonies, ok: false, reason: "その植民地タイルは追加できません。" };
+  const active = REQUIRED_RESOURCE_BY_COLONY[tileId] === undefined;
+  return {
+    ok: true,
+    reason: "",
+    colonies: {
+      ...colonies,
+      tilesInPlay: [...(colonies.tilesInPlay ?? []), tileId],
+      unusedTileIds: unused.filter(id => id !== tileId),
+      tiles: {
+        ...colonies.tiles,
+        [tileId]: { id: tileId, trackPosition: active ? 1 : 0, colonies: [], active }
+      }
+    }
+  };
 }
 
 // Turns the solo offer into the tiles actually in play. The tiles nobody took
