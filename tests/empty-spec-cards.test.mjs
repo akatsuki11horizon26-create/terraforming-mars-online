@@ -2068,3 +2068,38 @@ test("Pristar pays only in a generation its owner did not terraform", () => {
   const busy = run(true);
   assert.equal(busy.cardResources["card-turmoil-pristar"] ?? 0, 0, "nothing after raising TR");
 });
+
+test("EcoTec pays a plant or a microbe for every bio tag", () => {
+  const bio = ALL_CARDS.find(c => (c.tags ?? []).includes("Plant") && c.type !== "event");
+  const holder = ALL_CARDS.find(c => getCardResourceType(c.id) === "microbe" && c.type !== "event");
+
+  const rig = played => {
+    const state = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "card-prelude2-ecotec";
+    seat.plants = 0;
+    seat.playedProjects = played;
+    seat.cardResources = {};
+    return applyCorporationTriggers({ ...state, ...seat }, bio, []).state;
+  };
+
+  // Nothing in play takes microbes, so the plant is not a decision.
+  const plain = rig([]);
+  assert.equal(plain.plants, 1);
+  assert.equal(plain.pendingChoice, null);
+
+  // With a microbe card in play the owner is asked which they want.
+  const asked = rig([holder.id]);
+  assert.equal(asked.pendingChoice?.continuation?.stage, "ecotec-bio");
+
+  assert.equal(getPlayer(resolvePendingChoice(asked, "plant", [], "player").state, "player").plants, 1);
+
+  const placed = resolvePendingChoice(asked, "microbe", [], "player");
+  assert.equal(
+    getPlayer(placed.state, "player").cardResources[`player:${holder.id}`],
+    1,
+    "one legal card takes it without another question"
+  );
+});

@@ -377,6 +377,7 @@ const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const PHILARES_ID = "card-promo-philares";
 const NEPTUNIAN_ID = "card-promo-neptunian-power-consultants";
 const RECYCLON_ID = "card-promo-recyclon";
+const ECOTEC_ID = "card-prelude2-ecotec";
 const PRISTAR_ID = "card-turmoil-pristar";
 const NEPTUNIAN_COST = 5;
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
@@ -3196,6 +3197,46 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "ecotec-bio") {
+        const ownerId = choice.ownerPlayerId ?? actorId;
+        if (option.id === "plant") {
+          next.players = next.players.map(player =>
+            player.id === ownerId ? { ...player, plants: (player.plants ?? 0) + 1 } : player
+          );
+          nextLogs = addLog(nextLogs, "system", "EcoTec: 植物 +1");
+          next.pendingChoice = null;
+          break;
+        }
+        const placing = buildResourceChoice(next, { type: "Microbe", count: 1 }, {
+          sourceKind: "corporation",
+          sourceId: ECOTEC_ID,
+          stage: "ecotec-microbe",
+          consumedAction: false,
+          paid: true,
+          cards: ALL_CARDS,
+          getResourceType: getCardResourceType
+        });
+        // With one legal card the builder hands back the target rather than a
+        // question; only several make it a decision.
+        if (placing?.autoTarget) {
+          changeCardResource(next, {
+            ownerPlayerId: ownerId,
+            cardId: placing.autoTarget.cardId ?? placing.autoTarget.id,
+            delta: 1
+          });
+          nextLogs = addLog(nextLogs, "system", "EcoTec: 微生物 +1");
+          next.pendingChoice = null;
+          break;
+        }
+        if (placing) {
+          placing.ownerPlayerId = ownerId;
+          next.pendingChoice = placing;
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: placing };
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "recyclon-microbe") {
         const ownerId = choice.ownerPlayerId ?? actorId;
         if (option.id === "spend") {
@@ -6234,6 +6275,47 @@ export function applyCorporationTriggers(state, card, logs) {
         player.id === holder.id ? { ...player, mc: (player.mc ?? 0) + microbes * 2 } : player
       );
       nextLogs = addLog(nextLogs, "system", `Splice: ${holder.name} が MC +${microbes * 2}`);
+    }
+  }
+
+  // EcoTec: "when you play a bio tag, gain 1 plant or add a microbe to ANY
+  // card", asked once per tag. With no card that takes microbes the plant is
+  // automatic, which is also what upstream does.
+  const ecotecCorp = getCorporation(nextState);
+  if (ecotecCorp?.effects?.bioTagChoice) {
+    const bio = (card.tags ?? []).filter(
+      tag => tag === "Animal" || tag === "Plant" || tag === "Microbe"
+    ).length;
+    if (bio > 0) {
+      const targets = collectResourceTargets(nextState, "Microbe", ALL_CARDS, {
+        ownCardsOnly: true,
+        getResourceType: getCardResourceType
+      });
+      if (targets.length === 0) {
+        nextState.plants = (nextState.plants ?? 0) + bio;
+        nextLogs = addLog(nextLogs, "system", `EcoTec: 植物 +${bio}`);
+      } else {
+        for (let i = 0; i < bio; i++) {
+          queued.push({
+            id: makeChoiceId(`ecotec-bio-${i}`, ecotecCorp.id, nextState.id),
+            kind: "amount",
+            ownerPlayerId: nextState.id,
+            prompt: "EcoTec: 植物を1獲得しますか、それとも任意のカードに微生物を1個置きますか。",
+            optional: false,
+            options: [
+              { id: "plant", label: "植物を1獲得", amount: 1 },
+              { id: "microbe", label: "任意のカードに微生物を1個置く", amount: 1 }
+            ],
+            continuation: {
+              sourceKind: "corporation",
+              sourceId: ecotecCorp.id,
+              stage: "ecotec-bio",
+              consumedAction: false,
+              paid: true
+            }
+          });
+        }
+      }
     }
   }
 

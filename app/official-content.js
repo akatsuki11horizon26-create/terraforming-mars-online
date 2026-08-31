@@ -248,6 +248,9 @@ const CURATED_CORPORATION_OVERRIDES = [
   // "During the production phase, if you did not raise your TR this
   // generation, gain 6 M€ and add a preservation resource here."
   corporation("card-turmoil-pristar", "Pristar", [], { mc: 53 }, "53MCを所持した状態で開始する。TR-2。効果: 生産フェイズに、その世代でTRを上げていなければMCを6獲得し、このカードに保護資源を1個置く。保護資源1個につき1勝利点。", { calmRebate: 6 }),
+  // "When you play a bio tag, gain 1 plant or add a microbe to ANY card."
+  // Asked once per tag; with no microbe card in play the plant is automatic.
+  corporation("card-prelude2-ecotec", "EcoTec", ["Microbe", "Plant"], { mc: 42, production: { plants: 1 } }, "42MCを所持した状態で開始する。植物生産量+1。効果: 生物タグ（動物・植物・微生物）をプレイするたびに、植物を1獲得するか、任意のカードに微生物を1個置く。", { bioTagChoice: 1 }),
   // "When any ocean tile is placed, increase your M€ production 1 step. Your
   // bonus for placing adjacent to oceans is 3 M€ instead of 2 M€." Both halves
   // were missing: the card was 54 M€ and nothing else.
