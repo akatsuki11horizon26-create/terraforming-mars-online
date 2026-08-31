@@ -24,6 +24,8 @@ import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
 import { PRELUDES, OFFICIAL_PROJECTS, CORPORATIONS } from "../app/official-content.js";
 import { JAPANESE_TEXT } from "../app/japanese-text.js";
+import { CARD_ICON_ROWS } from "../app/card-icon-rows.js";
+import { CARD_ICON_GLYPHS } from "../app/card-icon-glyphs.js";
 
 // Seven cards shipped with an empty effectSpec because their behaviour lives in
 // a hand-written method upstream rather than a declarative block, so the
@@ -2102,4 +2104,51 @@ test("EcoTec pays a plant or a microbe for every bio tag", () => {
     1,
     "one legal card takes it without another question"
   );
+});
+
+test("a card's icon row says the same thing its text does", () => {
+  // The icons come from upstream's own render tree, so they are a second
+  // statement of the same card. Where both name an amount they must agree --
+  // that is the whole reason for having them beside the text rather than
+  // instead of it.
+  const rows = CARD_ICON_ROWS;
+  assert.ok(Object.keys(rows).length > 400, "most cards should have a row");
+
+  // Every icon named in the data must be one the renderer can draw. A row with
+  // one symbol silently missing reads as a different card.
+  const named = new Set();
+  const walk = token => {
+    if (Array.isArray(token)) return token.forEach(walk);
+    if (!token || typeof token !== "object") return;
+    if (token.i) named.add(token.i);
+    for (const value of Object.values(token)) walk(value);
+  };
+  walk(Object.values(rows));
+
+  const missing = [...named].filter(icon => !(icon in CARD_ICON_GLYPHS));
+  assert.deepEqual(missing, [], "these icons have no glyph");
+});
+
+test("the icon rows carry the amounts upstream prints", () => {
+  // Arctic Algae is the shape worth pinning: an ongoing effect box, an ocean
+  // marked as anyone's, and two plants -- next to a one-off plant outside it.
+  const rows = CARD_ICON_ROWS["card-base-arctic-algae"];
+  assert.ok(rows, "Arctic Algae has an icon row");
+
+  const flat = [];
+  const walk = token => {
+    if (Array.isArray(token)) return token.forEach(walk);
+    if (!token || typeof token !== "object") return;
+    if (token.i) flat.push(token);
+    for (const value of Object.values(token)) walk(value);
+  };
+  walk(rows);
+
+  const ocean = flat.find(token => token.i === "oceans");
+  assert.ok(ocean, "the ocean that triggers it");
+  assert.equal(ocean.all, true, "laid by anyone, not just its owner");
+
+  const plants = flat.filter(token => token.i === "plants");
+  assert.equal(plants.length, 2, "the ongoing two and the printed one");
+  assert.ok(plants.some(token => token.n === 2), "two for an ocean");
 });

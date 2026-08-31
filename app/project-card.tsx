@@ -4,6 +4,7 @@ import React from "react";
 import { CardTag } from "./card-tags";
 import { CardArt } from "./card-art";
 import { completeEffectText } from "./effect-summary";
+import { CardIcons } from "./card-icons";
 
 // A project card laid out like the printed one: cost in a disc at the top left,
 // tags at the top right, the card type banded by colour (green automated, blue
@@ -152,6 +153,8 @@ export function ProjectCard({
       <span className="tm-card-name">{card.name}</span>
 
       {requirement && <span className="tm-card-req">{requirement}</span>}
+
+      <CardIcons cardId={card.id} />
 
       <span className="tm-card-body">{effectText}</span>
 
