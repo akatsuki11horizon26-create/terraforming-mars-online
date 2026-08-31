@@ -239,6 +239,15 @@ const CURATED_CORPORATION_OVERRIDES = [
   corporation("card-promo-poldertech-dutch", "PolderTECH Dutch", ["Earth"], { mc: 35 }, "35MCを所持した状態で開始する。最初のアクションとして、隣接する海洋タイルと緑地タイルを配置する（緑地の配置制限を無視）。酸素+1。", { firstPolderTiles: true }),
   corporation("card-promo-splice", "Splice", ["Microbe"], { mc: 44 }, "44MCを所持した状態で開始する。最初のアクションとして、微生物タグのカードを1枚公開するまでカードを公開し続ける。効果: 誰かが微生物タグをプレイするたびMC2。", { firstTagDraw: "Microbe" }),
   corporation("card-venus-celestic", "Celestic", ["Venus"], { mc: 42 }, "最初のアクションでフローターのカードを2枚引く。アクション: フローターを1個置く。フローター3個ごとに1VP。", { firstFloaterDraw: 2 }),
+  // "When you play an animal or plant tag, including this, add 1 animal here."
+  // A card with both tags pays for both.
+  corporation("card-colonies-arklight", "Arklight", ["Animal"], { mc: 45, production: { mc: 2 } }, "45MCを所持した状態で開始する。MC生産量+2。効果: 動物タグまたは植物タグをプレイするたびに、このカードに動物を1個置く。動物2個につき1勝利点。", { animalPlantResource: 1 }),
+  // "When you play a building tag, add a microbe here -- or once there are
+  // two, spend them for a plant production step instead."
+  corporation("card-promo-recyclon", "Recyclon", ["Building", "Microbe"], { mc: 38, production: { steel: 1 } }, "38MCを所持した状態で開始する。建材生産量+1。効果: 建材タグをプレイするたびに、このカードに微生物を1個置く。微生物が2個ある場合は、代わりに2個を取り除いて植物生産量+1を選べる。", { buildingMicrobe: 1 }),
+  // "During the production phase, if you did not raise your TR this
+  // generation, gain 6 M€ and add a preservation resource here."
+  corporation("card-turmoil-pristar", "Pristar", [], { mc: 53 }, "53MCを所持した状態で開始する。TR-2。効果: 生産フェイズに、その世代でTRを上げていなければMCを6獲得し、このカードに保護資源を1個置く。保護資源1個につき1勝利点。", { calmRebate: 6 }),
   // "When any ocean tile is placed, increase your M€ production 1 step. Your
   // bonus for placing adjacent to oceans is 3 M€ instead of 2 M€." Both halves
   // were missing: the card was 54 M€ and nothing else.

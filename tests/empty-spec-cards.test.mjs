@@ -12,6 +12,7 @@ import {
   applyCorporationTriggers,
   applyCorporation,
   applyCardEffect,
+  triggerProduction,
   applyCorporationInitialAction,
   resolvePendingChoice,
   DECLINE_CHOICE,
@@ -1996,4 +1997,74 @@ test("a prelude that asks once still resumes immediately", () => {
     current = answered.state;
   }
   assert.equal(current.pendingChoice, null, "the prelude finished");
+});
+
+test("Arklight collects an animal per animal or plant tag", () => {
+  const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-colonies-arklight";
+  seat.cardResources = {};
+
+  const animalOnly = ALL_CARDS.find(c => (c.tags ?? []).includes("Animal") && !(c.tags ?? []).includes("Plant") && c.type !== "event");
+  const both = ALL_CARDS.find(c => (c.tags ?? []).includes("Animal") && (c.tags ?? []).includes("Plant"));
+  const neither = ALL_CARDS.find(c => !(c.tags ?? []).some(tag => tag === "Animal" || tag === "Plant") && c.type !== "event");
+
+  let view = { ...state, ...seat };
+  view = applyCorporationTriggers(view, animalOnly, []).state;
+  assert.equal(view.cardResources["card-colonies-arklight"], 1);
+  // A card carrying both tags pays for both.
+  view = applyCorporationTriggers(view, both, []).state;
+  assert.equal(view.cardResources["card-colonies-arklight"], 3);
+  view = applyCorporationTriggers(view, neither, []).state;
+  assert.equal(view.cardResources["card-colonies-arklight"], 3, "and nothing for other tags");
+});
+
+test("Recyclon offers the trade once two microbes are on it", () => {
+  const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "card-promo-recyclon";
+  seat.cardResources = {};
+  const building = ALL_CARDS.find(c => (c.tags ?? []).includes("Building") && c.type !== "event");
+
+  let view = { ...state, ...seat };
+  for (const expected of [1, 2]) {
+    view = applyCorporationTriggers(view, building, []).state;
+    assert.equal(view.cardResources["card-promo-recyclon"], expected);
+    assert.equal(view.pendingChoice, null, "no question below two microbes");
+  }
+
+  view = applyCorporationTriggers(view, building, []).state;
+  assert.equal(view.pendingChoice?.continuation?.stage, "recyclon-microbe");
+
+  const spent = resolvePendingChoice(view, "spend", [], "player");
+  const after = getPlayer(spent.state, "player");
+  assert.equal(after.cardResources["card-promo-recyclon"], 0, "both microbes go");
+  assert.equal(after.plantsProd, 1, "for a plant production step");
+});
+
+test("Pristar pays only in a generation its owner did not terraform", () => {
+  const run = raised => {
+    const state = getInitialState({ playerCount: 2, turmoil: true, seed: 4 });
+    state.phase = "action";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "card-turmoil-pristar";
+    seat.mc = 0;
+    seat.tr = 0;
+    seat.mcProd = 0;
+    seat.cardResources = {};
+    if (raised) increaseTerraformRating(state, "player", 1, "card");
+    const produced = triggerProduction(state, []);
+    return getPlayer(produced.state ?? produced, "player");
+  };
+
+  const calm = run(false);
+  assert.equal(calm.mc, 6, "6 M€ for a generation without terraforming");
+  assert.equal(calm.cardResources["card-turmoil-pristar"], 1);
+
+  const busy = run(true);
+  assert.equal(busy.cardResources["card-turmoil-pristar"] ?? 0, 0, "nothing after raising TR");
 });

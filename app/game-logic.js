@@ -376,6 +376,8 @@ const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const PHILARES_ID = "card-promo-philares";
 const NEPTUNIAN_ID = "card-promo-neptunian-power-consultants";
+const RECYCLON_ID = "card-promo-recyclon";
+const PRISTAR_ID = "card-turmoil-pristar";
 const NEPTUNIAN_COST = 5;
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
@@ -3194,6 +3196,21 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "recyclon-microbe") {
+        const ownerId = choice.ownerPlayerId ?? actorId;
+        if (option.id === "spend") {
+          changeCardResource(next, { ownerPlayerId: ownerId, cardId: RECYCLON_ID, delta: -2 });
+          next.players = next.players.map(player =>
+            player.id === ownerId ? { ...player, plantsProd: (player.plantsProd ?? 0) + 1 } : player
+          );
+          nextLogs = addLog(nextLogs, "system", "Recyclon: 微生物2個を取り除き、植物生産量 +1");
+        } else {
+          changeCardResource(next, { ownerPlayerId: ownerId, cardId: RECYCLON_ID, delta: 1 });
+          nextLogs = addLog(nextLogs, "system", "Recyclon: 微生物 +1");
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "neptunian-ocean") {
         const payerId = choice.ownerPlayerId ?? actorId;
         const payer = getPlayer(next, payerId);
@@ -5142,7 +5159,11 @@ export function increaseTerraformRating(state, playerId, steps, reason = "action
   }
 
   state.players = state.players.map(player =>
-    player.id === targetId ? { ...player, tr: Math.max(0, player.tr + amount) } : player
+    player.id === targetId
+      // Pristar pays only in a generation where its owner did not terraform, so
+      // the raise has to be remembered until the production phase reads it.
+      ? { ...player, tr: Math.max(0, player.tr + amount), raisedTrThisGeneration: true }
+      : player
   );
 
   // A drop in rating is never a terraforming action, so it is never levied.
@@ -6216,6 +6237,42 @@ export function applyCorporationTriggers(state, card, logs) {
     }
   }
 
+  // Recyclon: a microbe per building tag, or -- once two are here -- the choice
+  // of spending them for a plant production step instead. It sits here rather
+  // than with the other corporation effects below because that runs after the
+  // queue has already been drained, and a question pushed then never appears.
+  const recyclonCorp = getCorporation(nextState);
+  if (recyclonCorp?.effects?.buildingMicrobe && (card.tags ?? []).includes("Building")) {
+    const held = nextState.cardResources?.[recyclonCorp.id] ?? 0;
+    if (held < 2) {
+      changeCardResource(nextState, {
+        ownerPlayerId: nextState.id,
+        cardId: recyclonCorp.id,
+        delta: recyclonCorp.effects.buildingMicrobe
+      });
+      nextLogs = addLog(nextLogs, "system", "Recyclon: 微生物 +1");
+    } else {
+      queued.push({
+        id: makeChoiceId("recyclon-microbe", recyclonCorp.id, nextState.id),
+        kind: "amount",
+        ownerPlayerId: nextState.id,
+        prompt: "Recyclon: 微生物を1個置きますか、それとも微生物2個を取り除いて植物生産量+1にしますか。",
+        optional: false,
+        options: [
+          { id: "add", label: "微生物を1個置く", amount: 1 },
+          { id: "spend", label: "微生物2個を取り除いて植物生産量+1", amount: 2 }
+        ],
+        continuation: {
+          sourceKind: "corporation",
+          sourceId: recyclonCorp.id,
+          stage: "recyclon-microbe",
+          consumedAction: false,
+          paid: true
+        }
+      });
+    }
+  }
+
   if (queued.length > 0) {
     nextState.pendingChoice = queued[0];
     enqueuePendingChoices(nextState, queued.slice(1));
@@ -6304,6 +6361,19 @@ export function applyCorporationTriggers(state, card, logs) {
       nextState.seenTagTypes = [...seen];
       nextState.mcProd = (nextState.mcProd ?? 0) + gained * corporation.effects.diverseTagProduction;
       nextLogs = addLog(nextLogs, "system", `Aridor: 新種のタグ${gained}種類により MC生産量 +${gained * corporation.effects.diverseTagProduction}`);
+    }
+  }
+  // Arklight: "when you play an animal or plant tag, including this". A card
+  // carrying both pays for both.
+  if (corporation.effects.animalPlantResource) {
+    const paying = (card.tags ?? []).filter(tag => tag === "Animal" || tag === "Plant").length;
+    if (paying > 0) {
+      changeCardResource(nextState, {
+        ownerPlayerId: nextState.id,
+        cardId: corporation.id,
+        delta: paying * corporation.effects.animalPlantResource
+      });
+      nextLogs = addLog(nextLogs, "system", `Arklight: 動物 +${paying}`);
     }
   }
   // Spire: "when you play a card with at least 2 tags, including this". An
@@ -8819,6 +8889,26 @@ export function triggerProduction(state, logAcc) {
   const nextState = cloneGameState(state);
   let localLog = logAcc;
 
+  // "During the production phase, if you did not raise your TR this generation,
+  // gain 6 M€ and add a preservation resource here." Read before production
+  // rebuilds the players, because that is where the flag is cleared.
+  for (const player of nextState.players) {
+    const corporation = corporationFor(player);
+    if (!corporation?.effects?.calmRebate) continue;
+    if (player.raisedTrThisGeneration) continue;
+    nextState.players = nextState.players.map(entry =>
+      entry.id === player.id
+        ? { ...entry, mc: (entry.mc ?? 0) + corporation.effects.calmRebate }
+        : entry
+    );
+    changeCardResource(nextState, { ownerPlayerId: player.id, cardId: PRISTAR_ID, delta: 1 });
+    localLog = addLog(
+      localLog,
+      "system",
+      `${player.name}: Pristar により MC +${corporation.effects.calmRebate}、保護資源 +1`
+    );
+  }
+
   // Production resolves for every player, not just the active one.
   nextState.players = nextState.players.map(player => {
     const energyToHeat = player.energy;
@@ -8835,6 +8925,7 @@ export function triggerProduction(state, logAcc) {
       energy: player.energyProd,
       heat: player.heat + energyToHeat + player.heatProd,
       passed: false,
+      raisedTrThisGeneration: false,
       // "このプレイヤー・マーカーは、産出フェイズに除去します"
       usedCardActions: [],
       // A once-a-generation policy action is refreshed with everything else.
