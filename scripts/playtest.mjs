@@ -523,21 +523,30 @@ function playGame(seed) {
           logs = state.logs ?? logs;
         }
       } else if (move.kind === "play") {
-        state.players = state.players.map(p =>
-          p.id === player.id
-            ? { ...p, mc: p.mc - move.cost, hand: p.hand.filter(id => id !== move.card.id) }
-            : p
-        );
-        const result = applyCardEffect(state, move.card, logs);
-        state = result.state;
-        logs = result.logs;
-        state.players = state.players.map(p =>
-          p.id === player.id ? { ...p, playedProjects: [...p.playedProjects, move.card.id] } : p
-        );
+        // Through the command a player uses, not by hand. Deducting the cost,
+        // pulling the card from hand, applying its effect and only then adding
+        // it to playedProjects is a different order from the real one -- a card
+        // that counts its own tag reads short that way -- and none of the
+        // command layer's own work happens at all.
+        const played = executeGameCommand(state, {
+          type: COMMAND.PLAY_CARD, playerId: player.id, cardId: move.card.id
+        });
+        if (!played?.ok) {
+          report("play-refused", `${move.card.id}: ${played?.error ?? "no reason given"}`, { where });
+        } else {
+          state = played.state;
+          logs = state.logs ?? logs;
+        }
       } else if (move.kind === "action") {
-        const result = applyCardAction(state, move.card, logs);
-        state = result.state;
-        logs = result.logs;
+        const used = executeGameCommand(state, {
+          type: COMMAND.USE_CARD_ACTION, playerId: player.id, cardId: move.card.id, card: move.card
+        });
+        if (!used?.ok) {
+          report("action-refused", `${move.card.id}: ${used?.error ?? "no reason given"}`, { where });
+        } else {
+          state = used.state;
+          logs = state.logs ?? logs;
+        }
       } else if (move.kind === "milestone") {
         const result = claimMilestone(state, move.id, logs, player.id);
         state = result.state;

@@ -6329,14 +6329,23 @@ export function applyCorporationTriggers(state, card, logs) {
         getResourceType: getCardResourceType
       });
       if (targets.length === 0) {
-        nextState.plants = (nextState.plants ?? 0) + bio;
+        // Written to the player record, which both paths read. Writing the
+        // flattened field as well double-counts wherever the state carries one.
+        const gainer = nextState.id ?? nextState.currentPlayerId;
+        nextState.players = nextState.players.map(player =>
+          player.id === gainer ? { ...player, plants: (player.plants ?? 0) + bio } : player
+        );
         nextLogs = addLog(nextLogs, "system", `EcoTec: 植物 +${bio}`);
       } else {
+        // The owner is read from the seat rather than from `nextState.id`: the
+        // real play path does not flatten the player onto the state, so that
+        // was undefined and the ownership guard refused every answer.
+        const ecotecOwner = nextState.id ?? nextState.currentPlayerId;
         for (let i = 0; i < bio; i++) {
           queued.push({
-            id: makeChoiceId(`ecotec-bio-${i}`, ecotecCorp.id, nextState.id),
+            id: makeChoiceId(`ecotec-bio-${i}`, ecotecCorp.id, ecotecOwner),
             kind: "amount",
-            ownerPlayerId: nextState.id,
+            ownerPlayerId: ecotecOwner,
             prompt: "EcoTec: 植物を1獲得しますか、それとも任意のカードに微生物を1個置きますか。",
             optional: false,
             options: [
