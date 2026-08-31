@@ -788,35 +788,53 @@ function addNormalizedStock(effect, stock, unsupported = []) {
 // depends on Colonies state is deferred until that expansion exists.
 function normalizeCountedAmount(amount) {
   const each = amount.each ?? 1;
+  // Upstream writes "including this" as a flat +1 because its count runs before
+  // the card enters play. Ours counts after it is in playedProjects, so the
+  // card is already included and adding the +1 pays for it twice: Community
+  // Services gave 4 where the reference gives 3. Kept for any spec that needs a
+  // genuine flat addition, and left off that card.
+  const plus = amount.plus ?? 0;
   // "1 M€ per 2 Building tags", "1 M€ per 3 floaters" -- `per` divides the count
   // and rounds down. Ignoring it paid Medical Lab per tag instead of per pair.
   const per = amount.per ?? 1;
 
-  if (amount.colonies) return { kind: "colonies", each, per, allPlayers: amount.all === true };
+  if (amount.colonies) return { kind: "colonies", plus, each, per, allPlayers: amount.all === true };
   if (amount.tag) {
     // Tags count only the player's own unless `all` is set (reference Counter).
     const tags = Array.isArray(amount.tag) ? amount.tag : [amount.tag];
-    return { kind: "tag", tags, each, per, allPlayers: amount.all === true };
+    return { kind: "tag", plus, tags, each, per, allPlayers: amount.all === true };
   }
   // Board counts include every player's tiles unless `all` is explicitly false.
-  if (amount.cities) return { kind: "cities", each, per, allPlayers: amount.all !== false };
-  if (amount.greeneries) return { kind: "greeneries", each, per, allPlayers: amount.all !== false };
+  if (amount.cities) return { kind: "cities", plus, each, per, allPlayers: amount.all !== false };
+  if (amount.greeneries) return { kind: "greeneries", plus, each, per, allPlayers: amount.all !== false };
   // Floaters are always counted on the active player's own cards.
-  if (amount.floaters) return { kind: "floaters", each, per, allPlayers: false };
-  if (amount.eventsPlayed) return { kind: "eventsPlayed", each, per, allPlayers: amount.all === true };
-  if (amount.noTags) return { kind: "noTags", each, per, allPlayers: false };
-  if (amount.distinctTags) return { kind: "distinctTags", each, per, allPlayers: false };
-  if (amount.coloniesInPlay) return { kind: "coloniesInPlay", each, per, allPlayers: true };
+  if (amount.floaters) return { kind: "floaters", plus, each, per, allPlayers: false };
+  if (amount.eventsPlayed) return { kind: "eventsPlayed", plus, each, per, allPlayers: amount.all === true };
+  if (amount.noTags) return { kind: "noTags", plus, each, per, allPlayers: false };
+  if (amount.projectCardsInHand) {
+    return { kind: "projectCardsInHand", plus, each, per, allPlayers: false };
+  }
+  if (amount.distinctTags) {
+    return {
+      kind: "distinctTags",
+      plus,
+      each,
+      per,
+      allPlayers: false,
+      excludeTag: amount.excludeTag ?? null
+    };
+  }
+  if (amount.coloniesInPlay) return { kind: "coloniesInPlay", plus, each, per, allPlayers: true };
   if (amount.ownedAdjacentEmptyAreas) {
-    return { kind: "ownedAdjacentEmptyAreas", each, per, allPlayers: false };
+    return { kind: "ownedAdjacentEmptyAreas", plus, each, per, allPlayers: false };
   }
   // "1 M€ per floater HERE, max 4" -- the resources on the card doing the
   // counting, which is why this one needs to know which card that is.
   if (amount.resourcesHere) {
-    return { kind: "resourcesHere", each, per, allPlayers: false, max: amount.max };
+    return { kind: "resourcesHere", plus, each, per, allPlayers: false, max: amount.max };
   }
   if (amount.citiesAndSpecialTilesNextToOcean) {
-    return { kind: "citiesAndSpecialTilesNextToOcean", each, per, allPlayers: true };
+    return { kind: "citiesAndSpecialTilesNextToOcean", plus, each, per, allPlayers: true };
   }
   return null;
 }
@@ -867,6 +885,14 @@ function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
         }
       }
       break;
+    case "projectCardsInHand":
+      // Head Start pays per project card held. Active, automated and event are
+      // all project cards; a prelude or a corporation in hand is not.
+      units = (getPlayer(state, ownerId)?.hand ?? []).filter(cardId => {
+        const held = ALL_CARDS.find(item => item.id === cardId);
+        return held && ["active", "automated", "event"].includes(held.type);
+      }).length;
+      break;
     case "distinctTags": {
       // Distinct tag kinds across everything in play. Wild counts as its own in
       // the reference's 'default' mode, and events are excluded from the board.
@@ -877,6 +903,10 @@ function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
           for (const tag of card?.tags ?? []) kinds.add(String(tag).toLowerCase());
         }
       }
+      // Interplanetary Trade says "per different tag you have in play,
+      // INCLUDING THIS" and excludes Space upstream: the card carries a Space
+      // tag itself, and counting it as well as its own would pay twice for it.
+      if (gain.excludeTag) kinds.delete(String(gain.excludeTag).toLowerCase());
       units = kinds.size;
       break;
     }
@@ -923,7 +953,7 @@ function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
     default:
       return 0;
   }
-  return Math.floor(units / (gain.per ?? 1)) * (gain.each ?? 1);
+  return Math.floor((units + (gain.plus ?? 0)) / (gain.per ?? 1)) * (gain.each ?? 1);
 }
 
 function normalizeBehavior(raw, effect = {}, unsupported = []) {
@@ -1126,6 +1156,13 @@ export function getCardEffect(card) {
   if (effectCache.has(card)) return { ...effectCache.get(card), cardId: card.id };
   const unsupported = [];
   const effect = normalizeBehavior(card.effectSpec?.behavior, {}, unsupported);
+  // What a hand-written upstream method gains on top of the declared behavior.
+  // It is kept out of `behavior` so the declaration still matches upstream's
+  // exactly -- Head Start really does declare only its steel, and the money per
+  // project card in hand lives in bespokePlay.
+  if (card.effectSpec?.bespokeStock) {
+    addNormalizedStock(effect, card.effectSpec.bespokeStock, unsupported);
+  }
   if (card.effectSpec?.action) {
     const actionUnsupported = [];
     effect.action = normalizeBehavior(card.effectSpec.action, {}, actionUnsupported);

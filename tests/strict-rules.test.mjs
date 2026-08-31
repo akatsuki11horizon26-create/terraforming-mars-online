@@ -2140,10 +2140,13 @@ test("cards that count something in play pay for what they count", async () => {
   getPlayer(services, "player").playedProjects = noTag.map(c => c.id);
   assert.equal(play(services, "card-colonies-community-services").mcProd, noTag.length + 1);
 
-  // "1 M€ production per distinct tag in play, including this card's own."
+  // "1 M€ production per different tag you have in play, including this."
+  // Upstream counts distinctCount('default', Tag.SPACE) -- Space is excluded,
+  // because the card carries a Space tag itself and would otherwise pay for it
+  // twice. This assertion used to read 2 and held the wrong rule in place.
   const trade = rig();
   getPlayer(trade, "player").playedProjects = ["card-base-acquired-company"];
-  assert.equal(play(trade, "card-promo-interplanetary-trade").mcProd, 2, "Earth plus its own Space");
+  assert.equal(play(trade, "card-promo-interplanetary-trade").mcProd, 1, "Earth only; Space does not count");
 
   // "1 M€ per event played by ANY player."
   const archives = rig();

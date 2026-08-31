@@ -11,6 +11,7 @@ import {
   increaseTerraformRating,
   applyCorporationTriggers,
   applyCorporation,
+  applyCardEffect,
   applyCorporationInitialAction,
   resolvePendingChoice,
   DECLINE_CHOICE,
@@ -1868,4 +1869,80 @@ test("a card that has an action or a discount says so", () => {
            (discount && !/コスト|割引|軽減/.test(text));
   });
   assert.deepEqual(silent.map(card => card.id), [], "these cards never mention what they do");
+});
+
+test("Community Services counts itself once, not twice", () => {
+  // Upstream reads "per card with no tags, INCLUDING THIS" as count + 1,
+  // because its count runs before the card enters play. Ours counts after, so
+  // the card is already in the tally -- carrying the +1 across as well paid for
+  // it twice. Played through the real command, which is where the timing shows.
+  const untagged = ALL_CARDS.filter(
+    entry => (entry.tags ?? []).length === 0 &&
+      entry.type !== "event" &&
+      entry.id !== "card-colonies-community-services"
+  );
+
+  for (const others of [0, 2]) {
+    const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
+    seat.mcProd = 0;
+    seat.playedProjects = untagged.slice(0, others).map(entry => entry.id);
+    seat.hand = ["card-colonies-community-services"];
+
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-community-services"
+    });
+    assert.equal(played.ok, true);
+    assert.equal(
+      getPlayer(played.state, "player").mcProd,
+      others + 1,
+      `${others} others in play, plus this card, should pay ${others + 1}`
+    );
+  }
+});
+
+test("Interplanetary Trade does not count its own Space tag", () => {
+  // Upstream counts distinct tags with Tag.SPACE excluded: the card carries a
+  // Space tag itself, and "including this" would otherwise pay for it twice.
+  const card = ALL_CARDS.find(entry => entry.id === "card-promo-interplanetary-trade");
+  const only = tag => ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.tags[0] === tag && c.type !== "event");
+
+  const run = tags => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.playedProjects = tags.map(tag => only(tag)?.id).filter(Boolean);
+    seat.mcProd = 0;
+    return getPlayer(applyCardEffect(state, card, []).state, "player").mcProd;
+  };
+
+  assert.equal(run(["Earth", "Science"]), 2);
+  assert.equal(run(["Earth", "Science", "Space"]), 2, "the Space tag adds nothing");
+  assert.equal(run(["Space"]), 0);
+});
+
+test("Head Start pays for the project cards in hand", () => {
+  // Upstream declares only the steel; the 2 M€ per project card comes from a
+  // hand-written method, so ours handed out the steel and nothing else however
+  // full the hand was. Preludes and corporations in hand are not project cards.
+  for (const held of [0, 2, 4]) {
+    const state = getInitialState({ playerCount: 2, prelude: true, promo: true, seed: 4 });
+    for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+    const seat = state.players[0];
+    seat.setupStep = "prelude";
+    state.currentPlayerId = seat.id;
+    seat.preludeOptions = ["card-promo-head-start", "prelude-biolab"];
+    seat.hand = (state.deck ?? []).slice(0, held);
+    seat.mc = 0;
+    seat.steel = 0;
+
+    const after = getPlayer(applyPreludes(state, ["card-promo-head-start", "prelude-biolab"], seat.id), seat.id);
+    assert.equal(after.mc, held * 2, `${held} cards in hand should pay ${held * 2} M€`);
+    assert.equal(after.steel, 2, "and the printed steel either way");
+  }
 });

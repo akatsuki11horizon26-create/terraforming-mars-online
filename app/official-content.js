@@ -149,8 +149,8 @@ const CURATED_PROJECT_OVERRIDES = [
   // Four cards that count something in play and pay production for it. All four
   // were empty specs, so they took the money and did nothing.
   project("card-base-media-archives", "Media Archives", 8, ["Earth"], "automated", "全プレイヤーがこれまでにプレイしたイベント1枚につきMCを1獲得。", {}, {"effectSpec": {"behavior": {"stock": {"megacredits": {"eventsPlayed": true, "all": true}}}}}),
-  project("card-colonies-community-services", "Community Services", 13, [], "automated", "タグを持たないカード1枚につきMC生産量+1（このカードを含む）。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"noTags": true, "plus": 1}}}}}),
-  project("card-promo-interplanetary-trade", "Interplanetary Trade", 27, ["Space"], "automated", "このカードを含め、場に出ている異なるタグ1種類につきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"distinctTags": true}}}}}),
+  project("card-colonies-community-services", "Community Services", 13, [], "automated", "タグを持たないカード1枚につきMC生産量+1（このカードを含む）。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"noTags": true}}}}}),
+  project("card-promo-interplanetary-trade", "Interplanetary Trade", 27, ["Space"], "automated", "このカードを含め、場に出ている異なるタグ1種類につきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"distinctTags": true, "excludeTag": "Space"}}}}}),
   project("card-colonies-quantum-communications", "Quantum Communications", 8, [], "automated", "科学タグ4つが必要。場にある植民地1つにつきMC生産量+1。", {}, {"victoryPoints": 1, "requires": {"tags": {"Science": 4}}, "reqText": "科学タグ4枚以上", "effectSpec": {"behavior": {"production": {"megacredits": {"coloniesInPlay": true}}}}}),
   // Both spend 2 M€ production and place a colony; both were empty specs.
   project("card-colonies-minority-refuge", "Minority Refuge", 5, ["Space"], "automated", "MC生産量-2。植民地を1つ置く。", {}, {"effectSpec": {"behavior": {"production": {"megacredits": -2}, "colonies": {"buildColony": {}}}}}),
@@ -265,6 +265,10 @@ const CURATED_PRELUDE_OVERRIDES = [
   prelude("card-prelude2-project-eden", "Project Eden", "海洋タイルを1枚、都市タイルを1枚、緑地タイルを1枚置く。カードを3枚捨てる。", {}, { tags: ["City", "Plant"] }),
   // "Lose 18 M€. Increase all your productions that are lower than 1, to 1."
   prelude("card-prelude2-industrial-complex", "Industrial Complex", "MCを18失う。1未満のすべての生産量を1にする。", { payMc: 18, productionFloor: 1 }, { tags: ["Building"] }),
+  // "Gain 2 steel. Gain 2 M€ for each project card in hand." Upstream declares
+  // only the steel; the money comes from a hand-written method, so ours paid
+  // the steel and nothing else however full the hand was.
+  prelude("card-promo-head-start", "Head Start", "建材を2獲得。手札にあるプロジェクトカード1枚につきMCを2獲得。", {}, { tags: [], effectSpec: { behavior: { stock: { steel: 2 } }, bespokeStock: { megacredits: { projectCardsInHand: true, each: 2 } } } }),
   // "Add 2 floaters to ANY card, or remove any number of floaters here to gain
   // that many of one standard resource." Shipped with an empty effectSpec, so
   // the card was a Space tag and an action that never appeared.
