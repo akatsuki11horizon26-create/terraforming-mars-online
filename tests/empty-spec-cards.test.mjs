@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   getInitialState,
@@ -2176,4 +2177,38 @@ test("every tag and card resource the icons name has its own glyph", () => {
     [...resources].filter(resource => !(resource in CARD_RESOURCE_GLYPHS)), [],
     "these card resources would draw as a generic marker"
   );
+});
+
+test("our catalogue covers the upstream expansions it claims", () => {
+  // The reference at the pinned SHA carries 987 cards, but most of that is
+  // expansions this game does not implement -- Underworld, Moon, Pathfinders,
+  // CEO, Ares, Star Wars, and the community (fan-made) module. Within the
+  // expansions we do implement, every upstream card is here: the ones that look
+  // missing are capitalisation variants (Search For Life, ThorGate, Allied
+  // Bank), and the ones with no render tree are cards upstream draws with no
+  // icons at all.
+  const upstream = JSON.parse(
+    readFileSync(new URL("../data/upstream-render-data.json", import.meta.url), "utf8")
+  );
+  const IN_SCOPE = new Set([
+    "base", "corpera", "promo", "venus", "colonies", "turmoil", "prelude", "prelude2"
+  ]);
+  const CARD_GROUPS = new Set(["projectCards", "corporationCards", "preludeCards"]);
+
+  // Upstream writes "Allied Bank" where the printed card and ours read "Allied
+  // Banks"; the trailing s is the only difference, so it is normalised away
+  // along with case and punctuation.
+  const normalise = name => name.toLowerCase().replace(/[^a-z0-9]/g, "").replace(/s$/, "");
+  const ours = new Set(
+    [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS].map(card =>
+      normalise(card.englishName ?? card.name)
+    )
+  );
+
+  const missing = Object.entries(upstream.cards)
+    .filter(([, card]) => IN_SCOPE.has(card.module) && CARD_GROUPS.has(card.group))
+    .map(([name]) => name)
+    .filter(name => !ours.has(normalise(name)));
+
+  assert.deepEqual(missing, [], "upstream cards in our expansions that we do not have");
 });
