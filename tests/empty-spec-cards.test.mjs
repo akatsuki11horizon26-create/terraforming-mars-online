@@ -12,7 +12,6 @@ import {
   increaseTerraformRating,
   applyCorporationTriggers,
   applyCorporation,
-  applyCardEffect,
   triggerProduction,
   applyCorporationInitialAction,
   resolvePendingChoice,
@@ -1909,25 +1908,35 @@ test("Community Services counts itself once, not twice", () => {
   }
 });
 
-test("Interplanetary Trade does not count its own Space tag", () => {
-  // Upstream counts distinct tags with Tag.SPACE excluded: the card carries a
-  // Space tag itself, and "including this" would otherwise pay for it twice.
+test("Interplanetary Trade counts its own Space tag along with the rest", () => {
+  // Upstream calls distinctCount('default', Tag.SPACE), and that second
+  // argument is `extraTag` -- it does uniqueTags.add(extraTag). It adds Space,
+  // it does not exclude it. I read it backwards first and wrote both the code
+  // and this test to match; running the card in the reference engine and in
+  // ours side by side is what showed the two disagreeing by exactly one.
   const card = ALL_CARDS.find(entry => entry.id === "card-promo-interplanetary-trade");
   const only = tag => ALL_CARDS.find(c => (c.tags ?? []).length === 1 && c.tags[0] === tag && c.type !== "event");
 
-  const run = tags => {
+  const run = played => {
     const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
     state.phase = "action";
     state.currentPlayerId = "player";
     const seat = getPlayer(state, "player");
-    seat.playedProjects = tags.map(tag => only(tag)?.id).filter(Boolean);
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
     seat.mcProd = 0;
-    return getPlayer(applyCardEffect(state, card, []).state, "player").mcProd;
+    seat.playedProjects = played;
+    seat.hand = [card.id];
+    const result = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+    });
+    assert.equal(result.ok, true);
+    return getPlayer(result.state, "player").mcProd;
   };
 
-  assert.equal(run(["Earth", "Science"]), 2);
-  assert.equal(run(["Earth", "Science", "Space"]), 2, "the Space tag adds nothing");
-  assert.equal(run(["Space"]), 0);
+  assert.equal(run([]), 1, "its own Space tag alone");
+  assert.equal(run([only("Earth").id]), 2, "Space and Earth");
+  assert.equal(run([only("Earth").id, only("Science").id]), 3, "Space, Earth and Science");
 });
 
 test("Head Start pays for the project cards in hand", () => {

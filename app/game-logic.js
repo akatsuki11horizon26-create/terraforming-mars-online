@@ -834,16 +834,7 @@ function normalizeCountedAmount(amount) {
   if (amount.projectCardsInHand) {
     return { kind: "projectCardsInHand", plus, each, per, allPlayers: false };
   }
-  if (amount.distinctTags) {
-    return {
-      kind: "distinctTags",
-      plus,
-      each,
-      per,
-      allPlayers: false,
-      excludeTag: amount.excludeTag ?? null
-    };
-  }
+  if (amount.distinctTags) return { kind: "distinctTags", plus, each, per, allPlayers: false };
   if (amount.coloniesInPlay) return { kind: "coloniesInPlay", plus, each, per, allPlayers: true };
   if (amount.ownedAdjacentEmptyAreas) {
     return { kind: "ownedAdjacentEmptyAreas", plus, each, per, allPlayers: false };
@@ -928,10 +919,6 @@ function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
           for (const tag of card?.tags ?? []) kinds.add(String(tag).toLowerCase());
         }
       }
-      // Interplanetary Trade says "per different tag you have in play,
-      // INCLUDING THIS" and excludes Space upstream: the card carries a Space
-      // tag itself, and counting it as well as its own would pay twice for it.
-      if (gain.excludeTag) kinds.delete(String(gain.excludeTag).toLowerCase());
       units = kinds.size;
       break;
     }

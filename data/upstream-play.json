@@ -1,0 +1,2528 @@
+{
+ "ref": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+ "cards": {
+  "Adaptation Technology": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Adapted Lichen": {
+   "module": "base",
+   "cost": 9,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Advanced Ecosystems": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Aerobraked Ammonia Asteroid": {
+   "module": "base",
+   "cost": 26,
+   "delta": {
+    "plantsP": 1,
+    "heatP": 3
+   }
+  },
+  "Ants": {
+   "module": "base",
+   "cost": 9,
+   "delta": {}
+  },
+  "Aquifer Pumping": {
+   "module": "base",
+   "cost": 18,
+   "delta": {}
+  },
+  "Algae": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "plants": 1,
+    "plantsP": 2
+   }
+  },
+  "ArchaeBacteria": {
+   "module": "base",
+   "cost": 6,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Arctic Algae": {
+   "module": "base",
+   "cost": 12,
+   "delta": {
+    "plants": 1
+   }
+  },
+  "Artificial Lake": {
+   "module": "base",
+   "cost": 15,
+   "delta": {}
+  },
+  "Artificial Photosynthesis": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Asteroid": {
+   "module": "base",
+   "cost": 14,
+   "delta": {
+    "titanium": 2,
+    "tr": 1
+   }
+  },
+  "Asteroid Mining": {
+   "module": "base",
+   "cost": 30,
+   "delta": {
+    "titaniumP": 2
+   }
+  },
+  "Beam From A Thorium Asteroid": {
+   "module": "base",
+   "cost": 32,
+   "delta": {
+    "energyP": 3,
+    "heatP": 3
+   }
+  },
+  "Big Asteroid": {
+   "module": "base",
+   "cost": 27,
+   "delta": {
+    "titanium": 4,
+    "tr": 2
+   }
+  },
+  "Biomass Combustors": {
+   "module": "base",
+   "cost": 4,
+   "delta": {
+    "energyP": 2
+   }
+  },
+  "Birds": {
+   "module": "base",
+   "cost": 10,
+   "delta": {}
+  },
+  "Black Polar Dust": {
+   "module": "base",
+   "cost": 15,
+   "delta": {
+    "mcP": -2,
+    "heatP": 3
+   }
+  },
+  "Breathing Filters": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Bushes": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "plants": 2,
+    "plantsP": 2
+   }
+  },
+  "Capital": {
+   "module": "base",
+   "cost": 26,
+   "delta": {
+    "mcP": 5
+   }
+  },
+  "Carbonate Processing": {
+   "module": "base",
+   "cost": 6,
+   "delta": {
+    "heatP": 3
+   }
+  },
+  "Cloud Seeding": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "mcP": -1,
+    "plantsP": 2
+   }
+  },
+  "Colonizer Training Camp": {
+   "module": "base",
+   "cost": 8,
+   "delta": {}
+  },
+  "Comet": {
+   "module": "base",
+   "cost": 21,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Convoy From Europa": {
+   "module": "base",
+   "cost": 15,
+   "delta": {}
+  },
+  "Cupola City": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Decomposers": {
+   "module": "base",
+   "cost": 5,
+   "delta": {}
+  },
+  "Deep Well Heating": {
+   "module": "base",
+   "cost": 13,
+   "delta": {
+    "energyP": 1,
+    "tr": 1
+   }
+  },
+  "Deimos Down": {
+   "module": "base",
+   "cost": 31,
+   "delta": {
+    "steel": 4,
+    "heatP": 1,
+    "tr": 3
+   }
+  },
+  "Designed Microorganisms": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "plantsP": 2
+   }
+  },
+  "Domed Crater": {
+   "module": "base",
+   "cost": 24,
+   "delta": {
+    "plants": 3,
+    "mcP": 3
+   }
+  },
+  "Dust Seals": {
+   "module": "base",
+   "cost": 2,
+   "delta": {}
+  },
+  "Ecological Zone": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Energy Saving": {
+   "module": "base",
+   "cost": 15,
+   "delta": {}
+  },
+  "Eos Chasma National Park": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "plants": 3,
+    "mcP": 2
+   }
+  },
+  "Equatorial Magnetizer": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Extreme-Cold Fungus": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Farming": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "plants": 2,
+    "mcP": 2,
+    "plantsP": 2
+   }
+  },
+  "Fish": {
+   "module": "base",
+   "cost": 9,
+   "delta": {}
+  },
+  "Flooding": {
+   "module": "base",
+   "cost": 7,
+   "delta": {}
+  },
+  "Food Factory": {
+   "module": "base",
+   "cost": 12,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Fusion Power": {
+   "module": "base",
+   "cost": 14,
+   "delta": {
+    "energyP": 3
+   }
+  },
+  "Fueled Generators": {
+   "module": "base",
+   "cost": 1,
+   "delta": {
+    "mcP": -1,
+    "energyP": 1
+   }
+  },
+  "Ganymede Colony": {
+   "module": "base",
+   "cost": 20,
+   "delta": {}
+  },
+  "Geothermal Power": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "energyP": 2
+   }
+  },
+  "GHG Factories": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "heatP": 4
+   }
+  },
+  "GHG Producing Bacteria": {
+   "module": "base",
+   "cost": 8,
+   "delta": {}
+  },
+  "Giant Ice Asteroid": {
+   "module": "base",
+   "cost": 36,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Giant Space Mirror": {
+   "module": "base",
+   "cost": 17,
+   "delta": {
+    "energyP": 3
+   }
+  },
+  "Grass": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "plants": 3,
+    "plantsP": 1
+   }
+  },
+  "Great Dam": {
+   "module": "base",
+   "cost": 12,
+   "delta": {
+    "energyP": 2
+   }
+  },
+  "Greenhouses": {
+   "module": "base",
+   "cost": 6,
+   "delta": {}
+  },
+  "Heather": {
+   "module": "base",
+   "cost": 6,
+   "delta": {
+    "plants": 1,
+    "plantsP": 1
+   }
+  },
+  "Heat Trappers": {
+   "module": "base",
+   "cost": 6,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Herbivores": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Ice Asteroid": {
+   "module": "base",
+   "cost": 23,
+   "delta": {}
+  },
+  "Ice Cap Melting": {
+   "module": "base",
+   "cost": 5,
+   "delta": {}
+  },
+  "Immigrant City": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Immigration Shuttles": {
+   "module": "base",
+   "cost": 31,
+   "delta": {
+    "mcP": 5
+   }
+  },
+  "Imported GHG": {
+   "module": "base",
+   "cost": 7,
+   "delta": {
+    "heat": 3,
+    "heatP": 1
+   }
+  },
+  "Imported Hydrogen": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "plants": 3
+   }
+  },
+  "Imported Nitrogen": {
+   "module": "base",
+   "cost": 23,
+   "delta": {
+    "plants": 4,
+    "tr": 1
+   }
+  },
+  "Import of Advanced GHG": {
+   "module": "base",
+   "cost": 9,
+   "delta": {
+    "heatP": 2
+   }
+  },
+  "Industrial Microbes": {
+   "module": "base",
+   "cost": 12,
+   "delta": {
+    "steelP": 1,
+    "energyP": 1
+   }
+  },
+  "Insects": {
+   "module": "base",
+   "cost": 9,
+   "delta": {}
+  },
+  "Insulation": {
+   "module": "base",
+   "cost": 2,
+   "delta": {}
+  },
+  "Ironworks": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Kelp Farming": {
+   "module": "base",
+   "cost": 17,
+   "delta": {
+    "plants": 2,
+    "mcP": 2,
+    "plantsP": 3
+   }
+  },
+  "Lake Marineris": {
+   "module": "base",
+   "cost": 18,
+   "delta": {}
+  },
+  "Large Convoy": {
+   "module": "base",
+   "cost": 36,
+   "delta": {
+    "plants": 5
+   }
+  },
+  "Lava Flows": {
+   "module": "base",
+   "cost": 18,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Lichen": {
+   "module": "base",
+   "cost": 7,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Livestock": {
+   "module": "base",
+   "cost": 13,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Local Heat Trapping": {
+   "module": "base",
+   "cost": 1,
+   "delta": {
+    "plants": 4,
+    "heat": -5
+   }
+  },
+  "Lunar Beam": {
+   "module": "base",
+   "cost": 13,
+   "delta": {
+    "mcP": -2,
+    "energyP": 2,
+    "heatP": 2
+   }
+  },
+  "Magnetic Field Dome": {
+   "module": "base",
+   "cost": 5,
+   "delta": {
+    "plantsP": 1,
+    "tr": 1
+   }
+  },
+  "Magnetic Field Generators": {
+   "module": "base",
+   "cost": 20,
+   "delta": {
+    "plantsP": 2,
+    "tr": 3
+   }
+  },
+  "Mangrove": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Martian Rails": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Methane From Titan": {
+   "module": "base",
+   "cost": 28,
+   "delta": {
+    "plantsP": 2,
+    "heatP": 2
+   }
+  },
+  "Micro-Mills": {
+   "module": "base",
+   "cost": 3,
+   "delta": {
+    "heatP": 1
+   }
+  },
+  "Mining Expedition": {
+   "module": "base",
+   "cost": 12,
+   "delta": {
+    "steel": 2,
+    "tr": 1
+   }
+  },
+  "Mining Rights": {
+   "module": "base",
+   "cost": 9,
+   "delta": {}
+  },
+  "Mohole Area": {
+   "module": "base",
+   "cost": 20,
+   "delta": {
+    "heatP": 4
+   }
+  },
+  "Moss": {
+   "module": "base",
+   "cost": 4,
+   "delta": {
+    "plants": -1,
+    "plantsP": 1
+   }
+  },
+  "Natural Preserve": {
+   "module": "base",
+   "cost": 9,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Nitrite Reducing Bacteria": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Nitrogen-Rich Asteroid": {
+   "module": "base",
+   "cost": 31,
+   "delta": {
+    "plantsP": 1,
+    "tr": 3
+   }
+  },
+  "Nitrophilic Moss": {
+   "module": "base",
+   "cost": 8,
+   "delta": {
+    "plants": -2,
+    "plantsP": 2
+   }
+  },
+  "Noctis City": {
+   "module": "base",
+   "cost": 18,
+   "delta": {
+    "plants": 2,
+    "mcP": 3
+   }
+  },
+  "Noctis Farming": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "plants": 2,
+    "mcP": 1
+   }
+  },
+  "Nuclear Power": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "mcP": -2,
+    "energyP": 3
+   }
+  },
+  "Nuclear Zone": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Open City": {
+   "module": "base",
+   "cost": 23,
+   "delta": {
+    "plants": 2,
+    "mcP": 4
+   }
+  },
+  "Optimal Aerobraking": {
+   "module": "base",
+   "cost": 7,
+   "delta": {}
+  },
+  "Ore Processor": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Permafrost Extraction": {
+   "module": "base",
+   "cost": 8,
+   "delta": {}
+  },
+  "Peroxide Power": {
+   "module": "base",
+   "cost": 7,
+   "delta": {
+    "mcP": -1,
+    "energyP": 2
+   }
+  },
+  "Pets": {
+   "module": "base",
+   "cost": 10,
+   "delta": {}
+  },
+  "Phobos Space Haven": {
+   "module": "base",
+   "cost": 25,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Plantation": {
+   "module": "base",
+   "cost": 15,
+   "delta": {}
+  },
+  "Power Grid": {
+   "module": "base",
+   "cost": 18,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Power Plant": {
+   "module": "base",
+   "cost": 4,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Predators": {
+   "module": "base",
+   "cost": 14,
+   "delta": {}
+  },
+  "Protected Valley": {
+   "module": "base",
+   "cost": 23,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Rad-Chem Factory": {
+   "module": "base",
+   "cost": 8,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Regolith Eaters": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Release of Inert Gases": {
+   "module": "base",
+   "cost": 14,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Research Outpost": {
+   "module": "base",
+   "cost": 18,
+   "delta": {}
+  },
+  "Rover Construction": {
+   "module": "base",
+   "cost": 8,
+   "delta": {}
+  },
+  "Search For Life": {
+   "module": "base",
+   "cost": 3,
+   "delta": {}
+  },
+  "Shuttles": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Small Animals": {
+   "module": "base",
+   "cost": 6,
+   "delta": {}
+  },
+  "Soil Factory": {
+   "module": "base",
+   "cost": 9,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Solar Power": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Solar Wind Power": {
+   "module": "base",
+   "cost": 11,
+   "delta": {
+    "titanium": 2,
+    "energyP": 1
+   }
+  },
+  "Soletta": {
+   "module": "base",
+   "cost": 35,
+   "delta": {
+    "heatP": 7
+   }
+  },
+  "Space Mirrors": {
+   "module": "base",
+   "cost": 3,
+   "delta": {}
+  },
+  "Special Design": {
+   "module": "base",
+   "cost": 4,
+   "delta": {}
+  },
+  "Steelworks": {
+   "module": "base",
+   "cost": 15,
+   "delta": {}
+  },
+  "Strip Mine": {
+   "module": "base",
+   "cost": 25,
+   "delta": {
+    "steelP": 2,
+    "titaniumP": 1,
+    "tr": 2
+   }
+  },
+  "Subterranean Reservoir": {
+   "module": "base",
+   "cost": 11,
+   "delta": {}
+  },
+  "Symbiotic Fungus": {
+   "module": "base",
+   "cost": 4,
+   "delta": {}
+  },
+  "Tectonic Stress Power": {
+   "module": "base",
+   "cost": 18,
+   "delta": {
+    "energyP": 3
+   }
+  },
+  "Towing A Comet": {
+   "module": "base",
+   "cost": 23,
+   "delta": {
+    "plants": 2,
+    "tr": 1
+   }
+  },
+  "Trees": {
+   "module": "base",
+   "cost": 13,
+   "delta": {
+    "plants": 1,
+    "plantsP": 3
+   }
+  },
+  "Tundra Farming": {
+   "module": "base",
+   "cost": 16,
+   "delta": {
+    "plants": 1,
+    "mcP": 2,
+    "plantsP": 1
+   }
+  },
+  "Underground City": {
+   "module": "base",
+   "cost": 18,
+   "delta": {
+    "steelP": 2
+   }
+  },
+  "Underground Detonations": {
+   "module": "base",
+   "cost": 6,
+   "delta": {}
+  },
+  "Urbanized Area": {
+   "module": "base",
+   "cost": 10,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Water Import From Europa": {
+   "module": "base",
+   "cost": 25,
+   "delta": {}
+  },
+  "Water Splitting Plant": {
+   "module": "base",
+   "cost": 12,
+   "delta": {}
+  },
+  "Wave Power": {
+   "module": "base",
+   "cost": 8,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Windmills": {
+   "module": "base",
+   "cost": 6,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Worms": {
+   "module": "base",
+   "cost": 8,
+   "delta": {}
+  },
+  "Zeppelins": {
+   "module": "base",
+   "cost": 13,
+   "delta": {}
+  },
+  "Acquired Company": {
+   "module": "corpera",
+   "cost": 10,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Advanced Alloys": {
+   "module": "corpera",
+   "cost": 9,
+   "delta": {}
+  },
+  "AI Central": {
+   "module": "corpera",
+   "cost": 21,
+   "delta": {}
+  },
+  "Anti-Gravity Technology": {
+   "module": "corpera",
+   "cost": 14,
+   "delta": {}
+  },
+  "Asteroid Mining Consortium": {
+   "module": "corpera",
+   "cost": 13,
+   "delta": {}
+  },
+  "Bribed Committee": {
+   "module": "corpera",
+   "cost": 7,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Building Industries": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {
+    "steelP": 2
+   }
+  },
+  "Business Contacts": {
+   "module": "corpera",
+   "cost": 7,
+   "delta": {}
+  },
+  "Business Network": {
+   "module": "corpera",
+   "cost": 4,
+   "delta": {
+    "mcP": -1
+   }
+  },
+  "Callisto Penal Mines": {
+   "module": "corpera",
+   "cost": 24,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Caretaker Contract": {
+   "module": "corpera",
+   "cost": 3,
+   "delta": {}
+  },
+  "Cartel": {
+   "module": "corpera",
+   "cost": 8,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "CEO's Favorite Project": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Commercial District": {
+   "module": "corpera",
+   "cost": 16,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Corporate Stronghold": {
+   "module": "corpera",
+   "cost": 11,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Development Center": {
+   "module": "corpera",
+   "cost": 11,
+   "delta": {}
+  },
+  "Earth Catapult": {
+   "module": "corpera",
+   "cost": 23,
+   "delta": {}
+  },
+  "Earth Office": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Electro Catapult": {
+   "module": "corpera",
+   "cost": 17,
+   "delta": {}
+  },
+  "Energy Tapping": {
+   "module": "corpera",
+   "cost": 3,
+   "delta": {}
+  },
+  "Fuel Factory": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {
+    "mcP": 1,
+    "titaniumP": 1
+   }
+  },
+  "Gene Repair": {
+   "module": "corpera",
+   "cost": 12,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Great Escarpment Consortium": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {}
+  },
+  "Hackers": {
+   "module": "corpera",
+   "cost": 3,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Hired Raiders": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Indentured Workers": {
+   "module": "corpera",
+   "cost": 0,
+   "delta": {}
+  },
+  "Industrial Center": {
+   "module": "corpera",
+   "cost": 4,
+   "delta": {}
+  },
+  "Interstellar Colony Ship": {
+   "module": "corpera",
+   "cost": 24,
+   "delta": {}
+  },
+  "Invention Contest": {
+   "module": "corpera",
+   "cost": 2,
+   "delta": {}
+  },
+  "Inventors' Guild": {
+   "module": "corpera",
+   "cost": 9,
+   "delta": {}
+  },
+  "Investment Loan": {
+   "module": "corpera",
+   "cost": 3,
+   "delta": {
+    "mc": 10,
+    "mcP": -1
+   }
+  },
+  "Io Mining Industries": {
+   "module": "corpera",
+   "cost": 41,
+   "delta": {
+    "mcP": 2,
+    "titaniumP": 2
+   }
+  },
+  "Lagrange Observatory": {
+   "module": "corpera",
+   "cost": 9,
+   "delta": {}
+  },
+  "Land Claim": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Lightning Harvest": {
+   "module": "corpera",
+   "cost": 8,
+   "delta": {
+    "mcP": 1,
+    "energyP": 1
+   }
+  },
+  "Mars University": {
+   "module": "corpera",
+   "cost": 8,
+   "delta": {}
+  },
+  "Mass Converter": {
+   "module": "corpera",
+   "cost": 8,
+   "delta": {
+    "energyP": 6
+   }
+  },
+  "Media Archives": {
+   "module": "corpera",
+   "cost": 8,
+   "delta": {}
+  },
+  "Media Group": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {}
+  },
+  "Medical Lab": {
+   "module": "corpera",
+   "cost": 13,
+   "delta": {}
+  },
+  "Mine": {
+   "module": "corpera",
+   "cost": 4,
+   "delta": {
+    "steelP": 1
+   }
+  },
+  "Mineral Deposit": {
+   "module": "corpera",
+   "cost": 5,
+   "delta": {
+    "steel": 5
+   }
+  },
+  "Miranda Resort": {
+   "module": "corpera",
+   "cost": 12,
+   "delta": {}
+  },
+  "Olympus Conference": {
+   "module": "corpera",
+   "cost": 10,
+   "delta": {}
+  },
+  "Physics Complex": {
+   "module": "corpera",
+   "cost": 12,
+   "delta": {}
+  },
+  "Power Infrastructure": {
+   "module": "corpera",
+   "cost": 4,
+   "delta": {}
+  },
+  "Power Supply Consortium": {
+   "module": "corpera",
+   "cost": 5,
+   "delta": {}
+  },
+  "Protected Habitats": {
+   "module": "corpera",
+   "cost": 5,
+   "delta": {}
+  },
+  "Quantum Extractor": {
+   "module": "corpera",
+   "cost": 13,
+   "delta": {
+    "energyP": 4
+   }
+  },
+  "Rad-Suits": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Research": {
+   "module": "corpera",
+   "cost": 11,
+   "delta": {}
+  },
+  "Restricted Area": {
+   "module": "corpera",
+   "cost": 11,
+   "delta": {}
+  },
+  "Robotic Workforce": {
+   "module": "corpera",
+   "cost": 9,
+   "delta": {}
+  },
+  "Sabotage": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Satellites": {
+   "module": "corpera",
+   "cost": 10,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Security Fleet": {
+   "module": "corpera",
+   "cost": 12,
+   "delta": {}
+  },
+  "Space Elevator": {
+   "module": "corpera",
+   "cost": 27,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Space Station": {
+   "module": "corpera",
+   "cost": 10,
+   "delta": {}
+  },
+  "Sponsors": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Standard Technology": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {}
+  },
+  "Tardigrades": {
+   "module": "corpera",
+   "cost": 4,
+   "delta": {}
+  },
+  "Technology Demonstration": {
+   "module": "corpera",
+   "cost": 5,
+   "delta": {}
+  },
+  "Terraforming Ganymede": {
+   "module": "corpera",
+   "cost": 33,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Titanium Mine": {
+   "module": "corpera",
+   "cost": 7,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Toll Station": {
+   "module": "corpera",
+   "cost": 12,
+   "delta": {}
+  },
+  "Trans-Neptune Probe": {
+   "module": "corpera",
+   "cost": 6,
+   "delta": {}
+  },
+  "Tropical Resort": {
+   "module": "corpera",
+   "cost": 13,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Vesta Shipyard": {
+   "module": "corpera",
+   "cost": 15,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Viral Enhancers": {
+   "module": "corpera",
+   "cost": 9,
+   "delta": {}
+  },
+  "Virus": {
+   "module": "corpera",
+   "cost": 1,
+   "delta": {}
+  },
+  "Penguins": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "Self-replicating Robots": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "Small Asteroid": {
+   "module": "promo",
+   "cost": 10,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Snow Algae": {
+   "module": "promo",
+   "cost": 12,
+   "delta": {
+    "plantsP": 1,
+    "heatP": 1
+   }
+  },
+  "Dusk Laser Mining": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {
+    "titanium": 4,
+    "titaniumP": 1
+   }
+  },
+  "Mercurian Alloys": {
+   "module": "promo",
+   "cost": 3,
+   "delta": {}
+  },
+  "Rego Plastics": {
+   "module": "promo",
+   "cost": 10,
+   "delta": {}
+  },
+  "Interplanetary Trade": {
+   "module": "promo",
+   "cost": 27,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Orbital Cleanup": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {
+    "mcP": -2
+   }
+  },
+  "Project Inspection": {
+   "module": "promo",
+   "cost": 0,
+   "delta": {}
+  },
+  "Hi-Tech Lab": {
+   "module": "promo",
+   "cost": 17,
+   "delta": {}
+  },
+  "Energy Market": {
+   "module": "promo",
+   "cost": 3,
+   "delta": {}
+  },
+  "Law Suit": {
+   "module": "promo",
+   "cost": 2,
+   "delta": {}
+  },
+  "Asteroid Hollowing": {
+   "module": "promo",
+   "cost": 16,
+   "delta": {}
+  },
+  "Asteroid Rights": {
+   "module": "promo",
+   "cost": 10,
+   "delta": {}
+  },
+  "Comet Aiming": {
+   "module": "promo",
+   "cost": 17,
+   "delta": {}
+  },
+  "Cutting Edge Technology": {
+   "module": "promo",
+   "cost": 12,
+   "delta": {}
+  },
+  "Crash Site Cleanup": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {}
+  },
+  "Directed Impactors": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {}
+  },
+  "Field-Capped City": {
+   "module": "promo",
+   "cost": 29,
+   "delta": {
+    "plants": 3,
+    "mcP": 2,
+    "energyP": 1
+   }
+  },
+  "Magnetic Shield": {
+   "module": "promo",
+   "cost": 24,
+   "delta": {
+    "tr": 4
+   }
+  },
+  "Meltworks": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {}
+  },
+  "Mohole Lake": {
+   "module": "promo",
+   "cost": 31,
+   "delta": {
+    "plants": 3,
+    "tr": 1
+   }
+  },
+  "Diversity Support": {
+   "module": "promo",
+   "cost": 1,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Jovian Embassy": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Topsoil Contract": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {
+    "plants": 3
+   }
+  },
+  "Imported Nutrients": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {
+    "plants": 4
+   }
+  },
+  "Asteroid Deflection System": {
+   "module": "promo",
+   "cost": 13,
+   "delta": {}
+  },
+  "Sub-Crust Measurements": {
+   "module": "promo",
+   "cost": 20,
+   "delta": {}
+  },
+  "Potatoes": {
+   "module": "promo",
+   "cost": 2,
+   "delta": {
+    "plants": -2,
+    "mcP": 2
+   }
+  },
+  "Meat Industry": {
+   "module": "promo",
+   "cost": 5,
+   "delta": {}
+  },
+  "Advertising": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {}
+  },
+  "Deimos Down:promo": {
+   "module": "promo",
+   "cost": 31,
+   "delta": {
+    "steel": 4,
+    "heatP": 1,
+    "tr": 3
+   }
+  },
+  "Great Dam:promo": {
+   "module": "promo",
+   "cost": 15,
+   "delta": {
+    "energyP": 2
+   }
+  },
+  "Magnetic Field Generators:promo": {
+   "module": "promo",
+   "cost": 22,
+   "delta": {
+    "plantsP": 2,
+    "tr": 3
+   }
+  },
+  "Saturn Surfing": {
+   "module": "promo",
+   "cost": 13,
+   "delta": {}
+  },
+  "Bio Printing Facility": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "Bactoviral Research": {
+   "module": "promo",
+   "cost": 10,
+   "delta": {}
+  },
+  "Harvest": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {
+    "mc": 12
+   }
+  },
+  "Outdoor Sports": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "16 Psyche": {
+   "module": "promo",
+   "cost": 31,
+   "delta": {
+    "titanium": 3,
+    "titaniumP": 2
+   }
+  },
+  "Robot Pollinators": {
+   "module": "promo",
+   "cost": 9,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Supercapacitors": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Floyd Continuum": {
+   "module": "promo",
+   "cost": 4,
+   "delta": {}
+  },
+  "Aqueduct Systems": {
+   "module": "promo",
+   "cost": 9,
+   "delta": {}
+  },
+  "Astra Mechanica": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "St. Joseph of Cupertino Mission": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "Carbon Nanosystems": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {}
+  },
+  "Cyberia Systems": {
+   "module": "promo",
+   "cost": 16,
+   "delta": {
+    "steelP": 1
+   }
+  },
+  "Hermetic Order of Mars": {
+   "module": "promo",
+   "cost": 10,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Homeostasis Bureau": {
+   "module": "promo",
+   "cost": 16,
+   "delta": {
+    "heatP": 2
+   }
+  },
+  "Mars Nomads": {
+   "module": "promo",
+   "cost": 13,
+   "delta": {}
+  },
+  "Neptunian Power Consultants": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {}
+  },
+  "Martian Lumber Corp": {
+   "module": "promo",
+   "cost": 6,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Red Ships": {
+   "module": "promo",
+   "cost": 2,
+   "delta": {}
+  },
+  "Solar Logistics": {
+   "module": "promo",
+   "cost": 20,
+   "delta": {
+    "titanium": 2
+   }
+  },
+  "Teslaract": {
+   "module": "promo",
+   "cost": 14,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Directed Heat Usage": {
+   "module": "promo",
+   "cost": 1,
+   "delta": {}
+  },
+  "Icy Impactors": {
+   "module": "promo",
+   "cost": 15,
+   "delta": {}
+  },
+  "Soil Enrichment": {
+   "module": "promo",
+   "cost": 6,
+   "delta": {}
+  },
+  "City Parks": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {
+    "plants": 2
+   }
+  },
+  "Supermarkets": {
+   "module": "promo",
+   "cost": 9,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Hospitals": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {}
+  },
+  "Casinos": {
+   "module": "promo",
+   "cost": 5,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Public Baths": {
+   "module": "promo",
+   "cost": 6,
+   "delta": {
+    "mc": 6
+   }
+  },
+  "Protected Growth": {
+   "module": "promo",
+   "cost": 2,
+   "delta": {}
+  },
+  "New Holland": {
+   "module": "promo",
+   "cost": 20,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Vermin": {
+   "module": "promo",
+   "cost": 8,
+   "delta": {}
+  },
+  "Public Plans": {
+   "module": "promo",
+   "cost": 7,
+   "delta": {}
+  },
+  "Static Harvesting": {
+   "module": "promo",
+   "cost": 5,
+   "delta": {
+    "energyP": 1
+   }
+  },
+  "Weather Balloons": {
+   "module": "promo",
+   "cost": 11,
+   "delta": {}
+  },
+  "Sterling Vents": {
+   "module": "promo",
+   "cost": 5,
+   "delta": {
+    "energyP": 2
+   }
+  },
+  "Aerial Mappers": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {}
+  },
+  "Aerosport Tournament": {
+   "module": "venus",
+   "cost": 7,
+   "delta": {}
+  },
+  "Air-Scrapping Expedition": {
+   "module": "venus",
+   "cost": 13,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Atalanta Planitia Lab": {
+   "module": "venus",
+   "cost": 10,
+   "delta": {}
+  },
+  "Atmoscoop": {
+   "module": "venus",
+   "cost": 22,
+   "delta": {}
+  },
+  "Comet for Venus": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Corroder Suits": {
+   "module": "venus",
+   "cost": 8,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Deuterium Export": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {}
+  },
+  "Dirigibles": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {}
+  },
+  "Extractor Balloons": {
+   "module": "venus",
+   "cost": 21,
+   "delta": {}
+  },
+  "Extremophiles": {
+   "module": "venus",
+   "cost": 3,
+   "delta": {}
+  },
+  "Floating Habs": {
+   "module": "venus",
+   "cost": 5,
+   "delta": {}
+  },
+  "Forced Precipitation": {
+   "module": "venus",
+   "cost": 8,
+   "delta": {}
+  },
+  "Freyja Biodomes": {
+   "module": "venus",
+   "cost": 14,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Giant Solar Shade": {
+   "module": "venus",
+   "cost": 27,
+   "delta": {
+    "tr": 3
+   }
+  },
+  "GHG Import From Venus": {
+   "module": "venus",
+   "cost": 23,
+   "delta": {
+    "heatP": 3,
+    "tr": 1
+   }
+  },
+  "Gyropolis": {
+   "module": "venus",
+   "cost": 20,
+   "delta": {}
+  },
+  "Hydrogen to Venus": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Io Sulphur Research": {
+   "module": "venus",
+   "cost": 17,
+   "delta": {}
+  },
+  "Ishtar Mining": {
+   "module": "venus",
+   "cost": 5,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Jet Stream Microscrappers": {
+   "module": "venus",
+   "cost": 12,
+   "delta": {}
+  },
+  "Local Shading": {
+   "module": "venus",
+   "cost": 4,
+   "delta": {}
+  },
+  "Rotator Impacts": {
+   "module": "venus",
+   "cost": 6,
+   "delta": {}
+  },
+  "Sister Planet Support": {
+   "module": "venus",
+   "cost": 7,
+   "delta": {
+    "mcP": 3
+   }
+  },
+  "Solarnet": {
+   "module": "venus",
+   "cost": 7,
+   "delta": {}
+  },
+  "Spin-Inducing Asteroid": {
+   "module": "venus",
+   "cost": 16,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Sponsored Academies": {
+   "module": "venus",
+   "cost": 9,
+   "delta": {}
+  },
+  "Stratospheric Birds": {
+   "module": "venus",
+   "cost": 12,
+   "delta": {}
+  },
+  "Sulphur-Eating Bacteria": {
+   "module": "venus",
+   "cost": 6,
+   "delta": {}
+  },
+  "Sulphur Exports": {
+   "module": "venus",
+   "cost": 21,
+   "delta": {
+    "mcP": 1,
+    "tr": 1
+   }
+  },
+  "Terraforming Contract": {
+   "module": "venus",
+   "cost": 8,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Thermophiles": {
+   "module": "venus",
+   "cost": 9,
+   "delta": {}
+  },
+  "Venus Governor": {
+   "module": "venus",
+   "cost": 4,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Venusian Animals": {
+   "module": "venus",
+   "cost": 15,
+   "delta": {}
+  },
+  "Venusian Insects": {
+   "module": "venus",
+   "cost": 5,
+   "delta": {}
+  },
+  "Venusian Plants": {
+   "module": "venus",
+   "cost": 13,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Venus Magnetizer": {
+   "module": "venus",
+   "cost": 7,
+   "delta": {}
+  },
+  "Venus Soils": {
+   "module": "venus",
+   "cost": 20,
+   "delta": {
+    "plantsP": 1,
+    "tr": 1
+   }
+  },
+  "Venus Waystation": {
+   "module": "venus",
+   "cost": 9,
+   "delta": {}
+  },
+  "Water to Venus": {
+   "module": "venus",
+   "cost": 9,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Luxury Foods": {
+   "module": "venus",
+   "cost": 8,
+   "delta": {}
+  },
+  "Neutralizer Factory": {
+   "module": "venus",
+   "cost": 7,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Orbital Reflectors": {
+   "module": "venus",
+   "cost": 26,
+   "delta": {
+    "heatP": 2,
+    "tr": 2
+   }
+  },
+  "Omnicourt": {
+   "module": "venus",
+   "cost": 11,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Mining Quota": {
+   "module": "venus",
+   "cost": 5,
+   "delta": {
+    "steelP": 2
+   }
+  },
+  "Airliners": {
+   "module": "colonies",
+   "cost": 11,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Air Raid": {
+   "module": "colonies",
+   "cost": 0,
+   "delta": {}
+  },
+  "Atmo Collectors": {
+   "module": "colonies",
+   "cost": 15,
+   "delta": {}
+  },
+  "Community Services": {
+   "module": "colonies",
+   "cost": 13,
+   "delta": {
+    "mcP": 1
+   }
+  },
+  "Conscription": {
+   "module": "colonies",
+   "cost": 5,
+   "delta": {}
+  },
+  "Corona Extractor": {
+   "module": "colonies",
+   "cost": 10,
+   "delta": {
+    "energyP": 4
+   }
+  },
+  "Cryo-Sleep": {
+   "module": "colonies",
+   "cost": 10,
+   "delta": {}
+  },
+  "Earth Elevator": {
+   "module": "colonies",
+   "cost": 43,
+   "delta": {
+    "titaniumP": 3
+   }
+  },
+  "Ecology Research": {
+   "module": "colonies",
+   "cost": 21,
+   "delta": {}
+  },
+  "Floater Leasing": {
+   "module": "colonies",
+   "cost": 3,
+   "delta": {}
+  },
+  "Floater Prototypes": {
+   "module": "colonies",
+   "cost": 2,
+   "delta": {}
+  },
+  "Floater Technology": {
+   "module": "colonies",
+   "cost": 7,
+   "delta": {}
+  },
+  "Galilean Waystation": {
+   "module": "colonies",
+   "cost": 15,
+   "delta": {}
+  },
+  "Heavy Taxation": {
+   "module": "colonies",
+   "cost": 3,
+   "delta": {
+    "mc": 4,
+    "mcP": 2
+   }
+  },
+  "Ice Moon Colony": {
+   "module": "colonies",
+   "cost": 23,
+   "delta": {}
+  },
+  "Impactor Swarm": {
+   "module": "colonies",
+   "cost": 11,
+   "delta": {
+    "heat": 12
+   }
+  },
+  "Interplanetary Colony Ship": {
+   "module": "colonies",
+   "cost": 12,
+   "delta": {}
+  },
+  "Jovian Lanterns": {
+   "module": "colonies",
+   "cost": 20,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Jupiter Floating Station": {
+   "module": "colonies",
+   "cost": 9,
+   "delta": {}
+  },
+  "Luna Governor": {
+   "module": "colonies",
+   "cost": 4,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Lunar Exports": {
+   "module": "colonies",
+   "cost": 19,
+   "delta": {}
+  },
+  "Lunar Mining": {
+   "module": "colonies",
+   "cost": 11,
+   "delta": {}
+  },
+  "Martian Zoo": {
+   "module": "colonies",
+   "cost": 12,
+   "delta": {}
+  },
+  "Market Manipulation": {
+   "module": "colonies",
+   "cost": 1,
+   "delta": {}
+  },
+  "Mining Colony": {
+   "module": "colonies",
+   "cost": 20,
+   "delta": {
+    "titaniumP": 1
+   }
+  },
+  "Minority Refuge": {
+   "module": "colonies",
+   "cost": 5,
+   "delta": {}
+  },
+  "Molecular Printing": {
+   "module": "colonies",
+   "cost": 11,
+   "delta": {}
+  },
+  "Nitrogen from Titan": {
+   "module": "colonies",
+   "cost": 25,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Pioneer Settlement": {
+   "module": "colonies",
+   "cost": 13,
+   "delta": {
+    "mcP": -2
+   }
+  },
+  "Productive Outpost": {
+   "module": "colonies",
+   "cost": 0,
+   "delta": {}
+  },
+  "Quantum Communications": {
+   "module": "colonies",
+   "cost": 8,
+   "delta": {}
+  },
+  "Red Spot Observatory": {
+   "module": "colonies",
+   "cost": 17,
+   "delta": {}
+  },
+  "Research Colony": {
+   "module": "colonies",
+   "cost": 20,
+   "delta": {}
+  },
+  "Rim Freighters": {
+   "module": "colonies",
+   "cost": 4,
+   "delta": {}
+  },
+  "Refugee Camps": {
+   "module": "colonies",
+   "cost": 10,
+   "delta": {}
+  },
+  "Solar Probe": {
+   "module": "colonies",
+   "cost": 9,
+   "delta": {}
+  },
+  "Solar Reflectors": {
+   "module": "colonies",
+   "cost": 23,
+   "delta": {
+    "heatP": 5
+   }
+  },
+  "Sky Docks": {
+   "module": "colonies",
+   "cost": 18,
+   "delta": {}
+  },
+  "Space Port": {
+   "module": "colonies",
+   "cost": 22,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Space Port Colony": {
+   "module": "colonies",
+   "cost": 27,
+   "delta": {}
+  },
+  "Spin-off Department": {
+   "module": "colonies",
+   "cost": 10,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Sub-zero Salt Fish": {
+   "module": "colonies",
+   "cost": 5,
+   "delta": {}
+  },
+  "Titan Air-scrapping": {
+   "module": "colonies",
+   "cost": 21,
+   "delta": {}
+  },
+  "Titan Floating Launch-pad": {
+   "module": "colonies",
+   "cost": 18,
+   "delta": {}
+  },
+  "Titan Shuttles": {
+   "module": "colonies",
+   "cost": 23,
+   "delta": {}
+  },
+  "Trading Colony": {
+   "module": "colonies",
+   "cost": 18,
+   "delta": {}
+  },
+  "Trade Envoys": {
+   "module": "colonies",
+   "cost": 6,
+   "delta": {}
+  },
+  "Urban Decomposers": {
+   "module": "colonies",
+   "cost": 6,
+   "delta": {
+    "plantsP": 1
+   }
+  },
+  "Warp Drive": {
+   "module": "colonies",
+   "cost": 14,
+   "delta": {}
+  },
+  "SF Memorial": {
+   "module": "prelude",
+   "cost": 7,
+   "delta": {}
+  },
+  "House Printing": {
+   "module": "prelude",
+   "cost": 10,
+   "delta": {
+    "steelP": 1
+   }
+  },
+  "Space Hotels": {
+   "module": "prelude",
+   "cost": 12,
+   "delta": {
+    "mcP": 4
+   }
+  },
+  "Martian Survey": {
+   "module": "prelude",
+   "cost": 9,
+   "delta": {}
+  },
+  "Research Coordination": {
+   "module": "prelude",
+   "cost": 4,
+   "delta": {}
+  },
+  "Lava Tube Settlement": {
+   "module": "prelude",
+   "cost": 15,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Psychrophiles": {
+   "module": "prelude",
+   "cost": 2,
+   "delta": {}
+  },
+  "Ishtar Expedition": {
+   "module": "prelude2",
+   "cost": 6,
+   "delta": {
+    "titanium": 3
+   }
+  },
+  "Summit Logistics": {
+   "module": "prelude2",
+   "cost": 10,
+   "delta": {}
+  },
+  "Ceres Tech Market": {
+   "module": "prelude2",
+   "cost": 12,
+   "delta": {}
+  },
+  "Red Appeasement": {
+   "module": "prelude2",
+   "cost": 0,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "L1 Trade Terminal": {
+   "module": "prelude2",
+   "cost": 25,
+   "delta": {}
+  },
+  "Cloud Tourism": {
+   "module": "prelude2",
+   "cost": 11,
+   "delta": {}
+  },
+  "GHG Shipment": {
+   "module": "prelude2",
+   "cost": 3,
+   "delta": {
+    "heatP": 1
+   }
+  },
+  "Special Permit": {
+   "module": "prelude2",
+   "cost": 5,
+   "delta": {}
+  },
+  "Floating Refinery": {
+   "module": "prelude2",
+   "cost": 7,
+   "delta": {}
+  },
+  "Frontier Town": {
+   "module": "prelude2",
+   "cost": 11,
+   "delta": {}
+  },
+  "Microgravity Nutrition": {
+   "module": "prelude2",
+   "cost": 11,
+   "delta": {}
+  },
+  "Soil Studies": {
+   "module": "prelude2",
+   "cost": 13,
+   "delta": {
+    "plants": 1
+   }
+  },
+  "Stratospheric Expedition": {
+   "module": "prelude2",
+   "cost": 12,
+   "delta": {}
+  },
+  "Unexpected Application": {
+   "module": "prelude2",
+   "cost": 4,
+   "delta": {}
+  },
+  "Venus Allies": {
+   "module": "prelude2",
+   "cost": 30,
+   "delta": {
+    "tr": 2
+   }
+  },
+  "Venus Orbital Survey": {
+   "module": "prelude2",
+   "cost": 18,
+   "delta": {}
+  },
+  "Venus Shuttles": {
+   "module": "prelude2",
+   "cost": 9,
+   "delta": {}
+  },
+  "Venus Trade Hub": {
+   "module": "prelude2",
+   "cost": 12,
+   "delta": {}
+  },
+  "WG Project": {
+   "module": "prelude2",
+   "cost": 9,
+   "delta": {}
+  },
+  "Aerial Lenses": {
+   "module": "turmoil",
+   "cost": 2,
+   "delta": {
+    "heatP": 2
+   }
+  },
+  "Diaspora Movement": {
+   "module": "turmoil",
+   "cost": 7,
+   "delta": {
+    "mc": 1
+   }
+  },
+  "GMO Contract": {
+   "module": "turmoil",
+   "cost": 3,
+   "delta": {}
+  },
+  "Martian Media Center": {
+   "module": "turmoil",
+   "cost": 7,
+   "delta": {
+    "mcP": 2
+   }
+  },
+  "Parliament Hall": {
+   "module": "turmoil",
+   "cost": 8,
+   "delta": {}
+  },
+  "PR Office": {
+   "module": "turmoil",
+   "cost": 7,
+   "delta": {
+    "mc": 1,
+    "tr": 1
+   }
+  },
+  "Political Alliance": {
+   "module": "turmoil",
+   "cost": 4,
+   "delta": {
+    "tr": 1
+   }
+  },
+  "Public Celebrations": {
+   "module": "turmoil",
+   "cost": 8,
+   "delta": {}
+  },
+  "Red Tourism Wave": {
+   "module": "turmoil",
+   "cost": 3,
+   "delta": {}
+  },
+  "Sponsored Mohole": {
+   "module": "turmoil",
+   "cost": 5,
+   "delta": {
+    "heatP": 2
+   }
+  },
+  "Supported Research": {
+   "module": "turmoil",
+   "cost": 3,
+   "delta": {}
+  },
+  "Wildlife Dome": {
+   "module": "turmoil",
+   "cost": 15,
+   "delta": {}
+  }
+ },
+ "dropped": {
+  "Mining Area": "No available spaces",
+  "Stanford Torus": "Can't find space with id 69",
+  "Kaguya Tech": "No available spaces",
+  "Dawn City": "Can't find space with id 71",
+  "Luna Metropolis": "Can't find space with id 70",
+  "Maxwell Base": "Can't find space with id 73",
+  "Stratopolis": "Can't find space with id 72",
+  "Sponsoring Nation": "Assertion failure: game.turmoil not defined for game-id",
+  "Colonial Representation": "Assertion failure: game.turmoil not defined for game-id",
+  "Envoys From Venus": "Assertion failure: game.turmoil not defined for game-id",
+  "Colonial Envoys": "Assertion failure: game.turmoil not defined for game-id",
+  "Jovian Envoys": "Assertion failure: game.turmoil not defined for game-id",
+  "Banned Delegate": "Assertion failure: game.turmoil not defined for game-id",
+  "Cultural Metropolis": "Assertion failure: game.turmoil not defined for game-id",
+  "Event Analysts": "Assertion failure: game.turmoil not defined for game-id",
+  "Recruitment": "Assertion failure: game.turmoil not defined for game-id",
+  "Vote Of No Confidence": "Assertion failure: game.turmoil not defined for game-id"
+ }
+}

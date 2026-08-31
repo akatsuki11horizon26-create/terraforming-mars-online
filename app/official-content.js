@@ -150,7 +150,7 @@ const CURATED_PROJECT_OVERRIDES = [
   // were empty specs, so they took the money and did nothing.
   project("card-base-media-archives", "Media Archives", 8, ["Earth"], "automated", "全プレイヤーがこれまでにプレイしたイベント1枚につきMCを1獲得。", {}, {"effectSpec": {"behavior": {"stock": {"megacredits": {"eventsPlayed": true, "all": true}}}}}),
   project("card-colonies-community-services", "Community Services", 13, [], "automated", "タグを持たないカード1枚につきMC生産量+1（このカードを含む）。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"noTags": true}}}}}),
-  project("card-promo-interplanetary-trade", "Interplanetary Trade", 27, ["Space"], "automated", "このカードを含め、場に出ている異なるタグ1種類につきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"distinctTags": true, "excludeTag": "Space"}}}}}),
+  project("card-promo-interplanetary-trade", "Interplanetary Trade", 27, ["Space"], "automated", "このカードを含め、場に出ている異なるタグ1種類につきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"distinctTags": true}}}}}),
   // "Raise temperature 1 step and gain 2 TR. Increase your plant production 1
   // step, or 4 steps if you have 3 plant tags." Upstream declares only the
   // temperature and the rating; the plant production is written in

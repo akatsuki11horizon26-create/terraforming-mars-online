@@ -68,7 +68,9 @@ const tests = readdirSync(testDir)
 // A test owns a method when it names the card and reaches the behaviour the
 // method stands for -- not merely when the id appears somewhere in the file.
 const METHOD_EVIDENCE = {
-  bespokePlay: [/playCard|applyCardEffect|applyPreludes|applyCorporation\b/],
+  // PLAY_CARD is how a card is really played, and a test moving onto it is a
+  // stronger claim than one calling the effect directly, not a weaker one.
+  bespokePlay: [/playCard|applyCardEffect|applyPreludes|applyCorporation\b|PLAY_CARD/],
   bespokeCanPlay: [/getCardPlayableStatus|canPlay/],
   initialAction: [/applyCorporationInitialAction|initialAction/],
   onCardPlayed: [/applyCorporationTriggers|onCardPlayed/],
