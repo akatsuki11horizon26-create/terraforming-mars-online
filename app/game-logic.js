@@ -3666,6 +3666,16 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         // hands back, so the result is copied into it rather than reassigned.
         Object.assign(next, applied.state);
         nextLogs = addLog(applied.logs, "system", `Double Down: 【${option.label}】の効果を複製しました。`);
+
+        // Known gap: a prelude whose work is a question rather than a payout
+        // gets none of it from applyEffect. Copying Project Eden places no
+        // second ocean, city or greenery, because all three are asked for.
+        // Queueing the copy's questions here is not enough on its own -- the
+        // steps a card has taken are recorded against its id, so the copy and
+        // the original share one ledger and whichever runs second finds its
+        // work already done. Giving the copy its own id breaks the builders,
+        // which dispatch on the exact id. It needs the ledger keyed by
+        // occurrence rather than by card, which is more than this line.
       }
       break;
     }
