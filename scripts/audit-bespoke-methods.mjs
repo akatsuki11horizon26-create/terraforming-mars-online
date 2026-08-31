@@ -18,7 +18,7 @@
 // absorbed into a count. STRICT is the set that must be fully owned today.
 //
 // Usage: node scripts/audit-bespoke-methods.mjs [--list] [--unreviewed]
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { CORPORATIONS, OFFICIAL_PROJECTS, PRELUDES } from "../app/official-content.js";
 
 const ledger = JSON.parse(readFileSync(new URL("../data/upstream-bespoke.json", import.meta.url), "utf8"));
@@ -162,7 +162,31 @@ if (process.argv.includes("--unreviewed")) {
   for (const [key, why] of unowned) console.log(`${key.padEnd(56)} ${why}`);
 }
 
-// The strict set is a hard gate. The rest is reported, not enforced: making all
-// 221 fail at once would leave nobody able to move, and a number nobody can act
-// on is the kind of green that hid the six in the first place.
-process.exitCode = strictUnowned.length > 0 ? 1 : 0;
+// Everything still unowned is pinned by name, not by count. A count is the kind
+// of green that hid the six corporations: rows can swap for other rows and the
+// number never moves. This fails in both directions -- a new unowned row that is
+// not on the list, and a row on the list that has since become owned -- so the
+// only way to change the file is to make it shorter.
+const baselineFile = new URL("../data/bespoke-method-baseline.json", import.meta.url);
+const baseline = new Set(JSON.parse(readFileSync(baselineFile, "utf8")).unowned);
+const unownedKeys = new Set(unowned.map(([key]) => key));
+
+const appeared = [...unownedKeys].filter(key => !baseline.has(key)).sort();
+const fixed = [...baseline].filter(key => !unownedKeys.has(key)).sort();
+
+if (process.argv.includes("--write-baseline")) {
+  writeFileSync(baselineFile, `${JSON.stringify({
+    note: "Hand-written upstream methods with no owner yet. Shrinking this list is the only allowed change.",
+    unowned: [...unownedKeys].sort()
+  }, null, 1)}
+`);
+  console.log(`
+baseline rewritten: ${unownedKeys.size} rows`);
+}
+
+for (const key of appeared) console.log(`
+PROBLEM ${key} is newly unowned and not on the baseline`);
+for (const key of fixed) console.log(`
+PROBLEM ${key} is owned now; remove it from the baseline (--write-baseline)`);
+
+process.exitCode = strictUnowned.length + appeared.length + fixed.length > 0 ? 1 : 0;
