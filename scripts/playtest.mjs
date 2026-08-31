@@ -375,6 +375,34 @@ function playGame(seed) {
     state = resolved.state;
     logs = resolved.logs;
 
+    // Drafting happens every generation, not only at setup. Only the setup
+    // routine played the picks out, so with --draft every game sat in the
+    // research phase from generation 2 onwards and ran to the generation cap
+    // without ever terraforming -- 100% of drafted games, 0% of the others.
+    if (state.draft) {
+      let picks = 0;
+      while (state.draft && picks++ < 200) {
+        const holder = state.turnOrder.find(id => (state.draft.queues[id] ?? []).length > 0);
+        if (holder === undefined) break;
+        const queue = state.draft.queues[holder];
+        const cardId = queue[Math.floor(rng() * queue.length)];
+        const after = draftPick(state, cardId, holder);
+        if (after === state) {
+          report("draft-refused", `${holder} could not pick ${cardId}`, { where });
+          break;
+        }
+        state = after;
+        checkInvariants(state, `${where}/draft:gen${state.generation}:${holder}`);
+      }
+      if (state.draft) report("draft-never-finished", `still drafting after ${picks} picks`, { where });
+      continue;
+    }
+    // The picks become each player's research hand, which they then buy from.
+    if (state.phase === "research" && state.players.some(p => (p.researchCards ?? []).length > 0)) {
+      for (const p of [...state.players]) buyResearchCards(state, p.id, rng, `${where}/research:gen${state.generation}`);
+      continue;
+    }
+
     // A multiplayer game takes longer than a solo one to terraform, and a bot
     // that plays at random longer still. Stopping at 40 meant the end game --
     // final greenery, scoring, the winner -- was never once reached.

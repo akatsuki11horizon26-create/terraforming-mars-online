@@ -1760,8 +1760,11 @@ export function applyPreludes(state, preludeIds, playerId) {
   nextState.selectedPreludeIds = preludeIds;
   nextState.preludeOptions = [];
   // advanceSetupTurn decides what comes next; marking the player complete here
-  // would skip the starting-hand purchase.
-  nextState.setupStep = "projects";
+  // would skip the starting-hand purchase -- but only while there is still a
+  // hand to buy. A seat that already bought has no research cards left, and no
+  // branch of advanceSetupTurn can finish a "projects" seat with an empty
+  // offer, so setup sat there forever.
+  nextState.setupStep = (nextState.researchCards ?? []).length > 0 ? "projects" : "complete";
   nextState.actionsRemaining = 2;
   nextState.turnStep = "start";
   let logs = addLog(
@@ -3138,6 +3141,14 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         const payerId = choice.ownerPlayerId ?? actorId;
         const payer = getPlayer(next, payerId);
         const worth = getSteelValue(next);
+        // The offer was affordable when it was made. Anything queued behind it
+        // can spend the money first, so the price is checked again here rather
+        // than driving the balance negative.
+        if ((payer?.mc ?? 0) + (payer?.steel ?? 0) * worth < NEPTUNIAN_COST) {
+          nextLogs = addLog(nextLogs, "system", "Neptunian Power Consultants: 支払えるMCがありません。");
+          next.pendingChoice = null;
+          break;
+        }
         // Steel covers what cash cannot, rounded up: no change is given.
         const fromSteel = Math.min(
           payer?.steel ?? 0,
