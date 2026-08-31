@@ -2482,7 +2482,12 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: `project-eden:${done.length}`,
           consumedAction: context.consumedAction ?? false,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          // The prelude that played this card is still mid-list. Rebuilding the
+          // continuation without carrying that meant the last of the card's six
+          // questions finished nothing, and setup stopped on a player who had
+          // taken both preludes and never their corporation's first action.
+          preludeResume: context.preludeResume
         }
       };
     }
@@ -3376,7 +3381,8 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             sourceKind: choice.continuation.sourceKind,
             sourceId: choice.continuation.sourceId,
             consumedAction: false,
-            paid: true
+            paid: true,
+            preludeResume: choice.continuation.preludeResume
           }, legal);
           if (placement) {
             next.pendingChoice = placement;
@@ -3394,7 +3400,8 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
           prompt: "Project Eden: 捨てるカードを選んでください（3枚）。",
           optional: false,
           consumedAction: false,
-          remaining: 3
+          remaining: 3,
+          preludeResume: choice.continuation.preludeResume
         }, ALL_CARDS);
         if (discard) {
           discard.ownerPlayerId = choice.ownerPlayerId ?? actorId;
@@ -4483,8 +4490,28 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         }
       }
       // A prelude that stopped here to ask where its tile goes still owes the
-      // rest of the prelude list, and setup cannot move on until it is done.
+      // rest of the prelude list -- but the card that asked owes its own steps
+      // first. Project Eden asks six questions in a row, and resuming the
+      // prelude after the first tile ended the card with two of its three
+      // tiles unplaced. The card is offered its next step, and only when it has
+      // none left does the prelude carry on.
       if (choice.continuation.preludeResume) {
+        // Project Eden is the one card that asks for several tiles in a row,
+        // and it is the only one whose remaining steps must be offered before
+        // the prelude carries on. Doing this for every card parks setup on
+        // cards that ask once and mean it -- Strategic Base Planning's colony
+        // placement was left hanging. `card` already falls back to PRELUDES;
+        // ALL_CARDS holds none, so looking Project Eden up there finds nothing.
+        const stillOwed =
+          card && choice.continuation.sourceId === PROJECT_EDEN_ID
+            ? queuePendingChoices(next, card, choice.continuation)
+            : null;
+        if (stillOwed) {
+          next.pendingChoice = stillOwed;
+          nextLogs = addLog(nextLogs, "system", stillOwed.prompt);
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: stillOwed };
+        }
         next.pendingChoice = null;
         const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
         return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };

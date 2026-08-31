@@ -1946,3 +1946,54 @@ test("Head Start pays for the project cards in hand", () => {
     assert.equal(after.steel, 2, "and the printed steel either way");
   }
 });
+
+test("Project Eden played from a prelude places all three tiles and finishes setup", () => {
+  // Eccentric Sponsor plays a card at a discount, and that card can ask
+  // questions of its own. Every builder rebuilds the continuation from its own
+  // context, dropping the resume the prelude parked there, so the last answer
+  // finished nothing: the player had taken both preludes and never their
+  // corporation's first action, and no branch of advanceSetupTurn could move
+  // setup on. Project Eden is the worst case -- it asks six times.
+  const state = getInitialState({ playerCount: 2, prelude: true, colonies: true, seed: 4 });
+  for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = ["card-prelude2-project-eden", "prelude-biolab"];
+  seat.hand = (state.deck ?? []).slice(0, 5);
+
+  let current = applyPreludes(state, ["card-prelude2-project-eden", "prelude-biolab"], seat.id);
+  for (let i = 0; i < 20 && current.pendingChoice; i++) {
+    const choice = current.pendingChoice;
+    const answered = resolvePendingChoice(current, choice.options[0].id, [], choice.ownerPlayerId);
+    assert.notEqual(answered.state, current, `stalled on ${choice.continuation?.stage}`);
+    current = answered.state;
+  }
+
+  const tiles = Object.values(current.board)
+    .filter(cell => ["ocean", "city", "forest"].includes(cell.tileType)).length;
+  assert.equal(tiles, 3, "an ocean, a city and a greenery");
+  assert.equal(current.pendingChoice, null, "and nothing left unanswered");
+});
+
+test("a prelude that asks once still resumes immediately", () => {
+  // The card's own steps are offered first only for the card that has them.
+  // Doing it for every card left Strategic Base Planning's colony placement
+  // hanging and parked setup again.
+  const state = getInitialState({ playerCount: 2, prelude: true, colonies: true, seed: 4 });
+  for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = ["card-promo-strategic-base-planning", "prelude-biolab"];
+  seat.mc = 50;
+
+  let current = applyPreludes(state, ["card-promo-strategic-base-planning", "prelude-biolab"], seat.id);
+  for (let i = 0; i < 20 && current.pendingChoice; i++) {
+    const choice = current.pendingChoice;
+    const answered = resolvePendingChoice(current, choice.options[0].id, [], choice.ownerPlayerId);
+    assert.notEqual(answered.state, current, `stalled on ${choice.continuation?.stage}`);
+    current = answered.state;
+  }
+  assert.equal(current.pendingChoice, null, "the prelude finished");
+});
