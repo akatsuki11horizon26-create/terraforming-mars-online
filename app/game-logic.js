@@ -3841,6 +3841,19 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
         }
       });
       if (played.status === "pending") {
+        // The card Eccentric Sponsor discounted asks its own question, and the
+        // builder that raised it rebuilt the continuation from the card's own
+        // context -- dropping the prelude's resume. Whoever answers that
+        // question then finished nothing, and setup sat on a player who had
+        // chosen both preludes but never taken their corporation's first
+        // action, with no branch able to move it on.
+        const asked = played.state.pendingChoice;
+        if (asked && !asked.continuation?.preludeResume) {
+          asked.continuation = {
+            ...asked.continuation,
+            preludeResume: choice.continuation.preludeResume
+          };
+        }
         next.logs = played.logs;
         return { status: "pending", state: played.state, logs: played.logs, pendingChoice: played.pendingChoice };
       }
