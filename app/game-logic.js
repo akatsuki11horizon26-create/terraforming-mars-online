@@ -815,6 +815,22 @@ function normalizeCountedAmount(amount) {
   if (amount.floaters) return { kind: "floaters", plus, each, per, allPlayers: false };
   if (amount.eventsPlayed) return { kind: "eventsPlayed", plus, each, per, allPlayers: amount.all === true };
   if (amount.noTags) return { kind: "noTags", plus, each, per, allPlayers: false };
+  // "1 plant production, or 4 if you have 3 plant tags." Upstream writes the
+  // whole thing in bespokePlay; here it is the count with a threshold, so the
+  // engine reads it rather than the number living only in the card's text.
+  if (amount.atLeastTag) {
+    return {
+      kind: "atLeastTag",
+      plus,
+      each,
+      per,
+      allPlayers: false,
+      tag: amount.atLeastTag,
+      threshold: amount.threshold ?? 1,
+      below: amount.below ?? 0,
+      atOrAbove: amount.atOrAbove ?? 0
+    };
+  }
   if (amount.projectCardsInHand) {
     return { kind: "projectCardsInHand", plus, each, per, allPlayers: false };
   }
@@ -889,6 +905,11 @@ function evaluateCountedGain(state, gain, ownerId, sourceCardId) {
         }
       }
       break;
+    case "atLeastTag": {
+      const held = countPlayedTag(state, gain.tag);
+      units = held >= gain.threshold ? gain.atOrAbove : gain.below;
+      break;
+    }
     case "projectCardsInHand":
       // Head Start pays per project card held. Active, automated and event are
       // all project cards; a prelude or a corporation in hand is not.
@@ -1166,6 +1187,24 @@ export function getCardEffect(card) {
   // project card in hand lives in bespokePlay.
   if (card.effectSpec?.bespokeStock) {
     addNormalizedStock(effect, card.effectSpec.bespokeStock, unsupported);
+  }
+  // The production a hand-written upstream method grants, kept out of
+  // `behavior` so the declaration still matches upstream's own.
+  if (card.effectSpec?.bespokeProduction) {
+    const merged = normalizeBehavior(
+      { production: card.effectSpec.bespokeProduction },
+      {},
+      unsupported
+    );
+    if (merged.production) {
+      effect.production = { ...(effect.production ?? {}), ...merged.production };
+    }
+    if (merged.countedProduction?.length) {
+      effect.countedProduction = [
+        ...(effect.countedProduction ?? []),
+        ...merged.countedProduction
+      ];
+    }
   }
   if (card.effectSpec?.action) {
     const actionUnsupported = [];

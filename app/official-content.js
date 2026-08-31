@@ -151,6 +151,11 @@ const CURATED_PROJECT_OVERRIDES = [
   project("card-base-media-archives", "Media Archives", 8, ["Earth"], "automated", "全プレイヤーがこれまでにプレイしたイベント1枚につきMCを1獲得。", {}, {"effectSpec": {"behavior": {"stock": {"megacredits": {"eventsPlayed": true, "all": true}}}}}),
   project("card-colonies-community-services", "Community Services", 13, [], "automated", "タグを持たないカード1枚につきMC生産量+1（このカードを含む）。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"noTags": true}}}}}),
   project("card-promo-interplanetary-trade", "Interplanetary Trade", 27, ["Space"], "automated", "このカードを含め、場に出ている異なるタグ1種類につきMC生産量+1。", {}, {"victoryPoints": 1, "effectSpec": {"behavior": {"production": {"megacredits": {"distinctTags": true, "excludeTag": "Space"}}}}}),
+  // "Raise temperature 1 step and gain 2 TR. Increase your plant production 1
+  // step, or 4 steps if you have 3 plant tags." Upstream declares only the
+  // temperature and the rating; the plant production is written in
+  // bespokePlay, so ours promised it in the card text and never paid it.
+  project("card-base-nitrogen-rich-asteroid", "Nitrogen-Rich Asteroid", 31, ["Space"], "event", "TR+2、気温+1。植物生産量+1。ただし植物タグを3個持っていれば+4。", {}, {"effectSpec": {"behavior": {"global": {"temperature": 1}, "tr": 2}, "bespokeProduction": {"plants": {"atLeastTag": "Plant", "threshold": 3, "below": 1, "atOrAbove": 4}}}}),
   project("card-colonies-quantum-communications", "Quantum Communications", 8, [], "automated", "科学タグ4つが必要。場にある植民地1つにつきMC生産量+1。", {}, {"victoryPoints": 1, "requires": {"tags": {"Science": 4}}, "reqText": "科学タグ4枚以上", "effectSpec": {"behavior": {"production": {"megacredits": {"coloniesInPlay": true}}}}}),
   // Both spend 2 M€ production and place a colony; both were empty specs.
   project("card-colonies-minority-refuge", "Minority Refuge", 5, ["Space"], "automated", "MC生産量-2。植民地を1つ置く。", {}, {"effectSpec": {"behavior": {"production": {"megacredits": -2}, "colonies": {"buildColony": {}}}}}),

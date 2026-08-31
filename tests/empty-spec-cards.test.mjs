@@ -2254,3 +2254,34 @@ test("Pharmacy Union trades diseases for rating, then turns face down", () => {
   assert.equal(bareSeat.cardResources[id] ?? 0, 0, "face down takes no more diseases");
   assert.equal(bareSeat.mc, 54, "and costs nothing further");
 });
+
+test("Nitrogen-Rich Asteroid pays its plant production, four with three plant tags", () => {
+  // Upstream declares only the temperature step and the two rating steps; the
+  // plant production -- one, or four with three plant tags -- is written in
+  // bespokePlay. Ours promised it in the card text and never paid it, which a
+  // differential run against upstream's own engine is what surfaced.
+  const singleTag = ALL_CARDS.filter(
+    card => (card.tags ?? []).length === 1 && card.tags[0] === "Plant" && card.type !== "event"
+  );
+
+  for (const [tags, expected] of [[0, 1], [2, 1], [3, 4], [5, 4]]) {
+    const state = getInitialState({ playerCount: 2, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 200;
+    seat.actionsRemaining = 20;
+    seat.plantsProd = 0;
+    seat.playedProjects = singleTag.slice(0, tags).map(card => card.id);
+    seat.hand = ["card-base-nitrogen-rich-asteroid"];
+
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-nitrogen-rich-asteroid"
+    });
+    assert.equal(played.ok, true);
+    assert.equal(
+      getPlayer(played.state, "player").plantsProd, expected,
+      `${tags} plant tags should pay ${expected}`
+    );
+  }
+});
