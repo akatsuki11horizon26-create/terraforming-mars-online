@@ -1815,6 +1815,25 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
       const freePlay = applyPreludeFreePlay(nextState, effect, nextLogs);
       nextState = freePlay.state;
       nextLogs = freePlay.logs;
+      if (freePlay.card) {
+        const asked = queuePendingChoices(nextState, freePlay.card, {
+          sourceKind: "card",
+          sourceId: freePlay.card.id,
+          consumedAction: false,
+          paid: true,
+          preludeResume: {
+            selectedIds: selected.map(item => item.id),
+            nextIndex: index + 1,
+            seatBefore
+          }
+        });
+        if (asked) {
+          nextState.pendingChoice = asked;
+          nextLogs = addLog(nextLogs, "system", asked.prompt);
+          nextState.logs = nextLogs;
+          return { state: nextState, logs: nextLogs, pending: true };
+        }
+      }
     }
   }
   return { state: finishPreludeSetup(nextState, nextLogs, seatBefore), logs: nextState.logs, pending: false };
@@ -4799,8 +4818,19 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     }
   }
 
-  // A prelude that stopped to ask something still owes the rest of its list.
-  if (choice.continuation.preludeResume && !next.pendingChoice) {
+  // A prelude that stopped to ask something still owes the rest of its list --
+  // but a card part-way through its own steps owes those first. Project Eden
+  // asks four times, and resuming the prelude after one of them ended the card
+  // with its remaining steps untaken.
+  const askerStillOwes =
+    choice.continuation.sourceId === PROJECT_EDEN_ID &&
+    projectEdenRemainingSteps(
+      next,
+      PROJECT_EDEN_ID,
+      next.resolvedChoices?.[PROJECT_EDEN_ID] ?? []
+    ).length > 0;
+
+  if (choice.continuation.preludeResume && !next.pendingChoice && !askerStillOwes) {
     const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
     return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
@@ -5389,7 +5419,10 @@ function applyPreludeFreePlay(state, effect, logs) {
   let nextLogs = addLog(logs, "system", `Prelude効果で【${card.name}】をプレイしました（支払MC ${payment}）。`);
   const effectResult = applyCardEffect(nextState, card, nextLogs);
   const triggerResult = applyCorporationTriggers(effectResult.state, card, effectResult.logs);
-  return { state: triggerResult.state, logs: triggerResult.logs };
+  // The card the prelude played is a card like any other: if it asks where its
+  // tile goes, it has to be asked. Ecology Experts played Ice Cap Melting and
+  // the question was never raised, which left setup unable to finish.
+  return { state: triggerResult.state, logs: triggerResult.logs, card };
 }
 
 // Whether a player can pay for one branch of an OR action. Only resourcesHere

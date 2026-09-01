@@ -183,7 +183,11 @@ export function buildDiscardChoice(state, hand, context, cards) {
       stage: context.stage ?? "discard-card",
       consumedAction: context.consumedAction ?? false,
       paid: context.paid ?? true,
-      remaining: context.remaining ?? 1
+      remaining: context.remaining ?? 1,
+      // A prelude that played the card asking this is still mid-list. Rebuilding
+      // the continuation field by field dropped that, and the last discard then
+      // finished nothing -- setup could not move on.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
