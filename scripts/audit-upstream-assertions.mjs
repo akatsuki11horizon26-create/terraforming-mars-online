@@ -52,6 +52,13 @@ const testBlocks = readdirSync(testDir)
 // looked for in a test: "this card is worth N points". Checking those directly
 // is stronger than any candidate search, and it is what showed the six
 // victory-point candidates to be a weakness of the search rather than a gap.
+//
+// Playability looks like the same shape and is not. 178 assertions read
+// `expect(card.canPlay(player)).is.true`, but the block places five oceans, or
+// hands the player two wild tags, before saying so -- Algae's "Should play"
+// does exactly that. Evaluating them against a fresh game reports 96 false
+// differences. Replaying each block's setup is the work those blocks were
+// dropped for in the first place, so they stay a candidate search.
 const FIXED_VP = /card\.getVictoryPoints\(player\)\)\.to\.eq\((-?\d+)\)/;
 const checkedDirectly = [];
 const contradicted = [];
