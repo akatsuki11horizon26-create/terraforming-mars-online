@@ -2423,3 +2423,76 @@ test("every corporation the engine can act for is offered a button", () => {
   getPlayer(plain, "player").corporationId = "corp-teractor";
   assert.equal(getCorporationActionStatus(plain, "player"), null);
 });
+
+test("Project Eden resolves all four of its steps in any order", () => {
+  // sol's point about ordering: the card lets the player choose, and the order
+  // changes what the placements are worth, so every order has to end with the
+  // same four things done.
+  //
+  // What this does NOT prove is the continuation fix. This rig marks the other
+  // seats complete before it starts, and with nothing left for setup to do
+  // afterwards the prelude's resume is unnecessary: dropping it leaves all 24
+  // orders passing. The resume is covered by the two tests above, which run a
+  // seat that still owes its corporation's first action. Kept apart on purpose
+  // -- a permutation test that quietly also claimed to cover the resume would
+  // be the kind of green that hides a defect.
+  const STEPS = ["ocean", "city", "greenery", "discard"];
+
+  const permutations = list => {
+    if (list.length <= 1) return [list];
+    return list.flatMap((item, index) =>
+      permutations([...list.slice(0, index), ...list.slice(index + 1)]).map(rest => [item, ...rest])
+    );
+  };
+
+  const run = order => {
+    const state = getInitialState({ playerCount: 2, prelude: true, colonies: true, seed: 4 });
+    for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+    const seat = state.players[0];
+    seat.setupStep = "prelude";
+    state.currentPlayerId = seat.id;
+    seat.preludeOptions = ["card-prelude2-project-eden", "prelude-biolab"];
+    seat.hand = (state.deck ?? []).slice(0, 8);
+    const handBefore = seat.hand.length;
+
+    let current = applyPreludes(state, ["card-prelude2-project-eden", "prelude-biolab"], seat.id);
+    let wanted = [...order];
+
+    for (let i = 0; i < 40 && current.pendingChoice; i++) {
+      const choice = current.pendingChoice;
+      // When the card offers its steps, take the next one this permutation asks
+      // for; anything else (where the tile goes, which card to discard) takes
+      // the first option.
+      let option = choice.options[0];
+      if (choice.kind === "project-eden") {
+        const next = wanted.find(step => choice.options.some(entry => entry.id === step));
+        if (next) {
+          option = choice.options.find(entry => entry.id === next);
+          wanted = wanted.filter(step => step !== next);
+        }
+      }
+      const answered = resolvePendingChoice(current, option.id, [], choice.ownerPlayerId);
+      if (answered.state === current) break;
+      current = answered.state;
+    }
+
+    const tiles = Object.values(current.board)
+      .filter(cell => ["ocean", "city", "forest"].includes(cell.tileType)).length;
+    return {
+      tiles,
+      discarded: handBefore - (getPlayer(current, seat.id).hand ?? []).length,
+      pending: current.pendingChoice,
+      preludeFinished: (getPlayer(current, seat.id).selectedPreludeIds ?? []).length === 2,
+      seatCompleted: getPlayer(current, seat.id).setupStep === "complete"
+    };
+  };
+
+  for (const order of permutations(STEPS)) {
+    const result = run(order);
+    const label = order.join(",");
+    assert.equal(result.tiles, 3, `${label}: an ocean, a city and a greenery`);
+    assert.equal(result.pending, null, `${label}: nothing left unanswered`);
+    assert.ok(result.discarded >= 3, `${label}: three cards discarded, saw ${result.discarded}`);
+    assert.equal(result.seatCompleted, true, `${label}: setup moved on afterwards`);
+  }
+});
