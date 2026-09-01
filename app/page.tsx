@@ -1495,6 +1495,24 @@ export default function Home() {
     [activeState, currentPlayerId]
   );
 
+  // The corporation was never drawn anywhere after it was chosen, and no card's
+  // resources were either: a player holding Arklight could not see the card, its
+  // animals, or the microbes on anything else. The engine tracks all of it.
+  const seatCorporation = CORPORATIONS.find(item => item.id === seatCorporationId) ?? null;
+  // The engine keys these by "<playerId>:<cardId>" on the game state, and the
+  // flattened seat view carries the same map, so both spellings are tried.
+  const seatCardResources = (activeState.cardResources ?? {}) as Record<string, number>;
+  const resourceKeyFor = (cardId: string) =>
+    seatCardResources[cardId] ?? seatCardResources[`${currentPlayerId}:${cardId}`] ?? 0;
+  const seatCorporationResources = seatCorporationId ? resourceKeyFor(seatCorporationId) : 0;
+  const cardsHoldingResources = [...seatPlayedProjects, ...seatPreludeIds]
+    .map(id => ({
+      id,
+      name: (ALL_CARDS.find(card => card.id === id) ?? PRELUDES.find(card => card.id === id))?.name ?? id,
+      count: resourceKeyFor(id)
+    }))
+    .filter(entry => entry.count > 0);
+
   const activeCards = useMemo(() => [
     ...seatPlayedProjects.map(id => ALL_CARDS.find(card => card.id === id)),
     ...seatPreludeIds.map(id => PRELUDES.find(card => card.id === id))
@@ -2377,6 +2395,25 @@ export default function Home() {
               );
             })}
           </div>
+
+          {(seatCorporation || cardsHoldingResources.length > 0) && (
+            <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(196,164,96,0.3)", borderRadius: "4px", background: "rgba(8,9,8,0.55)" }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--color-gold)", marginBottom: "6px" }}>自分の企業と資源</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.7rem", color: "#c9bfae" }}>
+                {seatCorporation && (
+                  <span style={{ padding: "2px 6px", border: "1px solid rgba(196,164,96,0.35)", borderRadius: "3px" }}>
+                    {seatCorporation.name}
+                    {seatCorporationResources > 0 && ` — ${seatCorporationResources}`}
+                  </span>
+                )}
+                {cardsHoldingResources.map(entry => (
+                  <span key={entry.id} style={{ padding: "2px 6px", border: "1px solid rgba(114,217,208,0.25)", borderRadius: "3px" }}>
+                    {entry.name} — {entry.count}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {activeCards.length > 0 && (
             <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(114,217,208,0.25)", borderRadius: "4px", background: "rgba(8,9,8,0.55)" }}>
