@@ -4900,10 +4900,15 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   // only for the corporation's own question. A prelude resolving in the same
   // window asks its own things, and unparking setup on one of those advances
   // the turn while the prelude is still mid-list.
+  // Widened from "the corporation's own question": a card effect raised during
+  // setup parks it just the same. Neptunian Power Consultants' ocean offer and
+  // Spire's discard both left every seat complete, every prelude taken, every
+  // first action done -- and nothing to move setup on. The prelude guard stays,
+  // since a prelude mid-list owes the rest of its own list first.
   const resume = advanced.state.setupContinuation;
   if (!advanced.pending &&
       resume?.stage === "prelude-setup" &&
-      choice.continuation.sourceKind === "corporation") {
+      !choice.continuation.preludeResume) {
     advanced.state.setupContinuation = null;
     advanced.state.currentPlayerId = resume.seatBefore;
     const resumed = advanceSetupTurn(advanced.state);

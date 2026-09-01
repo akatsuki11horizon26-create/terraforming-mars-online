@@ -709,7 +709,10 @@ export function buildResourceStealChoice(state, spec, context) {
       consumedAction: context.consumedAction ?? true,
       paid: context.paid ?? true,
       payload: { steal: Boolean(spec.steal) },
-      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {})
+      ...(context.afterPlay ? { afterPlay: context.afterPlay } : {}),
+      // A prelude can be what played the card doing the stealing, and it is
+      // still mid-list: Sabotage asked whom to hit and setup never resumed.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
@@ -790,7 +793,10 @@ export function buildColonyChoice(state, spec, context, tiles) {
       stage: "colony-placement",
       consumedAction: context.consumedAction ?? true,
       paid: context.paid ?? true,
-      payload: { allowDuplicates: Boolean(spec?.allowDuplicates) }
+      payload: { allowDuplicates: Boolean(spec?.allowDuplicates) },
+      // A prelude can be what played the card settling a colony, and it still
+      // owes the rest of its list once the tile is chosen.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
