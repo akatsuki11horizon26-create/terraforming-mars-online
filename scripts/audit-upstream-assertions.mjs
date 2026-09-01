@@ -18,6 +18,11 @@
 //
 // Usage: node scripts/audit-upstream-assertions.mjs [--missing] [--write-baseline]
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
+
+const catalogue = new Map(
+  [...OFFICIAL_PROJECTS, ...PRELUDES, ...CORPORATIONS].map(card => [card.id, card])
+);
 
 const manifest = JSON.parse(
   readFileSync(new URL("../data/upstream-assertions.json", import.meta.url), "utf8")
@@ -43,7 +48,28 @@ const testBlocks = readdirSync(testDir)
   .filter(name => name.endsWith(".test.mjs"))
   .flatMap(name => readFileSync(new URL(name, testDir), "utf8").split(/\ntest\(/));
 
+// Some assertions state a plain fact that can be checked outright rather than
+// looked for in a test: "this card is worth N points". Checking those directly
+// is stronger than any candidate search, and it is what showed the six
+// victory-point candidates to be a weakness of the search rather than a gap.
+const FIXED_VP = /card\.getVictoryPoints\(player\)\)\.to\.eq\((-?\d+)\)/;
+const checkedDirectly = [];
+const contradicted = [];
+for (const row of manifest.assertions) {
+  const match = FIXED_VP.exec(row.assertionText);
+  if (!match) continue;
+  const card = catalogue.get(row.cardId);
+  // A card whose points depend on the game is not stating a fixed number here.
+  if (!card || card.victoryPointSpec || card.specialVictoryKind) continue;
+  const upstreamPoints = Number(match[1]);
+  const ourPoints = card.victoryPoints ?? 0;
+  if (upstreamPoints === ourPoints) checkedDirectly.push(row.id);
+  else contradicted.push([row.cardId, upstreamPoints, ourPoints]);
+}
+const directlyChecked = new Set(checkedDirectly);
+
 const hasCandidate = row => {
+  if (directlyChecked.has(row.id)) return true;
   const pattern = REACHES[row.claimKind];
   if (!pattern) return false;
   return testBlocks.some(block => block.includes(row.cardId) && pattern.test(block));
@@ -85,7 +111,12 @@ for (const [kind, entry] of [...byKind].sort((a, b) => (b[1].covered + b[1].miss
   console.log(`  ${kind.padEnd(18)} candidate ${String(entry.covered).padStart(4)} | none ${entry.missing}`);
 }
 
+console.log(`  of those, checked against upstream directly : ${checkedDirectly.length}`);
+
 for (const id of lost) console.log(`\nPROBLEM ${id} had a candidate test and no longer does`);
+for (const [cardId, theirs, ours] of contradicted) {
+  console.log(`\nPROBLEM ${cardId}: upstream asserts ${theirs} points, ours has ${ours}`);
+}
 
 if (process.argv.includes("--missing")) {
   for (const row of missing) console.log(`${row.id.padEnd(64)} ${row.claimKind}`);
@@ -94,4 +125,4 @@ if (process.argv.includes("--missing")) {
 // Only the regression direction gates. The absolute number is a measurement,
 // and calling a candidate search a proof would be the exact mistake the skip
 // ledger made.
-process.exitCode = lost.length > 0 ? 1 : 0;
+process.exitCode = lost.length + contradicted.length > 0 ? 1 : 0;
