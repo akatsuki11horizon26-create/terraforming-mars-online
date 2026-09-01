@@ -731,7 +731,8 @@ function buildRoboticWorkforceChoice(state, context) {
       sourceId: context.sourceId,
       stage: "building-production",
       consumedAction: context.consumedAction ?? true,
-      paid: context.paid ?? true
+      paid: context.paid ?? true,
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
@@ -1990,7 +1991,8 @@ export function communityChoice(state, ownerId, options, context) {
       sourceId: ARCADIAN_COMMUNITIES_ID,
       stage: "land-claim",
       consumedAction: context.consumedAction ?? false,
-      paid: true
+      paid: true,
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
@@ -2518,7 +2520,8 @@ function queuePendingChoices(state, card, context) {
           stage: "merger",
           consumedAction: context.consumedAction ?? false,
           paid: context.paid ?? true,
-          payload: { dealt }
+          payload: { dealt },
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2582,7 +2585,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "mars-nomads",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2615,7 +2619,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "land-claim",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2682,7 +2687,8 @@ function queuePendingChoices(state, card, context) {
           stage: "market-manipulation",
           direction: "up",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2711,7 +2717,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "double-down",
           consumedAction: context.consumedAction ?? false,
-          paid: true
+          paid: true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2740,7 +2747,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "project-inspection",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2762,7 +2770,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "turmoil-banned-delegate",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }
@@ -2785,7 +2794,8 @@ function queuePendingChoices(state, card, context) {
           sourceId: card.id,
           stage: "turmoil-recruitment",
           consumedAction: context.consumedAction ?? true,
-          paid: context.paid ?? true
+          paid: context.paid ?? true,
+          ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
     }

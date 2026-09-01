@@ -217,7 +217,11 @@ export function buildAmountChoice(state, context) {
       sourceId: context.sourceId,
       stage: context.stage ?? "amount",
       consumedAction: context.consumedAction ?? true,
-      paid: context.paid ?? true
+      paid: context.paid ?? true,
+      // Public Plans asks how many cards to reveal, and a prelude can be what
+      // played it. Rebuilding the continuation without the resume left setup
+      // unable to finish once the number was chosen.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
