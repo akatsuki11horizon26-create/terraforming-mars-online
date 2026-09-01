@@ -19,7 +19,8 @@ import {
   resolvePendingChoice,
   applyPreludes,
   applyCorporation,
-  getPreludeCost
+  getPreludeCost,
+  getCardEffect
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
@@ -455,13 +456,30 @@ for (const prelude of PRELUDES) {
     continue;
   }
 
+  // A prelude whose point is playing a card from hand does not happen at all
+  // when there is no card it can play -- it fizzles for 15 M€ instead, and its
+  // printed half does not apply. This rig deals no hand, so what it would
+  // measure is the fizzle rather than the card. Covered by its own test.
+  const preludeEffect = getCardEffect(prelude);
+  if (preludeEffect.freePlayDiscount || preludeEffect.freePlayIgnoreGlobal) {
+    preludeResults.skipped += 1;
+    continue;
+  }
+
   const state = rig();
   const seat = getPlayer(state, "player");
   seat.setupStep = "prelude";
   // Paired with an inert partner so what moves is this prelude's doing.
-  const partner = PRELUDES.find(item =>
-    item.id !== prelude.id && Object.keys(item.effectSpec?.behavior ?? {}).length === 0
-  );
+  // An empty behavior block does not make a prelude inert: Eccentric Sponsor
+  // and Ecology Experts declare nothing and play a card from hand, and with
+  // this rig's empty hand they fizzle for 15 M€ -- which then lands on every
+  // other prelude's measurement as an unexplained +15.
+  const partner = PRELUDES.find(item => {
+    if (item.id === prelude.id) return false;
+    if (Object.keys(item.effectSpec?.behavior ?? {}).length > 0) return false;
+    const effect = getCardEffect(item);
+    return !effect.freePlayDiscount && !effect.freePlayIgnoreGlobal;
+  });
   if (!partner) { preludeResults.skipped += 1; continue; }
   seat.preludeOptions = [prelude.id, partner.id];
   const before = { ...getPlayer(state, "player") };

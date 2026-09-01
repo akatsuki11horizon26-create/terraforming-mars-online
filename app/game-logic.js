@@ -1700,6 +1700,9 @@ export function getPreludeCost(prelude) {
   return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
+// "That prelude fizzled; gain 15 M€ instead." The prelude is taken back out of
+// play, so nothing printed on it happens.
+const PRELUDE_FIZZLE_MC = 15;
 const ECCENTRIC_SPONSOR_ID = "prelude-eccentric-sponsor";
 const ECCENTRIC_SPONSOR_DISCOUNT = 25;
 
@@ -1738,6 +1741,33 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
   for (let index = startIndex; index < selected.length; index++) {
     const prelude = selected[index];
     const effect = getCardEffect(prelude);
+    // A prelude whose whole point is playing a card, with no card it can play,
+    // does not happen at all: upstream pays 15 M€ instead and takes the card
+    // back out, so its other half -- Ecology Experts' plant production -- is not
+    // applied either. Checked before the effect rather than unwound after.
+    if (effect.freePlayDiscount || effect.freePlayIgnoreGlobal) {
+      const relaxed = { ignoreGlobalRequirements: effect.freePlayIgnoreGlobal === true };
+      const discount = effect.freePlayDiscount ?? 0;
+      const anyPlayable = (nextState.hand ?? []).some(id => {
+        const held = ALL_CARDS.find(item => item.id === id);
+        if (!held) return false;
+        const discounted = discount > 0 ? { ...held, cost: Math.max(0, held.cost - discount) } : held;
+        return getCardPlayableStatus(discounted, nextState, 0, 0, relaxed).playable;
+      });
+      if (!anyPlayable) {
+        nextState.mc = (nextState.mc ?? 0) + PRELUDE_FIZZLE_MC;
+        nextState.selectedPreludeIds = (nextState.selectedPreludeIds ?? []).filter(
+          id => id !== prelude.id
+        );
+        nextLogs = addLog(
+          nextLogs,
+          "system",
+          `Prelude【${prelude.name}】はプレイできる手札がないため不発。MC +${PRELUDE_FIZZLE_MC}。`
+        );
+        continue;
+      }
+    }
+
     const preludeBeforeTemp = nextState.temperature;
     const preludeBeforeOxygen = nextState.oxygen;
     const result = applyEffect(nextState, effect, nextLogs);
@@ -5427,10 +5457,34 @@ function drawFromDeck(state, count) {
 
 function applyPreludeFreePlay(state, effect, logs) {
   const nextState = cloneGameState(state);
+  // Only a card the player could actually play. Picking on price alone chose
+  // cards demanding plants, steel or energy the player did not have, and the
+  // balance went negative -- 20 of the 24 remaining playtest problems.
+  //
+  // Ecology Experts waives the global tracks and nothing else, so the
+  // requirement relaxation is passed through rather than the whole check being
+  // skipped: Ants becomes playable at 0% oxygen, AI Central still needs its
+  // science tags.
+  const relaxed = { ignoreGlobalRequirements: effect.freePlayIgnoreGlobal === true };
+  const discount = effect.freePlayDiscount ?? 0;
   const card = nextState.hand
     .map(id => ALL_CARDS.find(item => item.id === id))
-    .find(item => item && nextState.mc >= Math.max(0, item.cost - (effect.freePlayDiscount ?? 0)));
-  if (!card) return { state: nextState, logs: addLog(logs, "system", "Prelude効果: 手札にプレイ可能なカードがありません。") };
+    .find(item => {
+      if (!item) return false;
+      const discounted = discount > 0 ? { ...item, cost: Math.max(0, item.cost - discount) } : item;
+      return getCardPlayableStatus(discounted, nextState, 0, 0, relaxed).playable;
+    });
+  // "Fizzled": a prelude whose whole point cannot happen is not played at all.
+  // Upstream pays 15 M€ instead and takes the card back out, so its other half
+  // -- Ecology Experts' plant production -- does not apply either. Ours kept the
+  // production and quietly skipped the card.
+  if (!card) {
+    return {
+      state: nextState,
+      logs: addLog(logs, "system", "Prelude効果: プレイできる手札がないため不発。MC +15。"),
+      fizzled: true
+    };
+  }
   const payment = Math.max(0, card.cost - (effect.freePlayDiscount ?? 0));
   nextState.mc -= payment;
   nextState.hand = nextState.hand.filter(id => id !== card.id);
@@ -8567,7 +8621,13 @@ function getGeneratedRequirementStatus(card, state, buffer) {
   return { playable: true, reason: "" };
 }
 
-export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed = 0) {
+export function getCardPlayableStatus(
+  card,
+  state,
+  steelUsed = 0,
+  titaniumUsed = 0,
+  { ignoreGlobalRequirements = false } = {}
+) {
   // A pass is final for the generation: no further actions until the next one.
   if (getCurrentPlayer(state)?.passed) {
     return { playable: false, reason: "パス済みのため、この世代は行動できません。" };
@@ -8768,10 +8828,15 @@ export function getCardPlayableStatus(card, state, steelUsed = 0, titaniumUsed =
   }
 
   const requirements = card.requires ?? {};
+  // Ecology Experts plays a card "ignoring global requirements". Upstream does
+  // that by handing the requirement check a bonus of 50 steps, which is enough
+  // to clear any track -- and it relaxes the tracks only. Tags, rating,
+  // resources, production and everything else are still checked.
   const buffer =
     (corporation?.effects?.requirementBuffer ?? 0) +
     (state.globalRequirementBuffer ?? 0) +
-    (state.oneShotRequirementBuffer ?? 0);
+    (state.oneShotRequirementBuffer ?? 0) +
+    (ignoreGlobalRequirements ? 50 : 0);
   const generatedRequirements = getGeneratedRequirementStatus(card, state, buffer);
   if (!generatedRequirements.playable) return generatedRequirements;
   if (requirements.oceans !== undefined && state.oceans < requirements.oceans - buffer) {

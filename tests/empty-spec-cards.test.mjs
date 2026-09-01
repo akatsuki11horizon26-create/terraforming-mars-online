@@ -2546,3 +2546,56 @@ test("Pharmacy Union asks which order when a card carries both its tags", () => 
   // free upgrade.
   assert.equal(faceDown.mc, diseaseFirst.mc);
 });
+
+test("Ecology Experts waives the global tracks and nothing else", () => {
+  // Upstream hands the requirement check a bonus of 50 steps, which clears any
+  // track -- and relaxes the tracks only. Ours picked a card by price alone, so
+  // it chose cards demanding plants, steel or energy the player did not have
+  // and drove the balance negative.
+  const ants = ALL_CARDS.find(card => card.id === "card-base-ants");
+  const aiCentral = ALL_CARDS.find(card => card.id === "p-ai-central");
+
+  const rig = () => {
+    const state = getInitialState({ playerCount: 2, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    getPlayer(state, "player").mc = 200;
+    return state;
+  };
+
+  // Ants wants 4% oxygen and the track is at 0.
+  assert.equal(getCardPlayableStatus(ants, rig()).playable, false);
+  assert.equal(
+    getCardPlayableStatus(ants, rig(), 0, 0, { ignoreGlobalRequirements: true }).playable, true,
+    "the oxygen track is waived"
+  );
+  // AI Central wants science tags, which is not a track.
+  assert.equal(
+    getCardPlayableStatus(aiCentral, rig(), 0, 0, { ignoreGlobalRequirements: true }).playable, false,
+    "tags are still required"
+  );
+});
+
+test("a prelude that cannot play a card fizzles for 15 M€", () => {
+  // "That prelude fizzled; gain 15 M€ instead." The card is taken back out of
+  // play, so nothing printed on it happens either -- ours kept the plant
+  // production and quietly skipped the card.
+  const state = getInitialState({ playerCount: 2, prelude: true, seed: 4 });
+  for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = ["prelude-ecology-experts", "prelude-biolab"];
+  seat.hand = [];
+  seat.mc = 0;
+
+  const after = getPlayer(
+    applyPreludes(state, ["prelude-ecology-experts", "prelude-biolab"], seat.id),
+    seat.id
+  );
+  assert.equal(after.mc, 15, "fifteen instead");
+  assert.ok(
+    !(after.selectedPreludeIds ?? []).includes("prelude-ecology-experts"),
+    "and the prelude is not in play"
+  );
+});
