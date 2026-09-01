@@ -269,7 +269,11 @@ export function buildBranchChoice(state, behaviors, context) {
       sourceId: context.sourceId,
       stage: "effect-branch",
       consumedAction: context.consumedAction ?? true,
-      paid: context.paid ?? true
+      paid: context.paid ?? true,
+      // A prelude that played the card offering this branch is still
+      // mid-list; rebuilding the continuation without the resume left
+      // setup unable to finish once the branch was answered.
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
     }
   };
 }
