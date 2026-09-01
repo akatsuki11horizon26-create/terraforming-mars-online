@@ -3231,6 +3231,28 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (choice.continuation.stage === "pharmacy-union-order") {
+        const ownerId = choice.ownerPlayerId ?? actorId;
+        const owner = getPlayer(next, ownerId);
+        // Both orders cost up to 4 M€; they differ in the rating and in whether
+        // the card stays face up.
+        const paid = Math.min(owner?.mc ?? 0, 4);
+        next.players = next.players.map(player =>
+          player.id === ownerId ? { ...player, mc: (player.mc ?? 0) - paid } : player
+        );
+        if (option.id === "face-down") {
+          next.players = next.players.map(player =>
+            player.id === ownerId ? { ...player, pharmacyUnionDisabled: true } : player
+          );
+          increaseTerraformRating(next, ownerId, 3, "card");
+          nextLogs = addLog(nextLogs, "system", `Pharmacy Union: 裏返して TR +3、MC -${paid}`);
+        } else {
+          increaseTerraformRating(next, ownerId, 1, "card");
+          nextLogs = addLog(nextLogs, "system", `Pharmacy Union: 疾病を置いて取り除き TR +1、MC -${paid}`);
+        }
+        next.pendingChoice = null;
+        break;
+      }
       if (choice.continuation.stage === "ecotec-bio") {
         const ownerId = choice.ownerPlayerId ?? actorId;
         if (option.id === "plant") {
@@ -6417,7 +6439,39 @@ export function applyCorporationTriggers(state, card, logs) {
   // lose up to 4 M€", and separately, when its OWNER plays a science tag, trade
   // a disease for a TR -- or, with none on the card, turn it face down for 3 TR
   // and nothing after that.
-  if (microbes > 0) {
+  //
+  // A card carrying BOTH tags with no disease on the card is the one case where
+  // the order changes the result, and upstream asks rather than deciding: face
+  // it down for three rating steps, or take the disease and trade it back for
+  // one. Ours resolved microbe-first every time, so the player never saw the
+  // stronger option.
+  const pharmacyOwner = corporationFor(getPlayer(nextState, actingSeatId));
+  if (
+    pharmacyOwner?.effects?.scienceDiseaseTrade &&
+    microbes > 0 &&
+    countWatchedTags(card, ["Science"]) > 0 &&
+    (nextState.cardResources?.[PHARMACY_UNION_ID] ?? 0) === 0 &&
+    !getPlayer(nextState, actingSeatId)?.pharmacyUnionDisabled
+  ) {
+    queued.push({
+      id: makeChoiceId("pharmacy-union-order", PHARMACY_UNION_ID, actingSeatId),
+      kind: "amount",
+      ownerPlayerId: actingSeatId,
+      prompt: "Pharmacy Union: 解決順を選んでください。",
+      optional: false,
+      options: [
+        { id: "face-down", label: "裏返してTR+3（最大4MCを失う）", amount: 3 },
+        { id: "disease-first", label: "疾病を1個置いて最大4MCを失い、その疾病を取り除いてTR+1", amount: 1 }
+      ],
+      continuation: {
+        sourceKind: "corporation",
+        sourceId: PHARMACY_UNION_ID,
+        stage: "pharmacy-union-order",
+        consumedAction: false,
+        paid: true
+      }
+    });
+  } else if (microbes > 0) {
     for (const holder of nextState.players) {
       const corporation = corporationFor(holder);
       if (!corporation?.effects?.diseaseOnMicrobe) continue;
@@ -6441,7 +6495,15 @@ export function applyCorporationTriggers(state, card, logs) {
 
   const pharmacyCorp = getCorporation(nextState);
   const scienceTags = countWatchedTags(card, ["Science"]);
-  if (pharmacyCorp?.effects?.scienceDiseaseTrade && scienceTags > 0 && !nextState.pharmacyUnionDisabled) {
+  const pharmacyOrderQueued = queued.some(
+    entry => entry.continuation?.stage === "pharmacy-union-order"
+  );
+  if (
+    pharmacyCorp?.effects?.scienceDiseaseTrade &&
+    scienceTags > 0 &&
+    !pharmacyOrderQueued &&
+    !getPlayer(nextState, actingSeatId)?.pharmacyUnionDisabled
+  ) {
     for (let i = 0; i < scienceTags; i++) {
       if (nextState.pharmacyUnionDisabled) break;
       const held = nextState.cardResources?.[PHARMACY_UNION_ID] ?? 0;

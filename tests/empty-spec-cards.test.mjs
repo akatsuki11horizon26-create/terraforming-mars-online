@@ -2496,3 +2496,50 @@ test("Project Eden resolves all four of its steps in any order", () => {
     assert.equal(result.seatCompleted, true, `${label}: setup moved on afterwards`);
   }
 });
+
+test("Pharmacy Union asks which order when a card carries both its tags", () => {
+  // The one place the order changes the result, and upstream asks rather than
+  // deciding: a Science+Microbe card with no disease on the corporation can
+  // either turn it face down for three rating steps, or take the disease and
+  // trade it straight back for one. Ours resolved microbe-first every time, so
+  // the player never saw the stronger option.
+  const bothTags = ALL_CARDS.find(card =>
+    (card.tags ?? []).includes("Science") &&
+    (card.tags ?? []).includes("Microbe") &&
+    (card.requirements ?? []).length === 0
+  );
+
+  const play = () => {
+    const state = getInitialState({ playerCount: 1, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = "card-promo-pharmacy-union";
+    seat.mc = 54;
+    seat.tr = 20;
+    seat.cardResources = {};
+    seat.actionsRemaining = 20;
+    seat.hand = [bothTags.id];
+    const result = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD, playerId: "player", cardId: bothTags.id
+    });
+    assert.equal(result.ok, true);
+    return result.state;
+  };
+
+  const asked = play();
+  assert.equal(asked.pendingChoice?.continuation?.stage, "pharmacy-union-order");
+  assert.deepEqual(asked.pendingChoice.options.map(o => o.id), ["face-down", "disease-first"]);
+
+  const faceDown = getPlayer(resolvePendingChoice(play(), "face-down", [], "player").state, "player");
+  assert.equal(faceDown.tr, 23, "three rating steps");
+  assert.equal(faceDown.pharmacyUnionDisabled, true, "and the card is done");
+
+  const diseaseFirst = getPlayer(resolvePendingChoice(play(), "disease-first", [], "player").state, "player");
+  assert.equal(diseaseFirst.tr, 21, "one rating step");
+  assert.ok(!diseaseFirst.pharmacyUnionDisabled, "and the card stays in play");
+
+  // Both cost up to 4 M€, which is what makes it a real choice rather than a
+  // free upgrade.
+  assert.equal(faceDown.mc, diseaseFirst.mc);
+});
