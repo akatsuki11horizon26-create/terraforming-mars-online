@@ -349,7 +349,23 @@ function playGame(seed) {
       continue;
     }
     if (seat.preludeOptions.length >= 2 && seat.selectedPreludeIds.length === 0) {
-      state = applyPreludes(state, seat.preludeOptions.slice(0, 2));
+      // A player picks two they can pay for. Taking the first two regardless
+      // meant the engine refused the pair and setup could not move on, which is
+      // a bot that cannot count rather than a rule the engine got wrong.
+      const affordablePair = (() => {
+        const options = seat.preludeOptions;
+        for (let i = 0; i < options.length; i++) {
+          for (let j = i + 1; j < options.length; j++) {
+            const cost = [options[i], options[j]].reduce(
+              (sum, id) => sum + getPreludeCost(PRELUDES.find(item => item.id === id) ?? {}),
+              0
+            );
+            if (cost <= seat.mc) return [options[i], options[j]];
+          }
+        }
+        return options.slice(0, 2);
+      })();
+      state = applyPreludes(state, affordablePair);
       checkInvariants(state, `${where}/prelude:${seat.id}`);
       continue;
     }

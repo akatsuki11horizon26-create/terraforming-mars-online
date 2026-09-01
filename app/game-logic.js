@@ -1692,6 +1692,10 @@ export function advanceSetupTurn(state) {
 }
 
 export function getPreludeCost(prelude) {
+  // Merger charges its 42 inside its own resolver rather than declaring it, so
+  // every affordability check read it as free. Taking it beside Industrial
+  // Complex spent 42 and then 18 out of 31 M€ and left the player at -15.
+  if (prelude?.id === MERGER_ID) return MERGER_COST;
   return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
@@ -3550,6 +3554,15 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       const owner = choice.ownerPlayerId ?? actorId;
       const merged = CORPORATIONS.find(item => item.id === option.corporationId);
       const dealt = choice.continuation.payload?.dealt ?? [];
+      // The offer was affordable when it was made. Anything resolved in between
+      // can have spent the money since, and the payment is unconditional, so
+      // the balance went to -15 in a 500-game run.
+      const merging = getPlayer(next, owner);
+      if (merged && (merging?.mc ?? 0) + (merged.starting?.mc ?? 0) < MERGER_COST) {
+        nextLogs = addLog(nextLogs, "system", "Merger: 合併する資金が足りません。");
+        next.pendingChoice = null;
+        break;
+      }
       if (merged) {
         // The second corporation's starting resources and production are ADDED
         // to what the player already has; applyCorporation assigns, which is
