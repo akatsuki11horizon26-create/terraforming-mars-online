@@ -67,7 +67,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid, Standings } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getStandardProjectCost as jsGetStandardProjectCost } from "./game-command.js";
+import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getStandardProjectCost as jsGetStandardProjectCost } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
@@ -844,6 +844,17 @@ export default function Home() {
   const corporationActionUsed = (
     (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
   ).includes(CORPORATION_ACTION_ID);
+
+  // The engine can run nine corporations' actions; this panel used to name two
+  // of them, so the other seven were implemented, reachable by command, and
+  // invisible to the player. The table itself now says which corporation has an
+  // action and why it cannot be used yet.
+  const corporationAction = getCorporationActionStatus(activeState, currentPlayerId) as
+    | { corporationId: string; label: string; used: boolean; blockedReason: string | null }
+    | null;
+  const corporationActionText = corporationAction
+    ? (CORPORATIONS.find(item => item.id === corporationAction.corporationId)?.effectText ?? corporationAction.label)
+    : "";
   // In a robot game the seat moves to the bots, and the driver effect plays for
   // them. Treating every offline turn as the human's let the player act on the
   // bot's turn, so the human was operating both sides.
@@ -2579,16 +2590,16 @@ export default function Home() {
               <h2 className="cyber-panel-title">標準プロジェクト</h2>
             </div>
             <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-              {(["corp-unmi", "corp-robinson"] as string[]).includes(activeState.corporationId ?? "") && (
+              {corporationAction && (
                 <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
                   <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
                   <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
-                    {activeState.corporationId === "corp-unmi" ? "この世代にTRが上がっていればMC3でTR+1" : "MC4で最低の生産量を1段階上げる"}
+                    {corporationActionText}
                       {corporationActionUsed && (
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || (activeState.corporationId === "corp-unmi" ? activeState.mc < 3 || activeState.tr <= activeState.generationStartTr : activeState.mc < 4)} onClick={() => confirmAction("企業アクション", `${activeState.corporationId === "corp-unmi" ? "MC3を支払いTRを1上げます。" : "MC4を支払い、最も低い生産量を1段階上げます。"} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || Boolean(corporationAction?.blockedReason)} title={corporationAction?.blockedReason ?? undefined} onClick={() => confirmAction("企業アクション", `${corporationActionText} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}

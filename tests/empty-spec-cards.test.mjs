@@ -20,7 +20,7 @@ import {
   armPreservationProgram,
   ALL_CARDS
 } from "../app/game-logic.js";
-import { executeGameCommand, COMMAND } from "../app/game-command.js";
+import { executeGameCommand, COMMAND, getCorporationActionStatus } from "../app/game-command.js";
 import { getCardResourceType } from "../app/card-resource-types.js";
 import { PRELUDES, OFFICIAL_PROJECTS, CORPORATIONS } from "../app/official-content.js";
 import { JAPANESE_TEXT } from "../app/japanese-text.js";
@@ -2386,4 +2386,40 @@ test("every corporation trigger fires on the path a player actually uses", () =>
     play("card-promo-pharmacy-union", playable("Microbe")).cardResources["card-promo-pharmacy-union"], 1,
     "Pharmacy Union takes a disease for a microbe tag"
   );
+});
+
+test("every corporation the engine can act for is offered a button", () => {
+  // The action panel named two corporations by id, so the other seven whose
+  // actions the command layer runs were implemented, reachable by command, and
+  // invisible in the UI -- a player holding Factorum or Viron had no way to use
+  // the ability the card is bought for. The panel now asks the table.
+  const withActions = [
+    "corp-unmi", "corp-robinson",
+    "card-prelude2-palladin-shipping", "card-promo-factorum", "card-promo-astrodrill",
+    "card-promo-arcadian-communities", "card-turmoil-septem-tribus",
+    "card-venus-viron", "card-promo-tycho-magnetics"
+  ];
+
+  for (const corporationId of withActions) {
+    const state = getInitialState({
+      playerCount: 1, venus: true, colonies: true, turmoil: true, promo: true, prelude: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.corporationId = corporationId;
+    seat.mc = 100;
+
+    const status = getCorporationActionStatus(state, "player");
+    assert.ok(status, `${corporationId} has an action the UI cannot see`);
+    assert.equal(status.corporationId, corporationId);
+    assert.ok(status.label, `${corporationId} has no label to show`);
+  }
+
+  // A corporation without an action gets no panel rather than an empty one.
+  const plain = getInitialState({ playerCount: 1, seed: 4 });
+  plain.phase = "action";
+  plain.currentPlayerId = "player";
+  getPlayer(plain, "player").corporationId = "corp-teractor";
+  assert.equal(getCorporationActionStatus(plain, "player"), null);
 });

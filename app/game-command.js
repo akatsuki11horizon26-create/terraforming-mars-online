@@ -468,6 +468,27 @@ function corporationCost(corporationId, key) {
   return CORPORATIONS.find(item => item.id === corporationId)?.effects?.[key];
 }
 
+// Whether this seat has a corporation action at all, and why it cannot be used
+// right now. The UI had a hard-coded list of two corporations, so the seven
+// others whose actions the engine runs had no button anywhere -- implemented,
+// reachable by command, and invisible to the player.
+export function getCorporationActionStatus(state, playerId) {
+  const actor = getPlayer(state, playerId ?? state.currentPlayerId);
+  if (!actor) return null;
+  const corporationId = CORPORATION_ACTIONS[actor.corporationId]
+    ? actor.corporationId
+    : actor.mergedCorporationId;
+  const action = CORPORATION_ACTIONS[corporationId];
+  if (!action) return null;
+  const used = (actor.usedCardActions ?? []).includes(CORPORATION_ACTION_ID);
+  return {
+    corporationId,
+    label: action.label,
+    used,
+    blockedReason: used ? "この世代の企業アクションは使用済みです。" : (action.blocked?.(actor, state) ?? null)
+  };
+}
+
 const CORPORATION_ACTIONS = {
   "corp-unmi": {
     label: "UNMI: MC3を支払いTRを1上げました。",
