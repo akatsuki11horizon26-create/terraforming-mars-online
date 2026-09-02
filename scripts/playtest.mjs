@@ -15,6 +15,8 @@ import {
   cloneGameState,
   getCardActionStatus,
   getCardPlayableStatus,
+  getCardEffect,
+  legalCellsFor,
   getCardPaymentCost,
   resolvePendingChoice,
   handleActionSpend,
@@ -37,15 +39,40 @@ import {
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 
-const args = Object.fromEntries(
-  process.argv.slice(2).map(arg => {
-    const [key, value] = arg.replace(/^--/, "").split("=");
-    return [key, value ?? true];
-  })
-);
+// Both "--games=500" and "--games 500" have to work. Only the first did, and
+// the second parsed as {games: true, 500: true} -- Number(true) is 1, so a run
+// asking for 500 two-player games silently played one solo game and reported
+// no problems. A completion claim of "2,000 games, zero problems" rested on it.
+const KNOWN = new Set(["games", "players", "turmoil", "colonies", "draft", "seed", "prelude", "venus", "promo"]);
+const NEEDS_VALUE = new Set(["games", "players", "seed"]);
+const args = {};
+{
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i++) {
+    const raw = argv[i];
+    if (!raw.startsWith("--")) {
+      throw new Error(`unexpected argument "${raw}" -- flags look like --games=20`);
+    }
+    const [key, inline] = raw.replace(/^--/, "").split("=");
+    if (!KNOWN.has(key)) {
+      throw new Error(`unknown flag "--${key}" (known: ${[...KNOWN].join(", ")})`);
+    }
+    if (inline !== undefined) {
+      args[key] = inline;
+    } else if (NEEDS_VALUE.has(key) && argv[i + 1] !== undefined && !argv[i + 1].startsWith("--")) {
+      args[key] = argv[++i];
+    } else if (NEEDS_VALUE.has(key)) {
+      throw new Error(`--${key} needs a value`);
+    } else {
+      args[key] = true;
+    }
+  }
+}
 
 const GAMES = Number(args.games ?? 20);
 const PLAYERS = Number(args.players ?? 1);
+if (!Number.isInteger(GAMES) || GAMES < 1) throw new Error(`--games must be a positive whole number, got "${args.games}"`);
+if (!Number.isInteger(PLAYERS) || PLAYERS < 1) throw new Error(`--players must be a positive whole number, got "${args.players}"`);
 const USE_TURMOIL = Boolean(args.turmoil);
 const USE_COLONIES = Boolean(args.colonies);
 const USE_PRELUDE = Boolean(args.prelude);
@@ -165,8 +192,16 @@ function buyResearchCards(state, playerId, rng, where) {
   const player = state.players.find(p => p.id === playerId);
   if (!player || player.researchCards.length === 0) return;
 
-  const affordable = Math.floor(player.mc / RESEARCH_CARD_COST);
-  const wanted = Math.min(affordable, player.researchCards.length, 1 + Math.floor(rng() * 4));
+  // Spending everything on cards leaves nothing to play them with, and buying
+  // at least one every generation regardless of price is how a bot ends up
+  // holding 146 cards, three of them playable, with 6 M€ to its name -- the
+  // tracks then stop moving and the game runs to the generation cap. Half the
+  // money is the ceiling, and buying nothing has to be allowed: a player short
+  // of money needs the cards it already holds to become playable, not more.
+  const budget = Math.floor(player.mc / 2);
+  const affordable = Math.floor(budget / RESEARCH_CARD_COST);
+  const appetite = player.mc < 25 ? Math.floor(rng() * 2) : 1 + Math.floor(rng() * 3);
+  const wanted = Math.min(affordable, player.researchCards.length, appetite);
   const bought = player.researchCards.slice(0, wanted);
   const passed = player.researchCards.slice(wanted);
 
@@ -303,7 +338,10 @@ function playGame(seed) {
         state = after;
         checkInvariants(state, `${where}/draft:${holder}`);
       }
-      if (state.draft) report("draft-never-finished", `still drafting after ${picks} picks`, { where });
+      if (state.draft) {
+        const held = Object.entries(state.draft.queues).map(([id, queue]) => `${id}:${queue.length}`).join(" ");
+        report("draft-never-finished", `still drafting after ${picks} picks (queues ${held})`, { where });
+      }
       continue;
     }
     // A corporation whose first action asks something -- Vitor's award,
@@ -408,7 +446,10 @@ function playGame(seed) {
         state = after;
         checkInvariants(state, `${where}/draft:gen${state.generation}:${holder}`);
       }
-      if (state.draft) report("draft-never-finished", `still drafting after ${picks} picks`, { where });
+      if (state.draft) {
+        const held = Object.entries(state.draft.queues).map(([id, queue]) => `${id}:${queue.length}`).join(" ");
+        report("draft-never-finished", `still drafting after ${picks} picks (queues ${held})`, { where });
+      }
       continue;
     }
     // The picks become each player's research hand, which they then buy from.
@@ -427,7 +468,8 @@ function playGame(seed) {
     if (state.generation > 80) {
       report(
         "generation-limit",
-        `gen ${state.generation} with oceans=${state.oceans}/9 oxygen=${state.oxygen}/14 temp=${state.temperature}/8`,
+        `gen ${state.generation} with oceans=${state.oceans}/9 oxygen=${state.oxygen}/14 temp=${state.temperature}/8` +
+        ` [ocean spaces left=${legalCellsFor(state, "ocean").length}, money=${state.players.map(x => x.mc).join("/")}]`,
         { where }
       );
       break;
@@ -488,7 +530,14 @@ function playGame(seed) {
     // never finished: nothing bought a temperature step, so the track sat near
     // -30 while the generations ran out. They go through the command layer,
     // which also exercises a path the rest of this loop skips.
-    for (const projectId of ["asteroid", "aquifer", "greenery", "city", "power-plant"]) {
+    // convert-plants and convert-heat are standard projects too, and leaving
+    // them out meant plants and heat piled up with nothing to spend them on:
+    // oxygen stopped climbing once nobody could afford the 25 M€ greenery, and
+    // games ended at the generation cap with oceans finished and oxygen at 5.
+    for (const projectId of [
+      "asteroid", "aquifer", "greenery", "city", "power-plant",
+      "convert-plants", "convert-heat"
+    ]) {
       const probe = executeGameCommand(cloneGameState(state), {
         type: COMMAND.STANDARD_PROJECT,
         playerId: player.id,
@@ -516,15 +565,46 @@ function playGame(seed) {
     // spend twenty generations buying the two that are already finished.
     const wanted = new Set();
     if (state.oceans < 9) wanted.add("aquifer");
-    if (state.oxygen < 14) wanted.add("greenery");
-    if (state.temperature < 8) wanted.add("asteroid");
+    if (state.oxygen < 14) { wanted.add("greenery"); wanted.add("convert-plants"); }
+    if (state.temperature < 8) { wanted.add("asteroid"); wanted.add("convert-heat"); }
     const closing = moves.filter(entry => entry.kind === "standard" && wanted.has(entry.id));
     const terraforming = moves.filter(entry => entry.kind === "standard");
-    const move = closing.length > 0 && rng() < 0.6
-      ? pick(closing, rng)
-      : terraforming.length > 0 && rng() < 0.5
-        ? pick(terraforming, rng)
-        : pick(moves, rng);
+
+    // Weighting terraforming does nothing while the player is broke: an
+    // asteroid costs 14, so a bankrupt bot offers no standard projects at all
+    // and the preference above never fires. Income has to come first. Without
+    // this the tracks stopped moving around generation 20 and half of all
+    // two-player games ran to the 80-generation cap with a 146-card hand and
+    // 6 M€ in pocket.
+    const income = moves.filter(entry => {
+      if (entry.kind !== "play") return false;
+      const production = getCardEffect(entry.card)?.production;
+      return production !== undefined && Object.keys(production).length > 0;
+    });
+    const poor = (player.mc ?? 0) < 20;
+
+    // With one track left and no money for the project that closes it, the
+    // game cannot end: seed 63353 sat at oceans 8/9 with four legal spaces on
+    // the board and 8 M€ between the two players, because every generation's
+    // income went back out on cards and small plays. When only one parameter
+    // is short, stop spending and let the money accumulate.
+    const almostDone = wanted.size === 1;
+    const savingFor = almostDone && closing.length === 0 && (player.mc ?? 0) < 30;
+    if (savingFor && rng() < 0.8) {
+      const produced = triggerProduction(state, logs);
+      state = produced;
+      logs = produced.logs;
+      checkInvariants(state, `${where}/production:gen${state.generation}`);
+      continue;
+    }
+
+    const move = poor && income.length > 0 && rng() < 0.7
+      ? pick(income, rng)
+      : closing.length > 0 && rng() < 0.6
+        ? pick(closing, rng)
+        : terraforming.length > 0 && rng() < 0.5
+          ? pick(terraforming, rng)
+          : pick(moves, rng);
     try {
       if (move.kind === "standard") {
         const done = executeGameCommand(state, {
@@ -546,7 +626,14 @@ function playGame(seed) {
           type: COMMAND.PLAY_CARD, playerId: player.id, cardId: move.card.id
         });
         if (!played?.ok) {
-          report("play-refused", `${move.card.id}: ${played?.error ?? "no reason given"}`, { where });
+          // error is sometimes the status object rather than a string, and
+          // template interpolation turned every refusal into "[object Object]"
+          // -- 55 reports that named the card and said nothing about why.
+          const why = played?.error;
+          const reason = typeof why === "string"
+            ? why
+            : (why?.reason ?? why?.message ?? JSON.stringify(why) ?? "no reason given");
+          report("play-refused", `${move.card.id}: ${reason} [phase=${state.phase}]`, { where });
         } else {
           state = played.state;
           logs = state.logs ?? logs;

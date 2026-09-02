@@ -4385,3 +4385,222 @@ test("Martian Lumber Corp pays for building cards with plants", async () => {
   assert.equal(richAfter.plants, 8, "the two plants offered were taken");
   assert.equal(richAfter.mc, 100 - (building.cost - 6), "and paid for six of the price");
 });
+
+// "Add 1 resource to a card with at least 1 resource on it" needs such a card
+// to exist. The reference refuses the play outright; we sold it, gave no
+// choice, and dropped the card without it entering play. The rule was in the
+// spec as mustHaveCard and read when the choice is built -- the playability
+// check was the one place not asking.
+test("a card that must target a loaded card is unplayable with none", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(item => {
+    const spec = item.effectSpec?.behavior?.addResourcesToAnyCard;
+    return (Array.isArray(spec) ? spec : [spec]).some(entry => entry?.mustHaveCard);
+  });
+  assert.ok(card, "a card carrying the rule exists");
+
+  const rig = () => {
+    const state = getInitialState({ playerCount: 2, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [card.id];
+    return state;
+  };
+
+  const bare = rig();
+  assert.equal(getCardPlayableStatus(card, bare).playable, false);
+
+  // Playing it anyway took the money and left nothing behind.
+  const holder = ALL_CARDS.find(item => item.resourceType);
+  const loaded = rig();
+  const seat = getPlayer(loaded, "player");
+  seat.playedProjects = [holder.id];
+  seat.cardResources = { [holder.id]: 1 };
+  assert.equal(getCardPlayableStatus(card, loaded).playable, true);
+
+  // A card in play holding none of the resource is not a target either.
+  const empty = rig();
+  const emptySeat = getPlayer(empty, "player");
+  emptySeat.playedProjects = [holder.id];
+  emptySeat.cardResources = { [holder.id]: 0 };
+  assert.equal(getCardPlayableStatus(card, empty).playable, false);
+});
+
+// "Discard 1 card to terraform Venus 1 step." The price is cards out of hand,
+// which the payment map had no entry for, so it fell through: the card raised
+// Venus for free and was playable holding nothing to give up. Upstream counts
+// the hand without the card being played, so a hand of just this card cannot
+// pay for it.
+test("a card paid for by discarding needs another card in hand", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const card = ALL_CARDS.find(item => item.effectSpec?.behavior?.spend?.cards > 0);
+  assert.ok(card, "a card carrying the rule exists");
+  const cost = card.effectSpec.behavior.spend.cards;
+
+  const rig = hand => {
+    const state = getInitialState({ playerCount: 2, venus: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = hand;
+    return state;
+  };
+
+  const alone = rig([card.id]);
+  assert.equal(getCardPlayableStatus(card, alone).playable, false);
+
+  const spare = ALL_CARDS.filter(item => item.id !== card.id).slice(0, cost).map(item => item.id);
+  const funded = rig([card.id, ...spare]);
+  assert.equal(getCardPlayableStatus(card, funded).playable, true);
+
+  // The price is actually taken, and the card being played is never offered
+  // as the thing to discard.
+  const played = executeGameCommand(funded, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  const choice = played.state.pendingChoice;
+  assert.equal(choice?.continuation?.stage, "discard-cost");
+  assert.ok(!choice.options.some(option => option.cardId === card.id));
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    choiceId: choice.id,
+    optionId: choice.options[0].id
+  });
+  // The hand held the card plus exactly enough to pay: the card leaves to be
+  // played and the rest leave as the price, so nothing is left.
+  const after = getPlayer(settled.state, "player");
+  assert.equal(after.hand.length, 0);
+  assert.equal(settled.state.discardPile.length, cost);
+  assert.ok(after.playedEvents.includes(card.id), "the event reached play");
+});
+
+// A card that draws needs the deck to supply them. The reference refuses every
+// such card when it cannot, counting the discard pile because it is reshuffled
+// once the draw pile empties. We had no such check anywhere: "draw 4 cards,
+// keep 2" was buyable with an empty deck. The rule is general -- 34 cards
+// carry a draw -- so it is asked from the parsed effect, not per card.
+test("a card that draws is unplayable when the deck cannot supply it", async () => {
+  const { getPlayer, getCardEffect } = await import("../app/game-logic.js");
+
+  const card = ALL_CARDS.find(item => (getCardEffect(item)?.draw ?? 0) >= 2);
+  assert.ok(card, "a card that draws more than one exists");
+  const draw = getCardEffect(card).draw;
+
+  const rig = (deck, discard = 0) => {
+    const state = getInitialState({ playerCount: 2, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    state.deck = (state.deck ?? []).slice(0, deck);
+    state.discardPile = (ALL_CARDS.slice(0, discard)).map(item => item.id);
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [card.id];
+    return state;
+  };
+
+  assert.equal(getCardPlayableStatus(card, rig(draw)).playable, true);
+  assert.equal(getCardPlayableStatus(card, rig(draw - 1)).playable, false);
+  assert.equal(getCardPlayableStatus(card, rig(0)).playable, false);
+  // The discard pile counts: it is shuffled back in when the draw pile runs out.
+  assert.equal(getCardPlayableStatus(card, rig(0, draw)).playable, true);
+});
+
+// "Return up to 2 of your played events to your hand" and "increase one colony
+// track and decrease another" both need something to act on. The reference
+// refuses each outright; we sold them at full price and asked nothing. In both
+// cases the list of legal targets already existed to build the question -- the
+// playability check was the one place not consulting it.
+test("cards that need a target are unplayable without one", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+
+  const astra = ALL_CARDS.find(item => item.id === "card-promo-astra-mechanica");
+  const event = ALL_CARDS.find(item => item.type === "event" && item.id !== astra.id);
+  const rigAstra = events => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [astra.id];
+    seat.playedEvents = events;
+    return state;
+  };
+  assert.equal(getCardPlayableStatus(astra, rigAstra([])).playable, false);
+  assert.equal(getCardPlayableStatus(astra, rigAstra([event.id])).playable, true);
+
+  // Market Manipulation needs a track to raise and a different one to lower,
+  // so with the expansion switched off it can do neither.
+  const market = ALL_CARDS.find(item => item.id === "card-colonies-market-manipulation");
+  const rigMarket = colonies => {
+    const state = getInitialState({ playerCount: 2, colonies, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [market.id];
+    return state;
+  };
+  assert.equal(getCardPlayableStatus(market, rigMarket(false)).playable, false);
+  assert.equal(getCardPlayableStatus(market, rigMarket(true)).playable, true);
+});
+
+// With the deck and the discard pile both empty nobody is dealt a research
+// hand, so nobody sends BUY_RESEARCH -- and the move from the research phase
+// into the action phase lived only inside that command's handler. The game
+// stopped dead: every later command was refused for being in the wrong phase,
+// and a playtest seed spun 81 generations without the tracks moving.
+test("the research phase ends even when the deck cannot deal", async () => {
+  const { getPlayer, finishSolarPhase } = await import("../app/game-logic.js");
+
+  const state = getInitialState({ playerCount: 2, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  state.deck = [];
+  state.discardPile = [];
+  for (const player of state.players) {
+    player.researchCards = [];
+    player.passed = true;
+  }
+
+  const next = finishSolarPhase(state, state.logs ?? []);
+  assert.equal(next.players.every(player => (player.researchCards ?? []).length === 0), true);
+  assert.equal(next.phase, "action", "the game moved on instead of waiting for a purchase");
+  assert.equal(getPlayer(next, "player").actionsRemaining, 2);
+});
+
+// A draft built from empty hands can never finish. isDraftComplete is true of
+// it immediately, but completion is only ever checked inside draftPick -- and
+// with nothing to pick, draftPick is never called. state.draft stays set, the
+// research phase never ends, and the game stops: a four-player seed spent 3,849
+// turns reporting the same stuck state once the deck ran dry. The three callers
+// each had the hole, so the guard lives in createDraft.
+test("a draft with nothing to pass around is not created", async () => {
+  const { createDraft, isDraftComplete } = await import("../app/draft.js");
+
+  const seats = ["player", "player2", "player3", "player4"];
+  const empty = createDraft(seats, Object.fromEntries(seats.map(id => [id, []])), 1);
+  assert.equal(empty, null, "an empty draft would never be cleared");
+
+  // The all-empty draft is "complete" on arrival, which is exactly why nothing
+  // ever notices it: completion is checked after a pick, and no pick happens.
+  assert.equal(isDraftComplete({ queues: Object.fromEntries(seats.map(id => [id, []])) }), true);
+
+  const dealt = createDraft(seats, Object.fromEntries(seats.map(id => [id, ["a", "b"]])), 1);
+  assert.ok(dealt, "a draft with cards is still built");
+  assert.equal(isDraftComplete(dealt), false);
+
+  // One player holding cards is enough to draft, so it must still be built.
+  const lopsided = createDraft(
+    seats,
+    Object.fromEntries(seats.map((id, index) => [id, index === 0 ? ["a"] : []])),
+    1
+  );
+  assert.ok(lopsided, "a draft nobody but one seat can start is still a draft");
+});

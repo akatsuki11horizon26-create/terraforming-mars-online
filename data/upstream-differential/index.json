@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "upstreamRef": "1b26fe6989fe53c6a2a76cfe92f08eb9228f832f",
+  "upstreamPassing": 2719,
+  "cardsWrapped": 556,
+  "operations": 2862,
+  "distinctCards": 551,
+  "testsWithOperations": 1760,
+  "byApi": {
+    "play": 1157,
+    "getVictoryPoints": 161,
+    "canPlay": 815,
+    "action": 308,
+    "canAct": 404,
+    "initialAction": 17
+  }
+}

@@ -1109,6 +1109,13 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     // that let you pay a megacredit cost in steel or titanium had no way to.
     if (raw.spend.canUseSteel === true) effect.payment.canUseSteel = true;
     if (raw.spend.canUseTitanium === true) effect.payment.canUseTitanium = true;
+    // "Discard 1 card to terraform Venus 1 step." The cost is cards out of
+    // hand, which SOURCE_RESOURCE_MAP has no entry for, so it fell through and
+    // the card raised Venus for free -- and was playable holding nothing to
+    // discard. Upstream counts the hand without the card being played.
+    if (typeof raw.spend.cards === "number" && raw.spend.cards > 0) {
+      effect.discardCost = raw.spend.cards;
+    }
   }
   if (raw.decreaseAnyProduction?.type && typeof raw.decreaseAnyProduction.count === "number") {
     effect.productionDecrease = {
@@ -2511,6 +2518,23 @@ function nomadCellKey(state, ownerId) {
 
 function queuePendingChoices(state, card, context) {
   const done = state.resolvedChoices?.[card.id] ?? [];
+
+  // A discard that pays for the card is asked before anything the card does,
+  // because it is the price rather than an effect. Nothing read spend.cards, so
+  // the card raised Venus and kept the hand it was supposed to pay from.
+  const discardCost = getCardEffect(card)?.discardCost ?? 0;
+  if (discardCost > 0 && !done.includes("discard-cost")) {
+    const hand = (getCurrentPlayer(state)?.hand ?? []).filter(id => id !== card.id);
+    if (hand.length >= discardCost) {
+      return buildDiscardChoice(state, hand, {
+        ...context,
+        stage: "discard-cost",
+        prompt: `このカードの代償として捨てるカードを${discardCost}枚選んでください。`,
+        optional: false,
+        remaining: discardCost
+      }, ALL_CARDS);
+    }
+  }
 
   // Law Suit's question comes from the attack ledger rather than from a spec,
   // so it is asked before the spec-driven ones -- the card has no behaviour
@@ -4254,6 +4278,38 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             ...choice.continuation,
             remaining: left,
             prompt: `Project Eden: 捨てるカードを選んでください（あと${left}枚）。`
+          }, ALL_CARDS);
+          if (again) {
+            again.ownerPlayerId = target;
+            next.pendingChoice = again;
+            next.logs = nextLogs;
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: again };
+          }
+        }
+        break;
+      }
+      // The discard that pays for a card. Unlike the effects below it takes
+      // nothing back and gives nothing: the card is spent, and the play then
+      // carries on to whatever the card actually does.
+      if (choice.continuation.stage === "discard-cost") {
+        const target = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        // hand is a seated accessor, so it has to be written with the seat set
+        // to its owner -- a players.map write is clobbered by the resync.
+        next.currentPlayerId = target;
+        next.hand = (next.hand ?? []).filter(id => id !== discardedId);
+        next.discardPile = [...(next.discardPile ?? []), discardedId];
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(nextLogs, "system", `代償として【${gone?.name ?? discardedId}】を捨てました。`);
+        const left = (choice.continuation.remaining ?? 1) - 1;
+        const hand = (getPlayer(next, target)?.hand ?? []).filter(id => id !== choice.continuation.sourceId);
+        if (left > 0 && hand.length > 0) {
+          const again = buildDiscardChoice(next, hand, {
+            ...choice.continuation,
+            remaining: left,
+            prompt: `代償として捨てるカードを選んでください（あと${left}枚）。`
           }, ALL_CARDS);
           if (again) {
             again.ownerPlayerId = target;
@@ -6870,8 +6926,12 @@ export function getPlaceholderState() {
     const hands = Object.fromEntries(
       state.players.map(player => [player.id, player.researchCards ?? []])
     );
+    // createDraft returns null when there is nothing to pass around. Clearing
+    // researchCards regardless would then take away the cards it just dealt.
     state.draft = createDraft(state.turnOrder, hands, 1);
-    state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+    if (state.draft) {
+      state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+    }
   }
 
   return state;
@@ -7061,8 +7121,12 @@ export function getInitialState(options = {}) {
     const hands = Object.fromEntries(
       state.players.map(player => [player.id, player.researchCards ?? []])
     );
+    // createDraft returns null when there is nothing to pass around. Clearing
+    // researchCards regardless would then take away the cards it just dealt.
     state.draft = createDraft(state.turnOrder, hands, 1);
-    state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+    if (state.draft) {
+      state.players = state.players.map(player => ({ ...player, researchCards: [] }));
+    }
   }
 
   return state;
@@ -8683,6 +8747,70 @@ export function getCardPlayableStatus(
     }
   }
 
+  // A card that draws cannot be played when the deck cannot supply them.
+  // Upstream refuses every such card, counting the discard pile as available
+  // because it is reshuffled when the draw pile runs out. This is general: the
+  // rule was not written for any one card, and Business Contacts -- "draw 4,
+  // keep 2" -- was buyable with an empty deck.
+  const drawn = getCardEffect(card)?.draw ?? 0;
+  if (drawn > 0) {
+    const available = (state.deck ?? []).length + (state.discardPile ?? []).length;
+    if (available < drawn) {
+      return { playable: false, reason: "山札に引けるカードが足りません。" };
+    }
+  }
+
+  // "Increase one colony tile track 1 step, and decrease another 1 step." Both
+  // halves are part of the card, so it needs a tile that can rise and a
+  // different one that can fall. With colonies switched off there is neither,
+  // and we sold it anyway.
+  if (card.id === MARKET_MANIPULATION_ID) {
+    const up = colonyTrackOptions(state, "up");
+    const down = colonyTrackOptions(state, "down");
+    const distinct = up.some(raise => down.some(drop => drop.id !== raise.id));
+    if (!distinct) {
+      return { playable: false, reason: "動かせる植民地タイルのトラックがありません。" };
+    }
+  }
+
+  // "Return up to 2 of your played events to your hand." With no event to
+  // return the card does nothing, and the reference refuses it. We sold it for
+  // its full price and asked nothing. The list of returnable events already
+  // existed for the question; the playability check was not consulting it.
+  if (card.id === ASTRA_MECHANICA_ID && astraMechanicaOptions(state, card.id).length === 0) {
+    return { playable: false, reason: "手札に戻せるイベントカードがありません。" };
+  }
+
+  // A card paid for by discarding cannot be played without enough others in
+  // hand to give up -- the card being played is not one of them.
+  const discardCost = getCardEffect(card)?.discardCost ?? 0;
+  if (discardCost > 0) {
+    const hand = (state.hand ?? getPlayer(state, state.currentPlayerId)?.hand ?? []);
+    const spendable = hand.filter(id => id !== card.id).length;
+    if (spendable < discardCost) {
+      return { playable: false, reason: "捨てられるカードが足りません。" };
+    }
+  }
+
+  // "Add 1 resource to a card with at least 1 resource on it" cannot be carried
+  // out with nothing on the board holding one, so the card is not playable --
+  // the reference refuses it outright. We charged the megacredit, gave no
+  // choice, and dropped the card without it ever entering play. The flag saying
+  // so was already in the spec and already read when the choice is built; only
+  // the playability check was not asking.
+  const placements = card.effectSpec?.behavior?.addResourcesToAnyCard;
+  const placementSpecs = Array.isArray(placements) ? placements : (placements ? [placements] : []);
+  for (const spec of placementSpecs) {
+    if (!spec?.mustHaveCard) continue;
+    const targets = collectResourceTargets(state, spec.type, ALL_CARDS, {
+      mustHaveResources: true,
+      getResourceType: cardId => ALL_CARDS.find(item => item.id === cardId)?.resourceType
+    });
+    if (targets.length === 0) {
+      return { playable: false, reason: "資源が乗っているカードがありません。" };
+    }
+  }
+
   // A card that places a tile with a placement rule cannot be played when the
   // board has nowhere legal to put it. Upstream asks this in bespokeCanPlay for
   // every such card; we had no equivalent, so Industrial Center was playable on
@@ -9425,7 +9553,9 @@ export function finishSolarPhase(state, logAcc) {
         nextState.players.map(player => [player.id, player.researchCards ?? []])
       );
       nextState.draft = createDraft(nextState.turnOrder, hands, nextState.generation);
-      nextState.players = nextState.players.map(player => ({ ...player, researchCards: [] }));
+      if (nextState.draft) {
+        nextState.players = nextState.players.map(player => ({ ...player, researchCards: [] }));
+      }
     }
 
     // Solar phase step 3: fleets return and every colony track climbs a step.
@@ -9449,6 +9579,26 @@ export function finishSolarPhase(state, logAcc) {
     } else {
       nextState.currentPlayerId = nextState.turnOrder[0];
     }
+    // With the deck and the discard pile both empty nobody is offered anything,
+    // so nobody ever sends BUY_RESEARCH -- and the move into the action phase
+    // lives only in that command's handler. The game stopped dead in the
+    // research phase and every later turn was refused for the wrong phase; a
+    // playtest seed ran 81 generations that way.
+    const dealt = nextState.players.some(player => (player.researchCards ?? []).length > 0);
+    if (!dealt && !nextState.draft) {
+      nextState.phase = "action";
+      nextState.currentPlayerId = nextState.firstPlayerId ?? nextState.turnOrder[0];
+      nextState.players = nextState.players.map(player => ({
+        ...player,
+        actionsRemaining: 2,
+        turnStep: "start"
+      }));
+      armPreservationProgram(nextState);
+      localLog = addLog(localLog, "system", "山札が尽きたため、購入なしでアクションフェーズを開始します。");
+      nextState.logs = localLog;
+      return nextState;
+    }
+
     nextState.logs = addLog(localLog, "system", `第 ${nextState.generation} 世代の研究フェーズが開始されました。カードを4枚引きました。購入するカードを選択してください。`);
   }
 

@@ -27,9 +27,17 @@ export function isDraftComplete(draft) {
   return Object.values(draft?.queues ?? {}).every(queue => queue.length === 0);
 }
 
+// Returns null when there is nothing to draft. isDraftComplete is true of an
+// all-empty draft, but completion is only ever checked inside draftPick -- so a
+// draft nobody can pick from is never finished and never cleared, and the game
+// sits in the research phase forever. A four-player seed did exactly that once
+// the deck ran dry: every queue empty, state.draft still set, 3,849 turns
+// reporting the same stuck state. The three callers all had the same hole, so
+// the guard belongs here rather than at each of them.
 export function createDraft(turnOrder, hands, generation) {
   const queues = {};
   for (const playerId of turnOrder) queues[playerId] = [...(hands[playerId] ?? [])];
+  if (Object.values(queues).every(queue => queue.length === 0)) return null;
   return {
     generation,
     direction: draftDirection(generation),

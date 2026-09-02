@@ -123,6 +123,17 @@ jobs:
         # it, and still declare an effect that differs in a key nobody tested.
         run: node scripts/audit-behavior-against-upstream.mjs
 
+      - name: Card operations against upstream
+        # Every other upstream audit stages the card itself: a fresh game, one
+        # call, one situation this repository chose. This one replays 2,862
+        # operations recorded while the reference's own suite ran green -- its
+        # boards, its tags, its opponents -- and 267 are reproducible here
+        # closely enough to compare field by field. Breaking flat production by
+        # one step turns 34 of them red, which is what makes the zero mean
+        # something. The rest are named by why they cannot be staged, never
+        # dropped quietly.
+        run: node scripts/audit-upstream-differential.mjs
+
       - name: Skip ledger
         # Read one at a time each oracle's skips look small; together they are
         # 335 upstream blocks across 210 cards, plus 245 cards no oracle
