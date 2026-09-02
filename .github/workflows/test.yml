@@ -42,6 +42,24 @@ jobs:
         # runner does not, so build it here.
         run: npm run build:static
 
+      - name: Browser end-to-end
+        # The rigs above all talk to the engine. This one drives the built page
+        # in a real browser, which is the only place a modal that swallows a
+        # click, a button that never mounts, or a number the engine computed and
+        # the DOM never showed can be seen. It runs against static-dist, which
+        # the step above already built, so it costs no extra build.
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      - name: E2E report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
       - name: Tests
         run: npm test
 

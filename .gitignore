@@ -47,3 +47,8 @@ next-env.d.ts
 /.dev-output.log
 /.dev-error.log
 .luna-audit.md
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/

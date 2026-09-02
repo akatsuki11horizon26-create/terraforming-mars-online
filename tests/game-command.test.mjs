@@ -1369,3 +1369,45 @@ test("Io Sulphur Research draws according to the player's active Venus tags", ()
   assert.equal(getPlayer(high.state, seat).mc, 63);
   assert.equal(getPlayer(high.state, seat).actionsRemaining, 1);
 });
+
+// A standard project that has to ask where to build settles its continuation
+// when the space is chosen: the log line, the threshold bonuses -- and, until
+// this was fixed, everything except lastAction. The action panel reads only
+// lastAction, so a city, greenery or aquifer moved the numbers and reported
+// nothing. Projects with exactly one legal space took the finishProject path
+// and did report, which is why every test stayed green.
+test("a project that asks where to build still says what was played", () => {
+  let state = getInitialState({ playerCount: 1 });
+  const affordable = state.corporationOptions.find(id => {
+    const corporation = CORPORATIONS.find(item => item.id === id);
+    return (corporation?.starting?.mc ?? 0) >= 25;
+  });
+  state = executeGameCommand(state, {
+    type: COMMAND.SELECT_CORPORATION,
+    playerId: "player",
+    corporationId: affordable ?? state.corporationOptions[0]
+  }).state;
+  state = executeGameCommand(state, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: "player",
+    cardIds: []
+  }).state;
+
+  const asked = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: "player",
+    projectId: "city"
+  });
+  assert.equal(asked.ok, true);
+  assert.ok(asked.state.pendingChoice, "a city on an open board must ask for a space");
+
+  const placed = executeGameCommand(asked.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: asked.state.pendingChoice.options[0].id
+  });
+  assert.equal(placed.ok, true);
+  assert.ok(placed.state.lastAction, "the placement left no lastAction for the panel to show");
+  assert.equal(placed.state.lastAction.cardName, "都市の建設");
+  assert.equal(placed.state.lastAction.playerId, "player");
+});

@@ -31,13 +31,13 @@ export function TitleScreen({
         </header>
 
         {hasSave && (
-          <button className="title-continue" onClick={onContinue}>
+          <button className="title-continue" data-testid="mode-continue" onClick={onContinue}>
             前回の続きから
           </button>
         )}
 
         <div className="title-modes">
-          <button className="title-mode" onClick={onSolo}>
+          <button className="title-mode" data-testid="mode-solo" onClick={onSolo}>
             <span className="title-mode-icon" aria-hidden="true">◇</span>
             <span className="title-mode-body">
               <span className="title-mode-name">ソロプレイ</span>
@@ -47,7 +47,7 @@ export function TitleScreen({
             </span>
           </button>
 
-          <button className="title-mode" onClick={onRobot}>
+          <button className="title-mode" data-testid="mode-robot" onClick={onRobot}>
             <span className="title-mode-icon" aria-hidden="true">◆</span>
             <span className="title-mode-body">
               <span className="title-mode-name">ロボット戦</span>
@@ -59,6 +59,7 @@ export function TitleScreen({
 
           <button
             className="title-mode"
+            data-testid="mode-online"
             onClick={onOnline}
             disabled={!onlineEnabled}
             title={onlineEnabled ? undefined : "この配信版はソロ専用です"}
@@ -75,7 +76,7 @@ export function TitleScreen({
           </button>
         </div>
 
-        <button className="title-manual" onClick={onManual}>
+        <button className="title-manual" data-testid="mode-manual" onClick={onManual}>
           ルールマニュアルを読む
         </button>
       </div>
@@ -334,7 +335,7 @@ export function GameSetupPanel({
           <button className="btn-secondary" onClick={onCancel}>
             キャンセル
           </button>
-          <button className="btn-primary" onClick={onStart}>
+          <button className="btn-primary" data-testid="setup-start-button" onClick={onStart}>
             {intent === "robot" ? "次へ (相手の設定)" : "この設定で開始"}
           </button>
         </div>
@@ -407,7 +408,7 @@ export function RobotSetup({
           <button className="btn-secondary" onClick={onCancel}>
             戻る
           </button>
-          <button className="btn-primary" onClick={onStart}>
+          <button className="btn-primary" data-testid="robot-setup-start-button" onClick={onStart}>
             この設定で開始
           </button>
         </div>

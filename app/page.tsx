@@ -496,16 +496,22 @@ export default function Home() {
   const [pendingConfirm, setPendingConfirm] = useState<
     null | { title: string; detail: string; onConfirm: () => void }
   >(null);
+  const [openDrawer, setOpenDrawer] = useState<
+    null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies" | "tags"
+  >(null);
+
   const confirmAction = useCallback(
     (title: string, detail: string, run: () => void) => {
+      // Every standard project is asked for from inside a drawer, and the
+      // drawer's scrim shares this dialog's stacking level while rendering
+      // later -- so it painted over the confirmation and swallowed the click.
+      // Sell patents already closed the drawer by hand; the rest did not.
+      setOpenDrawer(null);
       setPendingConfirm({ title, detail, onConfirm: run });
     },
     []
   );
 
-  const [openDrawer, setOpenDrawer] = useState<
-    null | "log" | "milestones" | "standard" | "planet" | "legend" | "turmoil" | "colonies" | "tags"
-  >(null);
   const closeDrawer = useCallback(() => setOpenDrawer(null), []);
   // Reference panels (tag tally, tile legend, mission log) sit behind one menu
   // so the action buttons are not lost among them.
@@ -1816,6 +1822,7 @@ export default function Home() {
           <nav className="hud-buttons" aria-label="ゲーム操作">
             <button
               className="hud-btn hud-btn--primary"
+              data-testid="open-standard-projects"
               onClick={() => setOpenDrawer("standard")}
             >
               基本アクション
@@ -1948,6 +1955,9 @@ export default function Home() {
                   <button
                     key={`${cell.q},${cell.r}`}
                     className={classes}
+                    data-testid="board-cell"
+                    data-cell-key={`${cell.q},${cell.r}`}
+                    data-placeable={isValid ? "true" : "false"}
                     style={{ left: `${left}px`, top: `${top}px` }}
                     onClick={() => {
                       if (isInteractionDisabled) {
@@ -2084,7 +2094,7 @@ export default function Home() {
                   if (!corporation) return null;
                   const selected = selectedCorporationId === id;
                   return (
-                    <button key={id} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                    <button key={id} data-testid="corp-option" data-starting-mc={corporation.starting?.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
                       <div style={{ fontWeight: "bold" }}>{corporation.name}</div>
                       <div style={{ margin: "3px 0" }}>
                         <CardTags tags={corporation.tags} />
@@ -2093,7 +2103,7 @@ export default function Home() {
                     </button>
                   );
                 })}
-                <button className="btn-primary" disabled={!selectedCorporationId} onClick={handleCorporationConfirm}>企業を確定</button>
+                <button className="btn-primary" data-testid="corp-confirm-button" disabled={!selectedCorporationId} onClick={handleCorporationConfirm}>企業を確定</button>
               </div>
             </div>
           )}
@@ -2142,6 +2152,7 @@ export default function Home() {
                     return (
                       <button
                         key={id}
+                        data-testid="research-card-option"
                         onClick={() => toggleResearchCardSelect(id)}
                         style={{
                           display: "flex",
@@ -2187,6 +2198,7 @@ export default function Home() {
                   <button
                     className="btn-primary"
                     style={{ padding: "4px 12px", fontSize: "0.75rem" }}
+                    data-testid="buy-cards-confirm-button"
                     disabled={selectedCardPurchaseCost > researchBudget}
                     onClick={handleBuyCardsConfirm}
                   >
@@ -2248,13 +2260,14 @@ export default function Home() {
       {actionReport && (
         <div
           className="action-report"
+          data-testid="action-report"
           data-mine={actionReport.mine ? "yes" : "no"}
           aria-live="polite"
           key={actionReport.id}
         >
           {actionReport.who && <div className="action-report-who">{actionReport.who}</div>}
-          <div className="action-report-title">{actionReport.title}</div>
-          <div className="action-report-changes">
+          <div className="action-report-title" data-testid="action-report-title">{actionReport.title}</div>
+          <div className="action-report-changes" data-testid="action-report-changes">
             {actionReport.changes.map(change => (
               <span
                 key={change.label}
@@ -2306,11 +2319,12 @@ export default function Home() {
             </div>
             <p className="confirm-detail">{pendingConfirm.detail}</p>
             <div className="confirm-buttons">
-              <button className="btn-secondary" onClick={() => setPendingConfirm(null)}>
+              <button className="btn-secondary" data-testid="confirm-dialog-cancel" onClick={() => setPendingConfirm(null)}>
                 やめる
               </button>
               <button
                 className="btn-primary"
+                data-testid="confirm-dialog-execute"
                 onClick={() => {
                   const run = pendingConfirm.onConfirm;
                   setPendingConfirm(null);
@@ -2649,6 +2663,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(powerPlantCost) || Boolean(pendingChoice)}
+                  data-testid="sp-power-plant-btn"
                   onClick={() => confirmAction("発電所の建設", `${powerPlantCost} MC を支払い、エネルギー生産量を1段階上げます。`, () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
@@ -2665,6 +2680,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || activeState.temperature >= 8}
+                  data-testid="sp-asteroid-btn"
                   onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
@@ -2681,6 +2697,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || activeState.oceans >= 9}
+                  data-testid="sp-aquifer-btn"
                   onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
@@ -2697,6 +2714,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(23) || Boolean(pendingChoice)}
+                  data-testid="sp-greenery-btn"
                   onClick={() => confirmAction("緑化プロジェクト", "23 MC を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
@@ -2713,6 +2731,7 @@ export default function Home() {
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(25) || Boolean(pendingChoice)}
+                  data-testid="sp-city-btn"
                   onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
                 >
                   配置
@@ -2748,6 +2767,7 @@ export default function Home() {
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.plants < plantGreeneryCost || Boolean(pendingChoice)}
+                    data-testid="sp-plants-convert-btn"
                     onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。`, () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
@@ -3017,6 +3037,7 @@ export default function Home() {
               </div>
               <button
                 className="btn-primary"
+                data-testid="onboarding-dismiss"
                 onClick={() => {
                   setShowHelp(false);
                   handleCloseOnboard();
@@ -3076,15 +3097,15 @@ export default function Home() {
 
       {/* Game Over Modal */}
       {activeState.isGameOver && (
-        <div className="overlay-container">
+        <div className="overlay-container" data-testid="game-over-modal">
           <div className="modal-content" style={{ maxWidth: "450px", border: `2px solid ${activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)"}` }}>
             <div className="modal-header" style={{ backgroundColor: activeState.gameResult === "win" ? "rgba(114, 217, 208, 0.1)" : "rgba(168, 50, 32, 0.1)" }}>
-              <h3 className="modal-title" style={{ color: activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)" }}>
+              <h3 className="modal-title" data-testid="game-over-headline" style={{ color: activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)" }}>
                 {activeState.gameResult === "win" ? "MISSION SUCCESS" : "MISSION FAILED"}
               </h3>
             </div>
             <div className="modal-body" style={{ textAlign: "center" }}>
-              <p style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
+              <p data-testid="game-over-title" style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
                 {activeState.standings
                   ? (activeState.winnerPlayerIds && activeState.winnerPlayerIds.length > 1
                       ? "🤝 同点、勝利を分け合いました"
@@ -3094,7 +3115,7 @@ export default function Home() {
               {/* Solo is scored against the planet, so there is nobody to rank.
                   With opponents the result is the ranking, so show it. */}
               {activeState.standings && (
-                <div style={{ padding: "12px 16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "block", maxWidth: "320px", textAlign: "left", margin: "0 auto 14px" }}>
+                <div data-testid="game-over-standings" style={{ padding: "12px 16px", backgroundColor: "rgba(8, 9, 8, 0.5)", borderRadius: "6px", display: "block", maxWidth: "320px", textAlign: "left", margin: "0 auto 14px" }}>
                   {activeState.standings.map((entry, index) => {
                     const isWinner = (activeState.winnerPlayerIds ?? []).includes(entry.playerId);
                     return (

@@ -13,6 +13,7 @@
     "test": "npm run build && node --test tests/rendered-html.test.mjs tests/strict-rules.test.mjs tests/official-content.test.mjs tests/multiplayer-state.test.mjs tests/milestones-awards.test.mjs tests/tharsis-board.test.mjs tests/pending-choice.test.mjs tests/turmoil.test.mjs tests/colonies.test.mjs tests/expansion-ui.test.mjs tests/net-protocol.test.mjs tests/design-tokens.test.mjs tests/turn-and-hud.test.mjs tests/bot-player.test.mjs tests/alternate-boards.test.mjs tests/draft.test.mjs tests/online-validation.test.mjs tests/game-command.test.mjs tests/special-victory.test.mjs tests/empty-spec-cards.test.mjs tests/integration.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern static-dist --ignore-pattern .next --ignore-pattern .wrangler",
     "db:generate": "drizzle-kit generate",
+    "test:e2e": "playwright test",
     "deploy": "npm run build && wrangler deploy"
   },
   "dependencies": {
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",
     "@types/react": "19.2.14",

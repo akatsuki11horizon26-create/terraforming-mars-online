@@ -248,6 +248,7 @@ export function ResourceGrid({
           <AnimatedNumber className="resource-stock" style={{ color: row.color }} value={row.stock} />
           <span
             className="resource-prod"
+            data-testid={`resource-prod-${row.key}`}
             data-negative={row.prod < 0 ? "true" : "false"}
             title="生産量"
           >

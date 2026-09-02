@@ -1050,6 +1050,19 @@ const HANDLERS = {
         );
         settled = cloneGameState(settled);
         settled.logs = settledLogs;
+        // The log was restored here but lastAction was not, and the action
+        // panel is driven entirely by lastAction -- so every project that had
+        // to ask where to build (city, greenery, aquifer) moved the numbers
+        // and reported nothing. The projects with exactly one legal space went
+        // through finishProject and did report, which is why this stayed
+        // hidden: it only shows on a board with room to choose.
+        settled.lastAction = {
+          seq: (state.lastAction?.seq ?? 0) + 1,
+          playerId: command.playerId,
+          playerName: actor?.name,
+          kind: afterPlay.kind === "action" ? "action" : "standard",
+          cardName: afterPlay.label
+        };
       }
       // A card played through a choice owes its triggers; a bare tile placement
       // carries no card and owes only the threshold bonuses it crossed.
