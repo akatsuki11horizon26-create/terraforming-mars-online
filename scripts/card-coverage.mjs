@@ -165,6 +165,11 @@ const snap = (st, omit = {}) => { const q = getPlayer(st, "player"); return JSON
   omit.seat ? null : q.setupStep ?? null,
   (q.researchCards ?? []).length]); };
 
+// Two cheap projects and one event, held so that a card whose price is paid in
+// cards, or whose effect needs an event in play, has something to work with.
+const SPARE_CARDS = OFFICIAL_PROJECTS.filter(c => c.type !== "event").slice(0, 2).map(c => c.id);
+const SPARE_EVENT = OFFICIAL_PROJECTS.find(c => c.type === "event")?.id;
+
 const worked = [], nothing = [], gated = [], threw = [];
 for (const card of OFFICIAL_PROJECTS) {
   let verdict = null, lastReason = null;
@@ -172,7 +177,13 @@ for (const card of OFFICIAL_PROJECTS) {
     const s = rig(cfg);
     const p = getPlayer(s, "player");
     p.playedProjects = p.playedProjects.filter(id => id !== card.id);
-    p.hand = [card.id];
+    // A hand of exactly one card cannot pay a discard cost, and a tableau with
+    // no events gives "return a played event" nothing to return -- so cards
+    // carrying those rules were unplayable in every rig and looked dead. The
+    // spares sit in the hand before and after, so the snapshot below still
+    // sees only what the card itself moved.
+    p.hand = [card.id, ...SPARE_CARDS.filter(id => id !== card.id)];
+    p.playedEvents = [...(p.playedEvents ?? []), SPARE_EVENT].filter(id => id !== card.id);
     const status = getCardPlayableStatus(card, s);
     if (!status.playable) { lastReason = status.reason; continue; }
     const before = snap(s, { mc: true });
