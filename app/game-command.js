@@ -687,7 +687,15 @@ const CORPORATION_ACTIONS = {
   // are keyed on the stage rather than the card, so both share them.
   "card-promo-tycho-magnetics": {
     label: "Tycho Magnetics: エネルギーを支払いカードを引きました。",
-    blocked: actor => ((actor.energy ?? 0) > 0 ? null : "エネルギーがありません。"),
+    // "Spend any amount of energy to draw the same number of cards." Upstream
+    // shares canSpendEnergyForCards with Hi-Tech Lab: energy AND a deck that
+    // can supply one. Hi-Tech Lab was fixed and this, the corporation carrying
+    // the same rule, was not -- it offered the action with an empty deck.
+    blocked: (actor, state) => {
+      if ((actor.energy ?? 0) <= 0) return "エネルギーがありません。";
+      const available = (state?.deck ?? []).length + (state?.discardPile ?? []).length;
+      return available > 0 ? null : "山札に引けるカードが足りません。";
+    },
     run(state, command) {
       const actor = getPlayer(state, command.playerId);
       const choice = buildAmountChoice(state, {

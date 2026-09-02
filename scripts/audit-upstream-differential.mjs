@@ -124,8 +124,36 @@ const skip = (row, why) => {
 // sat here until its greenery-to-city conversion was built.
 const NOT_IMPLEMENTED = new Map();
 
+// Rows whose recorded situation appears more than once with different answers.
+// A test can change something the snapshot does not carry -- an opponent's
+// production, a flag set on the player -- between two calls, and then the same
+// recorded state legitimately answers both true and false. Comparing against
+// either one is a coin toss dressed up as a measurement, so they are named and
+// counted instead.
+const AMBIGUOUS = (() => {
+  const key = row => JSON.stringify([
+    row.card, row.api, row.situation?.player, row.situation?.game,
+    row.situation?.setting, row.situation?.opponents, row.situation?.selfResources
+  ]);
+  const answers = new Map();
+  for (const row of operations) {
+    const id = key(row);
+    if (!answers.has(id)) answers.set(id, new Set());
+    answers.get(id).add(JSON.stringify(row.returned));
+  }
+  return new Set([...answers].filter(([, seen]) => seen.size > 1).map(([id]) => id));
+})();
+const ambiguousKey = row => JSON.stringify([
+  row.card, row.api, row.situation?.player, row.situation?.game,
+  row.situation?.setting, row.situation?.opponents, row.situation?.selfResources
+]);
+
 for (const row of operations) {
   if (row.threw !== null) { skip(row, "the reference's own call threw"); continue; }
+  if (AMBIGUOUS.has(ambiguousKey(row))) {
+    skip(row, "the same recorded situation answers both ways, so neither is the rule");
+    continue;
+  }
   if (NOT_IMPLEMENTED.has(row.card)) {
     skip(row, `${row.card}: ${NOT_IMPLEMENTED.get(row.card)}`);
     continue;

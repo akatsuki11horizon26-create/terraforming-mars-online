@@ -4935,3 +4935,44 @@ test("cathedrals count for everyone holding the card", async () => {
     assert.equal(points, 3, `${seat} scores every cathedral, not only its own`);
   }
 });
+
+// Hi-Tech Lab and Tycho Magnetics share one rule upstream -- energy AND a deck
+// that can supply a card -- through canSpendEnergyForCards. Hi-Tech Lab was
+// fixed and the corporation carrying the same rule was not, so it still offered
+// its action with an empty deck. Derive the pair from the shared behaviour
+// rather than naming one of them.
+test("spending energy to draw needs a deck to draw from", async () => {
+  const { getPlayer, getCardActionStatus } = await import("../app/game-logic.js");
+  const { getCorporationActionStatus } = await import("../app/game-command.js");
+  const { CORPORATIONS } = await import("../app/official-content.js");
+
+  const rig = (deck, seatUp) => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    state.deck = (state.deck ?? []).slice(0, deck);
+    state.discardPile = [];
+    const seat = getPlayer(state, "player");
+    seat.energy = 5;
+    seat.actionsRemaining = 2;
+    seatUp(seat);
+    return state;
+  };
+
+  const lab = ALL_CARDS.find(card => card.id === "card-promo-hi-tech-lab");
+  assert.ok(lab, "Hi-Tech Lab is in the catalogue");
+  assert.equal(getCardActionStatus(rig(5, s => { s.playedProjects = [lab.id]; }), lab).playable, true);
+  assert.equal(getCardActionStatus(rig(0, s => { s.playedProjects = [lab.id]; }), lab).playable, false);
+
+  // The corporation is not in ALL_CARDS -- it lives in CORPORATIONS, which is
+  // why looking for it among the projects said it was missing entirely.
+  const tycho = CORPORATIONS.find(card => card.id === "card-promo-tycho-magnetics");
+  assert.ok(tycho, "Tycho Magnetics is a corporation, not a project");
+  const seatTycho = seat => { seat.corporationId = tycho.id; };
+  assert.equal(getCorporationActionStatus(rig(5, seatTycho), "player").blockedReason, null);
+  assert.ok(getCorporationActionStatus(rig(0, seatTycho), "player").blockedReason,
+    "an empty deck blocks the corporation's action too");
+  // No energy blocks it for the other reason, so the two halves stay distinct.
+  const broke = rig(5, seat => { seatTycho(seat); seat.energy = 0; });
+  assert.match(getCorporationActionStatus(broke, "player").blockedReason, /エネルギー/);
+});
