@@ -4,7 +4,7 @@
 
 **§6.5 に上流差分ハーネスを追加**（2026-09-02）。上流のテストスイートを走らせて
 記録し、こちらのエンジンで再生して照合する。実測464件が一致し、16件のバグを掘り出した。
-未コミットの作業が3ファイルある。
+作業ツリーはクリーン。`main` は `origin/main` と同一（`101f73e`）。
 
 **PR #1〜#11 すべてマージ済み。両方の公開先に反映を確認済み。**
 
@@ -1113,14 +1113,22 @@ TM_SOURCE=C:/Users/takkun/AppData/Local/Temp/tm-src node scripts/build-upstream-
 **Kaguya Tech を実装**（緑地→都市、酸素不変、配置制限無視、配置ボーナス取得、
 Hellas南極の配置費6MC込みで15MC不可/16MC可）。
 
-### 未コミットの作業（3ファイル）
+### 直前セッションの3ファイルはコミット済み（`101f73e`）
 
-いずれも回帰テスト付き、**修正を戻して赤になることを確認済み**。
-CIの全ステップをローカルで通してある。コミットしてよい状態。
+`app/game-command.js`（#16 Tycho Magnetics）/
+`scripts/audit-upstream-differential.mjs`（曖昧な記録203件の除外・486→464）/
+`tests/strict-rules.test.mjs`（#16 の回帰テスト）。
+push 済みで `origin/main` と同一。作業ツリーはクリーン。
 
-1. `app/game-command.js` — 上記 #16
-2. `scripts/audit-upstream-differential.mjs` — 曖昧な記録203件の除外（486→464）
-3. `tests/strict-rules.test.mjs` — #16 の回帰テスト
+**2026-09-02 の再着任時にベースラインを実測し直した**（引き継ぎの数字と一致）:
+
+```
+npm test                                    : 661 pass / 0 fail
+node scripts/audit-upstream-differential.mjs: 464/464 一致・差分0・exit 0
+npm run lint                                : 0 errors（warning 4件のみ）
+npx tsc --noEmit | grep '^app/'             : 0件
+上流clone tm-src                            : SHA 1b26fe69 のまま・node_modules 健在
+```
 
 ### 進行中: sol への相談（task `b39w1inbn`）
 
@@ -1133,7 +1141,18 @@ CIの全ステップをローカルで通してある。コミットしてよい
   真偽値照合だけ。`true`/`false` が89/93とほぼ半々で材料としては良質。
   判定が `STANDARD_PROJECT` ハンドラの中にあるため pure な status 関数の抽出が要る。
   なお `Aquifer Pumping` / `Aquifer Turbines` / `City Parks` / `Trade Envoys` は
-  **標準プロジェクトではない**（順にアクションカード / プレリュード / promo / colonies）
+  **標準プロジェクトではない**。上流の指定SHAで実際にクラス宣言を確認した
+  （2026-09-02）ので、これは推測ではない:
+
+  | カード | 上流のパス | 宣言 |
+  |---|---|---|
+  | Aquifer Pumping | `src/server/cards/base/AquiferPumping.ts` | `extends ActionCard implements IActionCard, IProjectCard` |
+  | Aquifer Turbines | `src/server/cards/prelude/AquiferTurbines.ts` | `extends PreludeCard` |
+  | City Parks | `src/server/cards/promo/CityParks.ts` | `extends Card implements IProjectCard` |
+  | Trade Envoys | `src/server/cards/colonies/TradeEnvoys.ts` | `extends Card implements IProjectCard` |
+
+  つまり候補Bの212件のうち、この4つぶんの22件は
+  **標準プロジェクトの再生では永久に開かない**。開けるのは残りだけ
 - **候補C: タイル配置 181件** — 記録は所有者付き（`-` / `blue` / `red`）。
   ソロリグの `SPACE_IDS`・`TILE_TYPES` が流用できる。
   上流の席順とこちらの席順が一致する保証は**未確認**
