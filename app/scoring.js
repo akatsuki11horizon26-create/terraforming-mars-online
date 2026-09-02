@@ -40,12 +40,13 @@ export function countOwnedCities(board, playerId) {
   ).length;
 }
 
-export function countCathedrals(state, cardId, ownerId) {
+// "1 VP per City with a Cathedral in it." Who built the cathedral does not
+// matter: upstream keeps one game-wide list and its own test has two players
+// each scoring the same three. Filtering by owner paid nothing for a cathedral
+// an opponent placed.
+export function countCathedrals(state, cardId) {
   return (state.boardMarkers ?? []).filter(
-    marker =>
-      marker.kind === "cathedral" &&
-      marker.sourceCardId === cardId &&
-      marker.sourcePlayerId === ownerId
+    marker => marker.kind === "cathedral" && marker.sourceCardId === cardId
   ).length;
 }
 
@@ -73,7 +74,7 @@ function scoreVermin(state, owner, card) {
 // The cathedrals pay the player holding the card, whoever owns the cities they
 // stand on.
 function scoreStJoseph(state, owner, card) {
-  const cathedrals = countCathedrals(state, card.id, owner.id);
+  const cathedrals = countCathedrals(state, card.id);
   return [
     {
       targetPlayerId: owner.id,
@@ -105,10 +106,28 @@ function scoreSearchForLife(state, owner, card) {
   ];
 }
 
+// "Requires that a player removed another player's plants this generation."
+// The card costs its owner a point for the rest of the game, unconditionally --
+// upstream's getVictoryPoints returns -1 with nothing to check. The card
+// carries specialVictoryKind: "law-suit" and prints victoryPoints: 0, so
+// without an entry here it scored nothing at all.
+function scoreLawSuit(state, owner, card) {
+  return [{
+    targetPlayerId: owner.id,
+    points: -1,
+    category: "cards",
+    sourceType: "card",
+    sourceId: card.id,
+    sourcePlayerId: owner.id,
+    label: card.name
+  }];
+}
+
 const SPECIAL_CARD_SCORERS = {
   vermin: scoreVermin,
   "st-joseph": scoreStJoseph,
-  "search-for-life": scoreSearchForLife
+  "search-for-life": scoreSearchForLife,
+  "law-suit": scoreLawSuit
 };
 
 export function buildScoreContributions(state, options = {}) {

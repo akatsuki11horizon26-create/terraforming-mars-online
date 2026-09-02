@@ -4629,3 +4629,309 @@ test("the playtest harness accepts every flag it reads", async () => {
     assert.ok(read.has(flag), `--${flag} is accepted but never read, so it does nothing`);
   }
 });
+
+// The play path learned that a card must be able to carry out what it says;
+// the action path had not. "Add 1 resource to ANOTHER Venus card" was usable
+// with nothing to put it on, and "spend energy to draw" was usable with an
+// empty deck -- Venus Orbital Survey asked about the deck and Hi-Tech Lab,
+// whose action is written into the engine rather than declared, did not.
+test("an action that needs a target or a deck is refused without one", async () => {
+  const { getPlayer, getCardActionStatus } = await import("../app/game-logic.js");
+
+  const rig = (cardId, extra = {}) => {
+    const state = getInitialState({
+      playerCount: 2, venus: true, colonies: true, promo: true, seed: 4
+    });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.energy = 10;
+    seat.titanium = 10;
+    seat.playedProjects = [cardId, ...Object.keys(extra.resources ?? {})];
+    seat.cardResources = extra.resources ?? {};
+    seat.actionsRemaining = 2;
+    if (extra.deck !== undefined) {
+      state.deck = (state.deck ?? []).slice(0, extra.deck);
+      state.discardPile = [];
+    }
+    return state;
+  };
+
+  // Maxwell Base places onto another Venus card; nothing else in play means
+  // nothing to place onto. A loaded card without the Venus tag is not a target
+  // either -- the restriction is the tag, not merely holding a resource.
+  const maxwell = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Maxwell Base");
+  assert.ok(maxwell, "Maxwell Base is in the catalogue");
+  const venusHolder = ALL_CARDS.find(card =>
+    card.resourceType && (card.tags ?? []).includes("Venus") && card.id !== maxwell.id);
+  const plainHolder = ALL_CARDS.find(card =>
+    card.resourceType && !(card.tags ?? []).includes("Venus"));
+
+  assert.equal(getCardActionStatus(rig(maxwell.id), maxwell).playable, false);
+  assert.equal(
+    getCardActionStatus(rig(maxwell.id, { resources: { [plainHolder.id]: 2 } }), maxwell).playable,
+    false, "a loaded card without the tag is not a target");
+  assert.equal(
+    getCardActionStatus(rig(maxwell.id, { resources: { [venusHolder.id]: 2 } }), maxwell).playable,
+    true);
+
+  // A card offering an alternative branch is still usable: only an action that
+  // is entirely the placement is blocked.
+  const vermin = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Vermin");
+  if (vermin) {
+    assert.equal(getCardActionStatus(rig(vermin.id), vermin).playable, true,
+      "an action with another branch survives");
+  }
+
+  // Hi-Tech Lab spends energy to draw, so an empty deck leaves nothing to buy.
+  const lab = ALL_CARDS.find(card => card.id === "card-promo-hi-tech-lab");
+  assert.ok(lab, "Hi-Tech Lab is in the catalogue");
+  assert.equal(getCardActionStatus(rig(lab.id, { deck: 5 }), lab).playable, true);
+  assert.equal(getCardActionStatus(rig(lab.id, { deck: 0 }), lab).playable, false);
+});
+
+// "Remove 1 of your greenery tiles (does not affect oxygen.) Place a city tile
+// there, regardless of placement rules. Gain placement bonuses as usual." The
+// card was listed as unimplemented and excluded from the upstream comparison:
+// its production and draw worked, but the conversion did not exist, so it was
+// buyable and did two thirds of what it says.
+test("Kaguya Tech turns one of your greeneries into a city", async () => {
+  const { getPlayer, getCardPlayableStatus, getAdjacentCells } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+
+  const card = ALL_CARDS.find(item => item.id === "card-promo-kaguya-tech");
+  assert.ok(card, "Kaguya Tech is in the catalogue");
+
+  const rig = () => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [card.id];
+    return state;
+  };
+
+  // With no greenery of your own there is nowhere for the city to go.
+  assert.equal(getCardPlayableStatus(card, rig()).playable, false);
+
+  // Another player's greenery is not yours to remove.
+  const theirs = rig();
+  const someKey = Object.keys(theirs.board)[10];
+  theirs.board[someKey] = { ...theirs.board[someKey], tileType: "forest", placedBy: "player2" };
+  assert.equal(getCardPlayableStatus(card, theirs).playable, false);
+
+  // A greenery of your own, sitting next to a city -- which a city may not
+  // normally touch -- and on a square with a printed bonus.
+  const state = rig();
+  const greeneryKey = Object.keys(state.board).find(key => {
+    const cell = state.board[key];
+    return cell.tileType === "empty" && cell.bonus?.length > 0 &&
+      getAdjacentCells(cell.q, cell.r).some(n => state.board[`${n.q},${n.r}`]);
+  });
+  const greenery = state.board[greeneryKey];
+  const cityKey = getAdjacentCells(greenery.q, greenery.r)
+    .map(n => `${n.q},${n.r}`)
+    .find(key => state.board[key]);
+  state.board[greeneryKey] = { ...greenery, tileType: "forest", placedBy: "player" };
+  state.board[cityKey] = { ...state.board[cityKey], tileType: "city", placedBy: "player2" };
+
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+  const before = { oxygen: state.oxygen, ...getPlayer(state, "player") };
+
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  const choice = played.state.pendingChoice;
+  assert.equal(choice?.kind, "greenery-to-city");
+  const option = choice.options.find(entry => entry.targetCellKey === greeneryKey);
+  assert.ok(option, "the player's own greenery is offered");
+
+  const settled = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player",
+    choiceId: choice.id, optionId: option.id
+  });
+  const after = getPlayer(settled.state, "player");
+
+  assert.equal(settled.state.board[greeneryKey].tileType, "city", "the city went down beside a city");
+  assert.equal(settled.state.board[greeneryKey].placedBy, "player");
+  assert.equal(settled.state.oxygen, before.oxygen, "removing the greenery left oxygen alone");
+  assert.equal(after.mcProd, before.mcProd + 2, "the printed production still happened");
+  // The square's own bonus is collected the way any placement collects it.
+  const owed = greenery.bonus.reduce((sum, entry) => sum + entry.amount, 0);
+  const gained = ["steel", "titanium", "plants", "heat", "energy"]
+    .reduce((sum, field) => sum + ((after[field] ?? 0) - (before[field] ?? 0)), 0);
+  assert.equal(gained, owed, "the placement bonus was paid");
+});
+
+// Every specialVictoryKind needs an entry in the scorer's table, or the card
+// silently scores nothing: Law Suit prints victoryPoints 0 and is worth -1 for
+// the rest of the game, and its kind was the one of four missing from the map.
+// Derive the check from the catalogue so a new kind cannot be added without a
+// scorer behind it.
+test("every special victory kind has a scorer", async () => {
+  const { getPlayer, calculateScoreBreakdowns } = await import("../app/game-logic.js");
+  const { CORPORATIONS, PRELUDES } = await import("../app/official-content.js");
+
+  const special = [...ALL_CARDS, ...CORPORATIONS, ...PRELUDES]
+    .filter(card => card.specialVictoryKind);
+  assert.ok(special.length >= 4, `expected several special scorers, saw ${special.length}`);
+
+  // Vermin needs ten animals before it bites and St. Joseph counts cathedrals,
+  // so those two legitimately contribute nothing in a bare rig. The rest must
+  // produce a row, because a kind with no entry in the table is indentical to
+  // a card that scores zero -- which is the bug this guards.
+  const CONDITIONAL = new Set(["vermin", "st-joseph", "search-for-life"]);
+
+  for (const card of special.filter(item => !CONDITIONAL.has(item.specialVictoryKind))) {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    getPlayer(state, "player").playedProjects = [card.id];
+    const rows = (calculateScoreBreakdowns(state).player.details ?? [])
+      .filter(entry => entry.sourceId === card.id);
+    assert.ok(rows.length > 0,
+      `${card.englishName ?? card.name} (${card.specialVictoryKind}) scored nothing at all`);
+  }
+
+  // Law Suit specifically: minus one, unconditionally.
+  const lawSuit = ALL_CARDS.find(card => card.specialVictoryKind === "law-suit");
+  assert.ok(lawSuit, "Law Suit is in the catalogue");
+  const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").playedProjects = [lawSuit.id];
+  const points = (calculateScoreBreakdowns(state).player.details ?? [])
+    .filter(entry => entry.sourceId === lawSuit.id)
+    .reduce((sum, entry) => sum + entry.points, 0);
+  assert.equal(points, -1);
+});
+
+// Three rules the upstream comparison turned up once solo games and the
+// recorded starting state were staged properly.
+test("solo games, terraform ratings and Helion's heat are read", async () => {
+  const { getPlayer, getCardPlayableStatus, getCardActionStatus } = await import("../app/game-logic.js");
+
+  // An attack with nobody to hit is still a legal play in a solo game:
+  // upstream skips the target check entirely when isSoloMode(). Asking anyway
+  // refused Heat Trappers in the very game its own test plays it in.
+  const trappers = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Heat Trappers");
+  assert.ok(trappers, "Heat Trappers is in the catalogue");
+  const attackRig = players => {
+    const state = getInitialState({ playerCount: players, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [trappers.id];
+    seat.heatProd = 1;
+    return state;
+  };
+  assert.equal(getCardPlayableStatus(trappers, attackRig(1)).playable, true, "solo lets it through");
+  assert.equal(getCardPlayableStatus(trappers, attackRig(2)).playable, false, "two players still need a target");
+
+  // "Requires a terraform rating of at least 25." The number sat in the card's
+  // requirements and nothing read it, so it was playable at the opening 20.
+  const contract = ALL_CARDS.find(card =>
+    (card.requirements ?? []).some(entry => entry.tr !== undefined));
+  assert.ok(contract, "a card with a terraform rating requirement exists");
+  const needed = contract.requirements.find(entry => entry.tr !== undefined).tr;
+  const trRig = rating => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1000;
+    seat.hand = [contract.id];
+    seat.tr = rating;
+    return state;
+  };
+  assert.equal(getCardPlayableStatus(contract, trRig(needed - 1)).playable, false);
+  assert.equal(getCardPlayableStatus(contract, trRig(needed)).playable, true);
+
+  // Energy Market asks whether two megacredits are affordable, and Helion may
+  // pay them in heat. Reading the megacredits alone refused a player holding
+  // 1 M€ and 3 heat.
+  const market = ALL_CARDS.find(card => (card.englishName ?? card.name) === "Energy Market");
+  assert.ok(market, "Energy Market is in the catalogue");
+  const marketRig = corporationId => {
+    const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = 1;
+    seat.heat = 3;
+    seat.energyProd = 0;
+    seat.corporationId = corporationId;
+    seat.playedProjects = [market.id];
+    seat.actionsRemaining = 2;
+    return state;
+  };
+  assert.equal(getCardActionStatus(marketRig(null), market).playable, false);
+  assert.equal(getCardActionStatus(marketRig("corp-helion"), market).playable, true);
+});
+
+// Hellas' south pole charges 6 M€ to build on, and upstream folds that into
+// the card's own affordability check: a square the player cannot afford to
+// build on is not a square this card can use. With the card at 10, the pole is
+// reachable at 16 and not at 15.
+test("Kaguya Tech counts the square's building cost", async () => {
+  const { getPlayer, getCardPlayableStatus } = await import("../app/game-logic.js");
+
+  const card = ALL_CARDS.find(item => item.id === "card-promo-kaguya-tech");
+  const rig = money => {
+    const state = getInitialState({ playerCount: 2, board: "hellas", promo: true, seed: 4 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const seat = getPlayer(state, "player");
+    seat.mc = money;
+    seat.hand = [card.id];
+    return state;
+  };
+
+  const paid = Object.entries(rig(0).board).find(([, cell]) => cell.placementCost > 0);
+  assert.ok(paid, "Hellas has a square that costs money to build on");
+  const [poleKey, poleCell] = paid;
+  const total = card.cost + poleCell.placementCost;
+
+  const short = rig(total - 1);
+  short.board[poleKey] = { ...short.board[poleKey], tileType: "forest", placedBy: "player" };
+  assert.equal(getCardPlayableStatus(card, short).playable, false);
+
+  const enough = rig(total);
+  enough.board[poleKey] = { ...enough.board[poleKey], tileType: "forest", placedBy: "player" };
+  assert.equal(getCardPlayableStatus(card, enough).playable, true);
+});
+
+// "1 VP per City with a Cathedral in it." Who built the cathedral does not
+// matter -- upstream keeps one game-wide list, and its own test has two
+// players each scoring the same three. Filtering by owner paid nothing for a
+// cathedral an opponent placed.
+test("cathedrals count for everyone holding the card", async () => {
+  const { getPlayer, calculateScoreBreakdowns } = await import("../app/game-logic.js");
+
+  const card = ALL_CARDS.find(item => item.specialVictoryKind === "st-joseph");
+  assert.ok(card, "St. Joseph of Cupertino Mission is in the catalogue");
+
+  const state = getInitialState({ playerCount: 2, promo: true, seed: 4 });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  getPlayer(state, "player").playedProjects = [card.id];
+  getPlayer(state, "player2").playedProjects = [card.id];
+  // All three placed by the opponent.
+  state.boardMarkers = [0, 1, 2].map(index => ({
+    kind: "cathedral",
+    sourceCardId: card.id,
+    sourcePlayerId: "player2",
+    cellKey: `${index},0`
+  }));
+
+  const breakdown = calculateScoreBreakdowns(state);
+  for (const seat of ["player", "player2"]) {
+    const points = (breakdown[seat].details ?? [])
+      .filter(entry => entry.sourceId === card.id)
+      .reduce((sum, entry) => sum + entry.points, 0);
+    assert.equal(points, 3, `${seat} scores every cathedral, not only its own`);
+  }
+});

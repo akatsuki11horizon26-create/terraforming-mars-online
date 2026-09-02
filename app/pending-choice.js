@@ -506,6 +506,34 @@ export function buildOceanRemovalChoice(state, sourceId, ownerPlayerId, oceanCel
   };
 }
 
+// "Remove 1 of your greenery tiles. Place a city tile there, regardless of
+// placement rules." One square answers both halves, so it is a single choice
+// rather than a removal followed by a placement -- asking twice would let the
+// player remove a greenery and then put the city somewhere else.
+export function buildGreeneryToCityChoice(state, cells, context) {
+  if (!cells || cells.length === 0) return null;
+  return {
+    id: makeChoiceId("greenery-to-city", context.sourceId, state.currentPlayerId),
+    kind: "greenery-to-city",
+    ownerPlayerId: state.currentPlayerId,
+    prompt: context.prompt ?? "都市に置き換える自分の緑地を選んでください。",
+    optional: false,
+    options: cells.map(({ key, cell }) => ({
+      id: key,
+      label: `(${cell.q}, ${cell.r})`,
+      targetCellKey: key
+    })),
+    continuation: {
+      sourceKind: context.sourceKind,
+      sourceId: context.sourceId,
+      stage: "greenery-to-city",
+      consumedAction: context.consumedAction ?? true,
+      paid: context.paid ?? true,
+      ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
+    }
+  };
+}
+
 export function isChoiceOwnedBy(choice, playerId) {
   return Boolean(choice) && choice.ownerPlayerId === playerId;
 }

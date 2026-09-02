@@ -61,6 +61,7 @@ import {
   buildEventDiscardChoice,
   buildFloaterPlacementChoice,
   buildStandardResourcePickChoice,
+  buildGreeneryToCityChoice,
   buildOceanRemovalChoice,
   buildTileChoice,
   buildWorldGovernmentChoice,
@@ -384,6 +385,8 @@ const NEPTUNIAN_COST = 5;
 const FOCUSED_ORGANIZATION_ID = "card-prelude2-focused-organization";
 const VENUS_SHUTTLES_ID = "card-prelude2-venus-shuttles";
 const TITAN_FLOATING_LAUNCH_PAD_ID = "card-colonies-titan-floating-launch-pad";
+const CYBERIA_SYSTEMS_ID = "card-promo-cyberia-systems";
+const KAGUYA_TECH_ID = "card-promo-kaguya-tech";
 const BOARD_OF_DIRECTORS_ID = "card-prelude2-board-of-directors";
 
 // "Spend 12 M€ to raise Venus 1 step. This cost is REDUCED BY 1 FOR EACH VENUS
@@ -675,6 +678,20 @@ function roboticWorkforceProductionBox(state, card, ownerId) {
     if (counted > 0) box[gain.resource] = (box[gain.resource] ?? 0) + counted;
   }
   return box;
+}
+
+// "Play 2 building cards from hand." Upstream checks the hand holds two cards
+// with a Building tag and a production box, and that at least one of them can
+// be paid for right now -- it does not try to prove an order exists in which
+// both can be played. Same rule here, and the card itself never counts.
+function cyberiaSystemsHandCards(state, mustAfford) {
+  const player = getCurrentPlayer(state);
+  return (player?.hand ?? [])
+    .map(id => ALL_CARDS.find(card => card.id === id))
+    .filter(card => card && card.id !== CYBERIA_SYSTEMS_ID)
+    .filter(card => (card.tags ?? []).includes("Building"))
+    .filter(card => Object.keys(getCardEffect(card).production ?? {}).length > 0)
+    .filter(card => !mustAfford || getCardPlayableStatus(card, state).playable);
 }
 
 function roboticWorkforceBuildingCards(state) {
@@ -2418,6 +2435,21 @@ function colonyTrackOptions(state, direction, excludeTileId) {
 
 // Played events, minus any that built a special tile -- taking those back would
 // leave a tile on the board with no card behind it.
+// "Remove 1 of your greenery tiles ... place a city tile there." The squares
+// are the acting player's own greeneries and nobody else's, which is what
+// upstream's board.getGreeneries(player) returns.
+function kaguyaTechGreeneries(state, cardCost = 0) {
+  const ownerId = state.currentPlayerId;
+  const purse = getCurrentPlayer(state)?.mc ?? 0;
+  return Object.entries(state.board ?? {})
+    .filter(([, cell]) => cell.tileType === "forest" && cell.placedBy === ownerId)
+    // Hellas' south pole charges 6 M€ to build on, and upstream folds that into
+    // the card's own affordability check. A square the player cannot afford to
+    // build on is not a square this card can use.
+    .filter(([, cell]) => purse >= cardCost + (cell.placementCost ?? 0))
+    .map(([key, cell]) => ({ key, cell }));
+}
+
 function astraMechanicaOptions(state, selfId) {
   const player = getCurrentPlayer(state);
   // cardPlacements records which card put a tile where, which is the only
@@ -2677,6 +2709,15 @@ function queuePendingChoices(state, card, context) {
           ...(context.preludeResume ? { preludeResume: context.preludeResume } : {})
         }
       };
+    }
+  }
+
+  // "Remove 1 of your greenery tiles. Place a city tile there." Which greenery
+  // goes is the player's decision, and the same square receives the city.
+  if (card.id === KAGUYA_TECH_ID && !done.includes("kaguya-tech")) {
+    const greeneries = kaguyaTechGreeneries(state, 0);
+    if (greeneries.length > 0) {
+      return buildGreeneryToCityChoice(state, greeneries, { ...context, sourceId: card.id });
     }
   }
 
@@ -4852,6 +4893,28 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       nextLogs = addLog(nextLogs, "system", `${owner?.name ?? choice.ownerPlayerId} が ${option.label} を捨てました。`);
       break;
     }
+    case "greenery-to-city": {
+      // The greenery comes off and the city goes down on the same square.
+      // Removing it does not lower the oxygen -- our removal path never
+      // touched oxygen, which is what the card requires -- and the placement
+      // ignores the usual "cities may not touch a city" rule while still
+      // paying the square's printed bonus, both of which placeTileAt does when
+      // it is handed the square directly.
+        const target = choice.ownerPlayerId ?? actorId;
+        const key = option.targetCellKey ?? option.id;
+        const cell = next.board[key];
+        if (cell) {
+          next.board = { ...next.board };
+          next.board[key] = { ...cell, tileType: "empty", placedBy: null };
+          placeTileAt(next, next.board[key], "city", target, choice.continuation.sourceId);
+          nextLogs = addLog(
+            next.logs ?? nextLogs, "system",
+            `(${cell.q}, ${cell.r}) の緑地を取り除き、都市を建設しました。`
+          );
+        }
+      break;
+    }
+
     case "ocean-removal": {
       const cell = next.board[option.targetCellKey];
       if (cell) {
@@ -5674,9 +5737,17 @@ export function getCardActionStatus(state, card) {
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
       return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
     }
-    return (seat?.energy ?? 0) > 0
+    // "Spend any amount of energy to draw the same number of cards." Upstream
+    // asks for both halves -- energy > 0 AND the deck can supply one. Its
+    // action is written into the engine rather than declared, so the generic
+    // draw check below never sees it: Venus Orbital Survey asked about the
+    // deck and this card did not.
+    if ((seat?.energy ?? 0) <= 0) {
+      return { playable: false, reason: "エネルギーがありません。" };
+    }
+    return (state.deck ?? []).length + (state.discardPile ?? []).length > 0
       ? { playable: true, reason: "" }
-      : { playable: false, reason: "エネルギーがありません。" };
+      : { playable: false, reason: "山札に引けるカードが足りません。" };
   }
   // Either something is parked here to double, or something in hand can be.
   if (card.id === SELF_REPLICATING_ROBOTS_ID) {
@@ -5716,7 +5787,13 @@ export function getCardActionStatus(state, card) {
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
       return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
     }
-    return (seat?.mc ?? 0) >= 2 || (seat?.energyProd ?? 0) >= 1
+    // Upstream asks player.canAfford(2), which counts Helion's heat as money.
+    // Reading the megacredits alone refused the action for a player holding
+    // 1 M€ and 3 heat -- exactly the case its own test covers.
+    const corporation = getCorporation(state, seat?.id);
+    const spendable = (seat?.mc ?? 0) +
+      (corporation?.effects?.heatAsMoney ? (seat?.heat ?? 0) : 0);
+    return spendable >= 2 || (seat?.energyProd ?? 0) >= 1
       ? { playable: true, reason: "" }
       : { playable: false, reason: "2 MCかエネルギー生産量が必要です。" };
   }
@@ -5737,6 +5814,43 @@ export function getCardActionStatus(state, card) {
       ? { playable: true, reason: "" }
       : { playable: false, reason: "このカードの資源が不足しています。" };
   }
+  // "Add 1 resource to ANOTHER Venus card" is the whole action, so with nothing
+  // to put it on there is nothing to do -- the same rule the play path already
+  // enforces through mustHaveCard. A card offering an alternative branch is
+  // handled above and must not be caught here: only an action that is entirely
+  // this placement is blocked.
+  const placements = action.addResourcesToAnyCard;
+  const placementSpecs = Array.isArray(placements) ? placements : (placements ? [placements] : []);
+  for (const spec of placementSpecs) {
+    if (!spec?.mustHaveCard) continue;
+    // collectResourceTargets narrows by resource type, not by tag, so a
+    // "Venus card" restriction is applied here. Both engines agree on the
+    // cards that qualify; what mattered was asking at all.
+    const targets = collectResourceTargets(state, spec.type, ALL_CARDS, {
+      mustHaveResources: true,
+      getResourceType: cardId => ALL_CARDS.find(item => item.id === cardId)?.resourceType
+    }).filter(target => {
+      if (target.targetCardId === card.id) return false;
+      if (!spec.tag) return true;
+      const held = ALL_CARDS.find(item => item.id === target.targetCardId);
+      return (held?.tags ?? []).some(tag => String(tag).toLowerCase() === String(spec.tag).toLowerCase());
+    });
+    if (targets.length === 0) {
+      return { playable: false, reason: "資源を置けるカードがありません。" };
+    }
+  }
+
+  // Drawing needs the deck to supply it here just as it does on play. Venus
+  // Orbital Survey asked and Hi-Tech Lab did not, so the same rule was
+  // enforced on one card and not the other.
+  const drawn = typeof action.draw === "number" ? action.draw : 0;
+  if (drawn > 0) {
+    const available = (state.deck ?? []).length + (state.discardPile ?? []).length;
+    if (available < drawn) {
+      return { playable: false, reason: "山札に引けるカードが足りません。" };
+    }
+  }
+
   if (action.energyCost && state.energy < action.energyCost) {
     return { playable: false, reason: "エネルギーが不足しています。" };
   }
@@ -8611,6 +8725,12 @@ function getGeneratedRequirementStatus(card, state, buffer) {
       if (value < count) return { playable: false, reason: `${requirement.production}生産量が不足しています。` };
     }
     if (requirement.greeneries !== undefined && Object.values(state.board).filter(cell => cell.tileType === "forest").length < requirement.greeneries) return { playable: false, reason: "緑地数の条件を満たしていません。" };
+    // "Requires that you have a terraform rating of at least 25." The number
+    // was in the card's requirements and nothing read it, so the card was
+    // playable from the opening rating of 20.
+    if (requirement.tr !== undefined && (getCurrentPlayer(state)?.tr ?? 0) < requirement.tr) {
+      return { playable: false, reason: "TRの条件を満たしていません。" };
+    }
     if (requirement.cities !== undefined && Object.values(state.board).filter(cell => cell.tileType === "city").length < requirement.cities) return { playable: false, reason: "都市数の条件を満たしていません。" };
     if (requirement.floaters !== undefined && Object.values(state.cardResources ?? {}).reduce((sum, value) => sum + value, 0) < requirement.floaters) return { playable: false, reason: "フローター数の条件を満たしていません。" };
     if (requirement.party !== undefined) {
@@ -8735,7 +8855,12 @@ export function getCardPlayableStatus(
   // A "stealing" card moves the step to its owner, who is a legal target for
   // it. Taking a step from yourself and giving it back is a pointless play, but
   // it is a legal one, so these four are never blocked for want of a victim.
-  if (attack?.type && !attack.stealing) {
+  // Upstream skips this check entirely in a solo game: with no opponent, an
+  // attack that lands on nobody is still a legal play, and the card is bought
+  // for the rest of what it does. Asking anyway refused Heat Trappers and
+  // Biomass Combustors in exactly the games their own tests play them in.
+  const soloGame = (state.players ?? []).length <= 1;
+  if (attack?.type && !attack.stealing && !soloGame) {
     const field = `${SOURCE_RESOURCE_MAP[attack.type] ?? attack.type}Prod`;
     const count = attack.count ?? 1;
     // Megacredit production alone may go negative, down to -5, so the owner of
@@ -8771,6 +8896,14 @@ export function getCardPlayableStatus(
     if (!distinct) {
       return { playable: false, reason: "動かせる植民地タイルのトラックがありません。" };
     }
+  }
+
+  // "Remove 1 of your greenery tiles. Place a city tile there." With no
+  // greenery of your own there is nowhere for the city to go, and the
+  // reference refuses the card outright rather than letting it be bought.
+  if (card.id === KAGUYA_TECH_ID &&
+      kaguyaTechGreeneries(state, getCardPaymentCost(card, state, steelUsed, titaniumUsed)).length === 0) {
+    return { playable: false, reason: "都市に変えられる自分の緑地がありません。" };
   }
 
   // "Return up to 2 of your played events to your hand." With no event to
@@ -8919,6 +9052,12 @@ export function getCardPlayableStatus(
   }
   if (card.id === INSULATION_ID && (getCurrentPlayer(state)?.heatProd ?? 0) < 1) {
     return { playable: false, reason: "熱生産量が1以上必要です。" };
+  }
+  if (card.id === CYBERIA_SYSTEMS_ID) {
+    if (cyberiaSystemsHandCards(state, false).length < 2 ||
+        cyberiaSystemsHandCards(state, true).length < 1) {
+      return { playable: false, reason: "生産ボックスを持つ建材カードが手札に2枚必要です。" };
+    }
   }
   if (card.id === ROBOTIC_WORKFORCE_ID && roboticWorkforceBuildingCards(state).length === 0) {
     return { playable: false, reason: "生産ボックスを持つ自分の建物カードが必要です。" };

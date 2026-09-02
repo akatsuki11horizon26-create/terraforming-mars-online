@@ -7,7 +7,7 @@
 //
 // Usage:
 //   node scripts/card-coverage.mjs [--verbose]
-import { getInitialState, getPlayer, getCardPlayableStatus, getCardResourceType, applyPreludes, applyCorporation, advanceSetupTurn } from "../app/game-logic.js";
+import { getInitialState, getPlayer, getCardPlayableStatus, getCardResourceType, getCardEffect, applyPreludes, applyCorporation, advanceSetupTurn } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import { PRELUDES, CORPORATIONS, OFFICIAL_PROJECTS } from "../app/official-content.js";
 import { NEUTRAL } from "../app/turmoil.js";
@@ -165,9 +165,17 @@ const snap = (st, omit = {}) => { const q = getPlayer(st, "player"); return JSON
   omit.seat ? null : q.setupStep ?? null,
   (q.researchCards ?? []).length]); };
 
-// Two cheap projects and one event, held so that a card whose price is paid in
-// cards, or whose effect needs an event in play, has something to work with.
-const SPARE_CARDS = OFFICIAL_PROJECTS.filter(c => c.type !== "event").slice(0, 2).map(c => c.id);
+// Two projects and one event, held so that a card whose price is paid in cards,
+// or whose effect needs an event in play, has something to work with. The two
+// carry a Building tag and a production box: "play 2 building cards from hand"
+// needs two such cards to exist, and with any other pair Cyberia Systems is
+// unplayable in every rig and reads as a dead card.
+const SPARE_CARDS = OFFICIAL_PROJECTS
+  .filter(c => c.type !== "event" && (c.tags ?? []).includes("Building"))
+  .filter(c => Object.keys(getCardEffect(c).production ?? {}).length > 0)
+  .filter(c => c.cost <= 12)
+  .slice(0, 2)
+  .map(c => c.id);
 const SPARE_EVENT = OFFICIAL_PROJECTS.find(c => c.type === "event")?.id;
 
 const worked = [], nothing = [], gated = [], threw = [];
