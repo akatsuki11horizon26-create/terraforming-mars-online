@@ -4604,3 +4604,28 @@ test("a draft with nothing to pass around is not created", async () => {
   );
   assert.ok(lopsided, "a draft nobody but one seat can start is still a draft");
 });
+
+// The playtest harness rejects unknown flags, which is what stops a run from
+// silently shrinking to one game. That only works if the accepted list matches
+// what the script actually reads: --board was left out of it, and CI's
+// per-map playtest died on the flag it had always passed. Derive the check
+// from the source rather than trusting a hand-written list to stay in step.
+test("the playtest harness accepts every flag it reads", async () => {
+  const { readFileSync } = await import("node:fs");
+  const source = readFileSync(new URL("../scripts/playtest.mjs", import.meta.url), "utf8");
+
+  const read = new Set([...source.matchAll(/args\.([a-zA-Z]+)/g)].map(match => match[1]));
+  assert.ok(read.size >= 8, `expected the harness to read several flags, saw ${read.size}`);
+
+  const declared = new Set(
+    [...(/const KNOWN = new Set\(\[([^\]]*)\]\)/s.exec(source)?.[1] ?? "")
+      .matchAll(/"([a-zA-Z]+)"/g)].map(match => match[1])
+  );
+
+  for (const flag of read) {
+    assert.ok(declared.has(flag), `--${flag} is read but would be rejected as unknown`);
+  }
+  for (const flag of declared) {
+    assert.ok(read.has(flag), `--${flag} is accepted but never read, so it does nothing`);
+  }
+});

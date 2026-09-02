@@ -43,8 +43,11 @@ import { executeGameCommand, COMMAND } from "../app/game-command.js";
 // the second parsed as {games: true, 500: true} -- Number(true) is 1, so a run
 // asking for 500 two-player games silently played one solo game and reported
 // no problems. A completion claim of "2,000 games, zero problems" rested on it.
-const KNOWN = new Set(["games", "players", "turmoil", "colonies", "draft", "seed", "prelude", "venus", "promo"]);
-const NEEDS_VALUE = new Set(["games", "players", "seed"]);
+const KNOWN = new Set([
+  "games", "players", "seed", "board",
+  "turmoil", "colonies", "draft", "prelude", "venus", "promo"
+]);
+const NEEDS_VALUE = new Set(["games", "players", "seed", "board"]);
 const args = {};
 {
   const argv = process.argv.slice(2);

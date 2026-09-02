@@ -1,0 +1,28 @@
+db/index.ts(1,21): error TS2307: Cannot find module 'cloudflare:workers' or its corresponding type declarations.
+worker/index.ts(9,11): error TS2304: Cannot find name 'Fetcher'.
+worker/index.ts(10,7): error TS2304: Cannot find name 'D1Database'.
+worker/index.ts(11,10): error TS2304: Cannot find name 'DurableObjectNamespace'.
+worker/room.ts(59,18): error TS2304: Cannot find name 'DurableObjectState'.
+worker/room.ts(70,22): error TS2304: Cannot find name 'DurableObjectState'.
+worker/room.ts(91,41): error TS7006: Parameter 'member' implicitly has an 'any' type.
+worker/room.ts(120,24): error TS2304: Cannot find name 'WebSocketPair'.
+worker/room.ts(123,48): error TS2353: Object literal may only specify known properties, and 'webSocket' does not exist in type 'ResponseInit'.
+worker/room.ts(139,12): error TS2339: Property 'accept' does not exist on type 'WebSocket'.
+worker/room.ts(486,24): error TS2352: Conversion of type '{ status: string; state: any; logs: any; pendingChoice: { id: string; kind: string; ownerPlayerId: any; prompt: any; optional: any; options: any; continuation: { preludeResume?: any; sourceKind: any; ... 4 more ...; remaining: any; }; } | { ...; } | { ...; } | { ...; }; } | { ...; }' to type '{ state: never; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ status: string; state: any; logs: any; pendingChoice?: undefined; }' is not comparable to type '{ state: never; }'.
+    Types of property 'state' are incompatible.
+      Type 'any' is not comparable to type 'never'.
+worker/room.ts(498,24): error TS2352: Conversion of type '{ state: any; logs: any; playable: boolean; awaitingChoice?: undefined; } | { state: any; logs: any; playable: boolean; awaitingChoice: boolean; }' to type '{ state: never; playable: boolean; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ state: any; logs: any; playable: boolean; awaitingChoice: boolean; }' is not comparable to type '{ state: never; playable: boolean; }'.
+    Types of property 'state' are incompatible.
+      Type 'any' is not comparable to type 'never'.
+worker/room.ts(504,24): error TS2352: Conversion of type '{ pendingChoice?: any; status: string; state: any; logs: any; }' to type '{ state: never; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'state' are incompatible.
+    Type 'any' is not comparable to type 'never'.
+worker/room.ts(532,17): error TS2352: Conversion of type '{ state: any; logs: any; generationEnded: boolean; endedTurnOnly: boolean; } | { state: any; logs: any; generationEnded: boolean; endedTurnOnly?: undefined; }' to type '{ state: never; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ state: any; logs: any; generationEnded: boolean; endedTurnOnly?: undefined; }' is not comparable to type '{ state: never; }'.
+    Types of property 'state' are incompatible.
+      Type 'any' is not comparable to type 'never'.
+worker/room.ts(535,17): error TS2352: Conversion of type '{ state: any; logs: any; }' to type '{ state: never; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'state' are incompatible.
+    Type 'any' is not comparable to type 'never'.
