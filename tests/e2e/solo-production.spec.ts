@@ -109,9 +109,11 @@ test("a city shows both its cost and the production it moved", async ({ page }) 
   // And it must say what moved -- the placement bonus this space paid out.
   // "not empty" is too weak to be the check here: a city that asks where to
   // build once reported only the placement bonus ("建材+2"), which is
-  // non-empty, while the 25 M€ it cost and the production it raised never
-  // reached the panel at all. Name the two numbers the move actually moved.
-  expect(captured.changes, "the panel did not report the price").toMatch(/MC[^0-9]*\u221225/);
+  // non-empty, while the M€ it cost and the production it raised never
+  // reached the panel at all. Name the two numbers the move actually moved --
+  // but not their exact size: Tharsis Republic refunds 3 M€ for your own city
+  // (official-content.js:228), so the net price reads −22 on those deals.
+  expect(captured.changes, "the panel did not report the price").toMatch(/MC\u2212\d+/);
   expect(captured.changes, "the panel did not report the production").toMatch(/MC生産/);
 
   // And the panel is not the only place it has to land: the player's own mat
