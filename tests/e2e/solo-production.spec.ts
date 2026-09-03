@@ -15,7 +15,12 @@ const CITY_COST = 25;
 async function startSoloGame(page: Page) {
   await page.goto("/");
   await page.getByTestId("mode-solo").click();
-  await page.getByTestId("setup-start-button").click();
+  // The setup panel mounts a frame after the mode click, and clicking a button
+  // that has not mounted yet fails as a 5s timeout on a run that was fine --
+  // seen once in a full-suite run and not in isolation.
+  const startButton = page.getByTestId("setup-start-button");
+  await expect(startButton).toBeVisible();
+  await startButton.click();
 
   // A first run opens the manual over everything, exactly as a new player sees
   // it, and it swallows clicks meant for the panel underneath.

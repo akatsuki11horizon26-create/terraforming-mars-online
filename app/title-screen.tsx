@@ -5,6 +5,7 @@ import { BOT_DIFFICULTIES } from "./bot-player";
 export function TitleScreen({
   onSolo,
   onRobot,
+  onHotseat,
   onOnline,
   onManual,
   onlineEnabled,
@@ -13,6 +14,7 @@ export function TitleScreen({
 }: {
   onSolo: () => void;
   onRobot: () => void;
+  onHotseat: () => void;
   onOnline: () => void;
   onManual: () => void;
   onlineEnabled: boolean;
@@ -57,6 +59,16 @@ export function TitleScreen({
             </span>
           </button>
 
+          <button className="title-mode" data-testid="mode-hotseat" onClick={onHotseat}>
+            <span className="title-mode-icon" aria-hidden="true">◫</span>
+            <span className="title-mode-body">
+              <span className="title-mode-name">ホットシート</span>
+              <span className="title-mode-desc">
+                1台の端末を交代で使い、2人以上で対戦する。
+              </span>
+            </span>
+          </button>
+
           <button
             className="title-mode"
             data-testid="mode-online"
@@ -84,10 +96,9 @@ export function TitleScreen({
   );
 }
 
-// The expansions and map, chosen before the deck is dealt. Solo and robot open
-// this from the title screen; the header opens it to start a custom game. It
-// lives here rather than in page.tsx because the title screen returns early and
-// could not otherwise show it.
+// The expansions and map, chosen before the deck is dealt. The title screen and
+// header both open this before starting a game. It lives here rather than in
+// page.tsx because the title screen returns early and could not otherwise show it.
 export function GameSetupPanel({
   open,
   intent,

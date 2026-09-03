@@ -1604,8 +1604,8 @@ export default function Home() {
     setShowTitle(false);
   };
 
-  // Starting from the setup panel. Solo and robot arrive here from the title
-  // screen so they pick their expansions before the deck is dealt.
+  // Starting from the setup panel. Title-screen modes arrive here so they pick
+  // their expansions before the deck is dealt.
   const startFromSetup = () => {
     if (setupIntent === "solo") {
       initGame({ playerCount: 1, ...chosenExpansions() });
@@ -1686,6 +1686,11 @@ export default function Home() {
           }}
           onRobot={() => {
             setSetupIntent("robot");
+            setShowGameSetup(true);
+          }}
+          onHotseat={() => {
+            setSetupIntent("custom");
+            setSetupPlayerCount(2);
             setShowGameSetup(true);
           }}
           onOnline={() => {
