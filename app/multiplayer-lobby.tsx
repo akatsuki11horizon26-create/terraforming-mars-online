@@ -158,6 +158,7 @@ export function MultiplayerLobby({
                   <span className="section-note">この文字列を相手に伝えてください</span>
                 </div>
                 <div
+                  data-testid="room-code"
                   style={{
                     padding: "12px",
                     textAlign: "center",

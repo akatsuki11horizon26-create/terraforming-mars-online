@@ -50,7 +50,15 @@ jobs:
         # the step above already built, so it costs no extra build.
         run: |
           npx playwright install --with-deps chromium
-          npm run test:e2e
+          npx playwright test --project=pages-static
+
+      - name: Browser end-to-end (online)
+        # This one boots wrangler and the Durable Objects, which no other CI step
+        # does, and its stability on a hosted runner is unverified. It is allowed
+        # to fail so a flaky runtime cannot block the deploy the way a real
+        # regression should. Promote it to blocking once it has a track record.
+        continue-on-error: true
+        run: npx playwright test --project=online
 
       - name: E2E report
         if: failure()
