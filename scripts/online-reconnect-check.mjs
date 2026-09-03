@@ -1,5 +1,5 @@
 import { WebSocket } from "ws";
-import { normalizeRoomCode } from "../app/net-protocol.js";
+import { createOnlineRun } from "./online-harness.mjs";
 
 // Reconnect is implemented on both ends -- use-room.ts reopens the socket with
 // capped backoff, and the server's onJoin treats a returning playerId as the
@@ -11,17 +11,8 @@ import { normalizeRoomCode } from "../app/net-protocol.js";
 // papered over by the other player carrying on: if the seat is lost, the state
 // is not resent, or the returning client is refused, the game simply stops.
 
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const pick = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join("");
-const CODE = process.argv[2] || pick();
-const BASE = process.env.TM_WS ?? "ws://localhost:3000";
-
-// A code the server rewrites is a different room, and the Durable Object would
-// hand back whatever that room already held.
-if (normalizeRoomCode(CODE) !== CODE) {
-  console.error(`room code ${CODE} normalises to ${normalizeRoomCode(CODE)} -- pick one the server keeps verbatim`);
-  process.exit(1);
-}
+const onlineRun = createOnlineRun({ code: process.argv[2] });
+const { code: CODE } = onlineRun;
 
 const failures = [];
 const check = (ok, message) => { if (!ok) failures.push(message); };
@@ -34,7 +25,7 @@ const seats = [
 
 function open(seat, { onView } = {}) {
   return new Promise(resolve => {
-    const ws = new WebSocket(`${BASE}/api/room/${CODE}/ws?playerId=${seat.id}&name=${encodeURIComponent(seat.name)}`);
+    const ws = new WebSocket(onlineRun.webSocketUrl(seat.id, seat.name));
     seat.ws = ws;
     ws.on("open", () => { ws.send(JSON.stringify({ type: "join" })); resolve(); });
     ws.on("message", raw => {

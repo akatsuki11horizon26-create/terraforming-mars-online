@@ -1,23 +1,16 @@
 import { WebSocket } from "ws";
-import { normalizeRoomCode } from "../app/net-protocol.js";
+import { createOnlineRun } from "./online-harness.mjs";
 
 // Drives a full 2-seat online game over the real WebSocket protocol, the same
 // path the browser uses, so the server stays the authority throughout.
-// Codes are normalised to 5 characters, so a longer "unique" string collapses
-// to the same room -- and the Durable Object then restores the previous game.
-// Draw 5 characters from the alphabet the server actually keeps.
-const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const pick = () => Array.from({ length: 5 }, () => ALPHABET[Math.floor(Math.random() * ALPHABET.length)]).join("");
-const CODE = process.argv[2] || pick();
-
-// A code the server would rewrite is not the room you think you opened, and the
-// Durable Object then restores whatever that room already held. That is how a
-// batch of "independent" games came back byte-identical and read as an RNG bug.
-if (normalizeRoomCode(CODE) !== CODE) {
-  console.error(`room code ${CODE} normalises to ${normalizeRoomCode(CODE)} -- pick one the server keeps verbatim`);
-  process.exit(1);
-}
-const BASE = process.env.TM_WS ?? "ws://localhost:3000";
+//
+// The room code and the socket URL both come from the harness. A hand-rolled
+// code normalises down to five characters, so a batch of "unique" codes all
+// land in one room and the Durable Object replays the game already there --
+// which is how eight games that were secretly one room got reported as an RNG
+// bug. tests/online-harness.test.mjs keeps every driver on this path.
+const onlineRun = createOnlineRun({ code: process.argv[2] });
+const { code: CODE } = onlineRun;
 const BUDGET_MS = Number(process.env.TM_BUDGET ?? 180000);
 const started = Date.now();
 
@@ -35,7 +28,7 @@ const seats = [
 
 function connect(seat) {
   return new Promise(resolve => {
-    const url = `${BASE}/api/room/${CODE}/ws?playerId=${seat.id}&name=${encodeURIComponent(seat.name)}`;
+    const url = onlineRun.webSocketUrl(seat.id, seat.name);
     const ws = new WebSocket(url);
     seat.ws = ws;
     ws.on("open", () => { ws.send(JSON.stringify({ type: "join" })); resolve(); });
