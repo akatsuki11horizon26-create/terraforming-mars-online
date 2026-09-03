@@ -738,7 +738,15 @@ export default function Home() {
     table.__phase = { generation: activeState.generation, production: activeState.phase === "production" ? 1 : 0 };
 
     const previous = tableRef.current;
-    tableRef.current = table;
+    // A project that asks where to build pays, and moves production, at command
+    // time -- while the choice is still open. The report cannot fire yet,
+    // because lastAction is only written once the choice is answered. If the
+    // baseline advanced on that intervening render it would swallow the cost
+    // and the production, leaving the panel to show only what the answer
+    // itself moved: a city read "建材+2" and never mentioned the 25 M€ it cost
+    // or the production it raised. Hold the baseline while a choice is open so
+    // the diff spans the whole move.
+    if (!activeState.pendingChoice) tableRef.current = table;
     const generationTurned =
       previous && previous.__phase?.generation !== table.__phase.generation;
 

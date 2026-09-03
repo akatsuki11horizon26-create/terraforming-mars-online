@@ -67,24 +67,65 @@ test("a city shows both its cost and the production it moved", async ({ page }) 
   const chooseable = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();
   await expect(chooseable).toBeVisible();
 
-  // The panel clears itself 1.3s after the move resolves, so the wait has to be
-  // armed BEFORE the click that causes it -- polling afterwards loses the race.
-  const report = page.getByTestId("action-report-changes");
-  const reportAppeared = report.waitFor({ state: "visible", timeout: 10_000 });
+  // The panel unmounts 1300ms after it opens (page.tsx:806). waitFor polls, so
+  // on a loaded machine -- CI, or two workers on one box -- the whole window can
+  // pass between two samples and the assertion fails on a move that worked.
+  // Observe the mount instead: the recorder is armed before the click and keeps
+  // what it saw, so the test no longer depends on when it looks.
+  await page.evaluate(() => {
+    const seen: { title: string; changes: string } = { title: "", changes: "" };
+    (window as unknown as { __actionReport: typeof seen }).__actionReport = seen;
+    // Keep the LONGEST text seen, not the first. React appends the delta spans
+    // over several mutations, so taking the first non-empty sample catches a
+    // half-built panel -- observed as a report holding only the placement
+    // bonus, with the production line still to come.
+    const read = () => {
+      const title = document.querySelector('[data-testid="action-report-title"]');
+      const changes = document.querySelector('[data-testid="action-report-changes"]');
+      const titleText = title?.textContent ?? "";
+      const changesText = changes?.textContent ?? "";
+      if (titleText.length > seen.title.length) seen.title = titleText;
+      if (changesText.length > seen.changes.length) seen.changes = changesText;
+    };
+    new MutationObserver(read).observe(document.body, { childList: true, subtree: true });
+    read();
+  });
 
   await chooseable.click();
-  await reportAppeared;
-  const reported = await report.innerText();
+
+  await expect
+    .poll(
+      () => page.evaluate(() => (window as unknown as { __actionReport: { changes: string } }).__actionReport.changes),
+      { message: "the action panel never mounted", timeout: 10_000 }
+    )
+    .not.toBe("");
+  const captured = await page.evaluate(
+    () => (window as unknown as { __actionReport: { title: string; changes: string } }).__actionReport
+  );
 
   // Naming the project at all is the fix under test: a city that had to ask
   // where to build used to leave lastAction null, so the panel never opened.
-  await expect(page.getByTestId("action-report-title")).toContainText("都市");
+  expect(captured.title, "the panel did not name the project").toContain("都市");
   // And it must say what moved -- the placement bonus this space paid out.
-  expect(reported.trim().length, "the panel opened with nothing in it").toBeGreaterThan(0);
+  // "not empty" is too weak to be the check here: a city that asks where to
+  // build once reported only the placement bonus ("建材+2"), which is
+  // non-empty, while the 25 M€ it cost and the production it raised never
+  // reached the panel at all. Name the two numbers the move actually moved.
+  expect(captured.changes, "the panel did not report the price").toMatch(/MC[^0-9]*\u221225/);
+  expect(captured.changes, "the panel did not report the production").toMatch(/MC生産/);
 
   // And the panel is not the only place it has to land: the player's own mat
   // must agree, which is what a viewer actually reads.
-  await expect(mcProduction).toHaveText(new RegExp(`${before + 1}`));
+  //
+  // The size of the step is NOT a constant. The project itself is +1
+  // (game-command.js:363), but Tharsis Republic adds another +1 for every city
+  // placed (official-content.js:228), so a deal that offers it makes the same
+  // move read +2. Pinning "before + 1" here fails on exactly those deals --
+  // the power-plant mistake again, one layer down. Take the figure from the
+  // panel and require the mat to match it, which is what this test is for.
+  const step = Number(captured.changes.match(/MC生産[^0-9+−-]*([+−-]?\d+)/)?.[1] ?? NaN);
+  expect(step, `the panel did not report an M€ production step: ${captured.changes}`).toBeGreaterThan(0);
+  await expect(mcProduction).toHaveText(new RegExp(`^\\+?${before + step}$`));
 
   expect(crashes, `page errors: ${crashes.join(" | ")}`).toEqual([]);
 });
