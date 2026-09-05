@@ -81,6 +81,14 @@ test("two browsers reach the same table through the lobby", async ({ browser }) 
     for (const view of [host.page, guest.page]) {
       await expect(view.getByTestId("corp-confirm-button")).toBeVisible({ timeout: LOBBY_TIMEOUT });
       await expect(view.getByTestId("corp-option").first()).toBeVisible();
+      // Reaching this panel is not enough. A client that never receives a
+      // server view falls back to the local placeholder -- a solo setup that
+      // renders the same panel -- so both browsers would show a corporation
+      // choice with the server sending nothing at all. Suppressing
+      // broadcastViews entirely used to leave this test green.
+      const panel = view.getByTestId("corp-panel");
+      await expect(panel, "the table is the local placeholder, not the server's").toHaveAttribute("data-online", "1");
+      await expect(panel, "the server dealt a solo table, not the two-seat room").toHaveAttribute("data-seats", "2");
     }
 
     // A crash on either side is a failure even if the DOM happened to arrive.

@@ -8,6 +8,25 @@
 //
 // Usage: node scripts/audit-coverage-report.mjs
 import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
+import { readFileSync } from "node:fs";
+
+// The unsupported register lives in audit-unsupported-isolation.mjs, which runs
+// its whole audit on import. Read the declaration instead of executing it, so
+// this line cannot claim a number the register has stopped holding -- it said
+// "six cards, three drawable" for a register that is now empty.
+const unsupportedCount = (() => {
+  const source = readFileSync(new URL("./audit-unsupported-isolation.mjs", import.meta.url), "utf8");
+  const body = source.slice(source.indexOf("UNSUPPORTED = {"));
+  const decl = body.slice(0, body.indexOf("};") + 1);
+  return (decl.match(new RegExp("^\\s*\"[^\"]+\":", "gm")) ?? []).length;
+})();
+
+const unsupportedLine = unsupportedCount === 0
+  ? "the register of unimplemented cards is empty, and this is a gate: a"
+  : `the ${unsupportedCount} cards we have not implemented, and whether each can`;
+const unsupportedTail = unsupportedCount === 0
+  ? "card that stops working, or one listed and still reachable, fails here"
+  : "still be drawn -- a decision waiting rather than a fact hidden";
 
 const kindOf = card => {
   const text = card.effectText ?? "";
@@ -59,9 +78,8 @@ Verified:
   audit-skip-ledger      every card the upstream oracles could not speak for --
                          335 dropped blocks across 210 cards, plus 245 no
                          oracle mentions -- is owned by a test or an audit
-  audit-unsupported-     the six cards we have not implemented, and whether
-    isolation            each can still be drawn -- three can, which is a
-                         decision waiting rather than a fact hidden
+  audit-unsupported-     ${unsupportedLine}
+    isolation            ${unsupportedTail}
   audit-bespoke-         174 cards whose behaviour upstream writes by hand: a
     inventory            card given an action there must have one here, or say
                          what implementing it would take

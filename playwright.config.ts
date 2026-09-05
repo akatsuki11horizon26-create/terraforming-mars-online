@@ -41,6 +41,11 @@ export default defineConfig({
       // Objects the lobby talks to. The static build has no server at all, so
       // these specs cannot run in the project above.
       name: "online",
+      // No retries here, unlike the static project. This one is now blocking,
+      // and no flake has been observed to absorb -- a retry would first hide
+      // an intermittent real regression. Add one only once a transient failure
+      // is actually seen, and record it when it retries green.
+      retries: 0,
       // Two browsers, a real server and a room handshake do not fit the
       // single-page budget; the default fired before the spec could say what
       // had actually gone wrong.

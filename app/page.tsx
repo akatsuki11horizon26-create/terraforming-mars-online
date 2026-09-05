@@ -2092,8 +2092,11 @@ export default function Home() {
             </div>
           )}
 
+          {/* A client with no server view falls back to the local placeholder,
+              which is a solo setup that also renders this panel. Without these
+              the online test cannot tell a real table from that fallback. */}
           {activeState.phase === "setup" && activeState.setupStep === "corporation" && (
-            <div className="cyber-panel" style={{ border: "2px solid var(--color-gold)" }}>
+            <div className="cyber-panel" data-testid="corp-panel" data-online={isOnline ? "1" : "0"} data-seats={players.length} style={{ border: "2px solid var(--color-gold)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(238, 190, 77, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>企業選択</h2>
               </div>
