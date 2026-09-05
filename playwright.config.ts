@@ -24,7 +24,7 @@ export default defineConfig({
     actionTimeout: 5_000,
     // The global parameter readouts count up over several frames; freezing the
     // animation makes the assertion about the value, not about the timing.
-    reducedMotion: "reduce",
+    contextOptions: { reducedMotion: "reduce" },
     trace: "on-first-retry",
     screenshot: "only-on-failure"
   },

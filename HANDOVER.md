@@ -1,6 +1,16 @@
 # 引き継ぎ書
 
-最終更新: 2026-09-03 / ブランチ `main` / テスト667件 + E2E 10本
+最終更新: 2026-09-06 / ブランチ `main` / テスト667件 + E2E 10本
+
+**型検査の `|| true` を撤廃し、到達不能だった129行を消した**（2026-09-06、§7.1.4 / §7.1.5）。
+`worker/room.ts` の `switch (action)` は `COMMAND_MAP` に完全に覆われていて
+一度も実行されず、中身は**ルールの二重実装**だった。それを**ソースgrepするテスト**が
+守っていたので消せずにいた。到達不能を throw で実証してから削除し、
+テストは `executeGameCommand` を実際に呼ぶ形へ移した（4件すべて赤を確認）。
+
+型検査は app/worker の2プロジェクト構成にし、`npm run types` で**両方**を検査する。
+`|| true` が隠していた実エラーが2件あった（`reducedMotion` の位置、未宣言の `DB` バインディング）。
+**18エラー → 0**。
 
 **E2Eは5本→9本。バックログの5シナリオがすべて埋まった**（2026-09-03、§6.10）。
 新規は #2 タイル配置 / #4 ソロ版ビルドのゲート / #5 オンライン2画面。
@@ -1673,6 +1683,70 @@ git push origin main     # 2つの公開先が両方とも自動で更新され�
 当面の運用: **サーバーを再起動したらポート番号を読む**
 （`Port 3000 is in use, trying another one` が出ていたら別ポートにいる）。
 プロセスを止めたら**止まったことを確認する**。
+
+### 7.1.4 死んだコードはテストに守られている（129行を消した）
+
+**`worker/room.ts` の `applyAction` にあった `switch (action)` は、丸ごと到達不能だった。**
+手前の `COMMAND_MAP` 参照が18種すべてを先に処理して return するため、
+switch の14ケースは**一度も実行されない**。しかもその中身は
+**ルールの二重実装**で、所持判定・重複ID判定・Helionの熱払いを独自に持っていた。
+
+**消せなかった理由がテストだった。** `tests/online-validation.test.mjs` の4件が
+`room.indexOf('case "playCard":')` のように**ソースを文字列として grep** していた。
+つまり **switch が「存在する」ことを検査していて、「動く」ことは検査していない**。
+消すとテストが落ちるので、コードは守られ続けていた。
+
+**消す前に到達不能を証明した**（静的な読みだけで消さない）:
+
+1. switch の直前に `throw new Error('DEAD_SWITCH_REACHED')` を置く
+2. 通しドライバと再接続検査を実行 → **1回も throw されない**
+3. `COMMAND_MAP` から `pass` を1行消す → **`DEAD_SWITCH_REACHED: pass` が出た**
+
+3 が無ければ 2 は「ガードが壊れていて何も検出していない」と区別できない。
+**赤にして初めて緑に意味がある**（§7.1.1と同じ）。
+
+**踏んだ罠: throw はサーバーのstdoutに出ない。** WebSocket越しに
+`error` メッセージとしてクライアントへ返る。`dev.log` を grep して
+**0件だったので「発火しなかった」と読みかけた**。実際はドライバの
+`errors` 配列に入っていた。**証拠を探す場所を間違えると、赤が緑に見える。**
+
+**テストは実装のある側へ移した。** ソースgrepをやめ、
+`executeGameCommand` を実際に呼ぶ検査に書き換えた。4件すべて
+**該当の実装を壊して赤を確認済み**。ここでも罠を1つ踏んだ:
+`new Set(ids).size !== ids.length` は**2箇所にあり**（SELL_CARDS と BUY_RESEARCH）、
+`.replace()` が先頭のSELL_CARDS側だけを壊したため**テストは緑のままだった**。
+同じ文字列が複数あるコードを壊すときは、**どれを壊したか確認する**。
+
+消した結果わかったこと: **コマンド層の実装のほうが正しい**。
+switch の所持判定は `hand.includes` だけだが、コマンド層は
+Self-Replicating Robots の hostedCards も見る。cardAction も
+プレリュードとエンジン定義アクションを扱う。**古い複製は劣化版だった。**
+
+### 7.1.5 型検査の `|| true` が本物のバグを2件隠していた
+
+CIの Types ステップは `npx tsc ... || true` の後に `grep -E '^app/'` で、
+**app/ 以外のエラーを全部捨てていた**。理由は「Cloudflareのambient型が
+ランナーに無いから」で、当時は妥当だったが、**捨てた中に実エラーが混ざっていた**:
+
+- `playwright.config.ts`: `reducedMotion` を `use` 直下に書いていた。
+  正しくは `contextOptions` の中。**Playwright公式の型に無いオプションを
+  指定していた**（動いてはいたが、型としては誤り）
+- `db/index.ts`: `env.DB` を参照しているが、`DB` バインディングは
+  **wrangler.jsonc にも vite.config.ts にも存在しない**
+
+**直し方**: `@cloudflare/workers-types` を devDependency に追加し、
+`worker/tsconfig.json` を新設（`lib: [esnext]` + Worker globals、DOM を外す）。
+`npm run types` で app と worker の**両方**を検査し、`|| true` は撤廃。
+
+**ここでも自分の設定にバグを入れた。** `worker/tsconfig.json` の
+`include` を `../worker/**/*.ts` と書いた。tsconfig のパスは
+**その設定ファイル自身のディレクトリ基準**なので、これは `worker/` の
+1つ上を指し、**worker/ 自身が検査対象から外れていた**。
+`--listFilesOnly` で確認するまで気づかず、
+**「worker の型検査が通った」と報告する寸前だった**。
+わざと型エラーを入れて赤を確認した結果、通っていないことが分かった。
+
+到達点: **18エラー → 0**。app/worker 両方で赤を証明済み。
 
 ### 7.1.3 外部AIに書かせている間、同じファイルを触らない
 

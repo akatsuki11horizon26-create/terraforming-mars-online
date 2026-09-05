@@ -14,7 +14,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern static-dist --ignore-pattern .next --ignore-pattern .wrangler",
     "db:generate": "drizzle-kit generate",
     "test:e2e": "playwright test",
-    "deploy": "npm run build && wrangler deploy"
+    "deploy": "npm run build && wrangler deploy",
+    "types": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json"
   },
   "dependencies": {
     "drizzle-orm": "0.45.2",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@cloudflare/workers-types": "^4.20260702.1",
     "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "4.2.1",
     "@types/node": "22.19.19",

@@ -20,7 +20,10 @@
     ],
     "paths": {
       "@/*": ["./*"]
-    }
+    },
+    // db/ reaches this graph through Next's generated route types and imports
+    // cloudflare:workers. worker/ has its own config with the Worker globals.
+    "types": ["@cloudflare/workers-types"]
   },
   "include": [
     "next-env.d.ts",
@@ -30,5 +33,5 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "worker/**/*"]
 }

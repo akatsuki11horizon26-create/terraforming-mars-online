@@ -2,18 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { getInitialState, getCardPlayableStatus, ALL_CARDS, cloneGameState } from "../app/game-logic.js";
+import { executeGameCommand, COMMAND, ERROR } from "../app/game-command.js";
 
 // The room server is a Durable Object and cannot be imported under node:test,
 // so these assert on its source. Each check below exists because a client can
 // send any payload it likes over the socket.
 const room = await readFile(new URL("../worker/room.ts", import.meta.url), "utf8");
 
-function actionCase(name) {
-  const start = room.indexOf(`case "${name}":`);
-  assert.ok(start > 0, `the server must handle ${name}`);
-  const end = room.indexOf("case \"", start + 10);
-  return room.slice(start, end > 0 ? end : start + 2000);
+// These used to grep worker/room.ts for `case "playCard":`. That switch was a
+// second copy of the rules that COMMAND_MAP shadowed entirely -- it never ran,
+// and the tests passed because the text existed, not because it worked. They
+// now execute the command layer that actually serves the socket.
+function actionState() {
+  let state = cloneGameState(getInitialState({ playerCount: 2 }));
+  state.phase = "action";
+  state.players = state.players.map(p => ({ ...p, mc: 200, hand: [], playedProjects: [] }));
+  return state;
 }
+
+const seatOf = state => state.players[0].id;
 
 test("the engine alone does not prove a card is in hand", () => {
   // This is why the server has to check: with an empty hand most of the catalog
@@ -29,40 +36,96 @@ test("the engine alone does not prove a card is in hand", () => {
 });
 
 test("playCard refuses a card the sender does not hold", () => {
-  const body = actionCase("playCard");
-  assert.match(body, /hand\.includes\(card\.id\)/, "the hand must be checked before paying");
-  // And the check must come before the card is moved to the table.
-  assert.ok(
-    body.indexOf("hand.includes(card.id)") < body.indexOf("playedProjects:"),
-    "the check must precede the state change"
-  );
+  const state = actionState();
+  const seat = seatOf(state);
+  // Most of the catalogue is "playable" with an empty hand, so possession is
+  // the only thing standing between a client and any card it cares to name.
+  const card = ALL_CARDS.find(c => getCardPlayableStatus(c, state, 0, 0).playable);
+  assert.ok(card, "needed a playable card to attempt");
+
+  const refused = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id });
+  assert.equal(refused.ok, false, "a card not in hand must be refused");
+  assert.equal(refused.error?.code, ERROR.CARD_NOT_IN_HAND);
+
+  const held = { ...state, players: state.players.map(p => p.id === seat ? { ...p, hand: [card.id] } : p) };
+  const accepted = executeGameCommand(held, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id });
+  assert.equal(accepted.ok, true, "the same card in hand must be accepted");
 });
 
 test("cardAction refuses a card the sender has not played", () => {
-  const body = actionCase("cardAction");
-  assert.match(body, /playedProjects\.includes\(card\.id\)/, "ownership must be checked");
-  assert.match(body, /card\.type !== "active"/, "and only blue cards carry actions");
+  const state = actionState();
+  const seat = seatOf(state);
+  const active = ALL_CARDS.find(c => c.type === "active");
+  assert.ok(active, "needed a blue card to attempt");
+
+  const refused = executeGameCommand(state, { type: COMMAND.USE_CARD_ACTION, playerId: seat, cardId: active.id });
+  assert.equal(refused.ok, false, "an unplayed card carries no action");
+  assert.equal(refused.error?.code, ERROR.CARD_NOT_OWNED);
+
+  // Owning a card that is not blue still must not yield an action.
+  const passive = ALL_CARDS.find(c => c.type !== "active" && !c.effectSpec?.action);
+  const owned = { ...state, players: state.players.map(p => p.id === seat ? { ...p, playedProjects: [passive.id] } : p) };
+  const noAction = executeGameCommand(owned, { type: COMMAND.USE_CARD_ACTION, playerId: seat, cardId: passive.id });
+  assert.equal(noAction.ok, false, "only cards with an action may be actioned");
+  assert.equal(noAction.error?.code, ERROR.CARD_NOT_ACTIVE);
 });
 
 test("buyResearch refuses duplicate ids", () => {
-  const body = actionCase("buyResearch");
-  // includes() accepts ["A","A","A"] against a single offered A, which
+  let state = cloneGameState(getInitialState({ playerCount: 2 }));
+  const seat = seatOf(state);
+  const offered = state.players[0].researchCards ?? [];
+  assert.ok(offered.length > 0, "needed a research offer to attempt");
+
+  // includes() alone accepts ["A","A","A"] against a single offered A, which
   // duplicated the card into the hand.
-  assert.match(body, /new Set\(ids\)\.size !== ids\.length/, "duplicates must be rejected");
+  const dupes = [offered[0], offered[0]];
+  const refused = executeGameCommand(state, { type: COMMAND.BUY_RESEARCH, playerId: seat, cardIds: dupes });
+  assert.equal(refused.ok, false, "the same card twice must be refused");
+
+  const single = executeGameCommand(state, { type: COMMAND.BUY_RESEARCH, playerId: seat, cardIds: [offered[0]] });
+  assert.equal(single.ok, true, "buying it once must still work");
 });
 
 test("a Helion payment spends heat instead of driving MC negative", () => {
-  const body = actionCase("playCard");
-  assert.match(body, /heatAsMoney/, "the corporation's heat-as-money effect must be honoured");
-  assert.match(body, /heat: \(p\.heat as number\) - heatPaid/, "and the heat actually deducted");
+  const state = actionState();
+  const seat = seatOf(state);
+  const card = ALL_CARDS.find(c => getCardPlayableStatus(c, state, 0, 0).playable && c.cost > 5);
+  assert.ok(card, "needed a card with a real cost");
+
+  const short = 3;
+  const withHelion = {
+    ...state,
+    players: state.players.map(p =>
+      p.id === seat
+        ? { ...p, corporationId: "corp-helion", hand: [card.id], mc: card.cost - short, heat: 10 }
+        : p
+    )
+  };
+
+  const result = executeGameCommand(withHelion, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id });
+  assert.equal(result.ok, true, "Helion may cover a shortfall with heat");
+  const after = result.state.players.find(p => p.id === seat);
+  assert.ok(after.mc >= 0, "MC must never go negative");
+  assert.equal(after.heat, 10 - short, "heat pays exactly the shortfall");
+
+  // The same shortfall without the effect is refused rather than absorbed.
+  const withoutHelion = {
+    ...state,
+    players: state.players.map(p =>
+      p.id === seat ? { ...p, hand: [card.id], mc: card.cost - short, heat: 10 } : p
+    )
+  };
+  const refused = executeGameCommand(withoutHelion, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id });
+  assert.equal(refused.ok, false, "no heat-as-money means no shortfall");
+  const stillThere = refused.state.players.find(p => p.id === seat);
+  assert.equal(stillThere.mc, card.cost - short, "a refused play must not spend anything");
 });
 
 test("every action the server handles is reachable from the UI", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 
-  const handled = new Set(
-    [...room.matchAll(/case "([a-zA-Z]+)":/g)].map(match => match[1])
-  );
+  // COMMAND_MAP is now the only place the server declares what it accepts.
+  const handled = new Set();
   for (const match of room.matchAll(/^\s+([a-zA-Z]+): COMMAND\./gm)) handled.add(match[1]);
   const sent = new Set(
     [...page.matchAll(/sendAction\("([a-zA-Z]+)"/g)].map(match => match[1])
@@ -115,7 +178,7 @@ test("the server routes shared actions through the command layer", () => {
   }
 
   // And the seat must come from the connection, not from what the client sent.
-  const dispatch = room.slice(room.indexOf("const commandType"), room.indexOf("switch (action)"));
+  const dispatch = room.slice(room.indexOf("const commandType"), room.indexOf("Every action the server accepts"));
   assert.match(dispatch, /playerId: seat/, "the authenticated seat must win");
   assert.doesNotMatch(dispatch, /playerId: payload/, "a client-supplied playerId must never be trusted");
 });

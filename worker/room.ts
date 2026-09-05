@@ -3,27 +3,7 @@
  * state; clients never send state, only intents, and never receive another
  * player's hand.
  */
-import {
-  getInitialState,
-  applyCorporation,
-  draftPick,
-  applyPreludes,
-  applyCardEffect,
-  applyCardAction,
-  resolvePendingChoice,
-  handleActionSpend,
-  passPlayer,
-  endTurn,
-  claimMilestone,
-  fundAward,
-  sendDelegateToParty,
-  buildColonyOn,
-  tradeWith,
-  getCardPaymentCost,
-  getCardPlayableStatus,
-  ALL_CARDS,
-  CORPORATIONS
-} from "../app/game-logic.js";
+import { getInitialState } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
 import {
   CLIENT_MESSAGES,
@@ -53,7 +33,6 @@ interface RoomOptions {
 }
 
 const MAX_MEMBERS = 5;
-const RESEARCH_CARD_COST = 3;
 
 export class GameRoom {
   private state: DurableObjectState;
@@ -375,7 +354,6 @@ export class GameRoom {
     action: string,
     payload: Record<string, unknown>
   ): Record<string, unknown> | null {
-    const logs = state.logs as unknown[];
     const asState = state as never;
 
     const commandType = GameRoom.COMMAND_MAP[action];
@@ -392,151 +370,11 @@ export class GameRoom {
       return result.ok ? (result.state as Record<string, unknown>) : null;
     }
 
-    // Milestones, awards, delegates, colonies and trades each cost an action.
-    // A refused attempt must not spend one.
-    const spendOnSuccess = (result: {
-      state?: unknown;
-      logs?: unknown;
-      claimed?: boolean;
-      funded?: boolean;
-      sent?: boolean;
-      built?: boolean;
-      traded?: boolean;
-    }): Record<string, unknown> | null => {
-      if (!result?.state) return null;
-      const succeeded = result.claimed || result.funded || result.sent || result.built || result.traded;
-      if (!succeeded) return result.state as Record<string, unknown>;
-      const spent = handleActionSpend(result.state as never, (result.logs ?? logs) as never);
-      return spent as unknown as Record<string, unknown>;
-    };
-
-    switch (action) {
-      case "chooseCorporation":
-        return applyCorporation(asState, String(payload.corporationId), seat) as never;
-
-      case "draftPick":
-        return draftPick(asState, String(payload.cardId), seat) as never;
-
-      case "choosePreludes":
-        return applyPreludes(asState, payload.preludeIds as string[], seat) as never;
-
-      case "buyResearch": {
-        const ids = (payload.cardIds as string[]) ?? [];
-        const player = (state.players as { id: string; researchCards: string[]; mc: number; hand: string[] }[])
-          .find(p => p.id === seat);
-        if (!player) return null;
-        // includes() alone accepts ["A","A","A"] against a single offered A,
-        // which duplicated the card into the hand.
-        if (new Set(ids).size !== ids.length) return null;
-        if (!ids.every(id => player.researchCards.includes(id))) return null;
-        const cost = ids.length * RESEARCH_CARD_COST;
-        if (player.mc < cost) return null;
-
-        const next = { ...state } as Record<string, unknown>;
-        next.players = (state.players as Record<string, unknown>[]).map(p =>
-          p.id === seat
-            ? {
-                ...p,
-                mc: (p.mc as number) - cost,
-                hand: [...(p.hand as string[]), ...ids],
-                researchCards: []
-              }
-            : p
-        );
-        next.discardPile = [
-          ...(state.discardPile as string[]),
-          ...player.researchCards.filter(id => !ids.includes(id))
-        ];
-        return next;
-      }
-
-      case "playCard": {
-        const card = ALL_CARDS.find((c: { id: string }) => c.id === String(payload.cardId));
-        if (!card) return null;
-        // A client can send any card id. Without this it could play a card it
-        // never drew, since the engine only checks whether the card is legal.
-        const actor = (state.players as { id: string; hand: string[] }[]).find(p => p.id === seat);
-        if (!actor?.hand.includes(card.id)) return null;
-        const status = getCardPlayableStatus(card, asState, 0, 0) as { playable: boolean };
-        if (!status.playable) return null;
-        const cost = getCardPaymentCost(card, asState, 0, 0) as number;
-
-        // Helion may pay with heat. getCardPlayableStatus counts it towards the
-        // cost, so spending only megacredits drove MC negative.
-        const corporation = CORPORATIONS.find(
-          (item: { id: string }) => item.id === (actor as unknown as { corporationId?: string }).corporationId
-        ) as { effects?: { heatAsMoney?: boolean } } | undefined;
-        const wallet = actor as unknown as { mc: number; heat: number };
-        const heatPaid = corporation?.effects?.heatAsMoney
-          ? Math.max(0, Math.min(wallet.heat ?? 0, cost - (wallet.mc ?? 0)))
-          : 0;
-
-        let next = { ...state } as Record<string, unknown>;
-        next.players = (state.players as Record<string, unknown>[]).map(p =>
-          p.id === seat
-            ? {
-                ...p,
-                mc: (p.mc as number) - (cost - heatPaid),
-                heat: (p.heat as number) - heatPaid,
-                hand: (p.hand as string[]).filter(id => id !== card.id),
-                playedProjects: [...(p.playedProjects as string[]), card.id]
-              }
-            : p
-        );
-        const result = applyCardEffect(next as never, card, logs) as { state: never };
-        next = result.state as never;
-        return handleActionSpend(next as never, (next as { logs: unknown[] }).logs) as never;
-      }
-
-      case "cardAction": {
-        const card = ALL_CARDS.find((c: { id: string; type: string }) => c.id === String(payload.cardId));
-        if (!card) return null;
-        // Only a blue card the sender has actually played carries an action.
-        const owner = (state.players as { id: string; playedProjects: string[] }[]).find(p => p.id === seat);
-        if (!owner?.playedProjects.includes(card.id)) return null;
-        if (card.type !== "active") return null;
-        const result = applyCardAction(asState, card, logs) as { state: never; playable: boolean };
-        if (!result.playable) return null;
-        return handleActionSpend(result.state, (result.state as { logs: unknown[] }).logs) as never;
-      }
-
-      case "resolveChoice": {
-        const result = resolvePendingChoice(
-          asState,
-          String(payload.optionId),
-          logs,
-          seat
-        ) as { state: never };
-        return result.state as never;
-      }
-
-      // Each of these is one action, and only a successful attempt spends it.
-      case "claimMilestone":
-        return spendOnSuccess(claimMilestone(asState, String(payload.milestoneId), logs, seat));
-
-      case "fundAward":
-        return spendOnSuccess(fundAward(asState, String(payload.awardId), logs, seat));
-
-      case "sendDelegate":
-        return spendOnSuccess(sendDelegateToParty(asState, String(payload.partyId), logs, seat));
-
-      case "buildColony":
-        return spendOnSuccess(buildColonyOn(asState, String(payload.tileId), logs, seat));
-
-      case "trade":
-        return spendOnSuccess(tradeWith(asState, String(payload.tileId), logs, seat));
-
-      case "pass":
-        // Only ends the generation once every player has passed. After acting,
-        // this ends the turn instead of leaving the generation.
-        return (passPlayer(asState, logs, seat) as { state: never }).state as never;
-
-      case "endTurn":
-        return (endTurn(asState, logs, seat) as { state: never }).state as never;
-
-      default:
-        return null;
-    }
+    // Every action the server accepts is in COMMAND_MAP above, so anything
+    // reaching here is a name the shared command layer does not define. It is
+    // refused rather than handled: a second implementation here is how the
+    // server, the offline UI and the bot drift apart on the same rule.
+    return null;
   }
 
   private onLeave(playerId: string) {

@@ -27,14 +27,11 @@ jobs:
         run: npm run lint
 
       - name: Types
-        # The worker's Cloudflare ambient types are not installed here, so only
-        # the app's own errors are treated as failures.
-        run: |
-          npx tsc --noEmit -p tsconfig.json > tsc.log 2>&1 || true
-          if grep -E '^app/' tsc.log; then
-            echo "::error::type errors in app/"
-            exit 1
-          fi
+        # Both projects, and a real failure. app/ and worker/ need different
+        # globals -- DOM vs Cloudflare -- so they are separate tsconfigs; this
+        # step used to swallow every error outside app/ behind `|| true`, which
+        # hid a wrong Playwright option and an undeclared D1 binding.
+        run: npm run types
 
       - name: Static build
         # Two tests read static-dist/index.html to check what the solo build
