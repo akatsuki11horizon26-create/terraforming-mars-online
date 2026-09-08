@@ -10,18 +10,18 @@
   "amazonis": {
     "cells": 61,
     "milestones": [
-      "manager",
-      "pioneer",
-      "trader",
-      "metallurgist",
-      "researcher"
+      "colonizer",
+      "forester",
+      "minimalist",
+      "terran",
+      "tropicalist"
     ],
     "awards": [
-      "suburbian",
-      "sponsor",
-      "botanist",
-      "entrepreneur",
-      "metropolist"
+      "curator",
+      "amazonis-engineer",
+      "promoter",
+      "tourist",
+      "amazonis-zoologist"
     ],
     "sharedEndCheckAtBasicTargets": true
   },
