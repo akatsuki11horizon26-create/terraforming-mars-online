@@ -7688,11 +7688,17 @@ export function sendDelegateToParty(state, partyId, logs, playerId) {
 
   const next = cloneGameState(state);
   next.turmoil = result.turmoil;
-  if (cost > 0) {
-    next.players = next.players.map(player =>
-      player.id === actorId ? { ...player, mc: player.mc - cost } : player
-    );
-  }
+  // Terra Cimmeria's T. Politician counts delegates PLACED over the whole game,
+  // not those still seated -- a delegate recalled by an event still counted.
+  next.players = next.players.map(player =>
+    player.id === actorId
+      ? {
+          ...player,
+          mc: cost > 0 ? player.mc - cost : player.mc,
+          delegatesPlaced: (player.delegatesPlaced ?? 0) + 1
+        }
+      : player
+  );
   const party = getParty(partyId);
   const player = getPlayer(next, actorId);
   const paid = cost > 0 ? `${cost} MC を支払って ` : "";
@@ -7714,7 +7720,10 @@ function milestoneContext(state, player) {
     preludes: PRELUDES,
     corporation: corporationFor(player),
     // Utopia's Pioneer milestone counts colonies, which live outside the player.
-    colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0
+    colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0,
+    // Terra Cimmeria's Gambler counts the awards this player funded, which live
+    // on the game rather than on the player.
+    fundedAwards: state.fundedAwards ?? []
   };
 }
 

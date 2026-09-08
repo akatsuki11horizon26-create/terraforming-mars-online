@@ -94,6 +94,22 @@ const BOARDS = {
     },
     noVolcanicRestriction: true
   },
+  "terra-cimmeria": {
+    name: "テラ・キンメリア",
+    englishName: "Terra Cimmeria",
+    build(b) {
+      b.ocean().land(PLANT).volcanic(STEEL).land(PLANT, PLANT).ocean(PLANT, PLANT);
+      b.ocean(TITANIUM, TITANIUM).land().land().land(PLANT).land(PLANT, STEEL).ocean(PLANT);
+      b.land().land(PLANT).land(ENERGY, ENERGY, ENERGY).land().land(PLANT).land(PLANT).land(PLANT);
+      b.volcanic(STEEL, STEEL).land(PLANT, PLANT).land().land(ENERGY, ENERGY).land().land().volcanic(CARD).land();
+      b.land().land(PLANT, ENERGY).land(ENERGY, ENERGY).land(STEEL).land(STEEL)
+        .land(CARD).land().land(STEEL).ocean(CARD);
+      b.volcanic(CARD, CARD).land().land(TITANIUM).land().land().land(STEEL, STEEL).land().land(STEEL, STEEL);
+      b.land().land(TITANIUM).land(PLANT).land(PLANT, STEEL, STEEL).land(PLANT, PLANT).land(PLANT).ocean(PLANT, PLANT);
+      b.ocean(STEEL, STEEL).land(PLANT).land(TITANIUM).land(CARD).land(PLANT).ocean(PLANT);
+      b.ocean(PLANT, PLANT).ocean(PLANT, PLANT).ocean(PLANT, PLANT).land(PLANT).ocean(PLANT, PLANT);
+    }
+  },
   amazonis: {
     name: "アマゾニス平原",
     englishName: "Amazonis Planitia",

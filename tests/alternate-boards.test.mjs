@@ -14,7 +14,7 @@ function activeTile(colonies) {
 }
 
 
-const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis"];
+const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis", "terra-cimmeria"];
 
 test("every map is a complete 61-space board", () => {
   for (const id of MAPS) {
@@ -402,4 +402,159 @@ test("Minimalist is claimed by holding few cards, through the engine", async () 
   // A floor milestone on the same board must still compare the usual way.
   const terran = getMilestoneStatus({ ...state, phase: "action" }, "terran", seat);
   assert.equal(terran.claimable, false, "no Earth tags yet");
+});
+
+// Terra Cimmeria's own five and five, transcribed from the reference
+// (src/server/milestones/terraCimmeria, src/server/awards/terraCimmeria).
+test("Terra Cimmeria brings its own five milestones and five awards", () => {
+  assert.deepEqual(
+    milestonesForBoard("terra-cimmeria").map(entry => entry.id).sort(),
+    ["t-collector", "firestarter", "terra-pioneer", "spacefarer", "gambler"].sort()
+  );
+  assert.deepEqual(
+    awardsForBoard("terra-cimmeria").map(entry => entry.id).sort(),
+    ["biologist", "incorporator", "t-politician", "urbanist", "warmonger"].sort()
+  );
+});
+
+test("the Terra Cimmeria milestones score what the reference scores", () => {
+  const milestone = id => milestonesForBoard("terra-cimmeria").find(entry => entry.id === id);
+
+  // Firestarter: 20 heat HELD, not produced.
+  assert.equal(milestone("firestarter").threshold, 20);
+  assert.equal(milestone("firestarter").getScore({ player: { heat: 20, heatProd: 0 } }), 20);
+
+  // Spacefarer: 6 space tags.
+  assert.equal(milestone("spacefarer").threshold, 6);
+
+  // Gambler: two awards funded BY THIS PLAYER.
+  const gambler = milestone("gambler");
+  assert.equal(gambler.threshold, 2);
+  assert.equal(
+    gambler.getScore({
+      player: { id: "player" },
+      fundedAwards: [{ awardId: "a", playerId: "player" }, { awardId: "b", playerId: "rival" }]
+    }),
+    1,
+    "a rival's funding is not this player's"
+  );
+
+  // T. Collector: complete SETS of green, blue and red -- the smallest of the
+  // three counts, so two greens and no events is zero sets.
+  const collector = milestone("t-collector");
+  assert.equal(collector.threshold, 3);
+  const cards = [
+    { id: "g1", type: "automated" },
+    { id: "g2", type: "automated" },
+    { id: "b1", type: "active" }
+  ];
+  assert.equal(
+    collector.getScore({ player: { playedProjects: ["g1", "g2", "b1"], playedEvents: [] }, cards }),
+    0,
+    "no events means no complete set"
+  );
+  assert.equal(
+    collector.getScore({ player: { playedProjects: ["g1", "g2", "b1"], playedEvents: ["e1"] }, cards }),
+    1,
+    "one of each is one set"
+  );
+
+  // Terra Pioneer: tiles on Mars, and an ocean is not one of them.
+  const pioneer = milestone("terra-pioneer");
+  assert.equal(pioneer.threshold, 5);
+  const board = {
+    "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" },
+    "1,0": { q: 1, r: 0, tileType: "forest", placedBy: "player" },
+    "2,0": { q: 2, r: 0, tileType: "ocean", placedBy: "player" },
+    "3,0": { q: 3, r: 0, tileType: "city", placedBy: "rival" }
+  };
+  assert.equal(
+    pioneer.getScore({ player: { id: "player" }, board }),
+    2,
+    "the ocean does not count, and neither does the rival's city"
+  );
+});
+
+test("the Terra Cimmeria awards score what the reference scores", () => {
+  const award = id => awardsForBoard("terra-cimmeria").find(entry => entry.id === id);
+
+  // Incorporator: 10 M€ or less, and NOT events -- unlike Utopia's version,
+  // which reads the same threshold but is a different award entry.
+  const cards = [
+    { id: "cheap", cost: 8, type: "automated", tags: [] },
+    { id: "cheapEvent", cost: 8, type: "event", tags: [] },
+    { id: "dear", cost: 11, type: "automated", tags: [] }
+  ];
+  assert.equal(
+    award("incorporator").getScore({ player: { playedProjects: ["cheap", "cheapEvent", "dear"] }, cards }),
+    1,
+    "only the cheap non-event counts"
+  );
+
+  // Biologist: animal, plant and microbe tags together.
+  const tagged = [{ id: "t", type: "automated", tags: ["Plant", "Microbe", "Animal", "Space"] }];
+  assert.equal(
+    award("biologist").getScore({ player: { playedProjects: ["t"] }, cards: tagged, corporation: null }),
+    3,
+    "the space tag is not one of the three"
+  );
+
+  // T. Politician: delegates placed over the whole game, not those still seated.
+  assert.equal(award("t-politician").getScore({ player: { delegatesPlaced: 4 } }), 4);
+
+  // Warmonger: cards that take from other players, events included.
+  const attacks = [
+    { id: "attack", type: "event", effectSpec: { removeAnyPlants: 2 } },
+    { id: "quiet", type: "automated", effectSpec: { mc: 3 } }
+  ];
+  assert.equal(
+    award("warmonger").getScore({
+      player: { playedProjects: ["quiet"], playedEvents: ["attack"] },
+      cards: attacks
+    }),
+    1,
+    "the event counts and the harmless card does not"
+  );
+});
+
+// Through the engine rather than the scoring function: Gambler reads the game's
+// funded awards and T. Politician a running count, and neither lives on the
+// player where the other milestones look.
+test("Gambler and T. Politician read state the engine actually maintains", async () => {
+  const { getInitialState, applyCorporation, completeSetupPurchase, cloneGameState, getPlayer,
+          getMilestoneStatus, fundAward, sendDelegateToParty } = await import("../app/game-logic.js");
+  const { awardsForBoard } = await import("../app/board-milestones.js");
+
+  let state = getInitialState({ playerCount: 2, board: "terra-cimmeria", turmoil: true, seed: 9 });
+  for (const player of state.players) {
+    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+  }
+  let guard = 0;
+  while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+  state.players = state.players.map(player => ({ ...player, mc: 120 }));
+
+  // Gambler: nothing funded yet, so it must not be claimable.
+  assert.equal(getMilestoneStatus(state, "gambler", "player").score, 0);
+
+  const available = awardsForBoard("terra-cimmeria").map(entry => entry.id);
+  let funded = state;
+  for (const awardId of available.slice(0, 2)) {
+    const result = fundAward(funded, awardId, funded.logs, "player");
+    assert.equal(result.funded, true, `${awardId} must be fundable`);
+    funded = result.state;
+  }
+  assert.equal(
+    getMilestoneStatus(funded, "gambler", "player").score,
+    2,
+    "the milestone sees the awards this player funded"
+  );
+
+  // T. Politician: the count rises as delegates are sent, and it is per player.
+  const party = Object.keys(funded.turmoil.parties)[0];
+  const sent = sendDelegateToParty(funded, party, funded.logs, "player");
+  assert.equal(sent.sent, true);
+  assert.equal(getPlayer(sent.state, "player").delegatesPlaced, 1);
+  assert.equal(getPlayer(sent.state, "player2").delegatesPlaced ?? 0, 0, "the rival sent none");
 });

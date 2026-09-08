@@ -226,6 +226,81 @@ function productionAlteringCards(context) {
   }, 0);
 }
 
+
+// --- Terra Cimmeria -----------------------------------------------------
+// Transcribed from src/server/milestones/terraCimmeria and
+// src/server/awards/terraCimmeria in the reference implementation.
+
+// "Own 5 tiles on Mars." An ocean the player placed is a tile they own, but it
+// is not one of theirs on Mars for this milestone -- upstream excludes it by
+// tile type, and excludes colonies by space type.
+function tilesOnMars(context) {
+  return ownedTiles(context).filter(cell => cell.tileType !== "ocean").length;
+}
+
+// "Have 3 sets of automated, active and event cards in play." A set needs one
+// of each, so the score is the smallest of the three counts.
+function completeCardTypeSets(context) {
+  return Math.min(
+    cardTypeCount(context, "automated"),
+    cardTypeCount(context, "active"),
+    (context.player.playedEvents ?? []).length
+  );
+}
+
+function awardsFundedBy(context) {
+  return (context.fundedAwards ?? []).filter(entry => entry.playerId === context.player.id).length;
+}
+
+// "Have the most VP from city tile adjacencies on Mars" -- the same sum
+// scoring.js pays for a city, counted here for the award.
+function cityAdjacencyVp(context) {
+  let total = 0;
+  for (const cell of Object.values(context.board)) {
+    if (cell.placedBy !== context.player.id || cell.tileType !== "city") continue;
+    total += adjacentPositions(cell.q, cell.r).filter(
+      pos => context.board[`${pos.q},${pos.r}`]?.tileType === "forest"
+    ).length;
+  }
+  return total;
+}
+
+// "Play the most cards that reduce other players' resources or production,
+// INCLUDING EVENTS." Read from each card's own declaration rather than a list.
+const ATTACK_KEYS = [
+  "removeAnyPlants",
+  "removePlants",
+  "removeAnyMc",
+  "stealMc",
+  "removeAnySteel",
+  "removeAnyTitanium",
+  "decreaseAnyProduction"
+];
+
+function attacksOtherPlayers(card) {
+  const spec = card?.effectSpec ?? card?.effect;
+  if (!spec) return false;
+  return ATTACK_KEYS.some(key => Boolean(spec[key]));
+}
+
+function attackCards(context) {
+  const ids = [...(context.player.playedProjects ?? []), ...(context.player.playedEvents ?? [])];
+  return ids.reduce((sum, id) => {
+    const card = context.cards.find(item => item.id === id);
+    return sum + (attacksOtherPlayers(card) ? 1 : 0);
+  }, 0);
+}
+
+// Incorporator is printed on both the Utopia and the Terra Cimmeria sheets with
+// the same 10 M€ threshold, but the Terra Cimmeria wording excludes events.
+function cheapProjectsExcludingEvents(context) {
+  return (context.player.playedProjects ?? []).reduce((sum, id) => {
+    const card = context.cards.find(item => item.id === id);
+    if (!card || card.type === "event") return sum;
+    return sum + ((card.cost ?? 99) <= INCORPORATOR_MAX_COST ? 1 : 0);
+  }, 0);
+}
+
 export const BOARD_MILESTONES = {
   hellas: [
     { id: "diversifier", name: "多角化", description: "異なるタグ8種類以上", threshold: 8, getScore: distinctTags },
@@ -298,6 +373,22 @@ BOARD_AWARDS.elysium = [
   { id: "desert-settler", name: "砂漠開拓者", description: "赤道より南のタイルが最多", getScore: tilesInSouth },
   { id: "estate-dealer", name: "不動産業者", description: "海洋に隣接するタイルが最多", getScore: tilesAdjacentToOcean },
   { id: "benefactor", name: "篤志家", description: "TRが最多", getScore: context => context.player.tr ?? 0 }
+];
+
+BOARD_MILESTONES["terra-cimmeria"] = [
+  { id: "t-collector", name: "収集家", description: "緑・青・赤の3種そろいが3組以上", threshold: 3, getScore: completeCardTypeSets },
+  { id: "firestarter", name: "火付け役", description: "熱を20以上保有", threshold: 20, getScore: context => context.player.heat ?? 0 },
+  { id: "terra-pioneer", name: "開拓の先駆者", description: "火星上のタイル5枚以上（海洋を除く）", threshold: 5, getScore: tilesOnMars },
+  { id: "spacefarer", name: "宇宙旅行者", description: "宇宙タグ6個以上", threshold: 6, getScore: context => countTags(context.player, context.cards, "Space", context.corporation) },
+  { id: "gambler", name: "勝負師", description: "自分で2つ以上の表彰を出資", threshold: 2, getScore: awardsFundedBy }
+];
+
+BOARD_AWARDS["terra-cimmeria"] = [
+  { id: "biologist", name: "生物学者", description: "動物・植物・微生物タグの合計が最多", getScore: bioTags },
+  { id: "incorporator", name: "法人設立者", description: "コスト10MC以下のカードが最多（イベントを除く）", getScore: cheapProjectsExcludingEvents },
+  { id: "t-politician", name: "政治家", description: "送り込んだ代表者の累計が最多", getScore: context => context.player.delegatesPlaced ?? 0 },
+  { id: "urbanist", name: "都市計画者", description: "都市の隣接による得点が最多", getScore: cityAdjacencyVp },
+  { id: "warmonger", name: "戦争屋", description: "他プレイヤーの資源・生産量を減らすカードが最多（イベントを含む）", getScore: attackCards }
 ];
 
 BOARD_MILESTONES.amazonis = [

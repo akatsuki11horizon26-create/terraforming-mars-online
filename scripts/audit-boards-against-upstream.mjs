@@ -26,6 +26,7 @@ const MAPS = [
   { id: "hellas", file: "HellasBoard.ts" },
   { id: "elysium", file: "ElysiumBoard.ts" },
   { id: "utopia", file: "UtopiaPlanitiaBoard.ts" },
+  { id: "terra-cimmeria", file: "TerraCimmeriaBoard.ts" },
   { id: "amazonis", file: "AmazonisBoard.ts" }
 ];
 
@@ -67,8 +68,12 @@ function rowsFrom(text, prefix) {
 const ours = readFileSync(new URL("./generate-boards.mjs", import.meta.url), "utf8");
 
 function ourRows(id) {
-  const start = ours.indexOf(`  ${id}: {`);
-  if (start < 0) throw new Error(`${id} is not in generate-boards.mjs`);
+  // A key with a hyphen has to be quoted in the object literal; one without
+  // may or may not be.
+  const start = [`  ${id}: {`, `  "${id}": {`]
+    .map(marker => ours.indexOf(marker))
+    .find(index => index >= 0);
+  if (start === undefined) throw new Error(`${id} is not in generate-boards.mjs`);
   const buildAt = ours.indexOf("build(b) {", start);
   const end = ours.indexOf("\n    }", buildAt);
   return rowsFrom(ours.slice(buildAt, end), "b.");
