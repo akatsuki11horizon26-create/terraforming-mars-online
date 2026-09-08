@@ -16,6 +16,7 @@ const ENERGY = "energy";
 const MICROBE = "microbe";
 const ANIMAL = "animal";
 const OCEAN = "ocean";
+const TEMPERATURE = "temperature";
 
 const TILES_PER_ROW = [5, 6, 7, 8, 9, 8, 7, 6, 5];
 const ROW_SHIFT = [0, 0, 0, 0, 0, -1, -2, -3, -4];
@@ -42,6 +43,21 @@ function makeBuilder() {
 
 // Each board, transcribed from the reference implementation one row per line.
 const BOARDS = {
+  "vastitas-borealis": {
+    name: "ヴァスティタス・ボレアリス",
+    englishName: "Vastitas Borealis",
+    build(b) {
+      b.land(STEEL, STEEL).land(PLANT).land().land().volcanic(TITANIUM, TITANIUM);
+      b.land(STEEL, STEEL).land(STEEL).land().land().volcanic(TITANIUM).land(PLANT);
+      b.land(TITANIUM).land().land().land().land(CARD).ocean(PLANT, CARD).ocean(PLANT);
+      b.volcanic(STEEL, TITANIUM).volcanic(STEEL, CARD).land(STEEL).ocean(HEAT, HEAT).ocean(HEAT, HEAT).ocean().ocean(PLANT, PLANT).land(STEEL, PLANT);
+      b.land().land().land().ocean(HEAT, HEAT).land(TEMPERATURE).doNotShuffleLastSpace().land(STEEL).land().land(PLANT).ocean(TITANIUM);
+      b.land(PLANT).land().land(PLANT).ocean(HEAT, HEAT).land(HEAT, HEAT).land().land(PLANT).land(TITANIUM, PLANT);
+      b.land(PLANT, PLANT).land().ocean().land().land(STEEL, PLANT).land(PLANT).land(PLANT, PLANT);
+      b.ocean(PLANT).land().land(CARD).land(STEEL).land().land(PLANT, PLANT);
+      b.ocean(PLANT, PLANT).land().land(PLANT).land(PLANT, PLANT).land(STEEL, PLANT);
+    }
+  },
   hellas: {
     name: "ヘラス",
     englishName: "Hellas",

@@ -73,11 +73,18 @@ test("nothing is committed until the single confirmation, and choices can be cha
   // balance follows it -- the point of choosing them side by side.
   await cards.nth(0).click();
   await cards.nth(1).click();
+  // The balance must track the corporation currently selected. Comparing the
+  // two readings directly would be deal-dependent -- several corporations open
+  // on the same 42 M€, and then switching changes nothing.
   const balance = page.getByTestId("setup-balance");
-  const first = await balance.textContent();
+  const expectedFor = async (index: number) => {
+    const money = Number((await corporations.nth(index).getAttribute("data-starting-mc")) ?? "0");
+    return money - 2 * 3;
+  };
+  await expect(balance).toContainText(String(await expectedFor(0)));
 
   await corporations.nth(1).click();
-  await expect(balance).not.toHaveText(first ?? "", { timeout: 5000 });
+  await expect(balance).toContainText(String(await expectedFor(1)));
 
   // Deselecting a prelude disables the button again: exactly two are owed.
   await preludes.nth(0).click();

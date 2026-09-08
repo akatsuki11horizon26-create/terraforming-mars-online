@@ -23,6 +23,7 @@ const sourceRoot = process.env.TM_SOURCE ?? "C:/Users/takkun/AppData/Local/Temp/
 const boardsDir = join(sourceRoot, "src/server/boards");
 
 const MAPS = [
+  { id: "vastitas-borealis", file: "VastitasBorealisBoard.ts" },
   { id: "hellas", file: "HellasBoard.ts" },
   { id: "elysium", file: "ElysiumBoard.ts" },
   { id: "utopia", file: "UtopiaPlanitiaBoard.ts" },

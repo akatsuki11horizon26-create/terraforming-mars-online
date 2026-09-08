@@ -340,7 +340,7 @@ export function buildScoreContributions(state, options = {}) {
       category: "awards",
       sourceType: "award",
       sourceId: "awards",
-      label: "褒賞"
+      label: "表彰"
     });
   }
 

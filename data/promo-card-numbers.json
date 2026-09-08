@@ -1,0 +1,566 @@
+{
+  "source": "src/server/cards/promo",
+  "filesRead": 97,
+  "numbered": 92,
+  "withoutNumber": [
+    "DeimosDownPromo.ts",
+    "energyForCards.ts",
+    "GreatDamPromo.ts",
+    "MagneticFieldGeneratorsPromo.ts",
+    "PromoCardManifest.ts"
+  ],
+  "cards": [
+    {
+      "file": "WeatherBalloons.ts",
+      "cardName": "WEATHER_BALLOONS",
+      "englishName": "Weather Balloons",
+      "cardNumber": "033"
+    },
+    {
+      "file": "SmallAsteroid.ts",
+      "cardName": "SMALL_ASTEROID",
+      "englishName": "Small Asteroid",
+      "cardNumber": "209"
+    },
+    {
+      "file": "SelfReplicatingRobots.ts",
+      "cardName": "SELF_REPLICATING_ROBOTS",
+      "englishName": "Self-replicating Robots",
+      "cardNumber": "210"
+    },
+    {
+      "file": "SnowAlgae.ts",
+      "cardName": "SNOW_ALGAE",
+      "englishName": "Snow Algae",
+      "cardNumber": "211"
+    },
+    {
+      "file": "Penguins.ts",
+      "cardName": "PENGUINS",
+      "englishName": "Penguins",
+      "cardNumber": "212"
+    },
+    {
+      "file": "Astrodrill.ts",
+      "cardName": "ASTRODRILL",
+      "englishName": "AstroDrill",
+      "cardNumber": "R21"
+    },
+    {
+      "file": "Factorum.ts",
+      "cardName": "FACTORUM",
+      "englishName": "Factorum",
+      "cardNumber": "R22"
+    },
+    {
+      "file": "Philares.ts",
+      "cardName": "PHILARES",
+      "englishName": "Philares",
+      "cardNumber": "R25"
+    },
+    {
+      "file": "Recyclon.ts",
+      "cardName": "RECYCLON",
+      "englishName": "Recyclon",
+      "cardNumber": "R26"
+    },
+    {
+      "file": "Splice.ts",
+      "cardName": "SPLICE",
+      "englishName": "Splice",
+      "cardNumber": "R28"
+    },
+    {
+      "file": "PharmacyUnion.ts",
+      "cardName": "PHARMACY_UNION",
+      "englishName": "Pharmacy Union",
+      "cardNumber": "R39"
+    },
+    {
+      "file": "ArcadianCommunities.ts",
+      "cardName": "ARCADIAN_COMMUNITIES",
+      "englishName": "Arcadian Communities",
+      "cardNumber": "R44"
+    },
+    {
+      "file": "MonsInsurance.ts",
+      "cardName": "MONS_INSURANCE",
+      "englishName": "Mons Insurance",
+      "cardNumber": "R46"
+    },
+    {
+      "file": "FloydContinuum.ts",
+      "cardName": "FLOYD_CONTINUUM",
+      "englishName": "Floyd Continuum",
+      "cardNumber": "X-1"
+    },
+    {
+      "file": "NewHolland.ts",
+      "cardName": "NEW_HOLLAND",
+      "englishName": "New Holland",
+      "cardNumber": "X-2"
+    },
+    {
+      "file": "PolderTechDutch.ts",
+      "cardName": "POLDERTECH_DUTCH",
+      "englishName": "PolderTECH Dutch",
+      "cardNumber": "X-3"
+    },
+    {
+      "file": "DuskLaserMining.ts",
+      "cardName": "DUSK_LASER_MINING",
+      "englishName": "Dusk Laser Mining",
+      "cardNumber": "X01"
+    },
+    {
+      "file": "ProjectInspection.ts",
+      "cardName": "PROJECT_INSPECTION",
+      "englishName": "Project Inspection",
+      "cardNumber": "X02"
+    },
+    {
+      "file": "EnergyMarket.ts",
+      "cardName": "ENERGY_MARKET",
+      "englishName": "Energy Market",
+      "cardNumber": "X03"
+    },
+    {
+      "file": "HiTechLab.ts",
+      "cardName": "HI_TECH_LAB",
+      "englishName": "Hi-Tech Lab",
+      "cardNumber": "X04"
+    },
+    {
+      "file": "InterplanetaryTrade.ts",
+      "cardName": "INTERPLANETARY_TRADE",
+      "englishName": "Interplanetary Trade",
+      "cardNumber": "X05"
+    },
+    {
+      "file": "LawSuit.ts",
+      "cardName": "LAW_SUIT",
+      "englishName": "Law Suit",
+      "cardNumber": "X06"
+    },
+    {
+      "file": "MercurianAlloys.ts",
+      "cardName": "MERCURIAN_ALLOYS",
+      "englishName": "Mercurian Alloys",
+      "cardNumber": "X07"
+    },
+    {
+      "file": "OrbitalCleanup.ts",
+      "cardName": "ORBITAL_CLEANUP",
+      "englishName": "Orbital Cleanup",
+      "cardNumber": "X08"
+    },
+    {
+      "file": "RegoPlastics.ts",
+      "cardName": "REGO_PLASTICS",
+      "englishName": "Rego Plastics",
+      "cardNumber": "X10"
+    },
+    {
+      "file": "SaturnSurfing.ts",
+      "cardName": "SATURN_SURFING",
+      "englishName": "Saturn Surfing",
+      "cardNumber": "X11"
+    },
+    {
+      "file": "StanfordTorus.ts",
+      "cardName": "STANFORD_TORUS",
+      "englishName": "Stanford Torus",
+      "cardNumber": "X12"
+    },
+    {
+      "file": "Advertising.ts",
+      "cardName": "ADVERTISING",
+      "englishName": "Advertising",
+      "cardNumber": "X13"
+    },
+    {
+      "file": "AsteroidDeflectionSystem.ts",
+      "cardName": "ASTEROID_DEFLECTION_SYSTEM",
+      "englishName": "Asteroid Deflection System",
+      "cardNumber": "X14"
+    },
+    {
+      "file": "AsteroidHollowing.ts",
+      "cardName": "ASTEROID_HOLLOWING",
+      "englishName": "Asteroid Hollowing",
+      "cardNumber": "X15"
+    },
+    {
+      "file": "CometAiming.ts",
+      "cardName": "COMET_AIMING",
+      "englishName": "Comet Aiming",
+      "cardNumber": "X16"
+    },
+    {
+      "file": "CrashSiteCleanup.ts",
+      "cardName": "CRASH_SITE_CLEANUP",
+      "englishName": "Crash Site Cleanup",
+      "cardNumber": "X17"
+    },
+    {
+      "file": "CuttingEdgeTechnology.ts",
+      "cardName": "CUTTING_EDGE_TECHNOLOGY",
+      "englishName": "Cutting Edge Technology",
+      "cardNumber": "X18"
+    },
+    {
+      "file": "DirectedImpactors.ts",
+      "cardName": "DIRECTED_IMPACTORS",
+      "englishName": "Directed Impactors",
+      "cardNumber": "X19"
+    },
+    {
+      "file": "DiversitySupport.ts",
+      "cardName": "DIVERSITY_SUPPORT",
+      "englishName": "Diversity Support",
+      "cardNumber": "X20"
+    },
+    {
+      "file": "FieldCappedCity.ts",
+      "cardName": "FIELD_CAPPED_CITY",
+      "englishName": "Field-Capped City",
+      "cardNumber": "X21"
+    },
+    {
+      "file": "ImportedNutrients.ts",
+      "cardName": "IMPORTED_NUTRIENTS",
+      "englishName": "Imported Nutrients",
+      "cardNumber": "X22"
+    },
+    {
+      "file": "JovianEmbassy.ts",
+      "cardName": "JOVIAN_EMBASSY",
+      "englishName": "Jovian Embassy",
+      "cardNumber": "X23"
+    },
+    {
+      "file": "MagneticShield.ts",
+      "cardName": "MAGNETIC_SHIELD",
+      "englishName": "Magnetic Shield",
+      "cardNumber": "X24"
+    },
+    {
+      "file": "MeatIndustry.ts",
+      "cardName": "MEAT_INDUSTRY",
+      "englishName": "Meat Industry",
+      "cardNumber": "X25"
+    },
+    {
+      "file": "Meltworks.ts",
+      "cardName": "MELTWORKS",
+      "englishName": "Meltworks",
+      "cardNumber": "X26"
+    },
+    {
+      "file": "MoholeLake.ts",
+      "cardName": "MOHOLE_LAKE",
+      "englishName": "Mohole Lake",
+      "cardNumber": "X27"
+    },
+    {
+      "file": "Potatoes.ts",
+      "cardName": "POTATOES",
+      "englishName": "Potatoes",
+      "cardNumber": "X28"
+    },
+    {
+      "file": "SubCrustMeasurements.ts",
+      "cardName": "SUB_CRUST_MEASUREMENTS",
+      "englishName": "Sub-Crust Measurements",
+      "cardNumber": "X29"
+    },
+    {
+      "file": "TopsoilContract.ts",
+      "cardName": "TOPSOIL_CONTRACT",
+      "englishName": "Topsoil Contract",
+      "cardNumber": "X30"
+    },
+    {
+      "file": "AsteroidRights.ts",
+      "cardName": "ASTEROID_RIGHTS",
+      "englishName": "Asteroid Rights",
+      "cardNumber": "X34"
+    },
+    {
+      "file": "BactoviralResearch.ts",
+      "cardName": "BACTOVIRAL_RESEARCH",
+      "englishName": "Bactoviral Research",
+      "cardNumber": "X35"
+    },
+    {
+      "file": "BioPrintingFacility.ts",
+      "cardName": "BIO_PRINTING_FACILITY",
+      "englishName": "Bio Printing Facility",
+      "cardNumber": "X36"
+    },
+    {
+      "file": "Harvest.ts",
+      "cardName": "HARVEST",
+      "englishName": "Harvest",
+      "cardNumber": "X37"
+    },
+    {
+      "file": "OutdoorSports.ts",
+      "cardName": "OUTDOOR_SPORTS",
+      "englishName": "Outdoor Sports",
+      "cardNumber": "X38"
+    },
+    {
+      "file": "CorporateArchives.ts",
+      "cardName": "CORPORATE_ARCHIVES",
+      "englishName": "Corporate Archives",
+      "cardNumber": "X39"
+    },
+    {
+      "file": "DoubleDown.ts",
+      "cardName": "DOUBLE_DOWN",
+      "englishName": "Double Down",
+      "cardNumber": "X40"
+    },
+    {
+      "file": "Merger.ts",
+      "cardName": "MERGER",
+      "englishName": "Merger",
+      "cardNumber": "X41"
+    },
+    {
+      "file": "NewPartner.ts",
+      "cardName": "NEW_PARTNER",
+      "englishName": "New Partner",
+      "cardNumber": "X42"
+    },
+    {
+      "file": "HeadStart.ts",
+      "cardName": "HEAD_START",
+      "englishName": "Head Start",
+      "cardNumber": "X43"
+    },
+    {
+      "file": "16Psyche.ts",
+      "cardName": "PSYCHE",
+      "englishName": "16 Psyche",
+      "cardNumber": "X44"
+    },
+    {
+      "file": "RobotPollinators.ts",
+      "cardName": "ROBOT_POLLINATORS",
+      "englishName": "Robot Pollinators",
+      "cardNumber": "X45"
+    },
+    {
+      "file": "Supercapacitors.ts",
+      "cardName": "SUPERCAPACITORS",
+      "englishName": "Supercapacitors",
+      "cardNumber": "X46"
+    },
+    {
+      "file": "IcyImpactors.ts",
+      "cardName": "ICY_IMPACTORS",
+      "englishName": "Icy Impactors",
+      "cardNumber": "X47"
+    },
+    {
+      "file": "DirectedHeatUsage.ts",
+      "cardName": "DIRECTED_HEAT_USAGE",
+      "englishName": "Directed Heat Usage",
+      "cardNumber": "X48"
+    },
+    {
+      "file": "AntidesertificationTechniques.ts",
+      "cardName": "ANTI_DESERTIFICATION_TECHNIQUES",
+      "englishName": "Anti-desertification Techniques",
+      "cardNumber": "X49"
+    },
+    {
+      "file": "AqueductSystems.ts",
+      "cardName": "AQUEDUCT_SYSTEMS",
+      "englishName": "Aqueduct Systems",
+      "cardNumber": "X50"
+    },
+    {
+      "file": "AstraMechanica.ts",
+      "cardName": "ASTRA_MECHANICA",
+      "englishName": "Astra Mechanica",
+      "cardNumber": "X51"
+    },
+    {
+      "file": "CarbonNanosystems.ts",
+      "cardName": "CARBON_NANOSYSTEMS",
+      "englishName": "Carbon Nanosystems",
+      "cardNumber": "X52"
+    },
+    {
+      "file": "CyberiaSystems.ts",
+      "cardName": "CYBERIA_SYSTEMS",
+      "englishName": "Cyberia Systems",
+      "cardNumber": "X53"
+    },
+    {
+      "file": "EstablishedMethods.ts",
+      "cardName": "ESTABLISHED_METHODS",
+      "englishName": "Established Methods",
+      "cardNumber": "X54"
+    },
+    {
+      "file": "GiantSolarCollector.ts",
+      "cardName": "GIANT_SOLAR_COLLECTOR",
+      "englishName": "Giant Solar Collector",
+      "cardNumber": "X55"
+    },
+    {
+      "file": "HermeticOrderofMars.ts",
+      "cardName": "HERMETIC_ORDER_OF_MARS",
+      "englishName": "Hermetic Order of Mars",
+      "cardNumber": "X56"
+    },
+    {
+      "file": "HomeostasisBureau.ts",
+      "cardName": "HOMEOSTASIS_BUREAU",
+      "englishName": "Homeostasis Bureau",
+      "cardNumber": "X57"
+    },
+    {
+      "file": "KaguyaTech.ts",
+      "cardName": "KAGUYA_TECH",
+      "englishName": "Kaguya Tech",
+      "cardNumber": "X58"
+    },
+    {
+      "file": "MarsNomads.ts",
+      "cardName": "MARS_NOMADS",
+      "englishName": "Mars Nomads",
+      "cardNumber": "X59"
+    },
+    {
+      "file": "MartianLumberCorp.ts",
+      "cardName": "MARTIAN_LUMBER_CORP",
+      "englishName": "Martian Lumber Corp",
+      "cardNumber": "X60"
+    },
+    {
+      "file": "NeptunianPowerConsultants.ts",
+      "cardName": "NEPTUNIAN_POWER_CONSULTANTS",
+      "englishName": "Neptunian Power Consultants",
+      "cardNumber": "X61"
+    },
+    {
+      "file": "RedShips.ts",
+      "cardName": "RED_SHIPS",
+      "englishName": "Red Ships",
+      "cardNumber": "X62"
+    },
+    {
+      "file": "SolarLogistics.ts",
+      "cardName": "SOLAR_LOGISTICS",
+      "englishName": "Solar Logistics",
+      "cardNumber": "X63"
+    },
+    {
+      "file": "StJosephOfCupertinoMission.ts",
+      "cardName": "ST_JOSEPH_OF_CUPERTINO_MISSION",
+      "englishName": "St. Joseph of Cupertino Mission",
+      "cardNumber": "X64"
+    },
+    {
+      "file": "StrategicBasePlanning.ts",
+      "cardName": "STRATEGIC_BASE_PLANNING",
+      "englishName": "Strategic Base Planning",
+      "cardNumber": "X65"
+    },
+    {
+      "file": "Teslaract.ts",
+      "cardName": "TESLARACT",
+      "englishName": "Teslaract",
+      "cardNumber": "X66"
+    },
+    {
+      "file": "SoilEnrichment.ts",
+      "cardName": "SOIL_ENRICHMENT",
+      "englishName": "Soil Enrichment",
+      "cardNumber": "X67"
+    },
+    {
+      "file": "Supermarkets.ts",
+      "cardName": "SUPERMARKETS",
+      "englishName": "Supermarkets",
+      "cardNumber": "X68"
+    },
+    {
+      "file": "Hospitals.ts",
+      "cardName": "HOSPITALS",
+      "englishName": "Hospitals",
+      "cardNumber": "X69"
+    },
+    {
+      "file": "PublicBaths.ts",
+      "cardName": "PUBLIC_BATHS",
+      "englishName": "Public Baths",
+      "cardNumber": "X70"
+    },
+    {
+      "file": "CityParks.ts",
+      "cardName": "CITY_PARKS",
+      "englishName": "City Parks",
+      "cardNumber": "X71"
+    },
+    {
+      "file": "Casinos.ts",
+      "cardName": "CASINOS",
+      "englishName": "Casinos",
+      "cardNumber": "X72"
+    },
+    {
+      "file": "ProtectedGrowth.ts",
+      "cardName": "PROTECTED_GROWTH",
+      "englishName": "Protected Growth",
+      "cardNumber": "X73"
+    },
+    {
+      "file": "StaticHarvesting.ts",
+      "cardName": "STATIC_HARVESTING",
+      "englishName": "Static Harvesting",
+      "cardNumber": "X74"
+    },
+    {
+      "file": "Vermin.ts",
+      "cardName": "VERMIN",
+      "englishName": "Vermin",
+      "cardNumber": "X75"
+    },
+    {
+      "file": "PublicPlans.ts",
+      "cardName": "PUBLIC_PLANS",
+      "englishName": "Public Plans",
+      "cardNumber": "X77"
+    },
+    {
+      "file": "AlbedoPlants.ts",
+      "cardName": "ALBEDO_PLANTS",
+      "englishName": "Albedo Plants",
+      "cardNumber": "X78"
+    },
+    {
+      "file": "SterlingVents.ts",
+      "cardName": "STERLING_VENTS",
+      "englishName": "Sterling Vents",
+      "cardNumber": "X79"
+    },
+    {
+      "file": "KuiperCooperative.ts",
+      "cardName": "KUIPER_COOPERATIVE",
+      "englishName": "Kuiper Cooperative",
+      "cardNumber": "XC01"
+    },
+    {
+      "file": "TychoMagnetics.ts",
+      "cardName": "TYCHO_MAGNETICS",
+      "englishName": "Tycho Magnetics",
+      "cardNumber": "XC02"
+    }
+  ]
+}

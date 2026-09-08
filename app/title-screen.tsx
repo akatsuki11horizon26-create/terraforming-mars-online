@@ -119,6 +119,8 @@ export function GameSetupPanel({
   onPrelude2,
   soloTr,
   onSoloTr,
+  corporateEra,
+  onCorporateEra,
   venus,
   onVenus,
   promo,
@@ -149,6 +151,8 @@ export function GameSetupPanel({
   onPrelude2: (on: boolean) => void;
   soloTr: boolean;
   onSoloTr: (on: boolean) => void;
+  corporateEra: boolean;
+  onCorporateEra: (on: boolean) => void;
   venus: boolean;
   onVenus: (on: boolean) => void;
   promo: boolean;
@@ -333,7 +337,7 @@ export function GameSetupPanel({
           <div>
             <div className="section-title">
               <span>マップ</span>
-              <span className="section-note">盤面ごとに配置ボーナス・称号・褒賞が変わる</span>
+              <span className="section-note">盤面ごとに配置ボーナス・マイルストーン・表彰が変わる</span>
             </div>
             <div className="board-picker">
               {boards.map(board => (
@@ -375,6 +379,27 @@ export function GameSetupPanel({
                 </span>
               </label>
             ))}
+          </div>
+
+          <div>
+            <div className="section-title">
+              <span>初期条件</span>
+              <span className="section-note">公式の版の違い</span>
+            </div>
+            <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                data-testid="setup-corporate-era"
+                checked={corporateEra}
+                onChange={event => onCorporateEra(event.target.checked)}
+              />
+              <span>
+                <span style={{ display: "block", fontSize: "0.8rem" }}>企業の時代 (Corporate Era)</span>
+                <span style={{ display: "block", fontSize: "0.7rem", color: "#c9bfae" }}>
+                  オンなら全生産量0から開始（既定）。オフは標準ゲームで、全員が各生産量1から始まる。
+                </span>
+              </span>
+            </label>
           </div>
 
           {isSoloSetup && (

@@ -30,7 +30,7 @@ export const BOT_DIFFICULTIES = [
   {
     id: "normal",
     name: "中級ロボット",
-    description: "生産量とTRを伸ばし、称号や褒賞も状況に応じて狙う。",
+    description: "生産量とTRを伸ばし、マイルストーンや表彰も状況に応じて狙う。",
     noise: 5,
     minMoveValue: 0.5,
     researchReserve: 9,
@@ -478,8 +478,8 @@ export function describeBotMove(move) {
   if (!move) return "パスしました。";
   if (move.kind === "play") return `【${move.card.name}】をプレイしました。`;
   if (move.kind === "action") return `【${move.card.name}】のアクションを使用しました。`;
-  if (move.kind === "milestone") return "称号を獲得しました。";
-  if (move.kind === "award") return "褒賞を出資しました。";
+  if (move.kind === "milestone") return "マイルストーンを獲得しました。";
+  if (move.kind === "award") return "表彰を出資しました。";
   if (move.kind === "standard") return `標準プロジェクト【${move.project.name}】を実行しました。`;
   if (move.kind === "colony") return "植民地を建設しました。";
   if (move.kind === "trade") return "植民地と交易しました。";

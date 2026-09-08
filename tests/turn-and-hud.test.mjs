@@ -63,7 +63,7 @@ test("The default view keeps the on-demand panels shut", async () => {
   // The HUD carries three controls now: the move you make most often, the
   // commitment, and one menu for reference panels. The planet readout, the
   // Turmoil card and the Colonies card are their own entry points.
-  for (const label of ["基本アクション", "称号・表彰"]) {
+  for (const label of ["基本アクション", "マイルストーン・表彰"]) {
     assert.ok(source.includes(label), `${label} is reachable from the HUD`);
   }
   for (const [label, drawer] of [["シンボル集計", "tags"], ["タイル凡例", "legend"], ["ミッションログ", "log"]]) {
@@ -92,7 +92,7 @@ test("Board tiles carry an explanation for hover and long-press", async () => {
   const { describeCell } = await import("../app/tile-help.js");
 
   const steel = describeCell({ tileType: "empty", isOceanOnly: false, bonusType: "steel", bonusAmount: 2 });
-  assert.match(steel, /配置ボーナス: 鋼鉄 \+2/, "bonus squares explain their icon");
+  assert.match(steel, /配置ボーナス: 建材 \+2/, "bonus squares explain their icon");
 
   const oceanOnly = describeCell({ tileType: "empty", isOceanOnly: true, bonusType: "none", bonusAmount: 0 });
   assert.match(oceanOnly, /海洋専用マス。海洋タイルのみ配置できる。/);

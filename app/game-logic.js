@@ -1614,6 +1614,29 @@ export function seatCorporation(state, corporationId, playerId) {
     const printed = resource === "mc" ? startingProduction.megacredits : undefined;
     nextState[`${resource}Prod`] = startingProduction[resource] ?? printed ?? 0;
   });
+  // The standard game (Corporate Era off) starts everyone on 1 of each
+  // production. Upstream overrides rather than adds, and it runs after the
+  // corporation is applied -- so a corporation that starts with more keeps it,
+  // and one that starts with none is lifted to 1.
+  if (nextState.corporateEra === false) {
+    // Written straight onto the player rather than through the seat accessors:
+    // the accessors follow currentPlayerId, and this runs while the seat is
+    // borrowed, so a later restore would leave the floor on the wrong player.
+    nextState.players = nextState.players.map(player =>
+      player.id === actorId
+        ? {
+            ...player,
+            mcProd: Math.max(1, player.mcProd ?? 0),
+            steelProd: Math.max(1, player.steelProd ?? 0),
+            titaniumProd: Math.max(1, player.titaniumProd ?? 0),
+            plantsProd: Math.max(1, player.plantsProd ?? 0),
+            energyProd: Math.max(1, player.energyProd ?? 0),
+            heatProd: Math.max(1, player.heatProd ?? 0)
+          }
+        : player
+    );
+  }
+
   // Colonies' solo variant opens at -2 M€ production, which balances the extra
   // income the colonies themselves provide. Production is written here, so the
   // penalty has to be applied after the corporation's own starting values.
@@ -2587,6 +2610,18 @@ function nomadCellKey(state, ownerId) {
 }
 
 function queuePendingChoices(state, card, context) {
+  // An automatic tile may have opened a paid bonus. Let it finish before
+  // asking for the card's next target, retaining the caller's setup context.
+  if (state.pendingChoice?.continuation.stage === "placement-temperature") {
+    const bonus = state.pendingChoice;
+    bonus.continuation = {
+      ...bonus.continuation,
+      ...context,
+      stage: "placement-temperature"
+    };
+    markChoiceResolved(state, card.id, "tile-placement");
+    return bonus;
+  }
   const done = state.resolvedChoices?.[card.id] ?? [];
 
   // A discard that pays for the card is asked before anything the card does,
@@ -3267,6 +3302,9 @@ function runPhaseContinuation(state, logs) {
 // Called after every resolution: either the next queued question comes up, or
 // the phase that was waiting on them continues.
 function advanceChoiceQueue(state, logs) {
+  if (state.pendingChoice) {
+    return { state, logs, pending: true };
+  }
   if (promoteNextChoice(state)) {
     return { state, logs: addLog(logs, "system", state.pendingChoice.prompt), pending: true };
   }
@@ -3278,7 +3316,46 @@ function advanceChoiceQueue(state, logs) {
 // next choice the same card still needs.
 export const DECLINE_CHOICE = "__decline__";
 
+// Placement detours carry a stack of serializable continuations. Drain their
+// choices first, then resume without paying for or placing the tile again.
 export function resolvePendingChoice(state, optionId, logs, playerId) {
+  const continuation = state.pendingChoice?.continuation;
+  const result = resolvePendingChoiceStep(state, optionId, logs, playerId);
+  if (!continuation || result.state === state) return result;
+  let resumes = continuation.placementResumes ?? [];
+  const afterPlay = continuation.afterPlay && continuation.stage === "placement-temperature"
+    ? { ...continuation.afterPlay, temperature: result.state.temperature, oxygen: result.state.oxygen }
+    : continuation.afterPlay;
+  if (result.state.pendingChoice) {
+    const pending = result.state.pendingChoice;
+    result.state.pendingChoice = {
+      ...pending,
+      continuation: {
+        ...pending.continuation,
+        consumedAction: continuation.consumedAction,
+        ...(afterPlay ? { afterPlay } : {}),
+        ...(resumes.length ? { placementResumes: [...resumes, ...(pending.continuation.placementResumes ?? [])] } : {})
+      }
+    };
+    return { ...result, status: "pending", pendingChoice: result.state.pendingChoice };
+  }
+  if (resumes.length) {
+    const resume = resumes.at(-1);
+    resumes = resumes.slice(0, -1);
+    result.state.pendingChoice = {
+      ...resume.choice,
+      continuation: {
+        ...resume.choice.continuation,
+        placementResumes: resumes,
+        ...(afterPlay ? { afterPlay } : {})
+      }
+    };
+    return resolvePendingChoice(result.state, resume.optionId, result.logs, playerId);
+  }
+  return result;
+}
+
+function resolvePendingChoiceStep(state, optionId, logs, playerId) {
   const choice = state.pendingChoice;
   if (!choice) {
     return { status: "resolved", state, logs: addLog(logs, "system", "解決すべき選択がありません。") };
@@ -3293,7 +3370,8 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     };
   }
   // An optional choice can be waived; the effect simply does not happen.
-  if (optionId === DECLINE_CHOICE && choice.optional) {
+  const temperatureBonus = choice.continuation.stage === "placement-temperature";
+  if (optionId === DECLINE_CHOICE && choice.optional && !temperatureBonus) {
     const declined = cloneGameState(state);
     declined.pendingChoice = null;
     markChoiceResolved(declined, choice.continuation.sourceId, choice.continuation.stage);
@@ -3314,7 +3392,9 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
     return { status: "resolved", state: advanced.state, logs: declinedLogs };
   }
 
-  const option = findOption(choice, optionId);
+  const option = temperatureBonus && choice.optional && optionId === DECLINE_CHOICE
+    ? { amount: 0 }
+    : findOption(choice, optionId);
   if (!option) {
     return {
       status: "pending",
@@ -3397,6 +3477,28 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // Only Insulation uses the amount choice so far; the stage says which.
       const amount = option.amount ?? 0;
       const target = choice.ownerPlayerId ?? actorId;
+      if (temperatureBonus) {
+        // Settle the placement's crossings before the paid step, so a greenery
+        // crossing 8% oxygen cannot award the same temperature threshold twice.
+        const before = choice.continuation.afterPlay;
+        if (before) {
+          const crossed = checkParameterThresholds(before.temperature, next.temperature, before.oxygen, next.oxygen, next, nextLogs);
+          Object.assign(next, crossed.state);
+          nextLogs = crossed.logs;
+        }
+        if (amount > 0 && next.temperature < MAX_TEMPERATURE && getPlayer(next, target).mc >= 3) {
+          next.players = next.players.map(player => player.id === target ? { ...player, mc: player.mc - 3 } : player);
+          const beforeTemp = next.temperature;
+          raiseTemperature(next, target);
+          const crossed = applyParameterThresholds(next, {
+            beforeTemp, beforeOxy: next.oxygen, actorPlayerId: target, grantTr: true, logs: nextLogs
+          });
+          nextLogs = addLog(crossed.logs, "system", "配置ボーナス: 3 MCを支払い、気温 +2°C。");
+        } else {
+          nextLogs = addLog(nextLogs, "system", "配置ボーナスの加熱を使用しませんでした。");
+        }
+        break;
+      }
       if (choice.continuation.stage === "pharmacy-union-order") {
         const ownerId = choice.ownerPlayerId ?? actorId;
         const owner = getPlayer(next, ownerId);
@@ -4729,9 +4831,9 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
               `${target.autoTarget.label}に${placing.type}を${target.count}個置きました。`
             );
           } else if (target) {
-            next.pendingChoice = target;
+            openOrEnqueuePendingChoice(next, target);
             next.logs = nextLogs;
-            return { status: "pending", state: next, logs: nextLogs, pendingChoice: target };
+            return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
           }
         }
         if (fromAction && !(next.usedCardActions ?? []).includes(card.id)) {
@@ -4755,10 +4857,11 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       // can be answered after something else has taken the space, and laying a
       // tile over an ocean loses that ocean while the counter keeps it.
       const stillFree = cell && (cell.tileType === "empty" || !cell.tileType);
-      if (cell && !stillFree) {
+      const placementComplete = choice.continuation.placementComplete === true;
+      if (cell && !stillFree && !placementComplete) {
         nextLogs = addLog(nextLogs, "system", "その場所には既にタイルが置かれています。");
       }
-      if (stillFree) {
+      if (stillFree && !placementComplete) {
         placeTileAt(next, cell, tileType, actorId, choice.continuation.sourceId, {
           worldGovernment: byWorldGovernment,
           finalGreenery,
@@ -4776,6 +4879,23 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
             ? `世界政府が ${option.label} に海洋タイルを配置しました（TRは得られません）。`
             : `${option.label} にタイルを配置しました。`
         );
+        if (next.pendingChoice?.continuation.stage === "placement-temperature") {
+          // Resume after the tile, not before it: its resources and TR are
+          // already granted. Plain data keeps this detour safe across reloads.
+          const pending = next.pendingChoice;
+          next.pendingChoice = {
+            ...pending,
+            continuation: {
+              ...pending.continuation,
+              placementResumes: [{
+                choice: { ...choice, continuation: { ...choice.continuation, placementResumes: [], placementComplete: true } },
+                optionId
+              }]
+            }
+          };
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+        }
       }
       // Mining Area and Mining Rights raise production for whichever bonus the
       // chosen space pays, so the amount is only known once the space is picked.
@@ -5007,6 +5127,29 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
       break;
   }
 
+  if (temperatureBonus && (card || choice.continuation.preludeResume) &&
+      (next.pendingChoice || (next.pendingChoiceQueue ?? []).length > 0)) {
+    if (!next.pendingChoice) promoteNextChoice(next);
+    const pending = next.pendingChoice;
+    next.pendingChoice = {
+      ...pending,
+      continuation: {
+        ...pending.continuation,
+        placementResumes: [{
+          choice: {
+            ...choice,
+            kind: "placement-continuation",
+            options: [{ id: "resume" }],
+            continuation: { ...choice.continuation, stage: "placement-temperature-complete", placementResumes: [] }
+          },
+          optionId: "resume"
+        }]
+      }
+    };
+    next.logs = nextLogs;
+    return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+  }
+
   // The World Government's ocean has been placed; the Solar phase carries on.
   if (choice.continuation.stage === "world-government-ocean") {
     const resumed = finishSolarPhase(next, nextLogs);
@@ -5065,6 +5208,7 @@ export function resolvePendingChoice(state, optionId, logs, playerId) {
   const resume = advanced.state.setupContinuation;
   if (!advanced.pending &&
       resume?.stage === "prelude-setup" &&
+      !(choice.continuation.placementResumes?.length) &&
       !choice.continuation.preludeResume) {
     advanced.state.setupContinuation = null;
     advanced.state.currentPlayerId = resume.seatBefore;
@@ -5560,6 +5704,16 @@ function bumpTr(state, playerId, amount) {
   increaseTerraformRating(state, playerId, amount, "action");
 }
 
+export function raiseTemperature(state, playerId) {
+  const before = state.temperature;
+  state.temperature = Math.min(MAX_TEMPERATURE, before + 2);
+  const steps = (state.temperature - before) / 2;
+  if (steps > 0) {
+    increaseTerraformRating(state, playerId, steps, "action");
+    grantParameterRaisedCardEffects(state, "temperature", steps);
+  }
+}
+
 // Placement bonuses printed on the space go to whoever covers it.
 function grantPlacementBonus(state, cell, ownerId) {
   const grants = cell.bonusType === "multi" && Array.isArray(cell.bonus)
@@ -5568,7 +5722,28 @@ function grantPlacementBonus(state, cell, ownerId) {
       ? [{ type: cell.bonusType, amount: cell.bonusAmount }]
       : [];
 
-  for (const grant of grants) {
+  // Immediate resources can pay for the deferred temperature offer.
+  const ordered = [...grants.filter(grant => grant.type !== "temperature"), ...grants.filter(grant => grant.type === "temperature")];
+  for (const grant of ordered) {
+    if (grant.type === "temperature") {
+      if (state.temperature < MAX_TEMPERATURE && getPlayer(state, ownerId).mc >= 3) {
+        for (let i = 0; i < grant.amount; i++) {
+          const choice = buildAmountChoice(state, {
+            sourceKind: "placement-bonus",
+            sourceId: `temperature:${cell.id ?? `${cell.q},${cell.r}`}`,
+            stage: "placement-temperature",
+            max: 1,
+            optional: true,
+            consumedAction: state.phase === "action",
+            prompt: "配置ボーナス: 3 MCを支払い、気温を1段階上げますか？",
+            labelFor: () => "3 MCを支払い、気温 +2°C"
+          });
+          choice.ownerPlayerId = ownerId;
+          openOrEnqueuePendingChoice(state, choice);
+        }
+      }
+      continue;
+    }
     // Hellas' south pole pays an ocean tile, not a resource. There is no
     // player field for it, so the generic branch below silently dropped it —
     // `field in player` was false and the grant vanished. The tile goes to a
@@ -6851,7 +7026,7 @@ export function applyCorporationTriggers(state, card, logs) {
   }
 
   if (queued.length > 0) {
-    nextState.pendingChoice = queued[0];
+    openOrEnqueuePendingChoice(nextState, queued[0]);
     enqueuePendingChoices(nextState, queued.slice(1));
     nextLogs = addLog(nextLogs, "system", queued[0].prompt);
   }
@@ -6868,7 +7043,7 @@ export function applyCorporationTriggers(state, card, logs) {
         consumedAction: false
       }, ALL_CARDS);
       if (choice) {
-        nextState.pendingChoice = choice;
+        openOrEnqueuePendingChoice(nextState, choice);
         nextLogs = addLog(nextLogs, "system", "Mars University: 手札1枚を捨てて1枚引けます。");
       }
     } else {
@@ -7242,6 +7417,11 @@ export function getInitialState(options = {}) {
     // Gas becomes available. Solo only -- there is nothing to vary in a game
     // that is scored on points.
     soloTrVariant: mode === "solo" && Boolean(options.soloTr),
+    // The standard game and Corporate Era differ in exactly one place upstream:
+    // without Corporate Era everyone starts on 1 of each production. The card
+    // set is not filtered by it. Unstated means Corporate Era, which is what
+    // every existing save was played with.
+    corporateEra: options.corporateEra ?? true,
     prelude2Enabled: Boolean(options.prelude2 ?? options.prelude),
     promoEnabled: Boolean(options.promo),
     oceans: 0,

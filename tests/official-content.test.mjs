@@ -345,3 +345,89 @@ test("each prelude box only deals its own cards", async () => {
   assert.ok(dealtSecond.length > 0);
   assert.deepEqual([...new Set(dealtSecond.map(boxOf))], ["prelude2"]);
 });
+
+// "428 projects" as a total identifies nothing, which is what the audit's §4.1
+// said about the promo range. Every promo card upstream prints an official card
+// number; data/promo-card-numbers.json carries them, and this pins the
+// reconciliation so a promo card cannot go missing unnoticed.
+test("every numbered promo card upstream exists here", async () => {
+  const { readFileSync } = await import("node:fs");
+  const manifest = JSON.parse(
+    readFileSync(new URL("../data/promo-card-numbers.json", import.meta.url), "utf8")
+  );
+  const { ALL_CARDS, PRELUDES, CORPORATIONS } = await import("../app/game-logic.js");
+
+  assert.ok(manifest.numbered > 80, `the manifest looks truncated: ${manifest.numbered}`);
+  // The extraction must account for every file it read, not just the ones it
+  // could parse.
+  assert.equal(
+    manifest.numbered + manifest.withoutNumber.length,
+    manifest.filesRead,
+    "every upstream promo file is either numbered or named as unnumbered"
+  );
+
+  const slug = text => String(text ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const ours = new Set();
+  for (const card of [...ALL_CARDS, ...PRELUDES, ...CORPORATIONS]) {
+    if (card.expansion !== "promo") continue;
+    ours.add(slug(card.englishName ?? card.name));
+    ours.add(slug(String(card.id).replace(/^(card|corp|prelude)-promo-/, "")));
+  }
+
+  const missing = manifest.cards
+    .filter(entry => !ours.has(slug(entry.englishName)))
+    .map(entry => `${entry.cardNumber} ${entry.englishName}`);
+  assert.deepEqual(missing, [], `numbered promo cards not implemented here: ${missing.join(", ")}`);
+
+  // And no card number is claimed twice, which would mean the extraction
+  // misread a file rather than that two cards share one.
+  const numbers = manifest.cards.map(entry => entry.cardNumber);
+  assert.equal(new Set(numbers).size, numbers.length, "card numbers must be unique");
+});
+
+// The standard game and Corporate Era differ in one place upstream: without
+// Corporate Era every player starts with 1 of each production instead of 0.
+// The card set is NOT filtered by it (Game.ts:398 is the only place it is read
+// outside the options object), so this is a starting-conditions setting, not a
+// second catalogue.
+test("the standard game starts everyone on 1 of each production", async () => {
+  const { getInitialState, applyCorporation, getPlayer, CORPORATIONS } =
+    await import("../app/game-logic.js");
+
+  const PRODUCTION = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"];
+  // CrediCor changes no production, so what is read below is the variant's own
+  // starting floor rather than a corporation's gift.
+  const neutral = CORPORATIONS.find(item => item.id === "corp-credicor");
+
+  const seated = corporateEra => {
+    const dealt = getInitialState({ playerCount: 2, corporateEra, seed: 12 });
+    // The deal is random, so the neutral corporation has to be put in front of
+    // each seat rather than hoped for -- applyCorporation refuses one that was
+    // not offered, and the whole test would then assert on an untouched state.
+    let state = {
+      ...dealt,
+      players: dealt.players.map(player => ({ ...player, corporationOptions: [neutral.id] }))
+    };
+    for (const player of state.players) {
+      state = applyCorporation(state, neutral.id, player.id);
+      assert.equal(getPlayer(state, player.id).corporationId, neutral.id, "the corporation was applied");
+    }
+    return getPlayer(state, "player");
+  };
+
+  const standard = seated(false);
+  for (const key of PRODUCTION) {
+    assert.equal(standard[key], 1, `${key} starts at 1 in the standard game`);
+  }
+
+  // Corporate Era is the default and starts at zero.
+  const corporate = seated(true);
+  for (const key of PRODUCTION) {
+    assert.equal(corporate[key], 0, `${key} starts at 0 in Corporate Era`);
+  }
+
+  // Unstated means Corporate Era, which is what every existing save was played
+  // with; changing that default would silently rewrite them.
+  const unstated = getInitialState({ playerCount: 2, seed: 12 });
+  assert.equal(unstated.corporateEra, true);
+});

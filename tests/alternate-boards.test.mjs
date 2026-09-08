@@ -14,7 +14,7 @@ function activeTile(colonies) {
 }
 
 
-const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis", "terra-cimmeria"];
+const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis", "terra-cimmeria", "vastitas-borealis"];
 
 test("every map is a complete 61-space board", () => {
   for (const id of MAPS) {
@@ -557,4 +557,318 @@ test("Gambler and T. Politician read state the engine actually maintains", async
   assert.equal(sent.sent, true);
   assert.equal(getPlayer(sent.state, "player").delegatesPlaced, 1);
   assert.equal(getPlayer(sent.state, "player2").delegatesPlaced ?? 0, 0, "the rival sent none");
+});
+
+test("Vastitas Borealis has its own board, milestones and awards", () => {
+  const cells = getBoardCells("vastitas-borealis");
+  const pole = cells.find(cell => cell.bonusType === "temperature");
+  assert.ok(pole);
+  assert.equal(pole.id, "33");
+  assert.equal(pole.unshufflable, true);
+  assert.equal(pole.bonusAmount, 1);
+  assert.deepEqual(milestonesForBoard("vastitas-borealis").map(entry => entry.id),
+    ["v-electrician", "smith", "tradesman", "irrigator", "capitalist"]);
+  assert.deepEqual(awardsForBoard("vastitas-borealis").map(entry => entry.id),
+    ["forecaster", "edgedancer", "visionary", "naturalist", "voyager"]);
+});
+
+test("Vastitas milestones score both sides of their thresholds", () => {
+  const milestone = id => milestonesForBoard("vastitas-borealis").find(entry => entry.id === id);
+  const cards = [
+    ...Array.from({ length: 4 }, (_, i) => ({ id: `power${i}`, tags: ["Power"] })),
+    { id: "animal", resourceType: "animal" }, { id: "animal2", resourceType: "animal" },
+    { id: "microbe", resourceType: "microbe" }, { id: "floater", resourceType: "floater" }
+  ];
+  const context = { player: { id: "player", playedProjects: [] }, cards, corporation: null, board: {} };
+  for (const count of [3, 4, 5]) {
+    assert.equal(milestone("v-electrician").threshold, 4);
+    assert.equal(milestone("v-electrician").getScore({ ...context,
+      player: { playedProjects: cards.slice(0, Math.min(count, 4)).map(c => c.id) },
+      corporation: count === 5 ? { tags: ["Power"] } : null }), count);
+  }
+  for (const count of [5, 6, 7]) {
+    assert.equal(milestone("smith").threshold, 6);
+    assert.equal(milestone("smith").getScore({ player: { steelProd: 2, titaniumProd: count - 2, steel: 99 } }), count);
+  }
+  assert.equal(milestone("tradesman").threshold, 3);
+  for (const floater of [0, 1]) {
+    assert.equal(milestone("tradesman").getScore({ ...context,
+      player: { cardResources: { animal: 5, animal2: 2, microbe: 1, floater } } }), 2 + floater);
+  }
+  assert.notEqual(milestone("tradesman").id, "trader");
+  for (const count of [63, 64, 65]) {
+    assert.equal(milestone("capitalist").threshold, 64);
+    assert.equal(milestone("capitalist").getScore({ player: { mc: count, mcProd: 99 } }), count);
+  }
+  for (const count of [3, 4, 5]) {
+    const board = {};
+    for (let i = 0; i < count; i++) {
+      board[`${i * 4},0`] = { q: i * 4, r: 0, tileType: "city", placedBy: "player" };
+      board[`${i * 4 + 1},0`] = { q: i * 4 + 1, r: 0, tileType: "ocean", placedBy: null };
+      board[`${i * 4},1`] = { q: i * 4, r: 1, tileType: "ocean", placedBy: null };
+    }
+    board["0,-1"] = { q: 0, r: -1, tileType: "empty", placedBy: "player" };
+    board["1,-1"] = { q: 1, r: -1, tileType: "city", placedBy: "rival" };
+    assert.equal(milestone("irrigator").threshold, 4);
+    assert.equal(milestone("irrigator").getScore({ ...context, board }), count);
+  }
+});
+
+test("Vastitas awards score requirements, edges, hand, production and Jovian tags", () => {
+  const award = id => awardsForBoard("vastitas-borealis").find(entry => entry.id === id);
+  const cards = [
+    { id: "required", type: "active", requirements: [{ temperature: -10 }], tags: ["Jovian"] },
+    { id: "text", type: "automated", reqText: "海洋3枚", tags: [] },
+    { id: "empty", type: "automated", requirements: [], reqText: "なし", tags: [] },
+    { id: "event", type: "event", requirements: [{ oxygen: 4 }], tags: [] }
+  ];
+  const context = { player: { id: "player", playedProjects: cards.map(c => c.id), playedEvents: ["event"], hand: ["a", "b"] }, cards };
+  assert.equal(award("forecaster").getScore(context), 2);
+  assert.equal(award("forecaster").getScore({ ...context, player: { playedProjects: ["empty", "event"] } }), 0);
+  assert.equal(award("visionary").getScore(context), 2);
+  assert.equal(award("visionary").getScore({ player: { hand: [] } }), 0);
+  assert.equal(award("naturalist").getScore({ player: { plantsProd: 2, heatProd: 3, plants: 99, heat: 99 } }), 5);
+  assert.equal(award("naturalist").getScore({ player: {} }), 0);
+  assert.equal(award("voyager").getScore({ ...context, corporation: { tags: ["Jovian"] } }), 2);
+  assert.equal(award("voyager").getScore({ ...context, player: { playedProjects: [] } }), 0);
+  const board = Object.fromEntries(getBoardCells("vastitas-borealis").map(cell => [`${cell.q},${cell.r}`, { ...cell, tileType: "empty", placedBy: null }]));
+  for (const [key, owner] of [["4,-4", "player"], ["0,0", "player"], ["4,4", "player"], ["4,0", "player"], ["8,0", "rival"]]) {
+    board[key] = { ...board[key], tileType: "city", placedBy: owner };
+  }
+  assert.equal(award("edgedancer").getScore({ ...context, board }), 3);
+});
+
+async function vastitasTable(mc = 20, temperature = -30) {
+  const { applyCorporation, completeSetupPurchase, cloneGameState, CORPORATIONS } = await import("../app/game-logic.js");
+  let state = getInitialState({ playerCount: 2, board: "vastitas-borealis", seed: 71 });
+  for (const player of state.players) state = applyCorporation(state, CORPORATIONS.find(c => c.id === "corp-credicor"), player.id);
+  for (let i = 0; state.phase === "setup" && i < 12; i++) state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+  state.players = state.players.map(player => ({ ...player, mc, plants: 8 }));
+  state.temperature = temperature;
+  const pole = Object.values(state.board).find(cell => cell.bonusType === "temperature");
+  assert.ok(pole, "the real dealt map must contain the temperature bonus");
+  return { state, pole, seat: state.currentPlayerId };
+}
+
+for (const answer of ["amount-1", "__decline__"]) {
+  test(`Vastitas real placement offers an optional paid temperature step: ${answer}`, async () => {
+    const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+    const { getPlayer } = await import("../app/game-logic.js");
+    const { state, pole, seat } = await vastitasTable(3);
+    const project = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "convert-plants" });
+    assert.equal(project.ok, true);
+    const placed = executeGameCommand(project.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: `${pole.q},${pole.r}` });
+    assert.equal(placed.ok, true);
+    assert.equal(placed.state.board[`${pole.q},${pole.r}`].tileType, "forest");
+    assert.equal(placed.state.pendingChoice?.continuation.stage, "placement-temperature");
+    assert.equal(placed.state.pendingChoice.optional, true);
+    assert.equal(placed.state.temperature, -30);
+    const before = getPlayer(placed.state, seat);
+    const paid = executeGameCommand(placed.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: answer });
+    assert.equal(paid.ok, true);
+    const accepted = answer === "amount-1";
+    assert.equal(getPlayer(paid.state, seat).mc, before.mc - (accepted ? 3 : 0));
+    assert.equal(getPlayer(paid.state, seat).tr, before.tr + (accepted ? 1 : 0));
+    assert.equal(paid.state.temperature, accepted ? -28 : -30);
+    assert.equal(paid.state.pendingChoice, null);
+  });
+}
+
+for (const [mc, temperature] of [[2, -30], [0, -30], [3, 8]]) {
+  test(`Vastitas skips unaffordable or capped temperature bonus (${mc}, ${temperature})`, async () => {
+    const { placeTileAt, getPlayer } = await import("../app/game-logic.js");
+    const { state, pole, seat } = await vastitasTable(mc, temperature);
+    placeTileAt(state, pole, "city", seat);
+    assert.equal(state.pendingChoice, null);
+    assert.equal(state.temperature, temperature);
+    assert.equal(getPlayer(state, seat).mc, mc);
+  });
+}
+
+for (const start of [-26, -22, -2]) {
+  test(`Vastitas paid temperature crosses ${start + 2} exactly once and finishes the project`, async () => {
+    const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+    const { getPlayer } = await import("../app/game-logic.js");
+    const { state, pole, seat } = await vastitasTable(20, start);
+    const before = getPlayer(state, seat);
+    const project = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, projectId: "convert-plants", playerId: seat });
+    let result = executeGameCommand(project.state, { type: COMMAND.RESOLVE_PENDING, optionId: `${pole.q},${pole.r}`, playerId: seat });
+    assert.equal(result.state.pendingChoice?.continuation.stage, "placement-temperature");
+    // The pending placement and its continuation must survive a save/reload.
+    result = executeGameCommand(JSON.parse(JSON.stringify(result.state)), { type: COMMAND.RESOLVE_PENDING, optionId: "amount-1", playerId: seat });
+    assert.equal(result.ok, true);
+    if (start === -2) {
+      assert.equal(result.state.pendingChoice?.continuation.stage, "temperature-zero-ocean");
+      const ocean = result.state.pendingChoice.options[0].id;
+      result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, optionId: ocean, playerId: seat });
+      assert.equal(result.state.oceans, state.oceans + 1);
+    } else {
+      assert.equal(getPlayer(result.state, seat).heatProd, before.heatProd + 1);
+    }
+    assert.equal(result.state.pendingChoice, null);
+    assert.equal(result.state.temperature, start + 2);
+    assert.equal(getPlayer(result.state, seat).tr, before.tr + (start === -2 ? 3 : 2));
+    assert.equal(result.state.actionsRemaining, state.actionsRemaining - 1);
+    assert.match(result.state.logs.map(log => log.text ?? log.message ?? "").join("\n"), /標準プロジェクト/);
+  });
+}
+
+test("Vastitas multi-bonuses and repeated payments preserve other choices and never overdraw", async () => {
+  const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
+  const { buildAmountChoice } = await import("../app/pending-choice.js");
+  const { state, pole, seat } = await vastitasTable(3);
+  const original = buildAmountChoice(state, { sourceKind: "test", sourceId: "existing", max: 1 });
+  state.pendingChoice = original;
+  const before = getPlayer(state, seat);
+  const multi = { ...pole, bonusType: "multi", bonus: [{ type: "temperature", amount: 2 }, { type: "steel", amount: 2 }, { type: "card", amount: 1 }] };
+  placeTileAt(state, multi, "city", seat);
+  assert.equal(state.pendingChoice.id, original.id);
+  assert.equal(state.pendingChoiceQueue.length, 2);
+  assert.equal(getPlayer(state, seat).steel, before.steel + 2);
+  assert.equal(getPlayer(state, seat).hand.length, before.hand.length + 1);
+  let result = resolvePendingChoice(state, "amount-1", state.logs, seat);
+  result = resolvePendingChoice(result.state, "amount-1", result.logs, seat);
+  result = resolvePendingChoice(result.state, "amount-1", result.logs, seat);
+  assert.equal(getPlayer(result.state, seat).mc, 0);
+  assert.equal(result.state.temperature, -28);
+  assert.equal(result.state.pendingChoice, null);
+});
+
+for (const answer of ["amount-1", "__decline__"]) {
+  test(`Vastitas preserves a card's follow-up placement and after-play work: ${answer}`, async () => {
+    const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+    const { buildTileChoice } = await import("../app/pending-choice.js");
+    const { legalCellsFor } = await import("../app/game-logic.js");
+    const { state, pole, seat } = await vastitasTable(30);
+    state.pendingChoice = buildTileChoice(state, "city", {
+      sourceKind: "card", sourceId: "card-base-research-outpost", remaining: 2,
+      afterPlay: { cardId: "card-base-research-outpost", temperature: state.temperature, oxygen: state.oxygen }
+    }, legalCellsFor(state, "city", seat));
+    let result = executeGameCommand(state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: `${pole.q},${pole.r}` });
+    assert.equal(result.state.pendingChoice?.continuation.stage, "placement-temperature");
+    result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: answer });
+    assert.equal(result.state.pendingChoice?.kind, "tile-placement");
+    assert.equal(result.state.pendingChoice.continuation.remaining, 1);
+    const target = result.state.pendingChoice.options[0].id;
+    result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: target });
+    assert.equal(result.state.pendingChoice, null);
+    assert.equal(Object.values(result.state.board).filter(c => c.tileType === "city" && c.placedBy === seat).length, 2);
+    assert.equal(result.state.actionsRemaining, state.actionsRemaining - 1);
+  });
+}
+
+for (const answer of ["amount-1", "__decline__"]) {
+  test(`Vastitas automatic prelude placement resumes the next prelude: ${answer}`, async () => {
+    const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+    const { getPlayer } = await import("../app/game-logic.js");
+    const { state, pole, seat } = await vastitasTable(30);
+    state.phase = "setup";
+    const ids = ["prelude-experimental-forest", "prelude-power-generation"];
+    state.players = state.players.map(p => p.id === seat ? { ...p, setupStep: "prelude", preludeOptions: ids } : p);
+    // Force the automatic branch to use the real pole; all other land is occupied.
+    state.board = Object.fromEntries(Object.entries(state.board).map(([key, c]) => [key,
+      c.id === pole.id || c.isOceanOnly ? c : { ...c, tileType: "forest", placedBy: "rival" }]));
+    const before = getPlayer(state, seat).energyProd;
+    let result = executeGameCommand(state, { type: COMMAND.SELECT_PRELUDES, playerId: seat, preludeIds: ids });
+    assert.equal(result.ok, true);
+    assert.equal(result.state.pendingChoice?.continuation.stage, "placement-temperature");
+    assert.equal(getPlayer(result.state, seat).energyProd, before);
+    result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: answer });
+    assert.equal(result.ok, true);
+    assert.equal(getPlayer(result.state, seat).energyProd, before + 3);
+    assert.equal(result.state.pendingChoice, null);
+  });
+}
+
+test("Vastitas real card play retains its discount, trigger and action through the bonus", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { state, pole, seat } = await vastitasTable(60, -26);
+  const id = "card-base-research-outpost";
+  state.players = state.players.map(p => p.id === seat ? { ...p, hand: [id, "p-power-plant"], playedProjects: ["p-mars-university", "p-rover-construction"] } : p);
+  let result = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: seat, cardId: id });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.pendingChoice.kind, "tile-placement");
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: `${pole.q},${pole.r}` });
+  assert.equal(result.state.pendingChoice.continuation.stage, "placement-temperature");
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: "amount-1" });
+  assert.equal(result.state.pendingChoice?.continuation.stage, "mars-university");
+  assert.equal(result.state.actionsRemaining, state.actionsRemaining);
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: "__decline__" });
+  assert.equal(result.state.pendingChoice, null);
+  assert.equal(getPlayer(result.state, seat).heatProd, getPlayer(state, seat).heatProd + 1);
+  assert.equal(result.state.actionsRemaining, state.actionsRemaining - 1);
+  assert.ok(getPlayer(result.state, seat).playedProjects.includes(id));
+});
+
+test("Vastitas prelude waits for the paid temperature ocean before resuming setup", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { state, pole, seat } = await vastitasTable(30, -2);
+  state.phase = "setup";
+  const ids = ["prelude-experimental-forest", "prelude-power-generation"];
+  state.players = state.players.map(p => p.id === seat ? { ...p, setupStep: "prelude", preludeOptions: ids } : p);
+  state.board = Object.fromEntries(Object.entries(state.board).map(([key, c]) => [key,
+    c.id === pole.id || c.isOceanOnly ? c : { ...c, tileType: "forest", placedBy: "rival" }]));
+  const before = getPlayer(state, seat).energyProd;
+  let result = executeGameCommand(state, { type: COMMAND.SELECT_PRELUDES, playerId: seat, preludeIds: ids });
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: "amount-1" });
+  assert.equal(result.state.pendingChoice?.continuation.stage, "temperature-zero-ocean");
+  assert.equal(getPlayer(result.state, seat).energyProd, before);
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: result.state.pendingChoice.options[0].id });
+  assert.equal(getPlayer(result.state, seat).energyProd, before + 3);
+  assert.equal(result.state.pendingChoice, null);
+});
+
+test("Vastitas Electrician counts actual power cards and prelude tags", async () => {
+  const { ALL_CARDS, getMilestoneStatus } = await import("../app/game-logic.js");
+  const { state, seat } = await vastitasTable(64);
+  const power = ALL_CARDS.filter(card => card.type !== "event" && card.tags.includes("Power")).slice(0, 3);
+  assert.equal(power.length, 3);
+  state.players = state.players.map(p => p.id === seat ? { ...p, playedProjects: power.map(c => c.id), selectedPreludeIds: ["prelude-power-generation"] } : p);
+  assert.equal(getMilestoneStatus(state, "v-electrician", seat).score, 4);
+  assert.equal(getMilestoneStatus(state, "v-electrician", seat).claimable, true);
+  state.players = state.players.map(p => p.id === seat ? { ...p, selectedPreludeIds: [] } : p);
+  assert.equal(getMilestoneStatus(state, "v-electrician", seat).claimable, false);
+});
+
+test("Vastitas mixed resource payout can fund the temperature offer", async () => {
+  const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
+  const { state, pole, seat } = await vastitasTable(0);
+  placeTileAt(state, { ...pole, bonusType: "multi", bonus: [{ type: "temperature", amount: 1 }, { type: "mc", amount: 3 }] }, "city", seat);
+  assert.equal(state.pendingChoice?.continuation.stage, "placement-temperature");
+  const result = resolvePendingChoice(state, "amount-1", state.logs, seat);
+  assert.equal(getPlayer(result.state, seat).mc, 0);
+  assert.equal(result.state.temperature, -28);
+});
+
+test("Vastitas greenery threshold and paid step award each heat threshold once", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { state, pole, seat } = await vastitasTable(20, -24);
+  state.oxygen = 7;
+  const before = getPlayer(state, seat);
+  let result = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, projectId: "convert-plants", playerId: seat });
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, optionId: `${pole.q},${pole.r}`, playerId: seat });
+  result = executeGameCommand(result.state, { type: COMMAND.RESOLVE_PENDING, optionId: "amount-1", playerId: seat });
+  assert.equal(result.state.temperature, -20);
+  assert.equal(getPlayer(result.state, seat).tr, before.tr + 3);
+  assert.equal(getPlayer(result.state, seat).heatProd, before.heatProd + 1);
+  assert.equal(result.state.actionsRemaining, state.actionsRemaining - 1);
+});
+
+test("Vastitas payment and TR belong to the placer and reject another player's answer", async () => {
+  const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
+  const { state, pole, seat } = await vastitasTable(3);
+  const owner = state.players.find(p => p.id !== seat).id;
+  const before = getPlayer(state, owner);
+  placeTileAt(state, pole, "city", owner);
+  const rejected = resolvePendingChoice(state, "amount-1", state.logs, seat);
+  assert.equal(rejected.state, state);
+  const result = resolvePendingChoice(state, "amount-1", state.logs, owner);
+  assert.equal(getPlayer(result.state, owner).mc, 0);
+  assert.equal(getPlayer(result.state, owner).tr, before.tr + 1);
+  assert.equal(getPlayer(result.state, seat).mc, 3);
 });

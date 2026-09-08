@@ -45,7 +45,7 @@ import { executeGameCommand, COMMAND } from "../app/game-command.js";
 // no problems. A completion claim of "2,000 games, zero problems" rested on it.
 const KNOWN = new Set([
   "games", "players", "seed", "board",
-  "turmoil", "colonies", "draft", "prelude", "prelude2", "venus", "promo", "solotr", "initialdraft"
+  "turmoil", "colonies", "draft", "prelude", "prelude2", "venus", "promo", "solotr", "initialdraft", "standardgame"
 ]);
 const NEEDS_VALUE = new Set(["games", "players", "seed", "board"]);
 const args = {};
@@ -85,6 +85,8 @@ const USE_PRELUDE2 = Boolean(args.prelude2);
 // The TR63 solo variant. Solo only; the engine ignores it at a table.
 const USE_SOLO_TR = Boolean(args.solotr);
 const USE_INITIAL_DRAFT = Boolean(args.initialdraft);
+// The standard game is Corporate Era OFF: everyone starts on 1 of each production.
+const STANDARD_GAME = Boolean(args.standardgame);
 const USE_VENUS = Boolean(args.venus);
 const USE_PROMO = Boolean(args.promo);
 // Drafting replaces the dealt hand with a pass-and-pick round, so setup takes a
@@ -281,7 +283,8 @@ function playGame(seed) {
     venus: USE_VENUS,
     promo: USE_PROMO,
     draft: USE_DRAFT,
-    initialDraft: USE_INITIAL_DRAFT
+    initialDraft: USE_INITIAL_DRAFT,
+    corporateEra: !STANDARD_GAME
   });
   let logs = state.logs;
   const where = `seed:${seed}`;
@@ -767,7 +770,7 @@ for (let i = 0; i < GAMES; i++) {
   }
 }
 
-const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_PRELUDE2 ? "+Prelude2" : ""}${USE_SOLO_TR ? "+TRソロ" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}${USE_DRAFT ? "+Draft" : ""}${USE_INITIAL_DRAFT ? "+初期Draft" : ""}`;
+const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_PRELUDE2 ? "+Prelude2" : ""}${USE_SOLO_TR ? "+TRソロ" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}${USE_DRAFT ? "+Draft" : ""}${USE_INITIAL_DRAFT ? "+初期Draft" : ""}${STANDARD_GAME ? "+標準ゲーム" : ""}`;
 console.log(`=== ${GAMES}ゲーム完走 (${mode}) ===`);
 const gens = summaries.map(s => s.generation);
 console.log(

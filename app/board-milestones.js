@@ -115,11 +115,12 @@ function distinctTags(context) {
   return tags.size;
 }
 
-function cardsWithRequirements(context) {
+function cardsWithRequirements(context, excludeEvents = false) {
   return context.player.playedProjects.reduce((sum, id) => {
     const card = context.cards.find(item => item.id === id);
     if (!card) return sum;
     const requirement = card.requirements;
+    if (excludeEvents && card.type === "event") return sum;
     const hasRequirement = Array.isArray(requirement) ? requirement.length > 0 : Boolean(requirement);
     const hasText = Boolean(card.reqText) && card.reqText !== "なし";
     return sum + (hasRequirement || hasText ? 1 : 0);
@@ -307,7 +308,7 @@ export const BOARD_MILESTONES = {
     { id: "tactician", name: "戦術家", description: "条件付きカード5枚以上", threshold: 5, getScore: cardsWithRequirements },
     { id: "polar-explorer", name: "極地探検家", description: "下2列にタイル3枚以上", threshold: 3, getScore: tilesOnBottomRows },
     { id: "energizer", name: "発電機", description: "電力生産量6以上", threshold: 6, getScore: context => context.player.energyProd ?? 0 },
-    { id: "rim-settler", name: "辺境開拓者", description: "木星タグ3個以上", threshold: 3, getScore: context => countTags(context.player, context.cards, "Jovian", context.corporation) }
+    { id: "rim-settler", name: "辺境開拓者", description: "ジョビアンタグ3個以上", threshold: 3, getScore: context => countTags(context.player, context.cards, "Jovian", context.corporation) }
   ],
   elysium: [
     { id: "generalist", name: "ゼネラリスト", description: "全6種の生産量を1以上に", threshold: 6, getScore: context => PRODUCTION_KEYS.filter(key => (context.player[key] ?? 0) >= 1).length },
@@ -414,6 +415,22 @@ BOARD_AWARDS.amazonis = [
   { id: "promoter", name: "興行主", description: "イベントカードが最多", getScore: context => (context.player.playedEvents ?? []).length },
   { id: "tourist", name: "旅行者", description: "自分のタイルに隣接する空きマスが最多", getScore: emptySpacesAdjacentToOwnTiles },
   { id: "amazonis-zoologist", name: "動物学者", description: "動物・微生物資源の合計が最多", getScore: animalAndMicrobeResources }
+];
+
+BOARD_MILESTONES["vastitas-borealis"] = [
+  { id: "v-electrician", name: "電気技師", description: "電力タグ4個以上", threshold: 4, getScore: context => countTags(context.player, context.cards, "Power", context.corporation, context.preludes) },
+  { id: "smith", name: "鍛冶屋", description: "建材とチタンの生産量の合計6以上", threshold: 6, getScore: context => (context.player.steelProd ?? 0) + (context.player.titaniumProd ?? 0) },
+  { id: "tradesman", name: "商人", description: "カード上の資源が3種類以上", threshold: 3, getScore: distinctCardResources },
+  { id: "irrigator", name: "灌漑者", description: "海洋に隣接する自分のタイル4枚以上", threshold: 4, getScore: tilesAdjacentToOcean },
+  { id: "capitalist", name: "資本家", description: "64 MC以上保有", threshold: 64, getScore: context => context.player.mc ?? 0 }
+];
+
+BOARD_AWARDS["vastitas-borealis"] = [
+  { id: "forecaster", name: "予報士", description: "条件付きカードが最多（イベントを除く）", getScore: context => cardsWithRequirements(context, true) },
+  { id: "edgedancer", name: "縁の舞踏者", description: "盤面の縁にあるタイルが最多", getScore: tilesOnEdge },
+  { id: "visionary", name: "幻視者", description: "手札が最多", getScore: context => (context.player.hand ?? []).length },
+  { id: "naturalist", name: "博物学者", description: "植物と熱の生産量の合計が最多", getScore: context => (context.player.plantsProd ?? 0) + (context.player.heatProd ?? 0) },
+  { id: "voyager", name: "航海者", description: "ジョビアンタグが最多", getScore: context => countTags(context.player, context.cards, "Jovian", context.corporation, context.preludes) }
 ];
 
 export function milestonesForBoard(boardId) {

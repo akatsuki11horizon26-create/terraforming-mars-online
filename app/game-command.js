@@ -46,6 +46,7 @@ import {
   RESEARCH_CARD_COST,
   seatCorporation,
   increaseTerraformRating,
+  raiseTemperature,
   getPreludeCost,
   PRELUDES,
   corporationFor,
@@ -435,18 +436,6 @@ const STANDARD_PROJECTS = {
     }
   }
 };
-
-// Two steps of temperature, and the TR that comes with each step actually taken.
-function raiseTemperature(state, playerId) {
-  const before = state.temperature;
-  state.temperature = Math.min(8, before + 2);
-  const steps = (state.temperature - before) / 2;
-  if (steps > 0) {
-    state.players = state.players.map(player =>
-      player.id === playerId ? { ...player, tr: player.tr + steps } : player
-    );
-  }
-}
 
 // The three corporations that carry an action of their own. Each states what it
 // costs and what it does; the handler below does the checking and the spending,
@@ -1047,11 +1036,14 @@ const HANDLERS = {
       return fail(state, ERROR.NOT_YOUR_CHOICE, "他のプレイヤーの選択です。");
     }
     const consumesAction = choice.continuation?.consumedAction ?? true;
-    const afterPlay = choice.continuation?.afterPlay ?? null;
+    let afterPlay = choice.continuation?.afterPlay ?? null;
     const result = resolvePendingChoice(state, command.optionId, state.logs, command.playerId);
 
     let settled = result.state;
     let settledLogs = result.logs ?? settled?.logs;
+    if (afterPlay && choice.continuation.stage === "placement-temperature") {
+      afterPlay = { ...afterPlay, temperature: settled.temperature, oxygen: settled.oxygen };
+    }
 
     // The work a card left behind when it stopped to ask. It runs only once the
     // last question is answered, and only if the answer did not raise another.
@@ -1095,9 +1087,8 @@ const HANDLERS = {
         settled = triggered.state;
         settledLogs = triggered.logs;
       }
-      // A trigger may itself ask something (Mars University); leave its
-      // question standing and settle the thresholds when that one resolves.
-      if (!settled.pendingChoice) {
+      // Threshold choices queue behind any trigger already asking a question.
+      {
         const thresholds = checkParameterThresholds(
           afterPlay.temperature,
           settled.temperature,
@@ -1108,6 +1099,13 @@ const HANDLERS = {
         );
         settled = thresholds.state;
         settledLogs = thresholds.logs;
+      }
+      if (settled.pendingChoice && afterPlay.preludeResume) {
+        settled.pendingChoice.continuation.afterPlay = {
+          temperature: settled.temperature,
+          oxygen: settled.oxygen,
+          preludeResume: afterPlay.preludeResume
+        };
       }
     }
 
@@ -1120,6 +1118,9 @@ const HANDLERS = {
     // last question is answered. Charging earlier would double up on a card
     // that asks twice; never charging made every such card free.
     const stillChoosing = Boolean(settled?.pendingChoice);
+    if (stillChoosing) {
+      settled.pendingChoice.continuation.consumedAction = consumesAction;
+    }
     if (!stillChoosing && consumesAction && settled?.phase === "action") {
       const spent = handleActionSpend(settled, settledLogs ?? settled.logs);
       return { ok: true, state: spent, events: [] };

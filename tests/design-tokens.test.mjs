@@ -179,3 +179,41 @@ test("a hand that cannot fit scrolls instead of hiding its bottom row", async ()
     "a blanket overflow:hidden clips the last row of a hand that does not fit"
   );
 });
+
+// The audit found 建材/鋼鉄, 木星/ジョビアン, 称号/マイルストーン and 表彰/褒賞 all in
+// use for the same things, which makes the same rule read as two different
+// rules. docs/TERMINOLOGY.md fixes one word for each; this stops the others
+// coming back.
+//
+// Card names are exempt: 木星圏ランタン is a proper noun and the tag it needs is
+// ジョビアンタグ -- those are different things that happen to share a kanji.
+test("one word per concept in the interface text", async () => {
+  const { readFile, readdir } = await import("node:fs/promises");
+
+  const banned = [
+    ["鋼鉄", "建材"],
+    ["鋼材", "建材"],
+    ["木星タグ", "ジョビアンタグ"],
+    ["称号", "マイルストーン"],
+    ["褒賞", "表彰"]
+  ];
+
+  const dir = new URL("../app/", import.meta.url);
+  const names = (await readdir(dir)).filter(
+    name =>
+      (name.endsWith(".js") || name.endsWith(".tsx")) &&
+      // The card catalogue carries the printed Japanese card names, which are
+      // not ours to rewrite.
+      name !== "japanese-text.js" &&
+      !name.endsWith(".data.js")
+  );
+
+  const offences = [];
+  for (const name of names) {
+    const source = await readFile(new URL(name, dir), "utf8");
+    for (const [wrong, right] of banned) {
+      if (source.includes(wrong)) offences.push(`${name}: ${wrong} (use ${right})`);
+    }
+  }
+  assert.deepEqual(offences, [], `mixed terminology: ${offences.join(", ")}`);
+});

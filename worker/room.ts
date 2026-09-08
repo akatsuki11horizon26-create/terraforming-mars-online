@@ -35,6 +35,8 @@ interface RoomOptions {
   // The opening ten are their own variant; a room from before the split sent
   // only "draft" and was drafting them too.
   initialDraft: boolean;
+  // Unstated means Corporate Era, which is what every existing room played.
+  corporateEra: boolean;
   maxPlayers: number;
 }
 
@@ -47,7 +49,7 @@ export class GameRoom {
   private code = "";
   private hostId: string | null = null;
   private started = false;
-  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, prelude2: false, venus: false, promo: false, board: "tharsis", draft: false, initialDraft: false, maxPlayers: 5 };
+  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, prelude2: false, venus: false, promo: false, board: "tharsis", draft: false, initialDraft: false, corporateEra: true, maxPlayers: 5 };
   private loaded = false;
   // member id -> the seat (engine player id) they occupy
   private seatMap = new Map<string, string | undefined>();
@@ -245,6 +247,7 @@ export class GameRoom {
       board: typeof options.board === "string" ? options.board : "tharsis",
       draft: Boolean(options.draft),
       initialDraft: Boolean(options.initialDraft ?? options.draft),
+      corporateEra: options.corporateEra ?? true,
       maxPlayers: this.members.length
     };
 
@@ -259,7 +262,8 @@ export class GameRoom {
       promo: this.options.promo,
       board: this.options.board,
       draft: this.options.draft,
-      initialDraft: this.options.initialDraft
+      initialDraft: this.options.initialDraft,
+      corporateEra: this.options.corporateEra
     }) as Record<string, unknown>;
 
     // Bind each member to the seat they occupy, so a device can only ever act as

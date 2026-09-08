@@ -190,7 +190,7 @@ interface CellState {
   isOceanOnly: boolean;
   // The alternate maps add heat, energy, microbe and animal spaces, and spaces
   // paying more than one resource carry the list in `bonus`.
-  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card" | "heat" | "energy" | "microbe" | "animal" | "multi" | "ocean-tile";
+  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card" | "heat" | "energy" | "microbe" | "animal" | "multi" | "ocean-tile" | "temperature";
   bonus?: { type: string; amount: number }[];
   placementCost?: number;
   bonusAmount: number;
@@ -265,6 +265,7 @@ interface GameState {
   prelude2Enabled?: boolean;
   soloTrVariant?: boolean;
   initialDraftEnabled?: boolean;
+  corporateEra?: boolean;
   botDifficulty?: string | null;
   boardId?: string;
   usedCardActions: string[];
@@ -509,6 +510,7 @@ export default function Home() {
   const [setupPrelude2, setSetupPrelude2] = useState(false);
   const [setupSoloTr, setSetupSoloTr] = useState(false);
   const [setupInitialDraft, setSetupInitialDraft] = useState(false);
+  const [setupCorporateEra, setSetupCorporateEra] = useState(true);
   const [setupPromo, setSetupPromo] = useState(false);
   // Drafting is a turn rule rather than an expansion, and the engine ignores it
   // in a one-seat game, so it rides alongside the expansion flags but is only
@@ -1232,6 +1234,7 @@ export default function Home() {
     prelude?: boolean;
     prelude2?: boolean;
     soloTr?: boolean;
+    corporateEra?: boolean;
     venus?: boolean;
     promo?: boolean;
     draft?: boolean;
@@ -1756,6 +1759,7 @@ export default function Home() {
     prelude: setupPrelude,
     prelude2: setupPrelude2,
     soloTr: setupSoloTr,
+    corporateEra: setupCorporateEra,
     venus: setupVenus,
     promo: setupPromo
   });
@@ -1842,6 +1846,8 @@ export default function Home() {
     onPrelude2: setSetupPrelude2,
     soloTr: setupSoloTr,
     onSoloTr: setSetupSoloTr,
+    corporateEra: setupCorporateEra,
+    onCorporateEra: setSetupCorporateEra,
     venus: setupVenus,
     onVenus: setSetupVenus,
     promo: setupPromo,
@@ -1948,6 +1954,7 @@ export default function Home() {
               setSetupPrelude2(Boolean(gameState.prelude2Enabled));
               setSetupSoloTr(Boolean(gameState.soloTrVariant));
               setSetupInitialDraft(Boolean(gameState.initialDraftEnabled));
+              setSetupCorporateEra(gameState.corporateEra !== false);
               setSetupIntent("custom");
               setShowGameSetup(true);
             }}
@@ -2041,7 +2048,7 @@ export default function Home() {
               基本アクション
             </button>
             <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>
-              称号・表彰
+              マイルストーン・表彰
             </button>
             <div className="hud-menu">
               <button
@@ -2150,6 +2157,10 @@ export default function Home() {
                     else if (cell.bonusType === "titanium") content = `🚀${cell.bonusAmount}`;
                     else if (cell.bonusType === "mc") content = `💳${cell.bonusAmount}`;
                     else if (cell.bonusType === "card") content = `🃏${cell.bonusAmount}`;
+                    else if (cell.bonusType === "temperature") {
+                      content = "🌡️";
+                      label = "配置ボーナス: 任意で3 MCを支払い、気温 +2°C";
+                    }
                   }
                   if (cell.isOceanOnly && cell.tileType === "empty") {
                     label = "海洋専用";
@@ -3535,7 +3546,7 @@ export default function Home() {
                   ["board", "タイル (緑地・都市隣接)", "var(--color-ember)"],
                   ["cards", "カード勝利点", "var(--color-gold)"],
                   ["milestones", "マイルストーン", "var(--color-gold)"],
-                  ["awards", "褒賞", "var(--color-gold)"],
+                  ["awards", "表彰", "var(--color-gold)"],
                   ["turmoil", "党首・議長", "var(--color-cyan)"],
                   ["modifier", "その他の増減", "var(--color-rust)"]
                 ] as const).map(([key, label, color]) =>
