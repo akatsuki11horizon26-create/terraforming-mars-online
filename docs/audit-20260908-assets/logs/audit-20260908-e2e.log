@@ -1,0 +1,35 @@
+
+> mars-frontier@0.1.0 test:e2e
+> playwright test
+
+[WebServer] (node:19924) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:24412) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 10 tests using 4 workers
+
+(node:9744) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:16160) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:18724) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:23200) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   4 [pages-static] › tests\e2e\solo-only-build.spec.ts:17:1 › the solo build offers online play but refuses to start it (4.9s)
+  ✓   3 [pages-static] › tests\e2e\game-over.spec.ts:27:1 › a beaten player is told they lost, not congratulated (6.6s)
+  ✓   1 [pages-static] › tests\e2e\tile-placement.spec.ts:58:1 › buying an aquifer places an ocean tile, advances ocean count and TR, and shows parameter cut-in (8.1s)
+  ✓   2 [pages-static] › tests\e2e\solo-production.spec.ts:54:1 › a city shows both its cost and the production it moved (8.0s)
+  ✓   5 [pages-static] › tests\e2e\solo-only-build.spec.ts:34:1 › the solo build mounts no lobby button in the in-game header (5.4s)
+  ✓   7 [pages-static] › tests\e2e\title-modes.spec.ts:9:1 › hotseat is reachable from the title screen (2.3s)
+  ✓   6 [pages-static] › tests\e2e\game-over.spec.ts:45:1 › a winning player is told they won (4.3s)
+(node:25304) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+  ✓   8 [pages-static] › tests\e2e\game-over.spec.ts:52:1 › equal score and equal MC is a shared win (2.5s)
+  ✓   9 [pages-static] › tests\e2e\game-over.spec.ts:59:1 › solo keeps its mission wording and shows no ranking (2.5s)
+  ✓  10 [online] › tests\e2e\online-two-screens.spec.ts:43:1 › two browsers reach the same table through the lobby (8.9s)
+
+  10 passed (1.5m)

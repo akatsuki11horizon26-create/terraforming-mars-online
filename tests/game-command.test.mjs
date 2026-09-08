@@ -73,6 +73,97 @@ function preludeSetup(hand, mc = 80, secondPrelude = "prelude-power-generation")
   return { state, seat };
 }
 
+// Setup deals four preludes and the player takes two. The starting hand is
+// bought first, so BUY_RESEARCH used to reserve the cost of the two most
+// EXPENSIVE of the four -- cards the player had not chosen and might never take.
+test("buying the starting hand ignores the cost of preludes not chosen", () => {
+  let state = getInitialState({ playerCount: 2, prelude: true });
+  const neutral = CORPORATIONS.find(item => item.id === "corp-credicor");
+  for (const player of state.players) state = applyCorporation(state, neutral, player.id);
+  const seat = state.currentPlayerId;
+
+  // The audit's position: 30 M€, seven cards to buy at 21 M€, nine left over,
+  // and two free preludes among the four offered.
+  const offered = state.players.find(p => p.id === seat).researchCards.slice(0, 7);
+  const buying = cloneGameState(state);
+  buying.phase = "setup";
+  buying.currentPlayerId = seat;
+  buying.players = buying.players.map(player =>
+    player.id === seat
+      ? {
+          ...player,
+          setupStep: "projects",
+          mc: 30,
+          researchCards: offered,
+          preludeOptions: [
+            "prelude-business-empire",   // 6 M€
+            "prelude-huge-asteroid",     // 5 M€
+            "prelude-acquired-space-agency",
+            "prelude-allied-banks"
+          ]
+        }
+      : player
+  );
+
+  const bought = executeGameCommand(buying, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: offered
+  });
+  assert.equal(bought.ok, true, "the two 0 M€ preludes are affordable, so this purchase is legal");
+  assert.equal(getPlayer(bought.state, seat).mc, 9, "21 M€ for seven cards");
+});
+
+// A prelude that hands out money pays for the one resolved after it, so the
+// combined cost of the chosen two is not a floor either.
+test("a prelude's income can pay for the prelude resolved after it", () => {
+  const { state, seat } = preludeSetup([], 0, "prelude-business-empire");
+  const broke = cloneGameState(state);
+  broke.players = broke.players.map(player =>
+    player.id === seat
+      ? { ...player, mc: 0, preludeOptions: ["prelude-donation", "prelude-business-empire"] }
+      : player
+  );
+
+  // Donation gives 21; Business Empire then costs 6 out of that.
+  const resolved = executeGameCommand(broke, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-donation", "prelude-business-empire"]
+  });
+  assert.equal(resolved.ok, true, "0 M€ is enough when the first prelude pays for the second");
+  assert.equal(getPlayer(resolved.state, seat).mc, 15, "21 in, 6 out");
+  assert.equal(getPlayer(resolved.state, seat).mcProd, 6);
+});
+
+// "Reveal it, discard it and gain 15 M€ instead." A prelude that cannot be paid
+// for fizzles like an unplayable one; it must not drive the balance negative.
+test("a prelude that cannot be paid for fizzles for 15 M€ rather than overdrawing", () => {
+  const { state, seat } = preludeSetup([], 0, "prelude-huge-asteroid");
+  const broke = cloneGameState(state);
+  broke.players = broke.players.map(player =>
+    player.id === seat
+      ? { ...player, mc: 0, preludeOptions: ["prelude-allied-banks", "prelude-huge-asteroid"] }
+      : player
+  );
+  const before = broke.temperature;
+
+  const resolved = executeGameCommand(broke, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-huge-asteroid", "prelude-allied-banks"]
+  });
+  assert.equal(resolved.ok, true);
+  const actor = getPlayer(resolved.state, seat);
+  assert.ok(actor.mc >= 15, `fizzling pays 15 M€, got ${actor.mc}`);
+  assert.equal(resolved.state.temperature, before, "an unpaid prelude does nothing at all");
+  assert.equal(
+    actor.selectedPreludeIds.includes("prelude-huge-asteroid"),
+    false,
+    "the discarded prelude is not in play"
+  );
+});
+
 test("Eccentric Sponsor asks which of multiple eligible projects to play", () => {
   const { state, seat } = preludeSetup([
     "card-base-acquired-company",
@@ -957,6 +1048,38 @@ test("Beginner Corporation's opening hand is free, and later ones are not", () =
   });
   assert.equal(paid.ok, true);
   assert.equal(getPlayer(paid.state, seat).mc, 39, "the free hand is the opening one only");
+});
+
+// "初期10枚を無料で保持する" -- the beginner corporation KEEPS the ten, it does
+// not get to buy a subset of them. Discarding any was possible, and discarding
+// all ten started the game with an empty hand and 42 M€.
+test("Beginner Corporation keeps its whole opening hand, whatever it asks for", () => {
+  const { state, seat } = table();
+  const beginner = CORPORATIONS.find(item => item.effects?.freeStartingCards);
+  const offered = ["card-base-acquired-company", "p-capital"];
+
+  const opening = cloneGameState(state);
+  opening.phase = "setup";
+  opening.players = opening.players.map(player =>
+    player.id === seat
+      ? { ...player, corporationId: beginner.id, mc: 42, setupStep: "projects", researchCards: offered }
+      : player
+  );
+
+  const handBefore = getPlayer(opening, seat).hand;
+  const emptied = executeGameCommand(opening, {
+    type: COMMAND.BUY_RESEARCH,
+    playerId: seat,
+    cardIds: []
+  });
+  assert.equal(emptied.ok, true);
+  assert.deepEqual(
+    getPlayer(emptied.state, seat).hand.slice().sort(),
+    [...handBefore, ...offered].sort(),
+    "selecting nothing must still keep all ten"
+  );
+  assert.equal(getPlayer(emptied.state, seat).mc, 42, "and keeping them is free");
+  assert.deepEqual(emptied.state.discardPile, [], "nothing was discarded");
 });
 
 test("a project that asks where it goes still reports what was built", () => {

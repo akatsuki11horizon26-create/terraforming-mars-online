@@ -1409,29 +1409,20 @@ const HANDLERS = {
     // the UI knew this, so the room and the bot charged it 3 a card at setup.
     const corporation = corporationFor(actor);
     const free = state.phase === "setup" && Boolean(corporation?.effects?.freeStartingCards);
+    // The beginner corporation KEEPS its opening ten -- it never chooses a
+    // subset. Honouring the selection let a player discard cards they were
+    // given, including all ten, and start the game with an empty hand.
+    const kept = free ? offered : ids;
     const cost = free ? 0 : ids.length * RESEARCH_CARD_COST;
     if ((actor.mc ?? 0) < cost) {
       return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
     }
-    // The starting hand is bought before preludes are resolved, and preludes are
-    // not optional, so a player must not be able to spend their way out of
-    // affording them -- applyPreludes would simply refuse and setup would stall.
-    if (state.phase === "setup") {
-      const owed = (actor.preludeOptions ?? [])
-        .map(id => PRELUDES.find(item => item.id === id))
-        .filter(Boolean)
-        .map(item => getPreludeCost(item))
-        .sort((a, b) => b - a)
-        .slice(0, 2)
-        .reduce((sum, amount) => sum + amount, 0);
-      if ((actor.mc ?? 0) - cost < owed) {
-        return fail(
-          state,
-          ERROR.CANNOT_AFFORD,
-          `Preludeの支払いに ${owed} MC を残す必要があります。`
-        );
-      }
-    }
+    // No prelude money is reserved here. Four are offered and two are taken, so
+    // reserving the dearest two charged for cards the player had not chosen;
+    // and a prelude that hands out money can pay for the one after it, so even
+    // the chosen pair's total is not a floor. A prelude that turns out to be
+    // unaffordable when its turn comes fizzles for 15 M€, which is what the
+    // rulebook says to do and what resolvePreludeEffects now does.
 
     const next = cloneGameState(state);
     next.players = next.players.map(player =>
@@ -1439,17 +1430,19 @@ const HANDLERS = {
         ? {
             ...player,
             mc: player.mc - cost,
-            hand: [...player.hand, ...ids],
+            hand: [...player.hand, ...kept],
             researchCards: [],
             setupStep: player.setupStep === "projects" ? "complete" : player.setupStep
           }
         : player
     );
-    next.discardPile = [...next.discardPile, ...offered.filter(id => !ids.includes(id))];
+    next.discardPile = [...next.discardPile, ...offered.filter(id => !kept.includes(id))];
     next.logs = addLog(
       next.logs,
       "player",
-      ids.length > 0 ? `カードを${ids.length}枚購入しました。` : "カードを購入しませんでした。",
+      free
+        ? `初期カード${kept.length}枚を無料で保持しました。`
+        : kept.length > 0 ? `カードを${kept.length}枚購入しました。` : "カードを購入しませんでした。",
       actor.name
     );
 

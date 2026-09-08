@@ -294,3 +294,54 @@ test("every curated override matches a catalog entry by name", async () => {
 
   assert.deepEqual(orphans, [], "overrides that failed to merge onto their catalog entry");
 });
+
+// The Prelude and Prelude 2 boxes are sold and played separately. Enabling
+// Prelude used to switch on both, so the "base + Prelude" shelf could not be
+// dealt and 24 projects, 25 preludes and 5 corporations arrived uninvited.
+test("Prelude and Prelude 2 are separate boxes", async () => {
+  const { enabledExpansions, getInitialState } = await import("../app/game-logic.js");
+
+  assert.deepEqual(
+    [...enabledExpansions({ prelude: true, prelude2: false })].sort(),
+    ["base", "prelude"],
+    "Prelude alone must not drag Prelude 2 in"
+  );
+  assert.deepEqual(
+    [...enabledExpansions({ prelude: false, prelude2: true })].sort(),
+    ["base", "prelude2"],
+    "and Prelude 2 stands on its own"
+  );
+  assert.deepEqual(
+    [...enabledExpansions({ prelude: true, prelude2: true })].sort(),
+    ["base", "prelude", "prelude2"]
+  );
+
+  // A caller from before the setting -- an old save, an older room -- said only
+  // "prelude", and was playing with both. It keeps getting both.
+  assert.deepEqual(
+    [...enabledExpansions({ prelude: true })].sort(),
+    ["base", "prelude", "prelude2"],
+    "the old single flag still means both"
+  );
+
+  // Prelude 2 brings its own preludes, so a game with only that box still
+  // deals four of them to choose from.
+  const state = getInitialState({ playerCount: 2, prelude2: true, seed: 11 });
+  assert.equal(state.preludeEnabled, true);
+  assert.equal(state.players[0].preludeOptions.length, 4, "Prelude 2 deals its own preludes");
+});
+
+test("each prelude box only deals its own cards", async () => {
+  const { getInitialState, PRELUDES } = await import("../app/game-logic.js");
+  const boxOf = id => PRELUDES.find(prelude => prelude.id === id)?.expansion;
+
+  const first = getInitialState({ playerCount: 2, prelude: true, prelude2: false, seed: 21 });
+  const dealtFirst = first.players.flatMap(player => player.preludeOptions);
+  assert.ok(dealtFirst.length > 0);
+  assert.deepEqual([...new Set(dealtFirst.map(boxOf))], ["prelude"]);
+
+  const second = getInitialState({ playerCount: 2, prelude: false, prelude2: true, seed: 21 });
+  const dealtSecond = second.players.flatMap(player => player.preludeOptions);
+  assert.ok(dealtSecond.length > 0);
+  assert.deepEqual([...new Set(dealtSecond.map(boxOf))], ["prelude2"]);
+});

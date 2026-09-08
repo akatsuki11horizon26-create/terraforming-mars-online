@@ -38,7 +38,7 @@ export function MultiplayerLobby({
   playerId: string;
   onConnect: (code: string, name: string) => void;
   onDisconnect: () => void;
-  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; venus: boolean; promo: boolean; board: string; draft: boolean }) => void;
+  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; prelude2: boolean; venus: boolean; promo: boolean; board: string; draft: boolean }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -46,6 +46,7 @@ export function MultiplayerLobby({
   const [turmoil, setTurmoil] = useState(false);
   const [colonies, setColonies] = useState(false);
   const [prelude, setPrelude] = useState(false);
+  const [prelude2, setPrelude2] = useState(false);
   const [venus, setVenus] = useState(false);
   const [promo, setPromo] = useState(false);
   const [board, setBoard] = useState("tharsis");
@@ -227,6 +228,10 @@ export function MultiplayerLobby({
                     <span style={{ fontSize: "0.8rem" }}>プレリュード (Prelude)</span>
                   </label>
                   <label style={checkboxRow}>
+                    <input type="checkbox" checked={prelude2} onChange={e => setPrelude2(e.target.checked)} />
+                    <span style={{ fontSize: "0.8rem" }}>プレリュード2 (Prelude 2)</span>
+                  </label>
+                  <label style={checkboxRow}>
                     <input type="checkbox" checked={venus} onChange={e => setVenus(e.target.checked)} />
                     <span style={{ fontSize: "0.8rem" }}>金星 (Venus Next)</span>
                   </label>
@@ -280,7 +285,7 @@ export function MultiplayerLobby({
                   className="btn-primary"
                   disabled={!canStart}
                   title={canStart ? undefined : "2人以上必要です"}
-                  onClick={() => onStart({ turmoil, colonies, prelude, venus, promo, board, draft })}
+                  onClick={() => onStart({ turmoil, colonies, prelude, prelude2, venus, promo, board, draft })}
                 >
                   ゲーム開始
                 </button>

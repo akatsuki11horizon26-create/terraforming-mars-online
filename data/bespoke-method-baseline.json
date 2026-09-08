@@ -72,8 +72,6 @@
   "card-promo-great-dam-promo#bespokeCanPlay",
   "card-promo-great-dam-promo#bespokePlay",
   "card-promo-hospitals#onTilePlaced",
-  "card-promo-kaguya-tech#bespokeCanPlay",
-  "card-promo-kaguya-tech#bespokePlay",
   "card-promo-mars-nomads#bespokeCanPlay",
   "card-promo-martian-lumber-corp#onDiscard",
   "card-promo-mons-insurance#bespokePlay",
@@ -105,7 +103,6 @@
   "card-venus-venusian-animals#onNonCardTagAdded",
   "card-venus-venusian-plants#bespokePlay",
   "corp-credicor#onCardPlayed",
-  "corp-helion#bespokePlay",
   "corp-ic#onCardPlayed",
   "corp-point-luna#onCardPlayed",
   "corp-tharsis#onTilePlaced",
@@ -118,7 +115,6 @@
   "prelude-aquifer-turbines#bespokePlay",
   "prelude-business-empire#bespokeCanPlay",
   "prelude-galilean-mining#bespokeCanPlay",
-  "prelude-huge-asteroid#bespokeCanPlay",
-  "prelude-huge-asteroid#bespokePlay"
+  "prelude-huge-asteroid#bespokeCanPlay"
  ]
 }

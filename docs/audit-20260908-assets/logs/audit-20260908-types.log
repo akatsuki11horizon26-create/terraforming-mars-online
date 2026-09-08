@@ -1,0 +1,4 @@
+
+> mars-frontier@0.1.0 types
+> tsc --noEmit -p tsconfig.json && tsc --noEmit -p worker/tsconfig.json
+

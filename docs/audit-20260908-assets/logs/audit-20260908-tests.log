@@ -1,0 +1,4072 @@
+
+> mars-frontier@0.1.0 test
+> npm run build && node --test tests/rendered-html.test.mjs tests/strict-rules.test.mjs tests/official-content.test.mjs tests/multiplayer-state.test.mjs tests/milestones-awards.test.mjs tests/tharsis-board.test.mjs tests/pending-choice.test.mjs tests/turmoil.test.mjs tests/colonies.test.mjs tests/expansion-ui.test.mjs tests/net-protocol.test.mjs tests/design-tokens.test.mjs tests/turn-and-hud.test.mjs tests/bot-player.test.mjs tests/alternate-boards.test.mjs tests/draft.test.mjs tests/online-validation.test.mjs tests/game-command.test.mjs tests/special-victory.test.mjs tests/empty-spec-cards.test.mjs tests/online-harness.test.mjs tests/integration.test.mjs
+
+
+> mars-frontier@0.1.0 build
+> cross-env WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext build
+
+
+  vinext build  (Vite 8.0.13)
+
+[1/5] analyze client references...
+[2K
+transforming...✓ 177 modules transformed.
+rendering chunks...
+✓ built in 2.58s
+[2/5] analyze server references...
+[2K
+transforming...✓ 86 modules transformed.
+rendering chunks...
+✓ built in 887ms
+[3/5] build rsc environment...
+[2K
+transforming...✓ 183 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 2.01s
+[4/5] build client environment...
+[2K
+transforming...✓ 94 modules transformed.
+rendering chunks...
+computing gzip size...
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.41s
+[5/5] build ssr environment...
+[2K
+transforming...✓ 92 modules transformed.
+rendering chunks...
+computing gzip size...
+✓ built in 2.01s
+[0m
+  Route (app)
+  ─ ? /
+
+  ? Unknown
+
+  ? Some routes could not be classified. vinext currently uses static analysis
+    and cannot detect dynamic API usage (headers(), cookies(), etc.) at build time.
+    Automatic classification will be improved in a future release.
+  Build complete. Run `vinext start` to start the production server.
+
+TAP version 13
+# Subtest: every map is a complete 61-space board
+ok 1 - every map is a complete 61-space board
+  ---
+  duration_ms: 7.9343
+  type: 'test'
+  ...
+# Subtest: a game can be dealt on any map
+ok 2 - a game can be dealt on any map
+  ---
+  duration_ms: 9.1798
+  type: 'test'
+  ...
+# Subtest: an unknown map falls back to Tharsis rather than dealing an empty board
+ok 3 - an unknown map falls back to Tharsis rather than dealing an empty board
+  ---
+  duration_ms: 6.4661
+  type: 'test'
+  ...
+# Subtest: each map brings its own five milestones and five awards
+ok 4 - each map brings its own five milestones and five awards
+  ---
+  duration_ms: 1.3781
+  type: 'test'
+  ...
+# Subtest: the Hellas south pole charges to place and pays an ocean
+ok 5 - the Hellas south pole charges to place and pays an ocean
+  ---
+  duration_ms: 0.421
+  type: 'test'
+  ...
+# Subtest: the maps differ from each other
+ok 6 - the maps differ from each other
+  ---
+  duration_ms: 0.6802
+  type: 'test'
+  ...
+# Subtest: board milestones read the same tile names the engine writes
+ok 7 - board milestones read the same tile names the engine writes
+  ---
+  duration_ms: 42.5581
+  type: 'test'
+  ...
+# Subtest: Pioneer reads the live colony count
+ok 8 - Pioneer reads the live colony count
+  ---
+  duration_ms: 11.6422
+  type: 'test'
+  ...
+# Subtest: the Hellas south pole charges 6 M€ and pays an ocean tile
+ok 9 - the Hellas south pole charges 6 M€ and pays an ocean tile
+  ---
+  duration_ms: 112.9611
+  type: 'test'
+  ...
+# Subtest: a card that names where its tile goes only offers those spaces
+ok 10 - a card that names where its tile goes only offers those spaces
+  ---
+  duration_ms: 9.9082
+  type: 'test'
+  ...
+# Subtest: a card needing a volcano loses that restriction on maps without one
+ok 11 - a card needing a volcano loses that restriction on maps without one
+  ---
+  duration_ms: 10.233
+  type: 'test'
+  ...
+# Subtest: The difficulties are ordered and resolvable by id
+ok 12 - The difficulties are ordered and resolvable by id
+  ---
+  duration_ms: 5.8798
+  type: 'test'
+  ...
+# Subtest: The bot rng is deterministic for a seed
+ok 13 - The bot rng is deterministic for a seed
+  ---
+  duration_ms: 0.6844
+  type: 'test'
+  ...
+# Subtest: A bot only considers moves it can actually afford
+ok 14 - A bot only considers moves it can actually afford
+  ---
+  duration_ms: 88.7271
+  type: 'test'
+  ...
+# Subtest: A bot's card resolves for the bot, not the human
+ok 15 - A bot's card resolves for the bot, not the human
+  ---
+  duration_ms: 52.4393
+  type: 'test'
+  ...
+# Subtest: A bot takes a move when one is worth taking
+ok 16 - A bot takes a move when one is worth taking
+  ---
+  duration_ms: 71.5954
+  type: 'test'
+  ...
+# Subtest: A bot with nothing to do passes and yields the seat
+ok 17 - A bot with nothing to do passes and yields the seat
+  ---
+  duration_ms: 9.0903
+  type: 'test'
+  ...
+# Subtest: Research buying leaves the bot money to play what it bought
+ok 18 - Research buying leaves the bot money to play what it bought
+  ---
+  duration_ms: 10.3103
+  type: 'test'
+  ...
+# Subtest: A robot game runs itself until the human is up again
+ok 19 - A robot game runs itself until the human is up again
+  ---
+  duration_ms: 167.7847
+  type: 'test'
+  ...
+# Subtest: A robot game reaches an ending with every parameter maxed
+ok 20 - A robot game reaches an ending with every parameter maxed
+  ---
+  duration_ms: 15302.2458
+  type: 'test'
+  ...
+# Subtest: the same decision seed produces the same move
+ok 21 - the same decision seed produces the same move
+  ---
+  duration_ms: 41.4583
+  type: 'test'
+  ...
+# Subtest: the same seed reproduces a complete sequence of bot decisions
+ok 22 - the same seed reproduces a complete sequence of bot decisions
+  ---
+  duration_ms: 1914.1459
+  type: 'test'
+  ...
+# Subtest: difficulty levels use distinct search policies
+ok 23 - difficulty levels use distinct search policies
+  ---
+  duration_ms: 2.7964
+  type: 'test'
+  ...
+# Subtest: A robot resolves and finishes its final greenery opportunity
+ok 24 - A robot resolves and finishes its final greenery opportunity
+  ---
+  duration_ms: 10.6541
+  type: 'test'
+  ...
+# Subtest: a robot resolves a queued event choice outside the action phase
+ok 25 - a robot resolves a queued event choice outside the action phase
+  ---
+  duration_ms: 4.2541
+  type: 'test'
+  ...
+# Subtest: A robot game records its difficulty so a reload keeps it
+ok 26 - A robot game records its difficulty so a reload keeps it
+  ---
+  duration_ms: 5.8379
+  type: 'test'
+  ...
+# Subtest: a bot's standard projects move each parameter exactly once
+ok 27 - a bot's standard projects move each parameter exactly once
+  ---
+  duration_ms: 12.5239
+  type: 'test'
+  ...
+# Subtest: the bot exposes all eight standard projects without a second implementation
+ok 28 - the bot exposes all eight standard projects without a second implementation
+  ---
+  duration_ms: 0.514
+  type: 'test'
+  ...
+# Subtest: simulating choices never mutates the source state
+ok 29 - simulating choices never mutates the source state
+  ---
+  duration_ms: 228.059
+  type: 'test'
+  ...
+# Subtest: an opponent's private hand cannot change the bot's decision
+ok 30 - an opponent's private hand cannot change the bot's decision
+  ---
+  duration_ms: 58.0071
+  type: 'test'
+  ...
+# Subtest: setup is completed through bot commands
+ok 31 - setup is completed through bot commands
+  ---
+  duration_ms: 3.708
+  type: 'test'
+  ...
+# Subtest: choice scoring avoids attacking the bot itself
+ok 32 - choice scoring avoids attacking the bot itself
+  ---
+  duration_ms: 8.212
+  type: 'test'
+  ...
+# Subtest: a bot can pay for a building card with steel
+ok 33 - a bot can pay for a building card with steel
+  ---
+  duration_ms: 13.3975
+  type: 'test'
+  ...
+# Subtest: Helion can pay for a bot card with heat
+ok 34 - Helion can pay for a bot card with heat
+  ---
+  duration_ms: 9.8718
+  type: 'test'
+  ...
+# Subtest: a bot chases the milestones printed on the map it is playing
+ok 35 - a bot chases the milestones printed on the map it is playing
+  ---
+  duration_ms: 32.0716
+  type: 'test'
+  ...
+# Subtest: The human's research offer stays reachable when a robot holds the seat
+ok 36 - The human's research offer stays reachable when a robot holds the seat
+  ---
+  duration_ms: 128.7896
+  type: 'test'
+  ...
+# Subtest: All twelve colony tiles carry a seven-step trade track
+ok 37 - All twelve colony tiles carry a seven-step trade track
+  ---
+  duration_ms: 6.2875
+  type: 'test'
+  ...
+# Subtest: Known tiles match the printed values
+ok 38 - Known tiles match the printed values
+  ---
+  duration_ms: 3.0163
+  type: 'test'
+  ...
+# Subtest: Colonies is off unless requested
+ok 39 - Colonies is off unless requested
+  ---
+  duration_ms: 5.0955
+  type: 'test'
+  ...
+# Subtest: The number of tiles in play follows the player count
+ok 40 - The number of tiles in play follows the player count
+  ---
+  duration_ms: 4.0729
+  type: 'test'
+  ...
+# Subtest: Every player starts with one trade fleet
+ok 41 - Every player starts with one trade fleet
+  ---
+  duration_ms: 2.0268
+  type: 'test'
+  ...
+# Subtest: Building a colony pays the build bonus and raises the track
+ok 42 - Building a colony pays the build bonus and raises the track
+  ---
+  duration_ms: 26.2586
+  type: 'test'
+  ...
+# Subtest: A player may not colonise the same tile twice
+ok 43 - A player may not colonise the same tile twice
+  ---
+  duration_ms: 3.1932
+  type: 'test'
+  ...
+# Subtest: A tile holds at most three colonies
+ok 44 - A tile holds at most three colonies
+  ---
+  duration_ms: 4.2188
+  type: 'test'
+  ...
+# Subtest: Trading pays the trader and every colony owner
+ok 45 - Trading pays the trader and every colony owner
+  ---
+  duration_ms: 16.1843
+  type: 'test'
+  ...
+# Subtest: Trading consumes a fleet and closes the tile for the generation
+ok 46 - Trading consumes a fleet and closes the tile for the generation
+  ---
+  duration_ms: 4.081
+  type: 'test'
+  ...
+# Subtest: The trade track resets to the number of colonies present
+ok 47 - The trade track resets to the number of colonies present
+  ---
+  duration_ms: 7.3148
+  type: 'test'
+  ...
+# Subtest: Fleets return at the end of the generation
+ok 48 - Fleets return at the end of the generation
+  ---
+  duration_ms: 19.2691
+  type: 'test'
+  ...
+# Subtest: Colony requirements read live state
+ok 49 - Colony requirements read live state
+  ---
+  duration_ms: 19.0433
+  type: 'test'
+  ...
+# Subtest: trading and building colonies cost what the rulebook says
+ok 50 - trading and building colonies cost what the rulebook says
+  ---
+  duration_ms: 109.6811
+  type: 'test'
+  ...
+# Subtest: every card's effect is implemented
+ok 51 - every card's effect is implemented
+  ---
+  duration_ms: 49.3524
+  type: 'test'
+  ...
+# Subtest: Turmoil and Colonies card effects reach the game state
+ok 52 - Turmoil and Colonies card effects reach the game state
+  ---
+  duration_ms: 41.4118
+  type: 'test'
+  ...
+# Subtest: Every colony track climbs one step when the generation ends
+ok 53 - Every colony track climbs one step when the generation ends
+  ---
+  duration_ms: 1.7695
+  type: 'test'
+  ...
+# Subtest: The colony track stops at the top of the track
+ok 54 - The colony track stops at the top of the track
+  ---
+  duration_ms: 1.9932
+  type: 'test'
+  ...
+# Subtest: every colony effect shown to the player is translated
+ok 55 - every colony effect shown to the player is translated
+  ---
+  duration_ms: 26.0614
+  type: 'test'
+  ...
+# Subtest: A card that allows it may place a second colony on the same tile
+ok 56 - A card that allows it may place a second colony on the same tile
+  ---
+  duration_ms: 1.6589
+  type: 'test'
+  ...
+# Subtest: Resource colonies stay dormant until a card can hold their resource
+ok 57 - Resource colonies stay dormant until a card can hold their resource
+  ---
+  duration_ms: 22.7185
+  type: 'test'
+  ...
+# Subtest: A trade can name which resource pays for it
+ok 58 - A trade can name which resource pays for it
+  ---
+  duration_ms: 10.9266
+  type: 'test'
+  ...
+# Subtest: Solo Colonies deals four tiles and keeps three
+ok 59 - Solo Colonies deals four tiles and keeps three
+  ---
+  duration_ms: 39.4058
+  type: 'test'
+  ...
+# Subtest: Every palette token is defined
+ok 60 - Every palette token is defined
+  ---
+  duration_ms: 19.6616
+  type: 'test'
+  ...
+# Subtest: Text meets WCAG AA on the panel surface
+ok 61 - Text meets WCAG AA on the panel surface
+  ---
+  duration_ms: 0.8884
+  type: 'test'
+  ...
+# Subtest: Accents meet WCAG AA on the panel surface
+ok 62 - Accents meet WCAG AA on the panel surface
+  ---
+  duration_ms: 1.4268
+  type: 'test'
+  ...
+# Subtest: Primary text stays readable on the brightest surface
+ok 63 - Primary text stays readable on the brightest surface
+  ---
+  duration_ms: 0.418
+  type: 'test'
+  ...
+# Subtest: Each surface is lighter than the one below it
+ok 64 - Each surface is lighter than the one below it
+  ---
+  duration_ms: 0.6041
+  type: 'test'
+  ...
+# Subtest: The background is dark but never pure black
+ok 65 - The background is dark but never pure black
+  ---
+  duration_ms: 0.5429
+  type: 'test'
+  ...
+# Subtest: Text is tinted rather than pure white
+ok 66 - Text is tinted rather than pure white
+  ---
+  duration_ms: 0.3116
+  type: 'test'
+  ...
+# Subtest: Corners are chamfered, not rounded
+ok 67 - Corners are chamfered, not rounded
+  ---
+  duration_ms: 2.1722
+  type: 'test'
+  ...
+# Subtest: The layout is pinned to the viewport
+ok 68 - The layout is pinned to the viewport
+  ---
+  duration_ms: 0.9701
+  type: 'test'
+  ...
+# Subtest: No hardcoded rust or ember values survive
+ok 69 - No hardcoded rust or ember values survive
+  ---
+  duration_ms: 1.6605
+  type: 'test'
+  ...
+# Subtest: card internals scale with the card, and the aspect ratios agree
+ok 70 - card internals scale with the card, and the aspect ratios agree
+  ---
+  duration_ms: 32.6893
+  type: 'test'
+  ...
+# Subtest: a hand that cannot fit scrolls instead of hiding its bottom row
+ok 71 - a hand that cannot fit scrolls instead of hiding its bottom row
+  ---
+  duration_ms: 4.3515
+  type: 'test'
+  ...
+# Subtest: the pass direction alternates every generation
+ok 72 - the pass direction alternates every generation
+  ---
+  duration_ms: 2.2969
+  type: 'test'
+  ...
+# Subtest: cards pass on only once everyone has picked
+ok 73 - cards pass on only once everyone has picked
+  ---
+  duration_ms: 3.7878
+  type: 'test'
+  ...
+# Subtest: a card nobody holds cannot be drafted
+ok 74 - a card nobody holds cannot be drafted
+  ---
+  duration_ms: 0.589
+  type: 'test'
+  ...
+# Subtest: drafting the opening ten leaves every player a full research hand
+ok 75 - drafting the opening ten leaves every player a full research hand
+  ---
+  duration_ms: 22.0934
+  type: 'test'
+  ...
+# Subtest: solo play never drafts
+ok 76 - solo play never drafts
+  ---
+  duration_ms: 28.928
+  type: 'test'
+  ...
+# Subtest: a completed draft is recognised
+ok 77 - a completed draft is recognised
+  ---
+  duration_ms: 0.4984
+  type: 'test'
+  ...
+# Subtest: Extreme-Cold Fungus gains a plant, or feeds another card two microbes
+ok 78 - Extreme-Cold Fungus gains a plant, or feeds another card two microbes
+  ---
+  duration_ms: 78.1541
+  type: 'test'
+  ...
+# Subtest: Sulphur-Eating Bacteria trades its microbes for triple their worth
+ok 79 - Sulphur-Eating Bacteria trades its microbes for triple their worth
+  ---
+  duration_ms: 21.9379
+  type: 'test'
+  ...
+# Subtest: Jupiter Floating Station pays a M€ per floater, and never more than four
+ok 80 - Jupiter Floating Station pays a M€ per floater, and never more than four
+  ---
+  duration_ms: 34.8346
+  type: 'test'
+  ...
+# Subtest: Red Ships pays for cities and special tiles beside an ocean, not greeneries
+ok 81 - Red Ships pays for cities and special tiles beside an ocean, not greeneries
+  ---
+  duration_ms: 12.1301
+  type: 'test'
+  ...
+# Subtest: Martian Zoo collects an animal for every Earth tag played
+ok 82 - Martian Zoo collects an animal for every Earth tag played
+  ---
+  duration_ms: 50.3497
+  type: 'test'
+  ...
+# Subtest: GMO Contract pays two M€ for every plant, animal or microbe tag played
+ok 83 - GMO Contract pays two M€ for every plant, animal or microbe tag played
+  ---
+  duration_ms: 11.9645
+  type: 'test'
+  ...
+# Subtest: Banned Delegate removes any delegate that is not a party leader
+ok 84 - Banned Delegate removes any delegate that is not a party leader
+  ---
+  duration_ms: 61.2121
+  type: 'test'
+  ...
+# Subtest: Terraforming Ganymede raises TR once per Jovian tag, its own included
+ok 85 - Terraforming Ganymede raises TR once per Jovian tag, its own included
+  ---
+  duration_ms: 40.6473
+  type: 'test'
+  ...
+# Subtest: Olympus Conference banks a science resource, or spends one for a card
+ok 86 - Olympus Conference banks a science resource, or spends one for a card
+  ---
+  duration_ms: 68.4203
+  type: 'test'
+  ...
+# Subtest: Icy Impactors and Titan Shuttles trade their resources both ways
+ok 87 - Icy Impactors and Titan Shuttles trade their resources both ways
+  ---
+  duration_ms: 142.5716
+  type: 'test'
+  ...
+# Subtest: Floating Trade Hub turns its floaters into standard resources
+ok 88 - Floating Trade Hub turns its floaters into standard resources
+  ---
+  duration_ms: 2.9347
+  type: 'test'
+  ...
+# Subtest: Project Inspection frees a card action to be used a second time
+ok 89 - Project Inspection frees a card action to be used a second time
+  ---
+  duration_ms: 4.2761
+  type: 'test'
+  ...
+# Subtest: Double Down applies the other prelude a second time
+ok 90 - Double Down applies the other prelude a second time
+  ---
+  duration_ms: 10.9484
+  type: 'test'
+  ...
+# Subtest: Jovian Lanterns trades a titanium for two floaters
+ok 91 - Jovian Lanterns trades a titanium for two floaters
+  ---
+  duration_ms: 2.7377
+  type: 'test'
+  ...
+# Subtest: Red Spot Observatory banks a floater, or spends one for a card
+ok 92 - Red Spot Observatory banks a floater, or spends one for a card
+  ---
+  duration_ms: 6.3848
+  type: 'test'
+  ...
+# Subtest: Extractor Balloons trades two floaters for a step of Venus
+ok 93 - Extractor Balloons trades two floaters for a step of Venus
+  ---
+  duration_ms: 5.5036
+  type: 'test'
+  ...
+# Subtest: Asteroid Deflection System keeps only what the deck reveals
+ok 94 - Asteroid Deflection System keeps only what the deck reveals
+  ---
+  duration_ms: 5.6336
+  type: 'test'
+  ...
+# Subtest: An action that costs production needs production to spend
+ok 95 - An action that costs production needs production to spend
+  ---
+  duration_ms: 1.8073
+  type: 'test'
+  ...
+# Subtest: A card that eats another card's resources needs one to eat
+ok 96 - A card that eats another card's resources needs one to eat
+  ---
+  duration_ms: 2.1429
+  type: 'test'
+  ...
+# Subtest: A full ocean track does not forbid an action that would place one
+ok 97 - A full ocean track does not forbid an action that would place one
+  ---
+  duration_ms: 1.0817
+  type: 'test'
+  ...
+# Subtest: Stratospheric Birds spends a floater from one of your cards
+ok 98 - Stratospheric Birds spends a floater from one of your cards
+  ---
+  duration_ms: 38.7887
+  type: 'test'
+  ...
+# Subtest: Noctis City needs the energy production it spends
+ok 99 - Noctis City needs the energy production it spends
+  ---
+  duration_ms: 1.6944
+  type: 'test'
+  ...
+# Subtest: Immigrant City sheds production rather than paying it
+ok 100 - Immigrant City sheds production rather than paying it
+  ---
+  duration_ms: 9.8075
+  type: 'test'
+  ...
+# Subtest: Hermetic Order of Mars pays a M€ per empty area beside your tiles
+ok 101 - Hermetic Order of Mars pays a M€ per empty area beside your tiles
+  ---
+  duration_ms: 35.2015
+  type: 'test'
+  ...
+# Subtest: Tycho Magnetics spends energy to draw, and keeps one
+ok 102 - Tycho Magnetics spends energy to draw, and keeps one
+  ---
+  duration_ms: 10.0025
+  type: 'test'
+  ...
+# Subtest: The five remaining unspecced cards do what their text says
+ok 103 - The five remaining unspecced cards do what their text says
+  ---
+  duration_ms: 15.6177
+  type: 'test'
+  ...
+# Subtest: Teslaract trades a step of energy production for a step of plants
+ok 104 - Teslaract trades a step of energy production for a step of plants
+  ---
+  duration_ms: 4.715
+  type: 'test'
+  ...
+# Subtest: Septem Tribus pays two M€ per party holding a delegate of yours
+ok 105 - Septem Tribus pays two M€ per party holding a delegate of yours
+  ---
+  duration_ms: 2.0175
+  type: 'test'
+  ...
+# Subtest: Viron frees a used card action, the way Project Inspection does
+ok 106 - Viron frees a used card action, the way Project Inspection does
+  ---
+  duration_ms: 2.4558
+  type: 'test'
+  ...
+# Subtest: Factorum offers only the half the board allows
+ok 107 - Factorum offers only the half the board allows
+  ---
+  duration_ms: 57.7648
+  type: 'test'
+  ...
+# Subtest: Research Coordination is a Wild tag and nothing else
+ok 108 - Research Coordination is a Wild tag and nothing else
+  ---
+  duration_ms: 1.3831
+  type: 'test'
+  ...
+# Subtest: Preservation Program raises the terraform rating five steps
+ok 109 - Preservation Program raises the terraform rating five steps
+  ---
+  duration_ms: 4.5395
+  type: 'test'
+  ...
+# Subtest: Palladin Shipping trades two titanium for a step of temperature
+ok 110 - Palladin Shipping trades two titanium for a step of temperature
+  ---
+  duration_ms: 2.8983
+  type: 'test'
+  ...
+# Subtest: Saturn Surfing counts the floater it spends
+ok 111 - Saturn Surfing counts the floater it spends
+  ---
+  duration_ms: 35.9616
+  type: 'test'
+  ...
+# Subtest: Mohole Lake feeds a microbe or an animal, never itself
+ok 112 - Mohole Lake feeds a microbe or an animal, never itself
+  ---
+  duration_ms: 3.3465
+  type: 'test'
+  ...
+# Subtest: Ceres Tech Market pays two M€ for each card discarded
+ok 113 - Ceres Tech Market pays two M€ for each card discarded
+  ---
+  duration_ms: 31.7349
+  type: 'test'
+  ...
+# Subtest: Asteroid Rights spends a M€ to place, or an asteroid to collect
+ok 114 - Asteroid Rights spends a M€ to place, or an asteroid to collect
+  ---
+  duration_ms: 15.1839
+  type: 'test'
+  ...
+# Subtest: A branch that puts resources on another card asks which one
+ok 115 - A branch that puts resources on another card asks which one
+  ---
+  duration_ms: 84.317
+  type: 'test'
+  ...
+# Subtest: A prelude's action is offered, not just a project's
+ok 116 - A prelude's action is offered, not just a project's
+  ---
+  duration_ms: 56.4269
+  type: 'test'
+  ...
+# Subtest: Arcadian Communities places its first community anywhere
+ok 117 - Arcadian Communities places its first community anywhere
+  ---
+  duration_ms: 4.0965
+  type: 'test'
+  ...
+# Subtest: Its later communities go beside a tile or marker of its own
+ok 118 - Its later communities go beside a tile or marker of its own
+  ---
+  duration_ms: 5.6348
+  type: 'test'
+  ...
+# Subtest: Building on your own community pays three M€
+ok 119 - Building on your own community pays three M€
+  ---
+  duration_ms: 4.0308
+  type: 'test'
+  ...
+# Subtest: Astrodrill offers three things, and the third only when it can pay
+ok 120 - Astrodrill offers three things, and the third only when it can pay
+  ---
+  duration_ms: 6.9007
+  type: 'test'
+  ...
+# Subtest: Focused Organization trades a card and a resource for one of each
+ok 121 - Focused Organization trades a card and a resource for one of each
+  ---
+  duration_ms: 9.6999
+  type: 'test'
+  ...
+# Subtest: Venus Shuttles costs a M€ less for each Venus tag you hold
+ok 122 - Venus Shuttles costs a M€ less for each Venus tag you hold
+  ---
+  duration_ms: 10.5663
+  type: 'test'
+  ...
+# Subtest: Titan Floating Launch-Pad buys a trade with a floater
+ok 123 - Titan Floating Launch-Pad buys a trade with a floater
+  ---
+  duration_ms: 11.6479
+  type: 'test'
+  ...
+# Subtest: A card action does not replay the card's play effect
+ok 124 - A card action does not replay the card's play effect
+  ---
+  duration_ms: 31.1146
+  type: 'test'
+  ...
+# Subtest: Board of Directors draws a prelude, to discard or to pay for
+ok 125 - Board of Directors draws a prelude, to discard or to pay for
+  ---
+  duration_ms: 8.2242
+  type: 'test'
+  ...
+# Subtest: Preservation Program eats the first TR of each generation's action phase
+ok 126 - Preservation Program eats the first TR of each generation's action phase
+  ---
+  duration_ms: 9.9862
+  type: 'test'
+  ...
+# Subtest: Arctic Algae gains 2 plants for an ocean laid by anyone
+ok 127 - Arctic Algae gains 2 plants for an ocean laid by anyone
+  ---
+  duration_ms: 5.5128
+  type: 'test'
+  ...
+# Subtest: every card a player can be dealt says what it does
+ok 128 - every card a player can be dealt says what it does
+  ---
+  duration_ms: 0.6994
+  type: 'test'
+  ...
+# Subtest: Lakefront Resorts pays for every ocean and raises the adjacency bonus
+ok 129 - Lakefront Resorts pays for every ocean and raises the adjacency bonus
+  ---
+  duration_ms: 8.1697
+  type: 'test'
+  ...
+# Subtest: Aridor pays for each new tag type, not for repeats
+ok 130 - Aridor pays for each new tag type, not for repeats
+  ---
+  duration_ms: 7.5338
+  type: 'test'
+  ...
+# Subtest: Spire collects a science resource from cards with two tags
+ok 131 - Spire collects a science resource from cards with two tags
+  ---
+  duration_ms: 5.4158
+  type: 'test'
+  ...
+# Subtest: Philares pays for a new adjacency whoever placed the tile
+ok 132 - Philares pays for a new adjacency whoever placed the tile
+  ---
+  duration_ms: 5.8693
+  type: 'test'
+  ...
+# Subtest: Neptunian Power Consultants offers its ocean deal only when affordable
+ok 133 - Neptunian Power Consultants offers its ocean deal only when affordable
+  ---
+  duration_ms: 27.3191
+  type: 'test'
+  ...
+# Subtest: Luxury Foods needs all three of its tags
+ok 134 - Luxury Foods needs all three of its tags
+  ---
+  duration_ms: 4.448
+  type: 'test'
+  ...
+# Subtest: a corporation first action that asks a question does not hang setup
+ok 135 - a corporation first action that asks a question does not hang setup
+  ---
+  duration_ms: 4.3535
+  type: 'test'
+  ...
+# Subtest: Aridor adds a colony tile from the ones nobody is using
+ok 136 - Aridor adds a colony tile from the ones nobody is using
+  ---
+  duration_ms: 2.4312
+  type: 'test'
+  ...
+# Subtest: Spire draws four and discards three as its first action
+ok 137 - Spire draws four and discards three as its first action
+  ---
+  duration_ms: 8.3785
+  type: 'test'
+  ...
+# Subtest: Philares places a greenery as its first action
+ok 138 - Philares places a greenery as its first action
+  ---
+  duration_ms: 2.5742
+  type: 'test'
+  ...
+# Subtest: a tile is not laid on a space something else already took
+ok 139 - a tile is not laid on a space something else already took
+  ---
+  duration_ms: 5.959
+  type: 'test'
+  ...
+# Subtest: Aridor does not pay for tags that were already on the tableau
+ok 140 - Aridor does not pay for tags that were already on the tableau
+  ---
+  duration_ms: 2.1768
+  type: 'test'
+  ...
+# Subtest: Lakefront Resorts' ocean bonus follows the corporation in and out of play
+ok 141 - Lakefront Resorts' ocean bonus follows the corporation in and out of play
+  ---
+  duration_ms: 72.4029
+  type: 'test'
+  ...
+# Subtest: a card that has an action or a discount says so
+ok 142 - a card that has an action or a discount says so
+  ---
+  duration_ms: 7.4179
+  type: 'test'
+  ...
+# Subtest: Community Services counts itself once, not twice
+ok 143 - Community Services counts itself once, not twice
+  ---
+  duration_ms: 29.4293
+  type: 'test'
+  ...
+# Subtest: Interplanetary Trade counts its own Space tag along with the rest
+ok 144 - Interplanetary Trade counts its own Space tag along with the rest
+  ---
+  duration_ms: 10.1257
+  type: 'test'
+  ...
+# Subtest: Head Start pays for the project cards in hand
+ok 145 - Head Start pays for the project cards in hand
+  ---
+  duration_ms: 7.1762
+  type: 'test'
+  ...
+# Subtest: Project Eden played from a prelude places all three tiles and finishes setup
+ok 146 - Project Eden played from a prelude places all three tiles and finishes setup
+  ---
+  duration_ms: 20.6825
+  type: 'test'
+  ...
+# Subtest: a prelude that asks once still resumes immediately
+ok 147 - a prelude that asks once still resumes immediately
+  ---
+  duration_ms: 5.6945
+  type: 'test'
+  ...
+# Subtest: Arklight collects an animal per animal or plant tag
+ok 148 - Arklight collects an animal per animal or plant tag
+  ---
+  duration_ms: 11.5175
+  type: 'test'
+  ...
+# Subtest: Recyclon offers the trade once two microbes are on it
+ok 149 - Recyclon offers the trade once two microbes are on it
+  ---
+  duration_ms: 9.9795
+  type: 'test'
+  ...
+# Subtest: Pristar pays only in a generation its owner did not terraform
+ok 150 - Pristar pays only in a generation its owner did not terraform
+  ---
+  duration_ms: 9.1948
+  type: 'test'
+  ...
+# Subtest: EcoTec pays a plant or a microbe for every bio tag
+ok 151 - EcoTec pays a plant or a microbe for every bio tag
+  ---
+  duration_ms: 5.3619
+  type: 'test'
+  ...
+# Subtest: a card's icon row says the same thing its text does
+ok 152 - a card's icon row says the same thing its text does
+  ---
+  duration_ms: 9.3308
+  type: 'test'
+  ...
+# Subtest: the icon rows carry the amounts upstream prints
+ok 153 - the icon rows carry the amounts upstream prints
+  ---
+  duration_ms: 0.8054
+  type: 'test'
+  ...
+# Subtest: every tag and card resource the icons name has its own glyph
+ok 154 - every tag and card resource the icons name has its own glyph
+  ---
+  duration_ms: 7.9759
+  type: 'test'
+  ...
+# Subtest: our catalogue covers the upstream expansions it claims
+ok 155 - our catalogue covers the upstream expansions it claims
+  ---
+  duration_ms: 133.0501
+  type: 'test'
+  ...
+# Subtest: Pharmacy Union trades diseases for rating, then turns face down
+ok 156 - Pharmacy Union trades diseases for rating, then turns face down
+  ---
+  duration_ms: 5.0108
+  type: 'test'
+  ...
+# Subtest: Nitrogen-Rich Asteroid pays its plant production, four with three plant tags
+ok 157 - Nitrogen-Rich Asteroid pays its plant production, four with three plant tags
+  ---
+  duration_ms: 14.7838
+  type: 'test'
+  ...
+# Subtest: Double Down copies a prelude's payout but not its questions
+ok 158 - Double Down copies a prelude's payout but not its questions
+  ---
+  duration_ms: 69.6488
+  type: 'test'
+  ...
+# Subtest: every corporation trigger fires on the path a player actually uses
+ok 159 - every corporation trigger fires on the path a player actually uses
+  ---
+  duration_ms: 85.2274
+  type: 'test'
+  ...
+# Subtest: every corporation the engine can act for is offered a button
+ok 160 - every corporation the engine can act for is offered a button
+  ---
+  duration_ms: 25.2055
+  type: 'test'
+  ...
+# Subtest: Project Eden resolves all four of its steps in any order
+ok 161 - Project Eden resolves all four of its steps in any order
+  ---
+  duration_ms: 676.5177
+  type: 'test'
+  ...
+# Subtest: Pharmacy Union asks which order when a card carries both its tags
+ok 162 - Pharmacy Union asks which order when a card carries both its tags
+  ---
+  duration_ms: 11.0344
+  type: 'test'
+  ...
+# Subtest: Ecology Experts waives the global tracks and nothing else
+ok 163 - Ecology Experts waives the global tracks and nothing else
+  ---
+  duration_ms: 1.84
+  type: 'test'
+  ...
+# Subtest: a prelude that cannot play a card fizzles for 15 M€
+ok 164 - a prelude that cannot play a card fizzles for 15 M€
+  ---
+  duration_ms: 2.5177
+  type: 'test'
+  ...
+# Subtest: The expansion stylesheet is loaded alongside the base theme
+ok 165 - The expansion stylesheet is loaded alongside the base theme
+  ---
+  duration_ms: 146.4739
+  type: 'test'
+  ...
+# Subtest: New surfaces reuse the existing colour tokens
+ok 166 - New surfaces reuse the existing colour tokens
+  ---
+  duration_ms: 19.1978
+  type: 'test'
+  ...
+# Subtest: Every new surface has styling
+ok 167 - Every new surface has styling
+  ---
+  duration_ms: 55.6962
+  type: 'test'
+  ...
+# Subtest: The new panels stay responsive and keyboard-reachable
+ok 168 - The new panels stay responsive and keyboard-reachable
+  ---
+  duration_ms: 70.3854
+  type: 'test'
+  ...
+# Subtest: Panels are declared as components and exported for the page
+ok 169 - Panels are declared as components and exported for the page
+  ---
+  duration_ms: 39.0347
+  type: 'test'
+  ...
+# Subtest: The choice dialog is announced to assistive technology
+ok 170 - The choice dialog is announced to assistive technology
+  ---
+  duration_ms: 47.1949
+  type: 'test'
+  ...
+# Subtest: The player switcher marks the active player
+ok 171 - The player switcher marks the active player
+  ---
+  duration_ms: 5.1824
+  type: 'test'
+  ...
+# Subtest: The page mounts every new panel and gates them on real state
+ok 172 - The page mounts every new panel and gates them on real state
+  ---
+  duration_ms: 4.7344
+  type: 'test'
+  ...
+# Subtest: Panel actions are wired to the engine, not to local state
+ok 173 - Panel actions are wired to the engine, not to local state
+  ---
+  duration_ms: 4.7981
+  type: 'test'
+  ...
+# Subtest: A fresh game renders the setup screen without expansion panels
+ok 174 - A fresh game renders the setup screen without expansion panels
+  ---
+  duration_ms: 4.7826
+  type: 'test'
+  ...
+# Subtest: Eccentric Sponsor asks which of multiple eligible projects to play
+ok 175 - Eccentric Sponsor asks which of multiple eligible projects to play
+  ---
+  duration_ms: 71.0975
+  type: 'test'
+  ...
+# Subtest: Eccentric Sponsor charges the remainder above its 25 MC discount
+ok 176 - Eccentric Sponsor charges the remainder above its 25 MC discount
+  ---
+  duration_ms: 73.0813
+  type: 'test'
+  ...
+# Subtest: Eccentric Sponsor can play an event and files it as an event
+ok 177 - Eccentric Sponsor can play an event and files it as an event
+  ---
+  duration_ms: 10.3931
+  type: 'test'
+  ...
+# Subtest: Eccentric Sponsor resumes Prelude setup after a project's nested choice
+ok 178 - Eccentric Sponsor resumes Prelude setup after a project's nested choice
+  ---
+  duration_ms: 33.1382
+  type: 'test'
+  ...
+# Subtest: Eccentric Sponsor fizzles without a target and leaves no discount
+ok 179 - Eccentric Sponsor fizzles without a target and leaves no discount
+  ---
+  duration_ms: 3.8833
+  type: 'test'
+  ...
+# Subtest: a command from the wrong seat is refused
+ok 180 - a command from the wrong seat is refused
+  ---
+  duration_ms: 9.2011
+  type: 'test'
+  ...
+# Subtest: a card the seat does not hold is refused
+ok 181 - a card the seat does not hold is refused
+  ---
+  duration_ms: 8.9471
+  type: 'test'
+  ...
+# Subtest: playing a card applies its effect and spends one action
+ok 182 - playing a card applies its effect and spends one action
+  ---
+  duration_ms: 13.3634
+  type: 'test'
+  ...
+# Subtest: an action only costs a turn when it succeeds
+ok 183 - an action only costs a turn when it succeeds
+  ---
+  duration_ms: 49.0148
+  type: 'test'
+  ...
+# Subtest: only the owner of a pending choice may answer it
+ok 184 - only the owner of a pending choice may answer it
+  ---
+  duration_ms: 6.929
+  type: 'test'
+  ...
+# Subtest: an unknown command is refused rather than ignored
+ok 185 - an unknown command is refused rather than ignored
+  ---
+  duration_ms: 29.25
+  type: 'test'
+  ...
+# Subtest: legal commands are only those the seat can actually issue
+ok 186 - legal commands are only those the seat can actually issue
+  ---
+  duration_ms: 173.3432
+  type: 'test'
+  ...
+# Subtest: a card that asks for a target still costs exactly one action
+ok 187 - a card that asks for a target still costs exactly one action
+  ---
+  duration_ms: 70.3791
+  type: 'test'
+  ...
+# Subtest: playing a card fires threshold bonuses and corporation triggers
+ok 188 - playing a card fires threshold bonuses and corporation triggers
+  ---
+  duration_ms: 11.8204
+  type: 'test'
+  ...
+# Subtest: a client cannot spend resources it does not hold
+ok 189 - a client cannot spend resources it does not hold
+  ---
+  duration_ms: 17.1821
+  type: 'test'
+  ...
+# Subtest: every standard project runs through the command layer
+ok 190 - every standard project runs through the command layer
+  ---
+  duration_ms: 133.9982
+  type: 'test'
+  ...
+# Subtest: a standard project nobody can pay for is refused for free
+ok 191 - a standard project nobody can pay for is refused for free
+  ---
+  duration_ms: 7.625
+  type: 'test'
+  ...
+# Subtest: Robinson Industries raises the lowest production and spends one action
+ok 192 - Robinson Industries raises the lowest production and spends one action
+  ---
+  duration_ms: 6.1213
+  type: 'test'
+  ...
+# Subtest: a corporation action cannot be used twice in one generation
+ok 193 - a corporation action cannot be used twice in one generation
+  ---
+  duration_ms: 4.6139
+  type: 'test'
+  ...
+# Subtest: UNMI may only buy a TR step in a generation where its TR already rose
+ok 194 - UNMI may only buy a TR step in a generation where its TR already rose
+  ---
+  duration_ms: 6.3141
+  type: 'test'
+  ...
+# Subtest: Ecoline converts plants at 7 instead of 8
+ok 195 - Ecoline converts plants at 7 instead of 8
+  ---
+  duration_ms: 12.9089
+  type: 'test'
+  ...
+# Subtest: Ecoline has no corporation action of its own
+ok 196 - Ecoline has no corporation action of its own
+  ---
+  duration_ms: 5.905
+  type: 'test'
+  ...
+# Subtest: a corporation with no action of its own is refused
+ok 197 - a corporation with no action of its own is refused
+  ---
+  duration_ms: 4.8757
+  type: 'test'
+  ...
+# Subtest: answering the last question is what spends the action
+ok 198 - answering the last question is what spends the action
+  ---
+  duration_ms: 16.0685
+  type: 'test'
+  ...
+# Subtest: a choice belonging to another seat cannot be answered
+ok 199 - a choice belonging to another seat cannot be answered
+  ---
+  duration_ms: 6.5183
+  type: 'test'
+  ...
+# Subtest: a card that asks a question still fires its corporation trigger
+ok 200 - a card that asks a question still fires its corporation trigger
+  ---
+  duration_ms: 9.583
+  type: 'test'
+  ...
+# Subtest: the city project raises MC production for whoever builds it
+ok 201 - the city project raises MC production for whoever builds it
+  ---
+  duration_ms: 7.7403
+  type: 'test'
+  ...
+# Subtest: a project with nowhere to put its tile is refused before it is paid
+ok 202 - a project with nowhere to put its tile is refused before it is paid
+  ---
+  duration_ms: 5.7382
+  type: 'test'
+  ...
+# Subtest: the same card cannot be sold twice in one sale
+ok 203 - the same card cannot be sold twice in one sale
+  ---
+  duration_ms: 4.2161
+  type: 'test'
+  ...
+# Subtest: CrediCor is repaid for a standard project costing 20 or more
+ok 204 - CrediCor is repaid for a standard project costing 20 or more
+  ---
+  duration_ms: 11.1176
+  type: 'test'
+  ...
+# Subtest: Tharsis Republic is paid for every city, and the 3 MC only for its own
+ok 205 - Tharsis Republic is paid for every city, and the 3 MC only for its own
+  ---
+  duration_ms: 13.8741
+  type: 'test'
+  ...
+# Subtest: a greenery that crosses 8% oxygen buys the temperature step
+ok 206 - a greenery that crosses 8% oxygen buys the temperature step
+  ---
+  duration_ms: 33.503
+  type: 'test'
+  ...
+# Subtest: actions are refused outside the action phase
+ok 207 - actions are refused outside the action phase
+  ---
+  duration_ms: 6.4555
+  type: 'test'
+  ...
+# Subtest: buying research is still allowed in the research phase
+ok 208 - buying research is still allowed in the research phase
+  ---
+  duration_ms: 7.1893
+  type: 'test'
+  ...
+# Subtest: the action phase starts with everyone holding two actions again
+ok 209 - the action phase starts with everyone holding two actions again
+  ---
+  duration_ms: 11.0976
+  type: 'test'
+  ...
+# Subtest: Beginner Corporation's opening hand is free, and later ones are not
+ok 210 - Beginner Corporation's opening hand is free, and later ones are not
+  ---
+  duration_ms: 7.7173
+  type: 'test'
+  ...
+# Subtest: a project that asks where it goes still reports what was built
+ok 211 - a project that asks where it goes still reports what was built
+  ---
+  duration_ms: 9.9422
+  type: 'test'
+  ...
+# Subtest: the 0°C ocean bonus creates a resolvable board choice
+ok 212 - the 0°C ocean bonus creates a resolvable board choice
+  ---
+  duration_ms: 6.3183
+  type: 'test'
+  ...
+# Subtest: final greenery resolves in turn order through commands
+ok 213 - final greenery resolves in turn order through commands
+  ---
+  duration_ms: 14.1679
+  type: 'test'
+  ...
+# Subtest: a game with opponents is decided on points, not on the three tracks
+ok 214 - a game with opponents is decided on points, not on the three tracks
+  ---
+  duration_ms: 9.6995
+  type: 'test'
+  ...
+# Subtest: a tie on points is broken by MC, and a tie on both is shared
+ok 215 - a tie on points is broken by MC, and a tie on both is shared
+  ---
+  duration_ms: 57.3479
+  type: 'test'
+  ...
+# Subtest: solo is still decided by the planet, not by a ranking
+ok 216 - solo is still decided by the planet, not by a ranking
+  ---
+  duration_ms: 8.8585
+  type: 'test'
+  ...
+# Subtest: final greenery commands and research purchases are phase gated
+ok 217 - final greenery commands and research purchases are phase gated
+  ---
+  duration_ms: 5.6479
+  type: 'test'
+  ...
+# Subtest: an open choice must be answered before the seat does anything else
+ok 218 - an open choice must be answered before the seat does anything else
+  ---
+  duration_ms: 8.5338
+  type: 'test'
+  ...
+# Subtest: playing a card records who played what
+ok 219 - playing a card records who played what
+  ---
+  duration_ms: 10.5037
+  type: 'test'
+  ...
+# Subtest: Special Design relaxes only the next card played
+ok 220 - Special Design relaxes only the next card played
+  ---
+  duration_ms: 136.9681
+  type: 'test'
+  ...
+# Subtest: Helion chooses how much heat to spend as money
+ok 221 - Helion chooses how much heat to spend as money
+  ---
+  duration_ms: 12.24
+  type: 'test'
+  ...
+# Subtest: Io Sulphur Research draws according to the player's active Venus tags
+ok 222 - Io Sulphur Research draws according to the player's active Venus tags
+  ---
+  duration_ms: 18.3036
+  type: 'test'
+  ...
+# Subtest: a project that asks where to build still says what was played
+ok 223 - a project that asks where to build still says what was played
+  ---
+  duration_ms: 31.8798
+  type: 'test'
+  ...
+# Subtest: a game reaches the action phase entirely through commands
+ok 224 - a game reaches the action phase entirely through commands
+  ---
+  duration_ms: 138.0537
+  type: 'test'
+  ...
+# Subtest: the research phase ends only when every seat has bought
+ok 225 - the research phase ends only when every seat has bought
+  ---
+  duration_ms: 14.2343
+  type: 'test'
+  ...
+# Subtest: buying research costs three megacredits a card and takes them into hand
+ok 226 - buying research costs three megacredits a card and takes them into hand
+  ---
+  duration_ms: 6.585
+  type: 'test'
+  ...
+# Subtest: a tile placed through a command shows up in the opponent's view
+ok 227 - a tile placed through a command shows up in the opponent's view
+  ---
+  duration_ms: 31.1884
+  type: 'test'
+  ...
+# Subtest: a card needing a target costs one action across the whole exchange
+ok 228 - a card needing a target costs one action across the whole exchange
+  ---
+  duration_ms: 61.5287
+  type: 'test'
+  ...
+# Subtest: Tharsis offers the five official milestones and awards
+ok 229 - Tharsis offers the five official milestones and awards
+  ---
+  duration_ms: 28.8018
+  type: 'test'
+  ...
+# Subtest: The Terraformer description follows the live threshold
+ok 230 - The Terraformer description follows the live threshold
+  ---
+  duration_ms: 19.2835
+  type: 'test'
+  ...
+# Subtest: Fixed-requirement milestones keep their own description
+ok 231 - Fixed-requirement milestones keep their own description
+  ---
+  duration_ms: 1.9668
+  type: 'test'
+  ...
+# Subtest: A milestone cannot be claimed below its threshold
+ok 232 - A milestone cannot be claimed below its threshold
+  ---
+  duration_ms: 2.5728
+  type: 'test'
+  ...
+# Subtest: Claiming a milestone costs 8 MC and is recorded once
+ok 233 - Claiming a milestone costs 8 MC and is recorded once
+  ---
+  duration_ms: 13.8517
+  type: 'test'
+  ...
+# Subtest: At most three milestones may be claimed
+ok 234 - At most three milestones may be claimed
+  ---
+  duration_ms: 74.9383
+  type: 'test'
+  ...
+# Subtest: Award funding costs escalate 8 / 14 / 20
+ok 235 - Award funding costs escalate 8 / 14 / 20
+  ---
+  duration_ms: 5.38
+  type: 'test'
+  ...
+# Subtest: An award pays 5 VP for first and 2 VP for second
+ok 236 - An award pays 5 VP for first and 2 VP for second
+  ---
+  duration_ms: 2.6956
+  type: 'test'
+  ...
+# Subtest: Tied first place splits 5 VP each and pays no second place
+ok 237 - Tied first place splits 5 VP each and pays no second place
+  ---
+  duration_ms: 3.13
+  type: 'test'
+  ...
+# Subtest: A two-player game pays no second place
+ok 238 - A two-player game pays no second place
+  ---
+  duration_ms: 3.9105
+  type: 'test'
+  ...
+# Subtest: An award everybody ties at zero on still pays first place
+ok 239 - An award everybody ties at zero on still pays first place
+  ---
+  duration_ms: 12.4456
+  type: 'test'
+  ...
+# Subtest: An award pays the least-negative player when all scores are below zero
+ok 240 - An award pays the least-negative player when all scores are below zero
+  ---
+  duration_ms: 1.1047
+  type: 'test'
+  ...
+# Subtest: Milestone and award victory points reach the final score
+ok 241 - Milestone and award victory points reach the final score
+  ---
+  duration_ms: 12.483
+  type: 'test'
+  ...
+# Subtest: a prelude's victory points reach the final score
+ok 242 - a prelude's victory points reach the final score
+  ---
+  duration_ms: 3.3871
+  type: 'test'
+  ...
+# Subtest: a prelude scoring per resource counts what is on it
+ok 243 - a prelude scoring per resource counts what is on it
+  ---
+  duration_ms: 3.6926
+  type: 'test'
+  ...
+# Subtest: Immigration Shuttles scores one point per three cities anywhere
+ok 244 - Immigration Shuttles scores one point per three cities anywhere
+  ---
+  duration_ms: 61.964
+  type: 'test'
+  ...
+# Subtest: Space Port Colony scores one point per two colonies built
+ok 245 - Space Port Colony scores one point per two colonies built
+  ---
+  duration_ms: 11.3942
+  type: 'test'
+  ...
+# Subtest: Scoring counts only the requested player's tiles
+ok 246 - Scoring counts only the requested player's tiles
+  ---
+  duration_ms: 1.1872
+  type: 'test'
+  ...
+# Subtest: every dynamic victory point card shows a number, not a question mark
+ok 247 - every dynamic victory point card shows a number, not a question mark
+  ---
+  duration_ms: 232.1514
+  type: 'test'
+  ...
+# Subtest: Milestones and awards are unavailable in a solo game
+ok 248 - Milestones and awards are unavailable in a solo game
+  ---
+  duration_ms: 2.8683
+  type: 'test'
+  ...
+# Subtest: A corporation with a variable victory point spec scores it
+ok 249 - A corporation with a variable victory point spec scores it
+  ---
+  duration_ms: 18.4563
+  type: 'test'
+  ...
+# Subtest: Space Port Colony scores nothing below the first pair
+ok 250 - Space Port Colony scores nothing below the first pair
+  ---
+  duration_ms: 10.8314
+  type: 'test'
+  ...
+# Subtest: Solo state is the one-player case of the canonical shape
+ok 251 - Solo state is the one-player case of the canonical shape
+  ---
+  duration_ms: 11.5097
+  type: 'test'
+  ...
+# Subtest: Hotseat deals independent hands and skips neutral tiles
+ok 252 - Hotseat deals independent hands and skips neutral tiles
+  ---
+  duration_ms: 2.5604
+  type: 'test'
+  ...
+# Subtest: Starting TR is 20, or 14 in the solo variant
+ok 253 - Starting TR is 20, or 14 in the solo variant
+  ---
+  duration_ms: 32.876
+  type: 'test'
+  ...
+# Subtest: Player count is clamped to the supported range
+ok 254 - Player count is clamped to the supported range
+  ---
+  duration_ms: 6.6169
+  type: 'test'
+  ...
+# Subtest: Legacy accessors proxy the current player in both directions
+ok 255 - Legacy accessors proxy the current player in both directions
+  ---
+  duration_ms: 5.2517
+  type: 'test'
+  ...
+# Subtest: Legacy accessors never reach serialized saves
+ok 256 - Legacy accessors never reach serialized saves
+  ---
+  duration_ms: 23.8257
+  type: 'test'
+  ...
+# Subtest: Accessors survive cloning and engine calls
+ok 257 - Accessors survive cloning and engine calls
+  ---
+  duration_ms: 5.5957
+  type: 'test'
+  ...
+# Subtest: Player-state clones do not share event or queued-choice data
+ok 258 - Player-state clones do not share event or queued-choice data
+  ---
+  duration_ms: 50.3501
+  type: 'test'
+  ...
+# Subtest: Player-state clones isolate expansion and resolution state
+ok 259 - Player-state clones isolate expansion and resolution state
+  ---
+  duration_ms: 5.5133
+  type: 'test'
+  ...
+# Subtest: Production resolves for every player and rotates the first player
+ok 260 - Production resolves for every player and rotates the first player
+  ---
+  duration_ms: 6.5223
+  type: 'test'
+  ...
+# Subtest: The 14-generation limit applies to solo only
+ok 261 - The 14-generation limit applies to solo only
+  ---
+  duration_ms: 28.2251
+  type: 'test'
+  ...
+# Subtest: A solo game with Prelude ends after 12 generations, not 14
+ok 262 - A solo game with Prelude ends after 12 generations, not 14
+  ---
+  duration_ms: 65.2094
+  type: 'test'
+  ...
+# Subtest: A version 3 save is converted to a solo game rather than discarded
+ok 263 - A version 3 save is converted to a solo game rather than discarded
+  ---
+  duration_ms: 97.4759
+  type: 'test'
+  ...
+# Subtest: A version 4 save round-trips unchanged
+ok 264 - A version 4 save round-trips unchanged
+  ---
+  duration_ms: 4.9003
+  type: 'test'
+  ...
+# Subtest: Corrupt and unknown saves are rejected
+ok 265 - Corrupt and unknown saves are rejected
+  ---
+  duration_ms: 7.9296
+  type: 'test'
+  ...
+# Subtest: The placeholder state is deterministic so hydration matches
+ok 266 - The placeholder state is deterministic so hydration matches
+  ---
+  duration_ms: 2.4074
+  type: 'test'
+  ...
+# Subtest: Re-attaching accessors repairs a state that was spread
+ok 267 - Re-attaching accessors repairs a state that was spread
+  ---
+  duration_ms: 3.0927
+  type: 'test'
+  ...
+# Subtest: Only MC production may go negative
+ok 268 - Only MC production may go negative
+  ---
+  duration_ms: 2.7644
+  type: 'test'
+  ...
+# Subtest: Auto-placed tiles belong to the acting player
+ok 269 - Auto-placed tiles belong to the acting player
+  ---
+  duration_ms: 8.7103
+  type: 'test'
+  ...
+# Subtest: Hotseat setup hands the seat to each player in turn
+ok 270 - Hotseat setup hands the seat to each player in turn
+  ---
+  duration_ms: 5.8534
+  type: 'test'
+  ...
+# Subtest: The game only starts once every player has finished setup
+ok 271 - The game only starts once every player has finished setup
+  ---
+  duration_ms: 50.3051
+  type: 'test'
+  ...
+# Subtest: Blank player names fall back to the default
+ok 272 - Blank player names fall back to the default
+  ---
+  duration_ms: 6.1996
+  type: 'test'
+  ...
+# Subtest: Every corporation can be chosen without crashing
+ok 273 - Every corporation can be chosen without crashing
+  ---
+  duration_ms: 179.3365
+  type: 'test'
+  ...
+# Subtest: withLegacyPlayerAccessors is safe to apply twice
+ok 274 - withLegacyPlayerAccessors is safe to apply twice
+  ---
+  duration_ms: 4.1279
+  type: 'test'
+  ...
+# Subtest: A turn is two actions, then the seat passes on
+ok 275 - A turn is two actions, then the seat passes on
+  ---
+  duration_ms: 1.7413
+  type: 'test'
+  ...
+# Subtest: Solo keeps the seat rather than passing it to nobody
+ok 276 - Solo keeps the seat rather than passing it to nobody
+  ---
+  duration_ms: 2.0318
+  type: 'test'
+  ...
+# Subtest: One player passing does not end the generation
+ok 277 - One player passing does not end the generation
+  ---
+  duration_ms: 3.7826
+  type: 'test'
+  ...
+# Subtest: Passed players are skipped in the turn order
+ok 278 - Passed players are skipped in the turn order
+  ---
+  duration_ms: 1.538
+  type: 'test'
+  ...
+# Subtest: A pass is final for the generation
+ok 279 - A pass is final for the generation
+  ---
+  duration_ms: 8.5629
+  type: 'test'
+  ...
+# Subtest: Passing means taking no action that turn
+ok 280 - Passing means taking no action that turn
+  ---
+  duration_ms: 2.3772
+  type: 'test'
+  ...
+# Subtest: Ending a turn after one action is not a pass
+ok 281 - Ending a turn after one action is not a pass
+  ---
+  duration_ms: 1.6234
+  type: 'test'
+  ...
+# Subtest: A turn may be one action or two
+ok 282 - A turn may be one action or two
+  ---
+  duration_ms: 2.357
+  type: 'test'
+  ...
+# Subtest: A generation's MC income never goes negative
+ok 283 - A generation's MC income never goes negative
+  ---
+  duration_ms: 2.0293
+  type: 'test'
+  ...
+# Subtest: MC production itself still floors at -5
+ok 284 - MC production itself still floors at -5
+  ---
+  duration_ms: 3.3867
+  type: 'test'
+  ...
+# Subtest: each seat sets up its own corporation, not the current player's
+ok 285 - each seat sets up its own corporation, not the current player's
+  ---
+  duration_ms: 7.4879
+  type: 'test'
+  ...
+# Subtest: a player's view reads their own hand, not the seated player's
+ok 286 - a player's view reads their own hand, not the seated player's
+  ---
+  duration_ms: 5.8638
+  type: 'test'
+  ...
+# Subtest: A player's view contains their own hand
+ok 287 - A player's view contains their own hand
+  ---
+  duration_ms: 8.8026
+  type: 'test'
+  ...
+# Subtest: A view never carries another player's hand
+ok 288 - A view never carries another player's hand
+  ---
+  duration_ms: 2.0989
+  type: 'test'
+  ...
+# Subtest: Opponents are visible as counts, not contents
+ok 289 - Opponents are visible as counts, not contents
+  ---
+  duration_ms: 1.428
+  type: 'test'
+  ...
+# Subtest: The deck order is hidden but its size is not
+ok 290 - The deck order is hidden but its size is not
+  ---
+  duration_ms: 2.0967
+  type: 'test'
+  ...
+# Subtest: Another player's pending choice does not leak its options
+ok 291 - Another player's pending choice does not leak its options
+  ---
+  duration_ms: 5.1704
+  type: 'test'
+  ...
+# Subtest: Shared state stays shared
+ok 292 - Shared state stays shared
+  ---
+  duration_ms: 70.5541
+  type: 'test'
+  ...
+# Subtest: Room codes avoid characters people confuse
+ok 293 - Room codes avoid characters people confuse
+  ---
+  duration_ms: 20.0716
+  type: 'test'
+  ...
+# Subtest: A generated code always survives normalization unchanged
+ok 294 - A generated code always survives normalization unchanged
+  ---
+  duration_ms: 5.5102
+  type: 'test'
+  ...
+# Subtest: Only the four omitted characters are folded
+ok 295 - Only the four omitted characters are folded
+  ---
+  duration_ms: 1.6065
+  type: 'test'
+  ...
+# Subtest: Typing a confusable character still finds the room
+ok 296 - Typing a confusable character still finds the room
+  ---
+  duration_ms: 2.826
+  type: 'test'
+  ...
+# Subtest: Malformed messages decode to null rather than throwing
+ok 297 - Malformed messages decode to null rather than throwing
+  ---
+  duration_ms: 2.1286
+  type: 'test'
+  ...
+# Subtest: each client is told its own result, but who won is public
+ok 298 - each client is told its own result, but who won is public
+  ---
+  duration_ms: 6.9797
+  type: 'test'
+  ...
+# Subtest: a game with no winner list keeps the engine's result
+ok 299 - a game with no winner list keeps the engine's result
+  ---
+  duration_ms: 2.2672
+  type: 'test'
+  ...
+# Subtest: a view still answers state.hand after crossing the wire
+ok 300 - a view still answers state.hand after crossing the wire
+  ---
+  duration_ms: 7.035
+  type: 'test'
+  ...
+# Subtest: a draft queue is as private as the hand it becomes
+ok 301 - a draft queue is as private as the hand it becomes
+  ---
+  duration_ms: 3.7287
+  type: 'test'
+  ...
+# Subtest: no view ever contains a card that belongs to someone else
+ok 302 - no view ever contains a card that belongs to someone else
+  ---
+  duration_ms: 43.1096
+  type: 'test'
+  ...
+# Subtest: official project, corporation, and Prelude catalogs are stable
+ok 303 - official project, corporation, and Prelude catalogs are stable
+  ---
+  duration_ms: 19.6045
+  type: 'test'
+  ...
+# Subtest: Robotic Workforce requires a playable building production box
+ok 304 - Robotic Workforce requires a playable building production box
+  ---
+  duration_ms: 27.7098
+  type: 'test'
+  ...
+# Subtest: Robotic Workforce copies the selected building production persistently
+ok 305 - Robotic Workforce copies the selected building production persistently
+  ---
+  duration_ms: 44.1275
+  type: 'test'
+  ...
+# Subtest: corporation setup applies official starting values
+ok 306 - corporation setup applies official starting values
+  ---
+  duration_ms: 7.0455
+  type: 'test'
+  ...
+# Subtest: first-action corporation effects resolve after Prelude setup
+ok 307 - first-action corporation effects resolve after Prelude setup
+  ---
+  duration_ms: 9.6217
+  type: 'test'
+  ...
+# Subtest: Prelude setup resolves two selected cards in order
+ok 308 - Prelude setup resolves two selected cards in order
+  ---
+  duration_ms: 5.3247
+  type: 'test'
+  ...
+# Subtest: Prelude optional payments are charged once
+ok 309 - Prelude optional payments are charged once
+  ---
+  duration_ms: 4.7695
+  type: 'test'
+  ...
+# Subtest: Prelude free-play effects resolve a card from the starting hand
+ok 310 - Prelude free-play effects resolve a card from the starting hand
+  ---
+  duration_ms: 26.7195
+  type: 'test'
+  ...
+# Subtest: official automated and active effects mutate the correct resources
+ok 311 - official automated and active effects mutate the correct resources
+  ---
+  duration_ms: 34.2079
+  type: 'test'
+  ...
+# Subtest: active card action enforces payment and applies its effect
+ok 312 - active card action enforces payment and applies its effect
+  ---
+  duration_ms: 24.593
+  type: 'test'
+  ...
+# Subtest: generated catalog effects cover production, discounts, and dynamic VP
+ok 313 - generated catalog effects cover production, discounts, and dynamic VP
+  ---
+  duration_ms: 7.7603
+  type: 'test'
+  ...
+# Subtest: preludes are named in Japanese, corporations keep their brand names
+ok 314 - preludes are named in Japanese, corporations keep their brand names
+  ---
+  duration_ms: 0.6547
+  type: 'test'
+  ...
+# Subtest: cards that raise the value of steel or titanium actually raise it
+ok 315 - cards that raise the value of steel or titanium actually raise it
+  ---
+  duration_ms: 4.5102
+  type: 'test'
+  ...
+# Subtest: every curated override matches a catalog entry by name
+ok 316 - every curated override matches a catalog entry by name
+  ---
+  duration_ms: 4.4462
+  type: 'test'
+  ...
+# Subtest: room drivers can only obtain codes and URLs from the online harness
+ok 317 - room drivers can only obtain codes and URLs from the online harness
+  ---
+  duration_ms: 262.0951
+  type: 'test'
+  ...
+# Subtest: generated room codes use the server's canonical generator
+ok 318 - generated room codes use the server's canonical generator
+  ---
+  duration_ms: 1.6144
+  type: 'test'
+  ...
+# Subtest: codes changed or truncated by the server are refused
+ok 319 - codes changed or truncated by the server are refused
+  ---
+  duration_ms: 1.699
+  type: 'test'
+  ...
+# Subtest: the harness refuses to issue the same room twice in one process
+ok 320 - the harness refuses to issue the same room twice in one process
+  ---
+  duration_ms: 0.7213
+  type: 'test'
+  ...
+# Subtest: the harness owns room WebSocket URL construction
+ok 321 - the harness owns room WebSocket URL construction
+  ---
+  duration_ms: 0.9676
+  type: 'test'
+  ...
+# Subtest: the engine alone does not prove a card is in hand
+ok 322 - the engine alone does not prove a card is in hand
+  ---
+  duration_ms: 206.1513
+  type: 'test'
+  ...
+# Subtest: playCard refuses a card the sender does not hold
+ok 323 - playCard refuses a card the sender does not hold
+  ---
+  duration_ms: 26.5818
+  type: 'test'
+  ...
+# Subtest: cardAction refuses a card the sender has not played
+ok 324 - cardAction refuses a card the sender has not played
+  ---
+  duration_ms: 5.4732
+  type: 'test'
+  ...
+# Subtest: buyResearch refuses duplicate ids
+ok 325 - buyResearch refuses duplicate ids
+  ---
+  duration_ms: 3.4705
+  type: 'test'
+  ...
+# Subtest: a Helion payment spends heat instead of driving MC negative
+ok 326 - a Helion payment spends heat instead of driving MC negative
+  ---
+  duration_ms: 7.7238
+  type: 'test'
+  ...
+# Subtest: every action the server handles is reachable from the UI
+ok 327 - every action the server handles is reachable from the UI
+  ---
+  duration_ms: 30.2278
+  type: 'test'
+  ...
+# Subtest: the server routes shared actions through the command layer
+ok 328 - the server routes shared actions through the command layer
+  ---
+  duration_ms: 3.7984
+  type: 'test'
+  ...
+# Subtest: the server exempts the same simultaneous answers the engine does
+ok 329 - the server exempts the same simultaneous answers the engine does
+  ---
+  duration_ms: 54.943
+  type: 'test'
+  ...
+# Subtest: Resource-holding cards are identified from the reference data
+ok 330 - Resource-holding cards are identified from the reference data
+  ---
+  duration_ms: 6.2567
+  type: 'test'
+  ...
+# Subtest: Adding resources to any card pauses for the player's choice
+ok 331 - Adding resources to any card pauses for the player's choice
+  ---
+  duration_ms: 26.8496
+  type: 'test'
+  ...
+# Subtest: Only cards holding the named resource are offered
+ok 332 - Only cards holding the named resource are offered
+  ---
+  duration_ms: 7.3664
+  type: 'test'
+  ...
+# Subtest: Resolving places the resources on the chosen card
+ok 333 - Resolving places the resources on the chosen card
+  ---
+  duration_ms: 27.8655
+  type: 'test'
+  ...
+# Subtest: A single legal target applies without prompting
+ok 334 - A single legal target applies without prompting
+  ---
+  duration_ms: 9.5817
+  type: 'test'
+  ...
+# Subtest: Another player cannot resolve someone else's choice
+ok 335 - Another player cannot resolve someone else's choice
+  ---
+  duration_ms: 7.745
+  type: 'test'
+  ...
+# Subtest: An invalid option is refused without consuming the choice
+ok 336 - An invalid option is refused without consuming the choice
+  ---
+  duration_ms: 2.5451
+  type: 'test'
+  ...
+# Subtest: A pending choice survives serialization
+ok 337 - A pending choice survives serialization
+  ---
+  duration_ms: 5.9348
+  type: 'test'
+  ...
+# Subtest: Tile placement asks the player where the tile goes
+ok 338 - Tile placement asks the player where the tile goes
+  ---
+  duration_ms: 18.2249
+  type: 'test'
+  ...
+# Subtest: Placement bonuses go to the player who covers the space
+ok 339 - Placement bonuses go to the player who covers the space
+  ---
+  duration_ms: 16.3531
+  type: 'test'
+  ...
+# Subtest: Special tiles occupy a space and keep their identity
+ok 340 - Special tiles occupy a space and keep their identity
+  ---
+  duration_ms: 5.2768
+  type: 'test'
+  ...
+# Subtest: Counted gains scale with what is on the table
+ok 341 - Counted gains scale with what is on the table
+  ---
+  duration_ms: 11.3665
+  type: 'test'
+  ...
+# Subtest: City counts include every player's cities
+ok 342 - City counts include every player's cities
+  ---
+  duration_ms: 2.9685
+  type: 'test'
+  ...
+# Subtest: Placing next to an ocean pays 2 MC per adjacent ocean
+ok 343 - Placing next to an ocean pays 2 MC per adjacent ocean
+  ---
+  duration_ms: 13.1506
+  type: 'test'
+  ...
+# Subtest: server-renders the Mars Frontier game page
+ok 344 - server-renders the Mars Frontier game page
+  ---
+  duration_ms: 1244.0188
+  type: 'test'
+  ...
+# Subtest: verifies that loading skeleton is deleted and dependencies are absent
+ok 345 - verifies that loading skeleton is deleted and dependencies are absent
+  ---
+  duration_ms: 77.3339
+  type: 'test'
+  ...
+# Subtest: the cards that score by their own rule are tagged, and nothing else is
+ok 346 - the cards that score by their own rule are tagged, and nothing else is
+  ---
+  duration_ms: 57.2373
+  type: 'test'
+  ...
+# Subtest: Search For Life pays three points for any find, and none for none
+ok 347 - Search For Life pays three points for any find, and none for none
+  ---
+  duration_ms: 29.3177
+  type: 'test'
+  ...
+# Subtest: a breakdown sums to the same number the single-player entry point returns
+ok 348 - a breakdown sums to the same number the single-player entry point returns
+  ---
+  duration_ms: 3.8087
+  type: 'test'
+  ...
+# Subtest: scoring does not mutate the state it reads
+ok 349 - scoring does not mutate the state it reads
+  ---
+  duration_ms: 51.7919
+  type: 'test'
+  ...
+# Subtest: a total below zero is reported as it stands
+ok 350 - a total below zero is reported as it stands
+  ---
+  duration_ms: 36.1626
+  type: 'test'
+  ...
+# Subtest: Law Suit charges the player it names, not the one who played it
+ok 351 - Law Suit charges the player it names, not the one who played it
+  ---
+  duration_ms: 1.5561
+  type: 'test'
+  ...
+# Subtest: two law suits against the same player cost two points
+ok 352 - two law suits against the same player cost two points
+  ---
+  duration_ms: 2.871
+  type: 'test'
+  ...
+# Subtest: a save written before these cards existed still scores
+ok 353 - a save written before these cards existed still scores
+  ---
+  duration_ms: 2.9967
+  type: 'test'
+  ...
+# Subtest: a modifier survives cloning and serialisation
+ok 354 - a modifier survives cloning and serialisation
+  ---
+  duration_ms: 4.0977
+  type: 'test'
+  ...
+# Subtest: Vermin does nothing until the tenth animal arrives
+ok 355 - Vermin does nothing until the tenth animal arrives
+  ---
+  duration_ms: 3.2005
+  type: 'test'
+  ...
+# Subtest: Vermin charges every player for their own cities
+ok 356 - Vermin charges every player for their own cities
+  ---
+  duration_ms: 2.3824
+  type: 'test'
+  ...
+# Subtest: Vermin counts cities, not greeneries or oceans
+ok 357 - Vermin counts cities, not greeneries or oceans
+  ---
+  duration_ms: 2.6002
+  type: 'test'
+  ...
+# Subtest: Vermin reads the board at the end, not when it triggered
+ok 358 - Vermin reads the board at the end, not when it triggered
+  ---
+  duration_ms: 2.7932
+  type: 'test'
+  ...
+# Subtest: St. Joseph pays the card holder for every cathedral built
+ok 359 - St. Joseph pays the card holder for every cathedral built
+  ---
+  duration_ms: 1.8447
+  type: 'test'
+  ...
+# Subtest: a cathedral on someone else's city still pays its builder
+ok 360 - a cathedral on someone else's city still pays its builder
+  ---
+  duration_ms: 2.435
+  type: 'test'
+  ...
+# Subtest: a cathedral marker survives cloning and serialisation
+ok 361 - a cathedral marker survives cloning and serialisation
+  ---
+  duration_ms: 5.2036
+  type: 'test'
+  ...
+# Subtest: the three special cards add up together
+ok 362 - the three special cards add up together
+  ---
+  duration_ms: 80.9364
+  type: 'test'
+  ...
+# Subtest: removing plants asks who loses them, and never charges the attacker
+ok 363 - removing plants asks who loses them, and never charges the attacker
+  ---
+  duration_ms: 145.6967
+  type: 'test'
+  ...
+# Subtest: an attack that lands is recorded against its generation
+ok 364 - an attack that lands is recorded against its generation
+  ---
+  duration_ms: 7.4743
+  type: 'test'
+  ...
+# Subtest: hitting yourself is not an attack anyone can answer
+ok 365 - hitting yourself is not an attack anyone can answer
+  ---
+  duration_ms: 8.3383
+  type: 'test'
+  ...
+# Subtest: a production attack with one legal target still happens
+ok 366 - a production attack with one legal target still happens
+  ---
+  duration_ms: 69.8872
+  type: 'test'
+  ...
+# Subtest: the attack ledger empties when the generation turns over
+ok 367 - the attack ledger empties when the generation turns over
+  ---
+  duration_ms: 5.838
+  type: 'test'
+  ...
+# Subtest: a card that attacks still pays its threshold bonus once resolved
+ok 368 - a card that attacks still pays its threshold bonus once resolved
+  ---
+  duration_ms: 6.0926
+  type: 'test'
+  ...
+# Subtest: a resolved event stops counting toward tags
+ok 369 - a resolved event stops counting toward tags
+  ---
+  duration_ms: 8.1966
+  type: 'test'
+  ...
+# Subtest: prelude tags count toward the cards that read them
+ok 370 - prelude tags count toward the cards that read them
+  ---
+  duration_ms: 3.7816
+  type: 'test'
+  ...
+# Subtest: counting events still works whichever pile they are in
+ok 371 - counting events still works whichever pile they are in
+  ---
+  duration_ms: 4.2892
+  type: 'test'
+  ...
+# Subtest: a version 4 save gains the new fields and keeps its score
+ok 372 - a version 4 save gains the new fields and keeps its score
+  ---
+  duration_ms: 41.5263
+  type: 'test'
+  ...
+# Subtest: Vitor pays for a printed victory point icon, however it is scored
+ok 373 - Vitor pays for a printed victory point icon, however it is scored
+  ---
+  duration_ms: 0.9934
+  type: 'test'
+  ...
+# Subtest: Vitor's discount reaches a dynamic victory point card
+ok 374 - Vitor's discount reaches a dynamic victory point card
+  ---
+  duration_ms: 6.7544
+  type: 'test'
+  ...
+# Subtest: a bot answering a choice spends the action and collects the bonus
+ok 375 - a bot answering a choice spends the action and collects the bonus
+  ---
+  duration_ms: 21.5506
+  type: 'test'
+  ...
+# Subtest: every category of the breakdown adds up to the total shown
+ok 376 - every category of the breakdown adds up to the total shown
+  ---
+  duration_ms: 1.8841
+  type: 'test'
+  ...
+# Subtest: card-base-hired-raiders takes 2 steel from a chosen player
+ok 377 - card-base-hired-raiders takes 2 steel from a chosen player
+  ---
+  duration_ms: 27.6024
+  type: 'test'
+  ...
+# Subtest: card-base-sabotage takes 3 titanium from a chosen player
+ok 378 - card-base-sabotage takes 3 titanium from a chosen player
+  ---
+  duration_ms: 6.285
+  type: 'test'
+  ...
+# Subtest: card-base-virus takes 5 plants from a chosen player
+ok 379 - card-base-virus takes 5 plants from a chosen player
+  ---
+  duration_ms: 4.0268
+  type: 'test'
+  ...
+# Subtest: card-colonies-air-raid takes 5 mc from a chosen player
+ok 380 - card-colonies-air-raid takes 5 mc from a chosen player
+  ---
+  duration_ms: 14.2327
+  type: 'test'
+  ...
+# Subtest: Comet for Venus only reaches players holding a Venus tag
+ok 381 - Comet for Venus only reaches players holding a Venus tag
+  ---
+  duration_ms: 29.6033
+  type: 'test'
+  ...
+# Subtest: Flooding may be declined, and declining leaves no grievance
+ok 382 - Flooding may be declined, and declining leaves no grievance
+  ---
+  duration_ms: 26.1132
+  type: 'test'
+  ...
+# Subtest: a victim holding none of the resource is never offered or recorded
+ok 383 - a victim holding none of the resource is never offered or recorded
+  ---
+  duration_ms: 3.4832
+  type: 'test'
+  ...
+# Subtest: Virus offers animals on any player's card alongside the plant half
+ok 384 - Virus offers animals on any player's card alongside the plant half
+  ---
+  duration_ms: 4.3478
+  type: 'test'
+  ...
+# Subtest: Virus removes two animals from the chosen card and records the attack
+ok 385 - Virus removes two animals from the chosen card and records the attack
+  ---
+  duration_ms: 3.6436
+  type: 'test'
+  ...
+# Subtest: Virus destroys the animals rather than taking them
+ok 386 - Virus destroys the animals rather than taking them
+  ---
+  duration_ms: 21.1428
+  type: 'test'
+  ...
+# Subtest: Virus takes only the one animal a card actually holds
+ok 387 - Virus takes only the one animal a card actually holds
+  ---
+  duration_ms: 5.5663
+  type: 'test'
+  ...
+# Subtest: Virus hitting the attacker's own card leaves no grievance for Law Suit
+ok 388 - Virus hitting the attacker's own card leaves no grievance for Law Suit
+  ---
+  duration_ms: 4.233
+  type: 'test'
+  ...
+# Subtest: Virus still offers the plant half when no card holds an animal
+ok 389 - Virus still offers the plant half when no card holds an animal
+  ---
+  duration_ms: 4.8687
+  type: 'test'
+  ...
+# Subtest: Virus reaches a card in solo, where there is no other player to hit
+ok 390 - Virus reaches a card in solo, where there is no other player to hit
+  ---
+  duration_ms: 7.7781
+  type: 'test'
+  ...
+# Subtest: a Virus choice survives a save and reload
+ok 391 - a Virus choice survives a save and reload
+  ---
+  duration_ms: 7.6131
+  type: 'test'
+  ...
+# Subtest: Special Permit is refused unless the Greens rule
+ok 392 - Special Permit is refused unless the Greens rule
+  ---
+  duration_ms: 63.232
+  type: 'test'
+  ...
+# Subtest: Special Permit takes four plants from the chosen player and records it
+ok 393 - Special Permit takes four plants from the chosen player and records it
+  ---
+  duration_ms: 8.2197
+  type: 'test'
+  ...
+# Subtest: Special Permit records nothing when the victim holds no plants
+ok 394 - Special Permit records nothing when the victim holds no plants
+  ---
+  duration_ms: 7.6548
+  type: 'test'
+  ...
+# Subtest: Special Permit runs end to end for the attacking seat
+ok 395 - Special Permit runs end to end for the attacking seat
+  ---
+  duration_ms: 10.8599
+  type: 'test'
+  ...
+# Subtest: Special Permit settles identically through the online command path
+ok 396 - Special Permit settles identically through the online command path
+  ---
+  duration_ms: 4.5305
+  type: 'test'
+  ...
+# Subtest: all seven attack cards carry a steal spec
+ok 397 - all seven attack cards carry a steal spec
+  ---
+  duration_ms: 0.8728
+  type: 'test'
+  ...
+# Subtest: Vermin gains an animal from every city built
+ok 398 - Vermin gains an animal from every city built
+  ---
+  duration_ms: 28.1693
+  type: 'test'
+  ...
+# Subtest: the Vermin action adds an animal and costs the turn
+ok 399 - the Vermin action adds an animal and costs the turn
+  ---
+  duration_ms: 10.8563
+  type: 'test'
+  ...
+# Subtest: St. Joseph cannot act with no city to build on
+ok 400 - St. Joseph cannot act with no city to build on
+  ---
+  duration_ms: 4.6112
+  type: 'test'
+  ...
+# Subtest: St. Joseph builds a cathedral for five megacredits and an action
+ok 401 - St. Joseph builds a cathedral for five megacredits and an action
+  ---
+  duration_ms: 3.8326
+  type: 'test'
+  ...
+# Subtest: a city may carry only one cathedral
+ok 402 - a city may carry only one cathedral
+  ---
+  duration_ms: 7.1852
+  type: 'test'
+  ...
+# Subtest: a cathedral on another player's city pays its builder only
+ok 403 - a cathedral on another player's city pays its builder only
+  ---
+  duration_ms: 3.6093
+  type: 'test'
+  ...
+# Subtest: Law Suit cannot be played when nobody attacked you
+ok 404 - Law Suit cannot be played when nobody attacked you
+  ---
+  duration_ms: 3.3086
+  type: 'test'
+  ...
+# Subtest: Law Suit resolves against a single attacker without asking
+ok 405 - Law Suit resolves against a single attacker without asking
+  ---
+  duration_ms: 46.6403
+  type: 'test'
+  ...
+# Subtest: Law Suit asks which of several attackers to sue
+ok 406 - Law Suit asks which of several attackers to sue
+  ---
+  duration_ms: 22.3944
+  type: 'test'
+  ...
+# Subtest: Law Suit takes what the target has when that is under three
+ok 407 - Law Suit takes what the target has when that is under three
+  ---
+  duration_ms: 4.8463
+  type: 'test'
+  ...
+# Subtest: a settled suit and its cathedral survive a save and reload
+ok 408 - a settled suit and its cathedral survive a save and reload
+  ---
+  duration_ms: 31.9632
+  type: 'test'
+  ...
+# Subtest: the bot rates a card scoring per resource above one scoring nothing
+ok 409 - the bot rates a card scoring per resource above one scoring nothing
+  ---
+  duration_ms: 47.8288
+  type: 'test'
+  ...
+# Subtest: the three special cards print a victory point badge of their own
+ok 410 - the three special cards print a victory point badge of their own
+  ---
+  duration_ms: 323.9292
+  type: 'test'
+  ...
+# Subtest: Initial state setup tests
+ok 411 - Initial state setup tests
+  ---
+  duration_ms: 20.6575
+  type: 'test'
+  ...
+# Subtest: Research phase card purchase cost logic
+ok 412 - Research phase card purchase cost logic
+  ---
+  duration_ms: 12.2678
+  type: 'test'
+  ...
+# Subtest: One-vs-two-action turn state transitions
+ok 413 - One-vs-two-action turn state transitions
+  ---
+  duration_ms: 10.4718
+  type: 'test'
+  ...
+# Subtest: Pass-to-production transitions
+ok 414 - Pass-to-production transitions
+  ---
+  duration_ms: 5.4285
+  type: 'test'
+  ...
+# Subtest: Standard project cost and requirements
+ok 415 - Standard project cost and requirements
+  ---
+  duration_ms: 3.1458
+  type: 'test'
+  ...
+# Subtest: Greenery adjacency rules
+ok 416 - Greenery adjacency rules
+  ---
+  duration_ms: 3.0261
+  type: 'test'
+  ...
+# Subtest: Ocean adjacency bonus MC
+ok 417 - Ocean adjacency bonus MC
+  ---
+  duration_ms: 1.0879
+  type: 'test'
+  ...
+# Subtest: Parameter threshold bonuses
+ok 418 - Parameter threshold bonuses
+  ---
+  duration_ms: 4.6097
+  type: 'test'
+  ...
+# Subtest: Oxygen bonus crosses temperature thresholds without recursion
+ok 419 - Oxygen bonus crosses temperature thresholds without recursion
+  ---
+  duration_ms: 5.0184
+  type: 'test'
+  ...
+# Subtest: Production keeps negative MC production instead of clamping income
+ok 420 - Production keeps negative MC production instead of clamping income
+  ---
+  duration_ms: 8.0067
+  type: 'test'
+  ...
+# Subtest: Final scoring calculations
+ok 421 - Final scoring calculations
+  ---
+  duration_ms: 9.7291
+  type: 'test'
+  ...
+# Subtest: Victory points printed on played events reach the final score
+ok 422 - Victory points printed on played events reach the final score
+  ---
+  duration_ms: 5.2216
+  type: 'test'
+  ...
+# Subtest: A card action that crosses a threshold collects its bonus
+ok 423 - A card action that crosses a threshold collects its bonus
+  ---
+  duration_ms: 16.631
+  type: 'test'
+  ...
+# Subtest: A Venus solo game is not won until Venus reaches 30%
+ok 424 - A Venus solo game is not won until Venus reaches 30%
+  ---
+  duration_ms: 1.0839
+  type: 'test'
+  ...
+# Subtest: Every advertised threshold bonus is one the engine actually pays
+ok 425 - Every advertised threshold bonus is one the engine actually pays
+  ---
+  duration_ms: 25.8759
+  type: 'test'
+  ...
+# Subtest: Venus solo does not end the game while Venus is short
+ok 426 - Venus solo does not end the game while Venus is short
+  ---
+  duration_ms: 4.9494
+  type: 'test'
+  ...
+# Subtest: A requirement buffer relaxes ocean counts too
+ok 427 - A requirement buffer relaxes ocean counts too
+  ---
+  duration_ms: 9.9296
+  type: 'test'
+  ...
+# Subtest: A card allowing duplicate colonies still cannot use a full tile
+ok 428 - A card allowing duplicate colonies still cannot use a full tile
+  ---
+  duration_ms: 3.9281
+  type: 'test'
+  ...
+# Subtest: A branch chosen inside a card action still pays threshold bonuses
+ok 429 - A branch chosen inside a card action still pays threshold bonuses
+  ---
+  duration_ms: 63.6272
+  type: 'test'
+  ...
+# Subtest: Thorgate discounts the power plant standard project
+ok 430 - Thorgate discounts the power plant standard project
+  ---
+  duration_ms: 16.1127
+  type: 'test'
+  ...
+# Subtest: Capital places a city
+ok 431 - Capital places a city
+  ---
+  duration_ms: 12.5717
+  type: 'test'
+  ...
+# Subtest: Every shape of card discount is applied
+ok 432 - Every shape of card discount is applied
+  ---
+  duration_ms: 21.6797
+  type: 'test'
+  ...
+# Subtest: Prelude tags count toward Builder and the Scientist award
+ok 433 - Prelude tags count toward Builder and the Scientist award
+  ---
+  duration_ms: 2.7308
+  type: 'test'
+  ...
+# Subtest: The Reds solo bonus stops above TR 20
+ok 434 - The Reds solo bonus stops above TR 20
+  ---
+  duration_ms: 6.7732
+  type: 'test'
+  ...
+# Subtest: Tharsis Republic collects for the solo neutral cities
+ok 435 - Tharsis Republic collects for the solo neutral cities
+  ---
+  duration_ms: 52.5507
+  type: 'test'
+  ...
+# Subtest: A Colonies solo game starts at -2 M€ production
+ok 436 - A Colonies solo game starts at -2 M€ production
+  ---
+  duration_ms: 5.9516
+  type: 'test'
+  ...
+# Subtest: A card's own placement rule beats the default for its tile type
+ok 437 - A card's own placement rule beats the default for its tile type
+  ---
+  duration_ms: 6.3552
+  type: 'test'
+  ...
+# Subtest: A card is unplayable when its tile has nowhere to go
+ok 438 - A card is unplayable when its tile has nowhere to go
+  ---
+  duration_ms: 3.0969
+  type: 'test'
+  ...
+# Subtest: Standard Technology refunds 3 M€ on standard projects only
+ok 439 - Standard Technology refunds 3 M€ on standard projects only
+  ---
+  duration_ms: 17.6336
+  type: 'test'
+  ...
+# Subtest: A solo attack hits the neutral opponent, not the player
+ok 440 - A solo attack hits the neutral opponent, not the player
+  ---
+  duration_ms: 20.2041
+  type: 'test'
+  ...
+# Subtest: Local Heat Trapping follows card-cost reserves and effect choices
+ok 441 - Local Heat Trapping follows card-cost reserves and effect choices
+  ---
+  duration_ms: 30.7977
+  type: 'test'
+  ...
+# Subtest: Soil Enrichment lets PLAY_CARD choose an own microbe card
+ok 442 - Soil Enrichment lets PLAY_CARD choose an own microbe card
+  ---
+  duration_ms: 50.551
+  type: 'test'
+  ...
+# Subtest: Soil Enrichment is not playable without an own microbe
+ok 443 - Soil Enrichment is not playable without an own microbe
+  ---
+  duration_ms: 1.7851
+  type: 'test'
+  ...
+# Subtest: Air Raid pays an own floater before choosing the stolen MC
+ok 444 - Air Raid pays an own floater before choosing the stolen MC
+  ---
+  duration_ms: 8.6578
+  type: 'test'
+  ...
+# Subtest: Cities on reserved off-board slots never reach the map
+ok 445 - Cities on reserved off-board slots never reach the map
+  ---
+  duration_ms: 6.7918
+  type: 'test'
+  ...
+# Subtest: Off-board cities count for Mayor and Landlord but not for board scoring
+ok 446 - Off-board cities count for Mayor and Landlord but not for board scoring
+  ---
+  duration_ms: 3.8395
+  type: 'test'
+  ...
+# Subtest: A tile policy does not fire for final greenery or the World Government
+ok 447 - A tile policy does not fire for final greenery or the World Government
+  ---
+  duration_ms: 10.1309
+  type: 'test'
+  ...
+# Subtest: Solo steals take from the neutral opponent; removals do not
+ok 448 - Solo steals take from the neutral opponent; removals do not
+  ---
+  duration_ms: 31.132
+  type: 'test'
+  ...
+# Subtest: Production that scales with the tableau is counted
+ok 449 - Production that scales with the tableau is counted
+  ---
+  duration_ms: 18.9507
+  type: 'test'
+  ...
+# Subtest: A per-N divisor divides the count and rounds down
+ok 450 - A per-N divisor divides the count and rounds down
+  ---
+  duration_ms: 1.7168
+  type: 'test'
+  ...
+# Subtest: A branch action only offers branches the player can pay for
+ok 451 - A branch action only offers branches the player can pay for
+  ---
+  duration_ms: 12.3046
+  type: 'test'
+  ...
+# Subtest: Production-stealing cards move the step to the player
+ok 452 - Production-stealing cards move the step to the player
+  ---
+  duration_ms: 13.0229
+  type: 'test'
+  ...
+# Subtest: An action can remove a resource from any card to feed its own
+ok 453 - An action can remove a resource from any card to feed its own
+  ---
+  duration_ms: 2.3191
+  type: 'test'
+  ...
+# Subtest: A card cost can be paid with steel or titanium when the card says so
+ok 454 - A card cost can be paid with steel or titanium when the card says so
+  ---
+  duration_ms: 21.799
+  type: 'test'
+  ...
+# Subtest: Official alternate-payment card actions accept the named resource
+ok 455 - Official alternate-payment card actions accept the named resource
+  ---
+  duration_ms: 15.8338
+  type: 'test'
+  ...
+# Subtest: A card action that adds a resource to any card asks which card
+ok 456 - A card action that adds a resource to any card asks which card
+  ---
+  duration_ms: 16.9892
+  type: 'test'
+  ...
+# Subtest: A card that lowers production needs the production to lower
+ok 457 - A card that lowers production needs the production to lower
+  ---
+  duration_ms: 141.6418
+  type: 'test'
+  ...
+# Subtest: Robotic Workforce cannot copy a production box the player cannot pay
+ok 458 - Robotic Workforce cannot copy a production box the player cannot pay
+  ---
+  duration_ms: 29.971
+  type: 'test'
+  ...
+# Subtest: Robotic Workforce rejects an unaffordable target it never offered
+ok 459 - Robotic Workforce rejects an unaffordable target it never offered
+  ---
+  duration_ms: 8.3672
+  type: 'test'
+  ...
+# Subtest: A seeded game deals reproducibly and keeps dealing reproducibly
+ok 460 - A seeded game deals reproducibly and keeps dealing reproducibly
+  ---
+  duration_ms: 21.3932
+  type: 'test'
+  ...
+# Subtest: Diversity Support counts nine different resource types
+ok 461 - Diversity Support counts nine different resource types
+  ---
+  duration_ms: 11.1826
+  type: 'test'
+  ...
+# Subtest: Crash Site Cleanup needs plants removed this generation
+ok 462 - Crash Site Cleanup needs plants removed this generation
+  ---
+  duration_ms: 6.4058
+  type: 'test'
+  ...
+# Subtest: Crash Site Cleanup pays 1 titanium or 2 steel
+ok 463 - Crash Site Cleanup pays 1 titanium or 2 steel
+  ---
+  duration_ms: 11.319
+  type: 'test'
+  ...
+# Subtest: Robotic Workforce copies the whole production box
+ok 464 - Robotic Workforce copies the whole production box
+  ---
+  duration_ms: 8.6149
+  type: 'test'
+  ...
+# Subtest: Vitor funds an award for free as its first action
+ok 465 - Vitor funds an award for free as its first action
+  ---
+  duration_ms: 70.4819
+  type: 'test'
+  ...
+# Subtest: Vitor asks nothing in solo, where awards are not used
+ok 466 - Vitor asks nothing in solo, where awards are not used
+  ---
+  duration_ms: 2.9492
+  type: 'test'
+  ...
+# Subtest: Valley Trust draws three preludes and plays one for free
+ok 467 - Valley Trust draws three preludes and plays one for free
+  ---
+  duration_ms: 33.1805
+  type: 'test'
+  ...
+# Subtest: every corporation's printed starting production reaches the player
+ok 468 - every corporation's printed starting production reaches the player
+  ---
+  duration_ms: 17.1636
+  type: 'test'
+  ...
+# Subtest: corporation initial actions do not depend on the Prelude expansion
+ok 469 - corporation initial actions do not depend on the Prelude expansion
+  ---
+  duration_ms: 38.1371
+  type: 'test'
+  ...
+# Subtest: Celestic opens by drawing two floater cards
+ok 470 - Celestic opens by drawing two floater cards
+  ---
+  duration_ms: 11.6314
+  type: 'test'
+  ...
+# Subtest: Media Group and Optimal Aerobraking pay out on events
+ok 471 - Media Group and Optimal Aerobraking pay out on events
+  ---
+  duration_ms: 9.5325
+  type: 'test'
+  ...
+# Subtest: Advertising raises production only for cards costing 20 or more
+ok 472 - Advertising raises production only for cards costing 20 or more
+  ---
+  duration_ms: 24.5006
+  type: 'test'
+  ...
+# Subtest: cards that count something in play pay for what they count
+ok 473 - cards that count something in play pay for what they count
+  ---
+  duration_ms: 14.0107
+  type: 'test'
+  ...
+# Subtest: the two colony-placing cards spend production and place a colony
+ok 474 - the two colony-placing cards spend production and place a colony
+  ---
+  duration_ms: 8.5254
+  type: 'test'
+  ...
+# Subtest: the mining cards take a mineral space and pay that mineral
+ok 475 - the mining cards take a mineral space and pay that mineral
+  ---
+  duration_ms: 5.6591
+  type: 'test'
+  ...
+# Subtest: two cards collect on every city placed, including the opponent's
+ok 476 - two cards collect on every city placed, including the opponent's
+  ---
+  duration_ms: 6.6777
+  type: 'test'
+  ...
+# Subtest: Insulation converts as much heat production as the player chooses
+ok 477 - Insulation converts as much heat production as the player chooses
+  ---
+  duration_ms: 3.8164
+  type: 'test'
+  ...
+# Subtest: Power Infrastructure converts as much energy as the player chooses
+ok 478 - Power Infrastructure converts as much energy as the player chooses
+  ---
+  duration_ms: 5.7425
+  type: 'test'
+  ...
+# Subtest: Floyd Continuum pays 3 M€ per finished global parameter
+ok 479 - Floyd Continuum pays 3 M€ per finished global parameter
+  ---
+  duration_ms: 26.7205
+  type: 'test'
+  ...
+# Subtest: Energy Market offers both halves of its action in one list
+ok 480 - Energy Market offers both halves of its action in one list
+  ---
+  duration_ms: 4.2009
+  type: 'test'
+  ...
+# Subtest: Hi-Tech Lab draws for energy and keeps exactly one card
+ok 481 - Hi-Tech Lab draws for energy and keeps exactly one card
+  ---
+  duration_ms: 5.5143
+  type: 'test'
+  ...
+# Subtest: Sponsored Academies discards one, draws three, and pays the opponents
+ok 482 - Sponsored Academies discards one, draws three, and pays the opponents
+  ---
+  duration_ms: 6.9613
+  type: 'test'
+  ...
+# Subtest: Recruitment swaps a neutral delegate for one of the player's own
+ok 483 - Recruitment swaps a neutral delegate for one of the player's own
+  ---
+  duration_ms: 21.2156
+  type: 'test'
+  ...
+# Subtest: Vote Of No Confidence takes the chairman's seat, untaxed
+ok 484 - Vote Of No Confidence takes the chairman's seat, untaxed
+  ---
+  duration_ms: 9.5445
+  type: 'test'
+  ...
+# Subtest: Red Tourism Wave pays for empty areas beside the player's own tiles
+ok 485 - Red Tourism Wave pays for empty areas beside the player's own tiles
+  ---
+  duration_ms: 4.6818
+  type: 'test'
+  ...
+# Subtest: Industrial Complex lifts every production below 1 up to 1
+ok 486 - Industrial Complex lifts every production below 1 up to 1
+  ---
+  duration_ms: 3.9743
+  type: 'test'
+  ...
+# Subtest: Cutting Edge Technology discounts only cards that have a requirement
+ok 487 - Cutting Edge Technology discounts only cards that have a requirement
+  ---
+  duration_ms: 2.9095
+  type: 'test'
+  ...
+# Subtest: Productive Outpost collects a bonus for every colony held
+ok 488 - Productive Outpost collects a bonus for every colony held
+  ---
+  duration_ms: 3.9545
+  type: 'test'
+  ...
+# Subtest: Market Manipulation raises one colony track and lowers another
+ok 489 - Market Manipulation raises one colony track and lowers another
+  ---
+  duration_ms: 9.1073
+  type: 'test'
+  ...
+# Subtest: Public Plans pays for revealed cards without spending them
+ok 490 - Public Plans pays for revealed cards without spending them
+  ---
+  duration_ms: 3.9695
+  type: 'test'
+  ...
+# Subtest: Astra Mechanica returns up to two events, and not tile-building ones
+ok 491 - Astra Mechanica returns up to two events, and not tile-building ones
+  ---
+  duration_ms: 4.7025
+  type: 'test'
+  ...
+# Subtest: Frontier Town takes the space's printed bonus three times
+ok 492 - Frontier Town takes the space's printed bonus three times
+  ---
+  duration_ms: 13.6439
+  type: 'test'
+  ...
+# Subtest: Terraforming Deal pays 2 M€ for each rating step its owner earns
+ok 493 - Terraforming Deal pays 2 M€ for each rating step its owner earns
+  ---
+  duration_ms: 2.2652
+  type: 'test'
+  ...
+# Subtest: Land Claim reserves a space for the player who claimed it
+ok 494 - Land Claim reserves a space for the player who claimed it
+  ---
+  duration_ms: 16.2001
+  type: 'test'
+  ...
+# Subtest: WG Project draws three preludes and plays one, for the chairman only
+ok 495 - WG Project draws three preludes and plays one, for the chairman only
+  ---
+  duration_ms: 8.677
+  type: 'test'
+  ...
+# Subtest: the chairman's rating pays Terraforming Deal but is still untaxed by Reds
+ok 496 - the chairman's rating pays Terraforming Deal but is still untaxed by Reds
+  ---
+  duration_ms: 4.8695
+  type: 'test'
+  ...
+# Subtest: Meat Industry pays for animals actually added, wherever they land
+ok 497 - Meat Industry pays for animals actually added, wherever they land
+  ---
+  duration_ms: 5.1547
+  type: 'test'
+  ...
+# Subtest: New Holland lays its city on an ocean that is already there
+ok 498 - New Holland lays its city on an ocean that is already there
+  ---
+  duration_ms: 2.5965
+  type: 'test'
+  ...
+# Subtest: Protected Habitats keeps opponents off plants, animals and microbes
+ok 499 - Protected Habitats keeps opponents off plants, animals and microbes
+  ---
+  duration_ms: 7.9688
+  type: 'test'
+  ...
+# Subtest: waiving one question still asks the ones queued behind it
+ok 500 - waiving one question still asks the ones queued behind it
+  ---
+  duration_ms: 3.014
+  type: 'test'
+  ...
+# Subtest: Project Eden places three tiles in the player's order and discards three
+ok 501 - Project Eden places three tiles in the player's order and discards three
+  ---
+  duration_ms: 24.4795
+  type: 'test'
+  ...
+# Subtest: cards that watch what gets played fire once per matching tag
+ok 502 - cards that watch what gets played fire once per matching tag
+  ---
+  duration_ms: 29.3851
+  type: 'test'
+  ...
+# Subtest: Ecological Zone needs a greenery, sits beside one, and scores per pair
+ok 503 - Ecological Zone needs a greenery, sits beside one, and scores per pair
+  ---
+  duration_ms: 4.2024
+  type: 'test'
+  ...
+# Subtest: Venus Orbital Survey keeps Venus cards free and offers the rest for sale
+ok 504 - Venus Orbital Survey keeps Venus cards free and offers the rest for sale
+  ---
+  duration_ms: 5.0299
+  type: 'test'
+  ...
+# Subtest: Splice and PolderTECH Dutch open with their first actions
+ok 505 - Splice and PolderTECH Dutch open with their first actions
+  ---
+  duration_ms: 15.9753
+  type: 'test'
+  ...
+# Subtest: Mars Nomads walks its marker for the space's bonus, and blocks that space
+ok 506 - Mars Nomads walks its marker for the space's bonus, and blocks that space
+  ---
+  duration_ms: 7.3567
+  type: 'test'
+  ...
+# Subtest: Self-Replicating Robots hosts a card, doubles it, and discounts it
+ok 507 - Self-Replicating Robots hosts a card, doubles it, and discounts it
+  ---
+  duration_ms: 18.737
+  type: 'test'
+  ...
+# Subtest: Merger adds a second corporation, its effects included
+ok 508 - Merger adds a second corporation, its effects included
+  ---
+  duration_ms: 13.4604
+  type: 'test'
+  ...
+# Subtest: a merged corporation's own effects apply
+ok 509 - a merged corporation's own effects apply
+  ---
+  duration_ms: 1.6774
+  type: 'test'
+  ...
+# Subtest: the starting-hand purchase leaves enough to pay for the preludes
+ok 510 - the starting-hand purchase leaves enough to pay for the preludes
+  ---
+  duration_ms: 6.6453
+  type: 'test'
+  ...
+# Subtest: a city scores for the greeneries beside it
+ok 511 - a city scores for the greeneries beside it
+  ---
+  duration_ms: 1.5214
+  type: 'test'
+  ...
+# Subtest: a merged corporation is a real corporation everywhere, not just in game-logic
+ok 512 - a merged corporation is a real corporation everywhere, not just in game-logic
+  ---
+  duration_ms: 7.3141
+  type: 'test'
+  ...
+# Subtest: a card printed with two of a tag counts for two
+ok 513 - a card printed with two of a tag counts for two
+  ---
+  duration_ms: 4.062
+  type: 'test'
+  ...
+# Subtest: Ants and Predators grow by what they eat, however the victim is chosen
+ok 514 - Ants and Predators grow by what they eat, however the victim is chosen
+  ---
+  duration_ms: 14.5182
+  type: 'test'
+  ...
+# Subtest: Space Port Colony scores for every colony in play, not only its owner's
+ok 515 - Space Port Colony scores for every colony in play, not only its owner's
+  ---
+  duration_ms: 13.9756
+  type: 'test'
+  ...
+# Subtest: Inventors' Guild offers the top card rather than handing it over
+ok 516 - Inventors' Guild offers the top card rather than handing it over
+  ---
+  duration_ms: 7.014
+  type: 'test'
+  ...
+# Subtest: Decomposers, Venusian Animals and Carbon Nanosystems collect per tag
+ok 517 - Decomposers, Venusian Animals and Carbon Nanosystems collect per tag
+  ---
+  duration_ms: 21.7891
+  type: 'test'
+  ...
+# Subtest: Martian Lumber Corp pays for building cards with plants
+ok 518 - Martian Lumber Corp pays for building cards with plants
+  ---
+  duration_ms: 7.6155
+  type: 'test'
+  ...
+# Subtest: a card that must target a loaded card is unplayable with none
+ok 519 - a card that must target a loaded card is unplayable with none
+  ---
+  duration_ms: 2.0552
+  type: 'test'
+  ...
+# Subtest: a card paid for by discarding needs another card in hand
+ok 520 - a card paid for by discarding needs another card in hand
+  ---
+  duration_ms: 17.9588
+  type: 'test'
+  ...
+# Subtest: a card that draws is unplayable when the deck cannot supply it
+ok 521 - a card that draws is unplayable when the deck cannot supply it
+  ---
+  duration_ms: 2.2357
+  type: 'test'
+  ...
+# Subtest: cards that need a target are unplayable without one
+ok 522 - cards that need a target are unplayable without one
+  ---
+  duration_ms: 2.424
+  type: 'test'
+  ...
+# Subtest: the research phase ends even when the deck cannot deal
+ok 523 - the research phase ends even when the deck cannot deal
+  ---
+  duration_ms: 1.8399
+  type: 'test'
+  ...
+# Subtest: a draft with nothing to pass around is not created
+ok 524 - a draft with nothing to pass around is not created
+  ---
+  duration_ms: 2.2556
+  type: 'test'
+  ...
+# Subtest: the playtest harness accepts every flag it reads
+ok 525 - the playtest harness accepts every flag it reads
+  ---
+  duration_ms: 27.1596
+  type: 'test'
+  ...
+# Subtest: an action that needs a target or a deck is refused without one
+ok 526 - an action that needs a target or a deck is refused without one
+  ---
+  duration_ms: 5.1197
+  type: 'test'
+  ...
+# Subtest: Kaguya Tech turns one of your greeneries into a city
+ok 527 - Kaguya Tech turns one of your greeneries into a city
+  ---
+  duration_ms: 5.408
+  type: 'test'
+  ...
+# Subtest: every special victory kind has a scorer
+ok 528 - every special victory kind has a scorer
+  ---
+  duration_ms: 2.2275
+  type: 'test'
+  ...
+# Subtest: solo games, terraform ratings and Helion's heat are read
+ok 529 - solo games, terraform ratings and Helion's heat are read
+  ---
+  duration_ms: 3.0833
+  type: 'test'
+  ...
+# Subtest: Kaguya Tech counts the square's building cost
+ok 530 - Kaguya Tech counts the square's building cost
+  ---
+  duration_ms: 1.6803
+  type: 'test'
+  ...
+# Subtest: cathedrals count for everyone holding the card
+ok 531 - cathedrals count for everyone holding the card
+  ---
+  duration_ms: 2.7947
+  type: 'test'
+  ...
+# Subtest: spending energy to draw needs a deck to draw from
+ok 532 - spending energy to draw needs a deck to draw from
+  ---
+  duration_ms: 2.4222
+  type: 'test'
+  ...
+# Subtest: The board is the official 61-space Tharsis map
+ok 533 - The board is the official 61-space Tharsis map
+  ---
+  duration_ms: 2.6869
+  type: 'test'
+  ...
+# Subtest: Rows follow the printed 5-6-7-8-9-8-7-6-5 layout
+ok 534 - Rows follow the printed 5-6-7-8-9-8-7-6-5 layout
+  ---
+  duration_ms: 7.2544
+  type: 'test'
+  ...
+# Subtest: Adjacency is symmetric with 37 interior spaces
+ok 535 - Adjacency is symmetric with 37 interior spaces
+  ---
+  duration_ms: 6.9745
+  type: 'test'
+  ...
+# Subtest: Named landmarks match the printed board
+ok 536 - Named landmarks match the printed board
+  ---
+  duration_ms: 0.7165
+  type: 'test'
+  ...
+# Subtest: Placement bonuses survive generation
+ok 537 - Placement bonuses survive generation
+  ---
+  duration_ms: 0.5887
+  type: 'test'
+  ...
+# Subtest: The board centre is exported so rendering can offset by it
+ok 538 - The board centre is exported so rendering can offset by it
+  ---
+  duration_ms: 1.0187
+  type: 'test'
+  ...
+# Subtest: Every hex lands inside the planet once centred
+ok 539 - Every hex lands inside the planet once centred
+  ---
+  duration_ms: 226.442
+  type: 'test'
+  ...
+# Subtest: A fresh game instantiates all 61 spaces as empty
+ok 540 - A fresh game instantiates all 61 spaces as empty
+  ---
+  duration_ms: 5.5591
+  type: 'test'
+  ...
+# Subtest: A tenth ocean can never be placed
+ok 541 - A tenth ocean can never be placed
+  ---
+  duration_ms: 5.207
+  type: 'test'
+  ...
+# Subtest: Turmoil offers the six official parties
+ok 542 - Turmoil offers the six official parties
+  ---
+  duration_ms: 39.1015
+  type: 'test'
+  ...
+# Subtest: A new game seats a neutral chairman with the Greens ruling
+ok 543 - A new game seats a neutral chairman with the Greens ruling
+  ---
+  duration_ms: 10.7987
+  type: 'test'
+  ...
+# Subtest: Turmoil is off unless requested
+ok 544 - Turmoil is off unless requested
+  ---
+  duration_ms: 9.2206
+  type: 'test'
+  ...
+# Subtest: Delegates come from the lobby before the reserve
+ok 545 - Delegates come from the lobby before the reserve
+  ---
+  duration_ms: 8.2993
+  type: 'test'
+  ...
+# Subtest: The party leader is whoever holds the most delegates there
+ok 546 - The party leader is whoever holds the most delegates there
+  ---
+  duration_ms: 4.353
+  type: 'test'
+  ...
+# Subtest: Influence follows the chairman, leadership and delegate count
+ok 547 - Influence follows the chairman, leadership and delegate count
+  ---
+  duration_ms: 9.6169
+  type: 'test'
+  ...
+# Subtest: A tie for most delegates is broken by clockwise order
+ok 548 - A tie for most delegates is broken by clockwise order
+  ---
+  duration_ms: 1.9206
+  type: 'test'
+  ...
+# Subtest: The dominant party takes power and its leader becomes chairman
+ok 549 - The dominant party takes power and its leader becomes chairman
+  ---
+  duration_ms: 7.3948
+  type: 'test'
+  ...
+# Subtest: Every player loses 1 TR when the turmoil phase runs
+ok 550 - Every player loses 1 TR when the turmoil phase runs
+  ---
+  duration_ms: 2.8806
+  type: 'test'
+  ...
+# Subtest: The global event queue advances one slot per generation
+ok 551 - The global event queue advances one slot per generation
+  ---
+  duration_ms: 6.031
+  type: 'test'
+  ...
+# Subtest: Every player is refilled to one lobby delegate each generation
+ok 552 - Every player is refilled to one lobby delegate each generation
+  ---
+  duration_ms: 2.9641
+  type: 'test'
+  ...
+# Subtest: The ruling party's bonus pays every player
+ok 553 - The ruling party's bonus pays every player
+  ---
+  duration_ms: 4.0853
+  type: 'test'
+  ...
+# Subtest: The Reds surcharge only applies while they rule
+ok 554 - The Reds surcharge only applies while they rule
+  ---
+  duration_ms: 2.7183
+  type: 'test'
+  ...
+# Subtest: Party requirements read live Turmoil state
+ok 555 - Party requirements read live Turmoil state
+  ---
+  duration_ms: 11.6402
+  type: 'test'
+  ...
+# Subtest: Chairman requirements check the acting player
+ok 556 - Chairman requirements check the acting player
+  ---
+  duration_ms: 5.4843
+  type: 'test'
+  ...
+# Subtest: Party names from card requirements resolve to party ids
+ok 557 - Party names from card requirements resolve to party ids
+  ---
+  duration_ms: 0.4434
+  type: 'test'
+  ...
+# Subtest: Turmoil state survives a generation of play
+ok 558 - Turmoil state survives a generation of play
+  ---
+  duration_ms: 10.2643
+  type: 'test'
+  ...
+# Subtest: A tie leaves the Party Leader seat with the incumbent
+ok 559 - A tie leaves the Party Leader seat with the incumbent
+  ---
+  duration_ms: 1.0351
+  type: 'test'
+  ...
+# Subtest: The first delegate in a party becomes its leader
+ok 560 - The first delegate in a party becomes its leader
+  ---
+  duration_ms: 0.7977
+  type: 'test'
+  ...
+# Subtest: Lobbying is free from the lobby and costs 5 MC from the reserve
+ok 561 - Lobbying is free from the lobby and costs 5 MC from the reserve
+  ---
+  duration_ms: 38.8257
+  type: 'test'
+  ...
+# Subtest: A player who cannot pay 5 MC keeps their delegate
+ok 562 - A player who cannot pay 5 MC keeps their delegate
+  ---
+  duration_ms: 6.5042
+  type: 'test'
+  ...
+# Subtest: The incoming ruling party pays the ruling bonus, not the outgoing one
+ok 563 - The incoming ruling party pays the ruling bonus, not the outgoing one
+  ---
+  duration_ms: 8.19
+  type: 'test'
+  ...
+# Subtest: Every non-leader delegate of the new ruling party goes back to the reserve
+ok 564 - Every non-leader delegate of the new ruling party goes back to the reserve
+  ---
+  duration_ms: 5.1459
+  type: 'test'
+  ...
+# Subtest: World Government Terraforming offers all four choices to the first player
+ok 565 - World Government Terraforming offers all four choices to the first player
+  ---
+  duration_ms: 2.1224
+  type: 'test'
+  ...
+# Subtest: The solar phase waits for the World Government choice
+ok 566 - The solar phase waits for the World Government choice
+  ---
+  duration_ms: 70.7293
+  type: 'test'
+  ...
+# Subtest: A maxed parameter drops out of the World Government's options
+ok 567 - A maxed parameter drops out of the World Government's options
+  ---
+  duration_ms: 1.4286
+  type: 'test'
+  ...
+# Subtest: The World Government raises the chosen track and grants no TR
+ok 568 - The World Government raises the chosen track and grants no TR
+  ---
+  duration_ms: 6.9051
+  type: 'test'
+  ...
+# Subtest: The World Government's ocean pays the first player nothing
+ok 569 - The World Government's ocean pays the first player nothing
+  ---
+  duration_ms: 12.9135
+  type: 'test'
+  ...
+# Subtest: World Government Terraforming is skipped without Venus
+ok 570 - World Government Terraforming is skipped without Venus
+  ---
+  duration_ms: 3.5933
+  type: 'test'
+  ...
+# Subtest: Changing Times adds the neutral delegates the new events name
+ok 571 - Changing Times adds the neutral delegates the new events name
+  ---
+  duration_ms: 4.8562
+  type: 'test'
+  ...
+# Subtest: The first generation resolves no global event
+ok 572 - The first generation resolves no global event
+  ---
+  duration_ms: 2.1741
+  type: 'test'
+  ...
+# Subtest: Every global event has an effect spec
+ok 573 - Every global event has an effect spec
+  ---
+  duration_ms: 1.4502
+  type: 'test'
+  ...
+# Subtest: The current global event actually changes the game state
+ok 574 - The current global event actually changes the game state
+  ---
+  duration_ms: 10.6789
+  type: 'test'
+  ...
+# Subtest: A global event that counts something is capped at five
+ok 575 - A global event that counts something is capped at five
+  ---
+  duration_ms: 2.8876
+  type: 'test'
+  ...
+# Subtest: Influence softens a global event's loss
+ok 576 - Influence softens a global event's loss
+  ---
+  duration_ms: 3.6929
+  type: 'test'
+  ...
+# Subtest: Party leaders and the chairman are each worth 1 VP
+ok 577 - Party leaders and the chairman are each worth 1 VP
+  ---
+  duration_ms: 6.9968
+  type: 'test'
+  ...
+# Subtest: Leading several parties scores each of them
+ok 578 - Leading several parties scores each of them
+  ---
+  duration_ms: 2.0586
+  type: 'test'
+  ...
+# Subtest: Neutral leaders and a neutral chairman score for nobody
+ok 579 - Neutral leaders and a neutral chairman score for nobody
+  ---
+  duration_ms: 1.8129
+  type: 'test'
+  ...
+# Subtest: The turmoil points are included in the total
+ok 580 - The turmoil points are included in the total
+  ---
+  duration_ms: 1.9369
+  type: 'test'
+  ...
+# Subtest: A game without turmoil scores no turmoil points
+ok 581 - A game without turmoil scores no turmoil points
+  ---
+  duration_ms: 1.1797
+  type: 'test'
+  ...
+# Subtest: Every score category appears in the breakdown
+ok 582 - Every score category appears in the breakdown
+  ---
+  duration_ms: 25.2975
+  type: 'test'
+  ...
+# Subtest: The event deck is the 31 base cards unless Colonies or Venus are on
+ok 583 - The event deck is the 31 base cards unless Colonies or Venus are on
+  ---
+  duration_ms: 3.0388
+  type: 'test'
+  ...
+# Subtest: Cross-expansion events need every expansion they name
+ok 584 - Cross-expansion events need every expansion they name
+  ---
+  duration_ms: 0.744
+  type: 'test'
+  ...
+# Subtest: A turmoil-only game never deals a colony or Venus event
+ok 585 - A turmoil-only game never deals a colony or Venus event
+  ---
+  duration_ms: 2.0884
+  type: 'test'
+  ...
+# Subtest: Election pays the top two places
+ok 586 - Election pays the top two places
+  ---
+  duration_ms: 2.8253
+  type: 'test'
+  ...
+# Subtest: A shared first place in Election consumes second
+ok 587 - A shared first place in Election consumes second
+  ---
+  duration_ms: 1.2353
+  type: 'test'
+  ...
+# Subtest: Revolution spares players with nothing to count
+ok 588 - Revolution spares players with nothing to count
+  ---
+  duration_ms: 2.3504
+  type: 'test'
+  ...
+# Subtest: Cloud Societies adds a floater to every card that collects them
+ok 589 - Cloud Societies adds a floater to every card that collects them
+  ---
+  duration_ms: 6.2982
+  type: 'test'
+  ...
+# Subtest: Sponsored Projects only feeds cards that already hold a resource
+ok 590 - Sponsored Projects only feeds cards that already hold a resource
+  ---
+  duration_ms: 2.5329
+  type: 'test'
+  ...
+# Subtest: The World Government's ocean goes through the normal placement path
+ok 591 - The World Government's ocean goes through the normal placement path
+  ---
+  duration_ms: 2.9266
+  type: 'test'
+  ...
+# Subtest: The World Government cannot be answered by another player
+ok 592 - The World Government cannot be answered by another player
+  ---
+  duration_ms: 1.2411
+  type: 'test'
+  ...
+# Subtest: Aquifer asks the first player for a square and pays nobody for it
+ok 593 - Aquifer asks the first player for a square and pays nobody for it
+  ---
+  duration_ms: 3.2013
+  type: 'test'
+  ...
+# Subtest: Dry Deserts removes an ocean and pays influence in chosen resources
+ok 594 - Dry Deserts removes an ocean and pays influence in chosen resources
+  ---
+  duration_ms: 72.2002
+  type: 'test'
+  ...
+# Subtest: Dry Deserts asks nobody when there is no ocean and no influence
+ok 595 - Dry Deserts asks nobody when there is no ocean and no influence
+  ---
+  duration_ms: 1.3572
+  type: 'test'
+  ...
+# Subtest: Paradigm Breakdown lets each player pick their own two discards
+ok 596 - Paradigm Breakdown lets each player pick their own two discards
+  ---
+  duration_ms: 8.1477
+  type: 'test'
+  ...
+# Subtest: Paradigm Breakdown asks only for the cards a player holds
+ok 597 - Paradigm Breakdown asks only for the cards a player holds
+  ---
+  duration_ms: 3.4151
+  type: 'test'
+  ...
+# Subtest: A player cannot answer another player's discard
+ok 598 - A player cannot answer another player's discard
+  ---
+  duration_ms: 2.5568
+  type: 'test'
+  ...
+# Subtest: Re-sending the same discard does not discard twice
+ok 599 - Re-sending the same discard does not discard twice
+  ---
+  duration_ms: 3.2296
+  type: 'test'
+  ...
+# Subtest: Corrosive Rain offers both branches and every eligible card
+ok 600 - Corrosive Rain offers both branches and every eligible card
+  ---
+  duration_ms: 6.6954
+  type: 'test'
+  ...
+# Subtest: Corrosive Rain can be paid in MC even while holding floaters
+ok 601 - Corrosive Rain can be paid in MC even while holding floaters
+  ---
+  duration_ms: 2.8375
+  type: 'test'
+  ...
+# Subtest: Corrosive Rain takes what MC a poor player has
+ok 602 - Corrosive Rain takes what MC a poor player has
+  ---
+  duration_ms: 1.1187
+  type: 'test'
+  ...
+# Subtest: Cloud Societies pays influence in floaters the player places
+ok 603 - Cloud Societies pays influence in floaters the player places
+  ---
+  duration_ms: 14.725
+  type: 'test'
+  ...
+# Subtest: The last generation runs no turmoil step and no World Government
+ok 604 - The last generation runs no turmoil step and no World Government
+  ---
+  duration_ms: 1.2551
+  type: 'test'
+  ...
+# Subtest: Generous Funding counts whole 5 TR steps above 15
+ok 605 - Generous Funding counts whole 5 TR steps above 15
+  ---
+  duration_ms: 7.3031
+  type: 'test'
+  ...
+# Subtest: Red Influence counts whole 5 TR steps above 10
+ok 606 - Red Influence counts whole 5 TR steps above 10
+  ---
+  duration_ms: 8.832
+  type: 'test'
+  ...
+# Subtest: Diversity adds influence as a number, not as a single tag
+ok 607 - Diversity adds influence as a number, not as a single tag
+  ---
+  duration_ms: 6.4785
+  type: 'test'
+  ...
+# Subtest: Diversity counts corporation and prelude tags, but not events
+ok 608 - Diversity counts corporation and prelude tags, but not events
+  ---
+  duration_ms: 2.958
+  type: 'test'
+  ...
+# Subtest: The choice queue never shows one player another player's cards
+ok 609 - The choice queue never shows one player another player's cards
+  ---
+  duration_ms: 22.7794
+  type: 'test'
+  ...
+# Subtest: A queued choice survives a save and reload
+ok 610 - A queued choice survives a save and reload
+  ---
+  duration_ms: 5.7781
+  type: 'test'
+  ...
+# Subtest: World Government oxygen at 8% still pushes the temperature
+ok 611 - World Government oxygen at 8% still pushes the temperature
+  ---
+  duration_ms: 2.1852
+  type: 'test'
+  ...
+# Subtest: World Government temperature at 0C still owes an ocean
+ok 612 - World Government temperature at 0C still owes an ocean
+  ---
+  duration_ms: 2.7101
+  type: 'test'
+  ...
+# Subtest: Volcanic Eruptions crossing 0C owes the same ocean a card would
+ok 613 - Volcanic Eruptions crossing 0C owes the same ocean a card would
+  ---
+  duration_ms: 3.9722
+  type: 'test'
+  ...
+# Subtest: A global event pays nobody the heat production the track marks give
+ok 614 - A global event pays nobody the heat production the track marks give
+  ---
+  duration_ms: 1.1009
+  type: 'test'
+  ...
+# Subtest: A maxed track is not raised past its limit by the World Government
+ok 615 - A maxed track is not raised past its limit by the World Government
+  ---
+  duration_ms: 1.2511
+  type: 'test'
+  ...
+# Subtest: Arctic Algae reacts to an ocean anyone places
+ok 616 - Arctic Algae reacts to an ocean anyone places
+  ---
+  duration_ms: 2.1457
+  type: 'test'
+  ...
+# Subtest: Arctic Algae reacts to the World Government's ocean too
+ok 617 - Arctic Algae reacts to the World Government's ocean too
+  ---
+  duration_ms: 5.1682
+  type: 'test'
+  ...
+# Subtest: Arctic Algae reacts to an ocean a global event lays
+ok 618 - Arctic Algae reacts to an ocean a global event lays
+  ---
+  duration_ms: 2.5975
+  type: 'test'
+  ...
+# Subtest: Aphrodite is paid for a Venus step whoever takes it
+ok 619 - Aphrodite is paid for a Venus step whoever takes it
+  ---
+  duration_ms: 5.0207
+  type: 'test'
+  ...
+# Subtest: Aphrodite is not paid when the Venus track is already maxed
+ok 620 - Aphrodite is not paid when the Venus track is already maxed
+  ---
+  duration_ms: 1.6945
+  type: 'test'
+  ...
+# Subtest: No global event declares a key the resolver ignores
+ok 621 - No global event declares a key the resolver ignores
+  ---
+  duration_ms: 0.6884
+  type: 'test'
+  ...
+# Subtest: Every supported spec key is read somewhere in the resolver
+ok 622 - Every supported spec key is read somewhere in the resolver
+  ---
+  duration_ms: 19.0153
+  type: 'test'
+  ...
+# Subtest: Every global event in the catalogue has a spec
+ok 623 - Every global event in the catalogue has a spec
+  ---
+  duration_ms: 0.5705
+  type: 'test'
+  ...
+# Subtest: All 36 global events resolve without stalling
+ok 624 - All 36 global events resolve without stalling
+  ---
+  duration_ms: 24.0098
+  type: 'test'
+  ...
+# Subtest: All 36 global events resolve in a solo game too
+ok 625 - All 36 global events resolve in a solo game too
+  ---
+  duration_ms: 110.3174
+  type: 'test'
+  ...
+# Subtest: A forged option id is refused
+ok 626 - A forged option id is refused
+  ---
+  duration_ms: 1.6342
+  type: 'test'
+  ...
+# Subtest: The World Government cannot be sent a maxed parameter
+ok 627 - The World Government cannot be sent a maxed parameter
+  ---
+  duration_ms: 1.0217
+  type: 'test'
+  ...
+# Subtest: The World Government cannot be sent an illegal square
+ok 628 - The World Government cannot be sent an illegal square
+  ---
+  duration_ms: 2.5451
+  type: 'test'
+  ...
+# Subtest: An answer to someone else's question is refused
+ok 629 - An answer to someone else's question is refused
+  ---
+  duration_ms: 1.3958
+  type: 'test'
+  ...
+# Subtest: A card that no longer holds enough floaters falls back to the MC branch
+ok 630 - A card that no longer holds enough floaters falls back to the MC branch
+  ---
+  duration_ms: 4.4542
+  type: 'test'
+  ...
+# Subtest: Every queued question names an owner who can answer it
+ok 631 - Every queued question names an owner who can answer it
+  ---
+  duration_ms: 13.4183
+  type: 'test'
+  ...
+# Subtest: Unity in power makes titanium worth one more
+ok 632 - Unity in power makes titanium worth one more
+  ---
+  duration_ms: 2.2515
+  type: 'test'
+  ...
+# Subtest: A party requirement is met by two delegates, not only by ruling
+ok 633 - A party requirement is met by two delegates, not only by ruling
+  ---
+  duration_ms: 2.6659
+  type: 'test'
+  ...
+# Subtest: The ruling party's tile policy pays out when a tile is laid
+ok 634 - The ruling party's tile policy pays out when a tile is laid
+  ---
+  duration_ms: 12.8071
+  type: 'test'
+  ...
+# Subtest: Red Appeasement needs an unpassed table and ends your generation
+ok 635 - Red Appeasement needs an unpassed table and ends your generation
+  ---
+  duration_ms: 59.7221
+  type: 'test'
+  ...
+# Subtest: Logs written while a tile is placed survive the pending choice
+ok 636 - Logs written while a tile is placed survive the pending choice
+  ---
+  duration_ms: 7.6884
+  type: 'test'
+  ...
+# Subtest: The Reds levy applies to every terraforming path and to none of the others
+ok 637 - The Reds levy applies to every terraforming path and to none of the others
+  ---
+  duration_ms: 11.1834
+  type: 'test'
+  ...
+# Subtest: A card is unplayable when the Reds levy on it cannot be paid
+ok 638 - A card is unplayable when the Reds levy on it cannot be paid
+  ---
+  duration_ms: 20.7105
+  type: 'test'
+  ...
+# Subtest: The ruling party's policy action follows its own usage limit
+ok 639 - The ruling party's policy action follows its own usage limit
+  ---
+  duration_ms: 51.9672
+  type: 'test'
+  ...
+# Subtest: A turn allows two actions before the seat moves on
+ok 640 - A turn allows two actions before the seat moves on
+  ---
+  duration_ms: 60.395
+  type: 'test'
+  ...
+# Subtest: Passing after one action ends the turn without leaving the generation
+ok 641 - Passing after one action ends the turn without leaving the generation
+  ---
+  duration_ms: 4.583
+  type: 'test'
+  ...
+# Subtest: Passing with a full turn is a hard pass
+ok 642 - Passing with a full turn is a hard pass
+  ---
+  duration_ms: 7.8146
+  type: 'test'
+  ...
+# Subtest: The default view keeps the on-demand panels shut
+ok 643 - The default view keeps the on-demand panels shut
+  ---
+  duration_ms: 139.7896
+  type: 'test'
+  ...
+# Subtest: The collapsed planet readout shows symbols and numbers
+ok 644 - The collapsed planet readout shows symbols and numbers
+  ---
+  duration_ms: 44.6585
+  type: 'test'
+  ...
+# Subtest: Board tiles carry an explanation for hover and long-press
+ok 645 - Board tiles carry an explanation for hover and long-press
+  ---
+  duration_ms: 57.2799
+  type: 'test'
+  ...
+# Subtest: A spread that shadows a compat accessor keeps the written value
+ok 646 - A spread that shadows a compat accessor keeps the written value
+  ---
+  duration_ms: 9.132
+  type: 'test'
+  ...
+# Subtest: Buying starting cards fills the hand and charges the right price
+ok 647 - Buying starting cards fills the hand and charges the right price
+  ---
+  duration_ms: 4.5884
+  type: 'test'
+  ...
+# Subtest: Drawing again grows the hand instead of replacing it
+ok 648 - Drawing again grows the hand instead of replacing it
+  ---
+  duration_ms: 3.9756
+  type: 'test'
+  ...
+# Subtest: Setup requires buying the starting hand before the first action
+ok 649 - Setup requires buying the starting hand before the first action
+  ---
+  duration_ms: 19.7152
+  type: 'test'
+  ...
+# Subtest: Only the enabled expansions reach the card pools
+ok 650 - Only the enabled expansions reach the card pools
+  ---
+  duration_ms: 71.1353
+  type: 'test'
+  ...
+# Subtest: The Venus track is visible from 0% when the expansion is on
+ok 651 - The Venus track is visible from 0% when the expansion is on
+  ---
+  duration_ms: 8.7064
+  type: 'test'
+  ...
+# Subtest: Raising the Venus scale pays TR and its threshold bonuses
+ok 652 - Raising the Venus scale pays TR and its threshold bonuses
+  ---
+  duration_ms: 34.6202
+  type: 'test'
+  ...
+# Subtest: Venus does not gate the end of the game
+ok 653 - Venus does not gate the end of the game
+  ---
+  duration_ms: 0.8493
+  type: 'test'
+  ...
+# Subtest: A card action can only be used once per generation
+ok 654 - A card action can only be used once per generation
+  ---
+  duration_ms: 14.5025
+  type: 'test'
+  ...
+# Subtest: One player's spent action does not block another's
+ok 655 - One player's spent action does not block another's
+  ---
+  duration_ms: 2.8338
+  type: 'test'
+  ...
+# Subtest: A spent action stays spent across a save and reload
+ok 656 - A spent action stays spent across a save and reload
+  ---
+  duration_ms: 26.5525
+  type: 'test'
+  ...
+# Subtest: Mars University lets the player pick the discard instead of taking hand[0]
+ok 657 - Mars University lets the player pick the discard instead of taking hand[0]
+  ---
+  duration_ms: 23.3164
+  type: 'test'
+  ...
+# Subtest: An optional choice can be declined
+ok 658 - An optional choice can be declined
+  ---
+  duration_ms: 2.447
+  type: 'test'
+  ...
+# Subtest: Mars University does not require owning a corporation
+ok 659 - Mars University does not require owning a corporation
+  ---
+  duration_ms: 12.1668
+  type: 'test'
+  ...
+# Subtest: tiles at a capped global parameter award no TR
+ok 660 - tiles at a capped global parameter award no TR
+  ---
+  duration_ms: 51.6612
+  type: 'test'
+  ...
+# Subtest: card actions place their resource on the card that raised them
+ok 661 - card actions place their resource on the card that raised them
+  ---
+  duration_ms: 17.3071
+  type: 'test'
+  ...
+# Subtest: a card action offering a choice asks instead of always spending
+ok 662 - a card action offering a choice asks instead of always spending
+  ---
+  duration_ms: 104.6702
+  type: 'test'
+  ...
+# Subtest: attacking production lets the player pick the victim
+ok 663 - attacking production lets the player pick the victim
+  ---
+  duration_ms: 13.1706
+  type: 'test'
+  ...
+# Subtest: card text states every effect the engine applies
+ok 664 - card text states every effect the engine applies
+  ---
+  duration_ms: 16.6632
+  type: 'test'
+  ...
+# Subtest: placing a tile pays its placement bonus and raises TR once
+ok 665 - placing a tile pays its placement bonus and raises TR once
+  ---
+  duration_ms: 7.2353
+  type: 'test'
+  ...
+# Subtest: a robot game hands the seat to the bots
+ok 666 - a robot game hands the seat to the bots
+  ---
+  duration_ms: 60.2084
+  type: 'test'
+  ...
+# Subtest: the UI does not pay placement bonuses a second time
+ok 667 - the UI does not pay placement bonuses a second time
+  ---
+  duration_ms: 27.2589
+  type: 'test'
+  ...
+1..667
+# tests 667
+# suites 0
+# pass 667
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 18821.4003
+npm notice
+npm notice New major version of npm available! 10.9.3 -> 12.0.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.0.2
+npm notice To update run: npm install -g npm@12.0.2
+npm notice

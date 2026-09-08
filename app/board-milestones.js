@@ -5,6 +5,57 @@ import { MILESTONES, AWARDS, countTiles, countTags, registerBoardMilestones } fr
 
 const PRODUCTION_KEYS = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"];
 
+// Incorporator reads the printed 10 M€, not the 19 the code first carried.
+const INCORPORATOR_MAX_COST = 10;
+// Celebrity reads the other end of the same scale.
+const CELEBRITY_MIN_COST = 20;
+
+// Desert Settler counts tiles south of the equator. The 9-row board is split
+// 4 / 1 / 4, so the southern half is the bottom four rows -- r >= 5 once the
+// rows are numbered from the top.
+const SOUTHERN_FIRST_ROW = 5;
+
+// board-milestones is imported BY game-logic, so it cannot import
+// getAdjacentCells back out of it. Same six axial directions.
+function adjacentPositions(q, r) {
+  return [
+    { q: q + 1, r },
+    { q: q - 1, r },
+    { q, r: r + 1 },
+    { q, r: r - 1 },
+    { q: q + 1, r: r - 1 },
+    { q: q - 1, r: r + 1 }
+  ];
+}
+
+function ownedTiles(context) {
+  return Object.values(context.board).filter(
+    cell => cell.placedBy === context.player.id && cell.tileType !== "empty"
+  );
+}
+
+// "Most tiles in the southern half of the map." Ocean tiles a player placed
+// belong to them for this count like any other tile.
+function tilesInSouth(context) {
+  const rows = Object.values(context.board).map(cell => cell.r);
+  const minR = Math.min(...rows);
+  return ownedTiles(context).filter(cell => cell.r - minR >= SOUTHERN_FIRST_ROW).length;
+}
+
+// "Most tiles adjacent to ocean tiles." A tile touching two oceans still
+// counts once -- the award counts tiles, not adjacencies.
+function tilesAdjacentToOcean(context) {
+  return ownedTiles(context).filter(cell =>
+    adjacentPositions(cell.q, cell.r).some(pos => context.board[`${pos.q},${pos.r}`]?.tileType === "ocean")
+  ).length;
+}
+
+// Industrialist reads the steel and energy a player is HOLDING, not their
+// production. Those are two different numbers on the player board.
+function steelAndEnergyResources(context) {
+  return (context.player.steel ?? 0) + (context.player.energy ?? 0);
+}
+
 function bioTags(context) {
   return ["Plant", "Microbe", "Animal"].reduce(
     (sum, tag) => sum + countTags(context.player, context.cards, tag, context.corporation),
@@ -133,18 +184,36 @@ export const BOARD_AWARDS = {
     {
       id: "entrepreneur",
       name: "起業家",
-      description: "コスト19MC以下のカードが最多",
+      description: "コスト10MC以下のカードが最多",
       getScore: context => context.player.playedProjects.reduce((sum, id) => {
         const card = context.cards.find(item => item.id === id);
-        return sum + ((card?.cost ?? 99) <= 19 ? 1 : 0);
+        return sum + ((card?.cost ?? 99) <= INCORPORATOR_MAX_COST ? 1 : 0);
       }, 0)
     },
     { id: "metropolist", name: "都市計画家", description: "都市タイル数が最多", getScore: context => countTiles(context.board, context.player.id, "city") }
   ]
 };
 
-// The printed Elysium and Amazonis sheets reuse these sets.
-BOARD_AWARDS.elysium = BOARD_AWARDS.hellas;
+BOARD_AWARDS.elysium = [
+  {
+    id: "celebrity",
+    name: "セレブリティ",
+    description: "コスト20MC以上のカードが最多",
+    getScore: context => context.player.playedProjects.reduce((sum, id) => {
+      const card = context.cards.find(item => item.id === id);
+      return sum + ((card?.cost ?? 0) >= CELEBRITY_MIN_COST ? 1 : 0);
+    }, 0)
+  },
+  { id: "industrialist", name: "工業主", description: "建材と電力の保有資源の合計が最多", getScore: steelAndEnergyResources },
+  { id: "desert-settler", name: "砂漠開拓者", description: "赤道より南のタイルが最多", getScore: tilesInSouth },
+  { id: "estate-dealer", name: "不動産業者", description: "海洋に隣接するタイルが最多", getScore: tilesAdjacentToOcean },
+  { id: "benefactor", name: "篤志家", description: "TRが最多", getScore: context => context.player.tr ?? 0 }
+];
+
+// Amazonis has its own printed milestones and awards (Terran, Landshaper,
+// Merchant, Sponsor, Lobbyist / Collector and four others). Until that sheet is
+// transcribed it borrows the Utopia set, which is a KNOWN divergence rather
+// than the printed rule -- see docs/OFFICIAL_SCOPE.md.
 BOARD_MILESTONES.amazonis = BOARD_MILESTONES.utopia;
 BOARD_AWARDS.amazonis = BOARD_AWARDS.utopia;
 

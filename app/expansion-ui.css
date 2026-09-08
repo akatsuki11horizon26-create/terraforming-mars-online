@@ -966,17 +966,21 @@
    strip without scrolling; page.tsx sets that from the hand size. */
 
 .tm-card {
-  --card-w: 148px;
-  width: var(--card-w);
+  /* NOT `--card-w: 148px`. Declaring it here shadowed the value the hand strip
+     inherits down, so every card rendered at the 148px reference width and the
+     fitting maths in page.tsx had no effect at all -- which is how a hand came
+     to stand 234px tall in a 141px strip with the effect text below the fold.
+     The fallback keeps a card outside the strip at its reference size. */
+  width: var(--card-w, 148px);
   /* Taller than the printed 1.4 ratio: the art band shows a full 16:9 drawing,
      and the effect text still needs its own room underneath. CARD_ASPECT in
      project-card.tsx must match, or the hand-fitting maths clips the last row. */
   --card-aspect: 1.58;
-  height: calc(var(--card-w) * var(--card-aspect));
+  height: calc(var(--card-w, 148px) * var(--card-aspect));
   /* Everything inside the card is expressed as a multiple of this, so a narrow
      card is the wide one scaled down rather than the same chrome squeezing the
      rules text out of an unchanged box. 148px is the reference design. */
-  --s: calc(var(--card-w) / 148);
+  --s: calc(var(--card-w, 148px) / 148);
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
@@ -1067,7 +1071,7 @@
 .tm-card-art {
   display: block;
   flex: 0 0 auto;
-  height: calc((var(--card-w) - 16 * var(--s)) * 9 / 16);
+  height: calc((var(--card-w, 148px) - 16 * var(--s)) * 9 / 16);
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--line-hard) 70%, transparent);
   background-color: var(--surface-base);
@@ -1225,4 +1229,14 @@
   overflow-y: auto;
   overflow-x: hidden;
   padding-bottom: 2px;
+}
+
+/* Too short for even one wrapped row at a readable size. One row that scrolls
+   sideways shows whole cards; a wrapped grid at this height showed the top of
+   every card and the text of none. */
+.hand-cards.hand-cards-row {
+  flex-wrap: nowrap;
+  align-content: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
 }

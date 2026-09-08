@@ -1,0 +1,6 @@
+cards with a fixed numeric contract: 211
+  honoured : 211
+  wrong    : 0
+skipped (no fixed contract, or does more): 217
+preludes     : 47 honoured, 0 wrong, 23 skipped
+corporations : 49 honoured, 0 wrong, 0 skipped

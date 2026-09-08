@@ -237,7 +237,12 @@ div[tabindex="0"]:focus-visible {
   justify-content: center;
   position: relative;
   min-height: 0;
-  overflow: hidden;
+  /* The board shrinks to fit, but only down to MIN_BOARD_SCALE -- past that the
+     spaces stop being readable. On a screen too short for even that, the rest
+     has to be reachable: overflow:hidden cropped the top and bottom rows off
+     the board with nothing to say they were there. */
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 /* The planet is a fixed 460px design scaled to whatever height is left, so the
@@ -481,8 +486,17 @@ div[tabindex="0"]:focus-visible {
    in the flow, so the hand is always visible without lengthening the page. */
 .hand-container {
   flex: 0 0 auto;
-  /* Enough for two rows of cards at a readable size. */
-  max-height: 34dvh;
+  /* The strip also carries its own header and action row -- about 92px between
+     them -- so a percentage cap alone decided how much was left for the cards
+     rather than how much they need. At 725px tall, 34dvh left 115px for a card
+     that is 174px at its smallest readable width, and the body text scrolled
+     out of sight. The floor keeps one full row visible; the percentage still
+     lets a tall screen give the hand more. */
+  /* 174px for one row of cards at the narrowest readable width (110 * 1.58),
+     plus about 131px for the strip's own header, the corporation row, padding
+     and gaps. Anything less and the bottom of every card -- name, effect, VP --
+     sits below the fold. */
+  max-height: max(305px, 34dvh);
   min-height: 0;
   background-color: var(--surface-1);
   border-top: 1px solid var(--line-hard);

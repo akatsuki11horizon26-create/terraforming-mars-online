@@ -1,0 +1,73 @@
+{
+  "auditedCommit": "6e7fe84c18cde2ae1a30ca19ead18f49e21087e2",
+  "elysiumAwards": [
+    "cultivator",
+    "magnate",
+    "space-baron",
+    "excentric",
+    "contractor"
+  ],
+  "amazonis": {
+    "cells": 61,
+    "milestones": [
+      "manager",
+      "pioneer",
+      "trader",
+      "metallurgist",
+      "researcher"
+    ],
+    "awards": [
+      "suburbian",
+      "sponsor",
+      "botanist",
+      "entrepreneur",
+      "metropolist"
+    ],
+    "sharedEndCheckAtBasicTargets": true
+  },
+  "utopiaAwardBoundary": [
+    {
+      "cost": 10,
+      "observedCount": 1
+    },
+    {
+      "cost": 11,
+      "observedCount": 1
+    },
+    {
+      "cost": 19,
+      "observedCount": 1
+    },
+    {
+      "cost": 20,
+      "observedCount": 0
+    }
+  ],
+  "preludeEnabledExpansions": [
+    "base",
+    "prelude",
+    "prelude2"
+  ],
+  "beginnerEmptySelection": {
+    "offered": 10,
+    "ok": true,
+    "phase": "action",
+    "hand": 0,
+    "mc": 42
+  },
+  "preludeUnchosenCostReservation": {
+    "mc": 30,
+    "projectCount": 7,
+    "projectCost": 21,
+    "remainingMc": 9,
+    "availableFreePair": [
+      "prelude-acquired-space-agency",
+      "prelude-allied-banks"
+    ],
+    "ok": false,
+    "error": {
+      "code": "CANNOT_AFFORD",
+      "message": "Preludeの支払いに 11 MC を残す必要があります。"
+    }
+  }
+}

@@ -59,7 +59,10 @@ import {
   getPlayer as jsGetPlayer,
   DECLINE_CHOICE as jsDeclineChoice,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
-  withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors
+  withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors,
+  MAX_OXYGEN,
+  MAX_TEMPERATURE,
+  MAX_OCEANS
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { colonyDescriptionJP } from "./colony-text.js";
@@ -256,6 +259,7 @@ interface GameState {
   venusEnabled?: boolean;
   preludeEnabled?: boolean;
   promoEnabled?: boolean;
+  prelude2Enabled?: boolean;
   botDifficulty?: string | null;
   boardId?: string;
   usedCardActions: string[];
@@ -415,21 +419,36 @@ export default function Home() {
   // code.
   // The board is a fixed 460px design; scale it to whatever space the centre
   // column has so the whole game stays on one screen without scrolling.
+  // Below this the space names and tile art stop being readable, so the board
+  // stops shrinking and .board-panel scrolls to the rest instead of cropping it.
+  const MIN_BOARD_SCALE = 0.45;
   const boardRef = React.useRef<HTMLDivElement | null>(null);
   const [boardScale, setBoardScale] = useState(1);
 
-  useEffect(() => {
-    const element = boardRef.current;
+  // The board panel does not exist on the first render -- the title and setup
+  // screens stand in its place -- so an effect that reads boardRef once at
+  // mount found null, returned, and never observed anything. The scale then sat
+  // at 1 for the whole game and a 460px sphere in a 429px panel lost 16px off
+  // the top and bottom to .board-panel's overflow:hidden. A callback ref
+  // attaches the observer whenever the element actually arrives.
+  const boardObserver = React.useRef<ResizeObserver | null>(null);
+  const attachBoardRef = React.useCallback((element: HTMLDivElement | null) => {
+    boardRef.current = element;
+    boardObserver.current?.disconnect();
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(entries => {
       const box = entries[0]?.contentRect;
-      if (!box) return;
+      if (!box || !box.width || !box.height) return;
+      // 470 rather than 460: the sphere carries a border and a glow that would
+      // otherwise touch the panel's edges.
       const fit = Math.min(box.width / 470, box.height / 470);
-      setBoardScale(Math.max(0.45, Math.min(1, fit)));
+      setBoardScale(Math.max(MIN_BOARD_SCALE, Math.min(1, fit)));
     });
     observer.observe(element);
-    return () => observer.disconnect();
+    boardObserver.current = observer;
   }, []);
+
+  useEffect(() => () => boardObserver.current?.disconnect(), []);
 
   // The hand must be readable at a glance without scrolling, so the cards are
   // sized to whatever the strip can hold. More cards means smaller cards rather
@@ -437,16 +456,25 @@ export default function Home() {
   const handRef = React.useRef<HTMLDivElement | null>(null);
   const [handBox, setHandBox] = useState({ width: 0, height: 0 });
 
-  useEffect(() => {
-    const element = handRef.current;
+  // Same as the board: the hand strip does not exist until a game is dealt, so
+  // reading handRef once at mount observed nothing and handBox stayed 0x0.
+  // cardWidth then returned its 148px default forever, and a hand of ten cards
+  // stood 476px tall inside a 115px strip -- the card body scrolled out of
+  // sight instead of the cards shrinking to fit.
+  const handObserver = React.useRef<ResizeObserver | null>(null);
+  const attachHandRef = React.useCallback((element: HTMLDivElement | null) => {
+    handRef.current = element;
+    handObserver.current?.disconnect();
     if (!element || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(entries => {
       const box = entries[0]?.contentRect;
       if (box) setHandBox({ width: box.width, height: box.height });
     });
     observer.observe(element);
-    return () => observer.disconnect();
+    handObserver.current = observer;
   }, []);
+
+  useEffect(() => () => handObserver.current?.disconnect(), []);
 
   // The title screen owns the entry into a game; it stays up until a mode is
   // chosen so the board is never shown without a game behind it.
@@ -471,6 +499,7 @@ export default function Home() {
   const [setupColonies, setSetupColonies] = useState(false);
   const [setupPrelude, setSetupPrelude] = useState(false);
   const [setupVenus, setSetupVenus] = useState(false);
+  const [setupPrelude2, setSetupPrelude2] = useState(false);
   const [setupPromo, setSetupPromo] = useState(false);
   // Drafting is a turn rule rather than an expansion, and the engine ignores it
   // in a one-seat game, so it rides alongside the expansion flags but is only
@@ -568,6 +597,24 @@ export default function Home() {
   // game is only used offline. Rendering reads whichever is active.
   const isOnline = Boolean(online.view);
   const activeState = (online.view ?? gameState) as GameState & { viewerId?: string };
+
+  // A standard project's confirmation used to promise its full effect whether
+  // or not the track could still move: "酸素とTRが1上がります" on a board already
+  // at 14% oxygen told the player they would gain a TR they will not gain.
+  // These describe what raising the track will ACTUALLY do from here.
+  const raisesOxygen = (activeState.oxygen ?? 0) < MAX_OXYGEN;
+  const raisesTemperature = (activeState.temperature ?? 0) < MAX_TEMPERATURE;
+  const raisesOceans = (activeState.oceans ?? 0) < MAX_OCEANS;
+  const temperatureGain = raisesTemperature
+    ? "気温を1段階(+2°C)上げます。TRが1上がります。"
+    : "気温は上限に達しているため、上がりません（TRも増えません）。";
+  const oceanGain = raisesOceans
+    ? "海洋タイルを1枚配置します。TRが1上がります。"
+    : "海洋は9枚すべて配置済みのため、TRは増えません。";
+  const greeneryGain = raisesOxygen
+    ? "緑地タイルを1枚配置します。酸素とTRが1上がります。"
+    : "緑地タイルを1枚配置します。酸素は上限に達しているため、TRは増えません。";
+
 
   const players = (activeState.players ?? []) as PlayerRecord[];
   // Online, "current player" for UI purposes is the seat this device owns; the
@@ -1159,6 +1206,7 @@ export default function Home() {
     turmoil?: boolean;
     colonies?: boolean;
     prelude?: boolean;
+    prelude2?: boolean;
     venus?: boolean;
     promo?: boolean;
     draft?: boolean;
@@ -1449,8 +1497,21 @@ export default function Home() {
     []) as string[];
 
   // Find the largest card width whose rows still fit the strip's height. Cards
-  // are 1.4x tall, wrap on the cross axis, and have a 6px gap.
-  const cardWidth = useMemo(() => {
+  // are 1.58x tall, wrap on the cross axis, and have a 6px gap.
+  //
+  // The second return value matters as much as the first. On a short screen no
+  // allowed width fits a wrapped grid -- the smallest readable card is 174px
+  // tall and the strip can be 141px -- and the old code simply returned the
+  // floor and let the grid scroll. That cut 93px off the bottom of every card
+  // in the hand, taking the name, the effect text and the VP with it, which is
+  // what the audit saw. Laying the hand out as one row instead keeps each card
+  // whole and moves the overflow sideways, where a partly visible card still
+  // reads as "there are more".
+  // Returned as a packed number rather than an object: the React compiler
+  // cannot preserve a manual useMemo whose value is a fresh object literal, and
+  // refuses to optimise the component at all when it meets one. The sign
+  // carries "one row"; the magnitude is the width.
+  const fittedCard = useMemo(() => {
     const { width, height } = handBox;
     if (!width || !height || handCards.length === 0) return 148;
     const GAP = 6;
@@ -1459,10 +1520,13 @@ export default function Home() {
       const rows = Math.ceil(handCards.length / perRow);
       if (rows * (w * CARD_ASPECT + GAP) - GAP <= height) return w;
     }
-    // Shrinking further would make the effect text too small to read, so the
-    // card stops here and .hand-cards scrolls instead.
-    return MIN_CARD_WIDTH;
+    // Nothing fits stacked. Fit ONE row to the height instead, down to the
+    // width below which the effect text stops being readable.
+    const fitted = Math.floor(height / CARD_ASPECT);
+    return -Math.max(MIN_CARD_WIDTH, Math.min(148, fitted));
   }, [handBox, handCards.length]);
+  const cardWidth = Math.abs(fittedCard);
+  const singleRow = fittedCard < 0;
 
   // Tag totals decide whether requirement cards are playable, so the count has
   // to include the corporation's own tags the same way the engine does.
@@ -1583,6 +1647,7 @@ export default function Home() {
     turmoil: setupTurmoil,
     colonies: setupColonies,
     prelude: setupPrelude,
+    prelude2: setupPrelude2,
     venus: setupVenus,
     promo: setupPromo
   });
@@ -1663,6 +1728,8 @@ export default function Home() {
     onColonies: setSetupColonies,
     prelude: setupPrelude,
     onPrelude: setSetupPrelude,
+    prelude2: setupPrelude2,
+    onPrelude2: setSetupPrelude2,
     venus: setupVenus,
     onVenus: setSetupVenus,
     promo: setupPromo,
@@ -1764,6 +1831,7 @@ export default function Home() {
               setSetupPrelude(Boolean(gameState.preludeEnabled));
               setSetupVenus(Boolean(gameState.venusEnabled));
               setSetupPromo(Boolean(gameState.promoEnabled));
+              setSetupPrelude2(Boolean(gameState.prelude2Enabled));
               setSetupIntent("custom");
               setShowGameSetup(true);
             }}
@@ -1903,7 +1971,7 @@ export default function Home() {
         {/* Center Column: Mars Board */}
         <div
           className="board-panel"
-          ref={boardRef}
+          ref={attachBoardRef}
           style={{ ["--board-scale" as string]: String(boardScale) }}
         >
           <div className="mars-sphere">
@@ -2401,7 +2469,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hand-cards" ref={handRef} style={{ ["--card-w" as string]: `${cardWidth}px` }}>
+          <div className={`hand-cards${singleRow ? " hand-cards-row" : ""}`} ref={attachHandRef} style={{ ["--card-w" as string]: `${cardWidth}px` }}>
             {handCards.map(cardId => {
               const cardObj = ALL_CARDS.find(c => c.id === cardId);
               if (!cardObj) return null;
@@ -2697,7 +2765,7 @@ export default function Home() {
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || activeState.temperature >= 8}
                   data-testid="sp-asteroid-btn"
-                  onClick={() => confirmAction("小惑星の衝突", "14 MC を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("asteroid"))}
+                  onClick={() => confirmAction("小惑星の衝突", `14 MC を支払い、${temperatureGain}`, () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
                 </button>
@@ -2714,7 +2782,7 @@ export default function Home() {
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || activeState.oceans >= 9}
                   data-testid="sp-aquifer-btn"
-                  onClick={() => confirmAction("海洋の沈降", "18 MC を支払い、海洋タイルを1枚配置します。TRが1上がります。", () => handleStandardProjectPlay("ocean"))}
+                  onClick={() => confirmAction("海洋の沈降", `18 MC を支払い、${oceanGain}`, () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
                 </button>
@@ -2731,7 +2799,7 @@ export default function Home() {
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
                   disabled={!canPayStandardCost(23) || Boolean(pendingChoice)}
                   data-testid="sp-greenery-btn"
-                  onClick={() => confirmAction("緑化プロジェクト", "23 MC を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。", () => handleStandardProjectPlay("greenery"))}
+                  onClick={() => confirmAction("緑化プロジェクト", `23 MC を支払い、${greeneryGain}`, () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
                 </button>
@@ -2765,7 +2833,7 @@ export default function Home() {
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.heat < 8 || Boolean(pendingChoice) || activeState.temperature >= 8}
-                    onClick={() => confirmAction("熱の変換", "熱 8 を支払い、気温を1段階(+2°C)上げます。TRが1上がります。", () => handleStandardProjectPlay("heat_convert"))}
+                    onClick={() => confirmAction("熱の変換", `熱 8 を支払い、${temperatureGain}`, () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
                   </button>
@@ -2784,7 +2852,7 @@ export default function Home() {
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.plants < plantGreeneryCost || Boolean(pendingChoice)}
                     data-testid="sp-plants-convert-btn"
-                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、緑地タイルを1枚配置します。酸素とTRが1上がります。`, () => handleStandardProjectPlay("plants_convert"))}
+                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、${greeneryGain}`, () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
                   </button>

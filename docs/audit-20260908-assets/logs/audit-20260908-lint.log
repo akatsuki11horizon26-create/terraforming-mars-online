@@ -1,0 +1,19 @@
+
+> mars-frontier@0.1.0 lint
+> eslint . --ignore-pattern dist --ignore-pattern static-dist --ignore-pattern .next --ignore-pattern .wrangler
+
+
+C:\Users\takkun\Documents\mars-frontier\app\game-logic.js
+  3906:13  warning  'owner' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\takkun\Documents\mars-frontier\app\official-content.js
+  452:25  warning  'removeResourcesFromAnyCard' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\takkun\Documents\mars-frontier\scripts\audit-skip-ledger.mjs
+  26:7  warning  'byId' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\takkun\Documents\mars-frontier\tests\empty-spec-cards.test.mjs
+  952:9  warning  'card' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+✖ 4 problems (0 errors, 4 warnings)
+

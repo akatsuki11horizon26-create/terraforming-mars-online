@@ -1759,6 +1759,20 @@ function finishPreludeSetup(state, logs, seatBefore) {
   return advanceSetupTurn(nextState);
 }
 
+// Taken out of play, and paid for with the flat 15 M€ the rulebook gives.
+function fizzlePrelude(state, prelude) {
+  state.mc = (state.mc ?? 0) + PRELUDE_FIZZLE_MC;
+  state.selectedPreludeIds = (state.selectedPreludeIds ?? []).filter(id => id !== prelude.id);
+  return state;
+}
+
+// Merger's 42 M€ is paid out of the starting funds of the corporation it takes,
+// which the player does not hold yet -- so a balance below 42 does not make it
+// unaffordable. Its own resolver picks from the corporations that do cover it.
+function canAffordPreludeSpecially(state, prelude) {
+  return prelude?.id === MERGER_ID;
+}
+
 function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
   let nextState = state;
   let nextLogs = logs;
@@ -1769,6 +1783,20 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
     // does not happen at all: upstream pays 15 M€ instead and takes the card
     // back out, so its other half -- Ecology Experts' plant production -- is not
     // applied either. Checked before the effect rather than unwound after.
+    // "Reveal it, discard it and gain 15 M€ instead." A prelude charging more
+    // than the player holds cannot be paid for, and payMc would otherwise
+    // subtract straight through zero into a negative balance.
+    const price = getPreludeCost(prelude);
+    if (price > 0 && (nextState.mc ?? 0) < price && !canAffordPreludeSpecially(nextState, prelude)) {
+      nextState = fizzlePrelude(nextState, prelude);
+      nextLogs = addLog(
+        nextLogs,
+        "system",
+        `Prelude【${prelude.name}】は支払えないため不発。MC +${PRELUDE_FIZZLE_MC}。`
+      );
+      continue;
+    }
+
     if (effect.freePlayDiscount || effect.freePlayIgnoreGlobal) {
       const relaxed = { ignoreGlobalRequirements: effect.freePlayIgnoreGlobal === true };
       const discount = effect.freePlayDiscount ?? 0;
@@ -1779,10 +1807,7 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
         return getCardPlayableStatus(discounted, nextState, 0, 0, relaxed).playable;
       });
       if (!anyPlayable) {
-        nextState.mc = (nextState.mc ?? 0) + PRELUDE_FIZZLE_MC;
-        nextState.selectedPreludeIds = (nextState.selectedPreludeIds ?? []).filter(
-          id => id !== prelude.id
-        );
+        nextState = fizzlePrelude(nextState, prelude);
         nextLogs = addLog(
           nextLogs,
           "system",
@@ -1918,8 +1943,10 @@ export function applyPreludes(state, preludeIds, playerId) {
   if (!actor || actor.setupStep !== "prelude" || preludeIds.length !== 2) return state;
   if (preludeIds.some(id => !(actor.preludeOptions ?? []).includes(id))) return state;
   const selected = preludeIds.map(id => PRELUDES.find(prelude => prelude.id === id)).filter(Boolean);
-  const totalCost = selected.reduce((sum, prelude) => sum + getPreludeCost(prelude), 0);
-  if (state.mc < totalCost) return state;
+  // No combined-cost gate: the preludes resolve one at a time, and the first
+  // may hand out the money the second costs. Each is checked when its turn
+  // comes and fizzles for 15 M€ if it still cannot be paid for. (This also read
+  // the seat's own mc through state.mc, which is the CURRENT seat, not actor.)
 
   let nextState = cloneGameState(state);
   const seatBefore = nextState.currentPlayerId;
@@ -7058,10 +7085,12 @@ const ALWAYS_ON_EXPANSIONS = ["base"];
 
 export function enabledExpansions(options = {}) {
   const on = new Set(ALWAYS_ON_EXPANSIONS);
-  if (options.prelude) {
-    on.add("prelude");
-    on.add("prelude2");
-  }
+  if (options.prelude) on.add("prelude");
+  // Prelude 2 is a separate box. It used to ride along with Prelude, so the
+  // "base + Prelude" shelf could not be dealt. Callers that predate the
+  // setting -- old saves, older rooms -- still get both, which is what they
+  // were playing with.
+  if (options.prelude2 ?? options.prelude) on.add("prelude2");
   if (options.venus) on.add("venus");
   if (options.colonies) on.add("colonies");
   if (options.turmoil) on.add("turmoil");
@@ -7112,7 +7141,10 @@ export function getInitialState(options = {}) {
   }
   const corporationPool = shuffle(poolFor(CORPORATIONS, allowed).map(corporation => corporation.id), dealer);
   // Preludes are their own expansion: no prelude, no prelude options dealt.
-  const preludePool = options.prelude
+  // Either prelude box brings its own preludes to deal, so the deal follows
+  // whether ANY of them is on, not the first box specifically.
+  const preludesInPlay = Boolean(options.prelude) || Boolean(options.prelude2 ?? options.prelude);
+  const preludePool = preludesInPlay
     ? shuffle(poolFor(PRELUDES, allowed).map(prelude => prelude.id), dealer)
     : [];
 
@@ -7129,7 +7161,7 @@ export function getInitialState(options = {}) {
         ...(mode === "solo" ? { tr: SOLO_STARTING_TR, generationStartTr: SOLO_STARTING_TR } : {}),
         researchCards,
         corporationOptions: corporationPool.slice(i * 2, i * 2 + 2),
-        preludeOptions: options.prelude ? preludePool.slice(i * 4, i * 4 + 4) : []
+        preludeOptions: preludesInPlay ? preludePool.slice(i * 4, i * 4 + 4) : []
       })
     );
   }
@@ -7189,7 +7221,8 @@ export function getInitialState(options = {}) {
     // reason: once the preludes are chosen the pool is empty, and the setup
     // panel could no longer tell whether the expansion had been on.
     venusEnabled: Boolean(options.venus),
-    preludeEnabled: Boolean(options.prelude),
+    preludeEnabled: preludesInPlay,
+    prelude2Enabled: Boolean(options.prelude2 ?? options.prelude),
     promoEnabled: Boolean(options.promo),
     oceans: 0,
     board,

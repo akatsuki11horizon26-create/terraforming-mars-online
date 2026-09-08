@@ -1,0 +1,5 @@
+upstream action cases run (1b26fe6): 75
+  agree    : 75
+  differ   : 0
+skipped    : 0
+not extracted: 80 upstream blocks the builder could not read

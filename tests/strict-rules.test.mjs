@@ -3960,13 +3960,15 @@ test("a merged corporation's own effects apply", async () => {
   assert.equal(steelGained("corp-mining-guild"), 1, "the merged half does");
 });
 
-test("the starting-hand purchase leaves enough to pay for the preludes", async () => {
+test("spending down before the preludes resolve does not stall setup", async () => {
   const { applyCorporation, getPlayer, PRELUDES, getPreludeCost } =
     await import("../app/game-logic.js");
 
-  // The hand is bought before preludes resolve, and preludes are not optional,
-  // so spending down to nothing here would leave applyPreludes refusing and
-  // setup stuck. Two of them are paid for, so the two dearest are reserved.
+  // The hand is bought before the preludes resolve. This used to reserve the
+  // cost of the two dearest of the four OFFERED and refuse the purchase, which
+  // charged the player for cards they had not chosen. The purchase is legal;
+  // what protects setup is that a prelude nobody can pay for fizzles for 15 M€
+  // rather than refusing and leaving the seat stuck.
   let state = getInitialState({ playerCount: 2, prelude: true, seed: 5 });
   const ids = state.players.map(player => player.id);
   for (const id of ids) {
@@ -3989,8 +3991,35 @@ test("the starting-hand purchase leaves enough to pay for the preludes", async (
     cardIds: seat.researchCards.slice(0, count)
   });
 
-  assert.equal(buy(1).ok, true, "one card still leaves the preludes covered");
-  assert.equal(buy(2).ok, false, "two would not, so it is refused");
+  assert.equal(buy(1).ok, true, "one card is affordable");
+  const spent = buy(2);
+  assert.equal(spent.ok, true, "and so is two -- the unchosen preludes cost the buyer nothing");
+
+  // Let the other seat buy too, so this one is asked for its preludes.
+  let running = spent.state;
+  let guard = 0;
+  while (getPlayer(running, me).setupStep !== "prelude" && guard++ < 8) {
+    const turn = running.currentPlayerId;
+    const step = getPlayer(running, turn).setupStep;
+    if (step !== "projects") break;
+    const bought = executeGameCommand(running, {
+      type: COMMAND.BUY_RESEARCH,
+      playerId: turn,
+      cardIds: []
+    });
+    if (!bought.ok) break;
+    running = bought.state;
+  }
+  assert.equal(getPlayer(running, me).setupStep, "prelude", "the seat is asked for its preludes");
+
+  // Now take the two that cost money on what is left, and setup still moves on.
+  const resolved = executeGameCommand(running, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: me,
+    preludeIds: costly.map(prelude => prelude.id)
+  });
+  assert.equal(resolved.ok, true, "setup must not stall on an unaffordable prelude");
+  assert.ok((getPlayer(resolved.state, me).mc ?? 0) >= 0, "and the balance never goes negative");
 });
 
 test("a city scores for the greeneries beside it", async () => {

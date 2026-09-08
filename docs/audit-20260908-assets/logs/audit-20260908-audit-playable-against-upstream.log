@@ -1,0 +1,5 @@
+upstream playability cases run (1b26fe6): 265
+  agree    : 265
+  differ   : 0
+skipped    : 0
+not extracted: 164 upstream blocks the builder could not read

@@ -1,0 +1,17 @@
+cards whose behaviour upstream writes by hand: 174
+  bespokePlay          93
+  bespokeCanPlay       56
+  canAct               35
+  action               35
+  onCardPlayed         26
+  onNonCardTagAdded    14
+  onTilePlaced         13
+  initialAction        7
+  getVictoryPoints     4
+  onResourceAdded      3
+  onStandardProject    2
+  onDiscard            2
+  onProductionPhase    1
+
+of those with an action: 29 our engine offers, 0 it does not
+problems: 0

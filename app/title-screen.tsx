@@ -115,6 +115,8 @@ export function GameSetupPanel({
   onColonies,
   prelude,
   onPrelude,
+  prelude2,
+  onPrelude2,
   venus,
   onVenus,
   promo,
@@ -139,6 +141,8 @@ export function GameSetupPanel({
   onColonies: (on: boolean) => void;
   prelude: boolean;
   onPrelude: (on: boolean) => void;
+  prelude2: boolean;
+  onPrelude2: (on: boolean) => void;
   venus: boolean;
   onVenus: (on: boolean) => void;
   promo: boolean;
@@ -181,6 +185,13 @@ export function GameSetupPanel({
       desc: "開始時に4枚から2枚を選び、即座に解決して加速する。",
       on: prelude,
       set: onPrelude
+    },
+    {
+      key: "prelude2",
+      name: "プレリュード2 (Prelude 2)",
+      desc: "2つ目のプレリュード箱。プレリュード25枚・企業5社・プロジェクト24枚を加える。",
+      on: prelude2,
+      set: onPrelude2
     },
     {
       key: "venus",

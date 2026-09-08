@@ -394,6 +394,11 @@ console.log(`ongoing effects observed at their point of use: ${checked.length + 
 console.log(`  honoured : ${checked.length}`);
 console.log(`  wrong    : ${wrong.length}`);
 console.log(`ongoing-effect cards this cannot observe: ${skipped.length}`);
+// Named, not just counted. The coverage report used to carry a hand-written
+// list of four while this reported seven, and nothing compared the two.
+for (const [card, reason] of skipped) {
+  console.log(`  - ${card.id} (${card.name}): ${reason}`);
+}
 
 for (const [card, problems] of wrong) {
   console.log(`\nWRONG ${card.id}  ${card.name}`);

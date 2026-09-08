@@ -25,6 +25,9 @@ interface RoomOptions {
   turmoil: boolean;
   colonies: boolean;
   prelude: boolean;
+  // Prelude 2 is its own box; a room that predates the setting sent only
+  // "prelude" and was playing with both, so that is what it keeps getting.
+  prelude2: boolean;
   venus: boolean;
   promo: boolean;
   board: string;
@@ -41,7 +44,7 @@ export class GameRoom {
   private code = "";
   private hostId: string | null = null;
   private started = false;
-  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, venus: false, promo: false, board: "tharsis", draft: false, maxPlayers: 5 };
+  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, prelude2: false, venus: false, promo: false, board: "tharsis", draft: false, maxPlayers: 5 };
   private loaded = false;
   // member id -> the seat (engine player id) they occupy
   private seatMap = new Map<string, string | undefined>();
@@ -233,6 +236,7 @@ export class GameRoom {
       turmoil: Boolean(options.turmoil),
       colonies: Boolean(options.colonies),
       prelude: Boolean(options.prelude),
+      prelude2: Boolean(options.prelude2 ?? options.prelude),
       venus: Boolean(options.venus),
       promo: Boolean(options.promo),
       board: typeof options.board === "string" ? options.board : "tharsis",
@@ -246,6 +250,7 @@ export class GameRoom {
       turmoil: this.options.turmoil,
       colonies: this.options.colonies,
       prelude: this.options.prelude,
+      prelude2: this.options.prelude2,
       venus: this.options.venus,
       promo: this.options.promo,
       board: this.options.board,

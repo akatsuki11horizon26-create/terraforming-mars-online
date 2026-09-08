@@ -45,7 +45,7 @@ import { executeGameCommand, COMMAND } from "../app/game-command.js";
 // no problems. A completion claim of "2,000 games, zero problems" rested on it.
 const KNOWN = new Set([
   "games", "players", "seed", "board",
-  "turmoil", "colonies", "draft", "prelude", "venus", "promo"
+  "turmoil", "colonies", "draft", "prelude", "prelude2", "venus", "promo"
 ]);
 const NEEDS_VALUE = new Set(["games", "players", "seed", "board"]);
 const args = {};
@@ -79,6 +79,9 @@ if (!Number.isInteger(PLAYERS) || PLAYERS < 1) throw new Error(`--players must b
 const USE_TURMOIL = Boolean(args.turmoil);
 const USE_COLONIES = Boolean(args.colonies);
 const USE_PRELUDE = Boolean(args.prelude);
+// The two prelude boxes are separate settings. Passing neither deals no
+// preludes; passing either deals from that box alone.
+const USE_PRELUDE2 = Boolean(args.prelude2);
 const USE_VENUS = Boolean(args.venus);
 const USE_PROMO = Boolean(args.promo);
 // Drafting replaces the dealt hand with a pass-and-pick round, so setup takes a
@@ -270,6 +273,7 @@ function playGame(seed) {
     turmoil: USE_TURMOIL,
     colonies: USE_COLONIES,
     prelude: USE_PRELUDE,
+    prelude2: USE_PRELUDE2,
     venus: USE_VENUS,
     promo: USE_PROMO,
     draft: USE_DRAFT
@@ -758,7 +762,7 @@ for (let i = 0; i < GAMES; i++) {
   }
 }
 
-const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}${USE_DRAFT ? "+Draft" : ""}`;
+const mode = `${PLAYERS}人${USE_TURMOIL ? "+Turmoil" : ""}${USE_COLONIES ? "+Colonies" : ""}${USE_PRELUDE ? "+Prelude" : ""}${USE_PRELUDE2 ? "+Prelude2" : ""}${USE_VENUS ? "+Venus" : ""}${USE_PROMO ? "+Promo" : ""}${USE_DRAFT ? "+Draft" : ""}`;
 console.log(`=== ${GAMES}ゲーム完走 (${mode}) ===`);
 const gens = summaries.map(s => s.generation);
 console.log(
@@ -803,6 +807,7 @@ if (real.length > 0) {
   const flags = [
     `--players=${PLAYERS}`,
     USE_PRELUDE ? "--prelude" : "",
+    USE_PRELUDE2 ? "--prelude2" : "",
     USE_VENUS ? "--venus" : "",
     USE_COLONIES ? "--colonies" : "",
     USE_TURMOIL ? "--turmoil" : "",

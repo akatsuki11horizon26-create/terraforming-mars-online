@@ -1,0 +1,42 @@
+upstream suite at 1b26fe69: 2719 passing
+operations recorded : 2862  (551 cards, 1760 tests)
+replayed here       : 464
+  matching          : 464
+  differing         : 0
+
+not replayed, by reason:
+    611  the test had cards in play, which this replay does not stage
+    469  a corporation or prelude, which does not play like a project
+    292  a Turmoil ruling party, which this replay does not stage
+    203  the same recorded situation answers both ways, so neither is the rule
+    181  the test placed tiles, which this replay does not stage
+    122  the reference deferred the work outside its play() call
+     43  the test set tag counts with no cards behind them
+     40  the test gave an opponent something, which this replay does not stage
+     39  the reference's action moved nothing observable
+     30  the operation moved the board or the global tracks
+     29  Aquifer is not in our catalogue
+     29  Asteroid:SP is not in our catalogue
+     27  Greenery is not in our catalogue
+     24  a 3-player game, which this replay does not stage
+     24  Sell Patents is not in our catalogue
+     23  the test set up colony tiles, which this replay does not stage
+     22  Power Plant:SP is not in our catalogue
+     20  the recording did not capture a starting situation
+     20  City is not in our catalogue
+     19  Air Scrapping is not in our catalogue
+     18  the test gave the player colonies, which this replay does not stage
+     17  the test moved cards between zones, which needs the full situation
+     17  our engine would not play it in this situation
+     17  initialAction is not replayed by this audit yet
+     14  the hellas board, which this replay does not stage
+     13  the card asks a question the recording cannot answer
+     10  the test gave an opponent tags, which this replay does not stage
+      6  the test staged an attack on the player, which this replay does not
+      5  Buffer Gas is not in our catalogue
+      4  the arabia terra board, which this replay does not stage
+      4  Build Colony is not in our catalogue
+      3  a 4-player game, which this replay does not stage
+      2  the utopia planitia board, which this replay does not stage
+      1  the action asks a question the recording cannot answer
+   2398  total

@@ -1,58 +1,14 @@
-// Says what the card audits actually verify, and what they do not.
-//
-// The individual audits each print a number, and read together they invite a
-// conclusion none of them supports: "547/547" is every card doing something,
-// "0 inert" is every card being known to the engine, and neither is every card
-// being right. This prints the split by what a card is, so the honest sentence
-// is available rather than assembled from three green ticks.
-//
-// Usage: node scripts/audit-coverage-report.mjs
-import { OFFICIAL_PROJECTS, PRELUDES, CORPORATIONS } from "../app/official-content.js";
-import { readFileSync } from "node:fs";
+What the audits check, by what a card is
 
-// The unsupported register lives in audit-unsupported-isolation.mjs, which runs
-// its whole audit on import. Read the declaration instead of executing it, so
-// this line cannot claim a number the register has stopped holding -- it said
-// "six cards, three drawable" for a register that is now empty.
-const unsupportedCount = (() => {
-  const source = readFileSync(new URL("./audit-unsupported-isolation.mjs", import.meta.url), "utf8");
-  const body = source.slice(source.indexOf("UNSUPPORTED = {"));
-  const decl = body.slice(0, body.indexOf("};") + 1);
-  return (decl.match(new RegExp("^\\s*\"[^\"]+\":", "gm")) ?? []).length;
-})();
+projects       428
+  onPlay       281
+  action       80
+  bespoke      24
+  ongoing      23
+  scoring      20
+preludes       70
+corporations   49
 
-const unsupportedLine = unsupportedCount === 0
-  ? "the register of unimplemented cards is empty, and this is a gate: a"
-  : `the ${unsupportedCount} cards we have not implemented, and whether each can`;
-const unsupportedTail = unsupportedCount === 0
-  ? "card that stops working, or one listed and still reachable, fails here"
-  : "still be drawn -- a decision waiting rather than a fact hidden";
-
-const kindOf = card => {
-  const text = card.effectText ?? "";
-  const spec = card.effectSpec ?? {};
-  if (spec.action && Object.keys(spec.action).length > 0) return "action";
-  if (/^効果:/.test(text)) return "ongoing";
-  if (spec.behavior && Object.keys(spec.behavior).length > 0) return "onPlay";
-  if (card.victoryPoints || card.victoryPointSpec) return "scoring";
-  return "bespoke";
-};
-
-const groups = {};
-for (const card of OFFICIAL_PROJECTS) {
-  const kind = kindOf(card);
-  groups[kind] = (groups[kind] ?? 0) + 1;
-}
-
-console.log("What the audits check, by what a card is\n");
-console.log(`projects       ${OFFICIAL_PROJECTS.length}`);
-for (const [kind, count] of Object.entries(groups).sort((a, b) => b[1] - a[1])) {
-  console.log(`  ${kind.padEnd(12)} ${count}`);
-}
-console.log(`preludes       ${PRELUDES.length}`);
-console.log(`corporations   ${CORPORATIONS.length}`);
-
-console.log(`
 Verified:
   audit-inert-cards      every card is known to the engine (a gate at 0)
   card-coverage          every card changes the state when played
@@ -78,8 +34,8 @@ Verified:
   audit-skip-ledger      every card the upstream oracles could not speak for --
                          335 dropped blocks across 210 cards, plus 245 no
                          oracle mentions -- is owned by a test or an audit
-  audit-unsupported-     ${unsupportedLine}
-    isolation            ${unsupportedTail}
+  audit-unsupported-     the register of unimplemented cards is empty, and this is a gate: a
+    isolation            card that stops working, or one listed and still reachable, fails here
   audit-bespoke-         174 cards whose behaviour upstream writes by hand: a
     inventory            card given an action there must have one here, or say
                          what implementing it would take
@@ -103,10 +59,10 @@ Not verified:
     generator could not copy -- and only reading the real cards found them.
     audit-empty-spec-registry is the gate for the next one, but it can only
     ask whether a card is accounted for, never whether the account is true
-  the ongoing effects audit-ongoing-effects has no reading for. It names them
-    itself now rather than being counted here by hand -- this said four while
-    the audit reported seven, and nothing compared the two. Run it for the
-    current list; each is covered by a test rather than by a mechanical sweep
+  four ongoing effects the audit has no reading for -- Rover Construction,
+    Cutting Edge Technology, Martian Lumber Corp and Meat Industry. Each has a
+    test in strict-rules, so they are checked; they are not checked by a
+    mechanical sweep that would notice if a fifth appeared
   Capital, Law Suit, St Joseph and Vermin, which score by their own rule
     rather than by a spec, and are covered by tests instead
   the order effects resolve in, where the order changes the outcome
@@ -126,4 +82,4 @@ Not verified:
     carries its reason in the manifest
 
 "Every card does something" is not "every card is right", and the numbers above
-are the first claim. The second is only true where a contract or a test says so.`);
+are the first claim. The second is only true where a contract or a test says so.

@@ -132,9 +132,22 @@ test("card internals scale with the card, and the aspect ratios agree", async ()
 
   const ref = tsx.match(/export const CARD_REFERENCE_WIDTH = ([0-9.]+)/);
   assert.ok(ref, "CARD_REFERENCE_WIDTH must be exported");
-  const scale = cardCss.match(/--s:\s*calc\(var\(--card-w\)\s*\/\s*([0-9.]+)\)/);
+  // The fallback is part of the contract: .tm-card must NOT declare --card-w
+  // itself, or it shadows the fitted width the hand strip inherits down and
+  // every card renders at the reference size. It may only fall back to it.
+  const scale = cardCss.match(/--s:\s*calc\(var\(--card-w(?:,\s*([0-9.]+)px)?\)\s*\/\s*([0-9.]+)\)/);
   assert.ok(scale, "--s must divide --card-w by the reference width");
-  assert.equal(scale[1], ref[1], "--s divisor and CARD_REFERENCE_WIDTH must match");
+  assert.equal(scale[2], ref[1], "--s divisor and CARD_REFERENCE_WIDTH must match");
+
+  const cardRule = cardCss.slice(cardCss.indexOf(".tm-card {"), cardCss.indexOf("}", cardCss.indexOf(".tm-card {")));
+  assert.equal(
+    /^\s*--card-w:/m.test(cardRule),
+    false,
+    ".tm-card must inherit --card-w from the hand strip, not declare its own"
+  );
+  for (const [, fallback] of cardCss.matchAll(/var\(--card-w,\s*([0-9.]+)px\)/g)) {
+    assert.equal(fallback, ref[1], "every --card-w fallback must be the reference width");
+  }
 
   // A narrow card has to be the wide one scaled down. Any bare px font-size
   // inside the card would stay put while the box shrank, and squeeze the rules

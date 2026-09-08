@@ -215,3 +215,35 @@ test("a card needing a volcano loses that restriction on maps without one", asyn
     }
   }
 });
+
+// The Elysium sheet prints its own five awards; the code aliased them to the
+// Hellas set, so every Elysium game scored the wrong five.
+// Source: TM_HE_WRAP_ENGi.pdf (Hellas & Elysium rulebook).
+test("Elysium funds its own five awards, not the Hellas set", () => {
+  const ids = awardsForBoard("elysium").map(award => award.id).sort();
+  assert.deepEqual(
+    ids,
+    ["benefactor", "celebrity", "desert-settler", "estate-dealer", "industrialist"].sort(),
+    "Elysium prints Celebrity, Industrialist, Desert Settler, Estate Dealer and Benefactor"
+  );
+  const hellas = awardsForBoard("hellas").map(award => award.id).sort();
+  assert.notDeepEqual(ids, hellas, "the two maps must not share one award set");
+});
+
+test("Incorporator counts cards costing 10 M€ or less", async () => {
+  const award = awardsForBoard("utopia").find(entry => entry.id === "entrepreneur");
+  const cards = [
+    { id: "c10", cost: 10, tags: [] },
+    { id: "c11", cost: 11, tags: [] },
+    { id: "c19", cost: 19, tags: [] },
+    { id: "c20", cost: 20, tags: [] }
+  ];
+  const score = id =>
+    award.getScore({ player: { id: "player", playedProjects: [id] }, board: {}, cards, corporation: null });
+
+  // The printed threshold is 10 M€; 11 through 19 were being counted too.
+  assert.equal(score("c10"), 1, "10 M€ counts");
+  assert.equal(score("c11"), 0, "11 M€ does not count");
+  assert.equal(score("c19"), 0, "19 M€ does not count");
+  assert.equal(score("c20"), 0, "20 M€ does not count");
+});
