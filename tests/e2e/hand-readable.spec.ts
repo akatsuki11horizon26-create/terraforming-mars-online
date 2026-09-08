@@ -47,15 +47,15 @@ async function startWithHand(page: Page, cards: number) {
   const options = page.getByTestId("corp-option");
   await expect(options.first()).toBeVisible();
   await options.first().click();
-  await page.getByTestId("corp-confirm-button").click();
-
   // Buy a real hand. Buying nothing would leave an empty strip, which is the
-  // one case where none of this can go wrong.
-  const offers = page.getByTestId("research-card-option");
+  // one case where none of this can go wrong. The cards are chosen beside the
+  // corporation now, and one confirmation takes both.
+  const offers = page.getByTestId("setup-card-option");
+  await expect(offers.first()).toBeVisible();
   const available = await offers.count();
   const take = Math.min(cards, available);
   for (let i = 0; i < take; i += 1) await offers.nth(i).click();
-  await page.getByTestId("buy-cards-confirm-button").click();
+  await page.getByTestId("corp-confirm-button").click();
   return take;
 }
 

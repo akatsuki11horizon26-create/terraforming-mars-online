@@ -326,6 +326,9 @@ export class GameRoom {
   // Mirrors SETUP_COMMANDS in game-command.js, which is where the real rule
   // lives; the engine still refuses a seat that has nothing to answer.
   private static readonly SIMULTANEOUS_ACTIONS = new Set([
+    // Every seat confirms its own opening choice at the same time; without this
+    // the turn guard would let only one of them through and setup would stall.
+    "confirmSetup",
     "chooseCorporation",
     "choosePreludes",
     "draftPick",
@@ -343,6 +346,9 @@ export class GameRoom {
     pass: COMMAND.PASS,
     endTurn: COMMAND.END_TURN,
     resolveChoice: COMMAND.RESOLVE_PENDING,
+    // The whole opening choice at once. chooseCorporation/choosePreludes stay
+    // for rooms that are already partway through the older setup flow.
+    confirmSetup: COMMAND.CONFIRM_SETUP,
     chooseCorporation: COMMAND.SELECT_CORPORATION,
     choosePreludes: COMMAND.SELECT_PRELUDES,
     draftPick: COMMAND.DRAFT_PICK,
@@ -370,6 +376,8 @@ export class GameRoom {
         playerId: seat,
         optionId: payload.optionId ?? payload.choiceId,
         cardIds: payload.cardIds,
+        preludeIds: payload.preludeIds,
+        corporationId: payload.corporationId,
         projectId: payload.projectId
       } as never) as { ok: boolean; state: unknown };
       return result.ok ? (result.state as Record<string, unknown>) : null;

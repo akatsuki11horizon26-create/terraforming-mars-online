@@ -1534,3 +1534,192 @@ test("a project that asks where to build still says what was played", () => {
   assert.equal(placed.state.lastAction.cardName, "都市の建設");
   assert.equal(placed.state.lastAction.playerId, "player");
 });
+
+// The real game deals two corporations, ten project cards and four preludes and
+// the player compares all three before committing to any of them. The engine
+// made them three sequential steps -- corporation, then buy, then preludes --
+// so the starting hand had to be bought before the player knew which preludes
+// they would take. CONFIRM_SETUP takes the whole choice at once.
+function atSetup(options = {}) {
+  let state = getInitialState({ playerCount: 2, seed: 31, ...options });
+  const seat = state.currentPlayerId;
+  return { state, seat, actor: getPlayer(state, seat) };
+}
+
+test("CONFIRM_SETUP takes the corporation, the hand and the preludes together", () => {
+  const { state, seat, actor } = atSetup({ prelude: true });
+  const corporationId = actor.corporationOptions[0];
+  const cardIds = actor.researchCards.slice(0, 2);
+  const preludeIds = actor.preludeOptions.slice(0, 2);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId,
+    cardIds,
+    preludeIds
+  });
+  assert.equal(result.ok, true, result.state?.logs?.at(-1)?.message ?? "");
+
+  const after = getPlayer(result.state, seat);
+  assert.equal(after.corporationId, corporationId, "the corporation is applied");
+  for (const id of cardIds) assert.ok(after.hand.includes(id), `${id} is in hand`);
+  assert.deepEqual(after.researchCards, [], "the rest of the offer is gone");
+  assert.deepEqual(after.corporationOptions, [], "and so are the other corporations");
+});
+
+test("CONFIRM_SETUP charges 3 per card against the chosen corporation's funds", () => {
+  const { state, seat, actor } = atSetup();
+  const corporationId = actor.corporationOptions[0];
+  const corporation = CORPORATIONS.find(item => item.id === corporationId);
+  const cardIds = actor.researchCards.slice(0, 3);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId,
+    cardIds
+  });
+  assert.equal(result.ok, true);
+  assert.equal(
+    getPlayer(result.state, seat).mc,
+    corporation.starting.mc - 9,
+    "the price comes out of the corporation the player actually took"
+  );
+});
+
+test("CONFIRM_SETUP refuses a hand the chosen corporation cannot pay for", () => {
+  const { state, seat, actor } = atSetup();
+  // Pin the corporation rather than trusting the deal: what a seat can afford
+  // depends on which two were dealt, and the point here is the refusal.
+  const poor = CORPORATIONS.find(item => (item.starting?.mc ?? 0) < 3 * 10 && !item.effects?.freeStartingCards);
+  assert.ok(poor, "the catalogue has a corporation too poor for ten cards");
+  const seeded = cloneGameState(state);
+  seeded.players = seeded.players.map(player =>
+    player.id === seat ? { ...player, corporationOptions: [poor.id, player.corporationOptions[1]] } : player
+  );
+
+  const result = executeGameCommand(seeded, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: poor.id,
+    cardIds: actor.researchCards
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.error.code, ERROR.CANNOT_AFFORD);
+  // A refused confirmation must leave everything as it was -- in particular the
+  // corporation must not stay applied after the purchase was rejected.
+  assert.equal(getPlayer(result.state, seat).corporationId, null, "no corporation was applied");
+  assert.deepEqual(getPlayer(result.state, seat).hand, [], "and no cards were taken");
+});
+
+test("CONFIRM_SETUP rejects anything that was not offered to that seat", () => {
+  const { state, seat, actor } = atSetup({ prelude: true });
+  const good = {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: actor.corporationOptions[0],
+    cardIds: actor.researchCards.slice(0, 1),
+    preludeIds: actor.preludeOptions.slice(0, 2)
+  };
+
+  const other = getPlayer(state, state.players.find(p => p.id !== seat).id);
+  const cases = [
+    [{ ...good, corporationId: other.corporationOptions[0] }, "another seat's corporation"],
+    [{ ...good, cardIds: other.researchCards.slice(0, 1) }, "another seat's cards"],
+    [{ ...good, preludeIds: other.preludeOptions.slice(0, 2) }, "another seat's preludes"],
+    [{ ...good, cardIds: [actor.researchCards[0], actor.researchCards[0]] }, "the same card twice"],
+    [{ ...good, preludeIds: actor.preludeOptions.slice(0, 1) }, "only one prelude"],
+    [{ ...good, corporationId: "corp-not-real" }, "a corporation that does not exist"]
+  ];
+  for (const [command, why] of cases) {
+    const result = executeGameCommand(state, command);
+    assert.equal(result.ok, false, `must refuse ${why}`);
+    assert.equal(getPlayer(result.state, seat).corporationId, null, `${why} changed nothing`);
+  }
+});
+
+test("CONFIRM_SETUP resolves the chosen preludes, and only those", () => {
+  const { state, seat, actor } = atSetup({ prelude: true });
+  const preludeIds = actor.preludeOptions.slice(0, 2);
+
+  const result = executeGameCommand(state, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: actor.corporationOptions[0],
+    cardIds: [],
+    preludeIds
+  });
+  assert.equal(result.ok, true);
+
+  const after = getPlayer(result.state, seat);
+  assert.deepEqual(after.preludeOptions, [], "the unchosen two are discarded");
+  // Fizzled preludes are removed from play, so this is a subset rather than a
+  // strict equality -- what matters is that nothing UNchosen was resolved.
+  for (const id of after.selectedPreludeIds ?? []) {
+    assert.ok(preludeIds.includes(id), `${id} was one of the two chosen`);
+  }
+});
+
+test("a confirmed seat waits for the others rather than starting the game", () => {
+  const { state, seat, actor } = atSetup();
+  const first = executeGameCommand(state, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: actor.corporationOptions[0],
+    cardIds: []
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.state.phase, "setup", "the other seat has not confirmed");
+
+  const otherId = state.players.find(p => p.id !== seat).id;
+  const other = getPlayer(first.state, otherId);
+  const second = executeGameCommand(first.state, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: otherId,
+    corporationId: other.corporationOptions[0],
+    cardIds: []
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.state.phase, "action", "both have confirmed, so play begins");
+  for (const player of second.state.players) {
+    assert.equal(player.actionsRemaining, 2, `${player.id} starts with two actions`);
+    assert.equal(player.setupStep, "complete");
+  }
+});
+
+test("CONFIRM_SETUP will not confirm the same seat twice", () => {
+  const { state, seat, actor } = atSetup();
+  const command = {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: actor.corporationOptions[0],
+    cardIds: actor.researchCards.slice(0, 1)
+  };
+  const first = executeGameCommand(state, command);
+  assert.equal(first.ok, true);
+  const again = executeGameCommand(first.state, command);
+  assert.equal(again.ok, false, "the offer is gone, so a replay must not take a second hand");
+});
+
+// Beginner Corporation keeps its ten whatever the selection says, and this path
+// has to honour that the same way BUY_RESEARCH does.
+test("CONFIRM_SETUP keeps Beginner Corporation's whole opening hand for free", () => {
+  const beginner = CORPORATIONS.find(item => item.effects?.freeStartingCards);
+  const { state, seat, actor } = atSetup();
+  const seeded = cloneGameState(state);
+  seeded.players = seeded.players.map(player =>
+    player.id === seat ? { ...player, corporationOptions: [beginner.id, player.corporationOptions[1]] } : player
+  );
+
+  const result = executeGameCommand(seeded, {
+    type: COMMAND.CONFIRM_SETUP,
+    playerId: seat,
+    corporationId: beginner.id,
+    cardIds: []
+  });
+  assert.equal(result.ok, true);
+  const after = getPlayer(result.state, seat);
+  assert.equal(after.hand.length, actor.researchCards.length, "all ten are kept");
+  assert.equal(after.mc, 42, "and they cost nothing");
+});

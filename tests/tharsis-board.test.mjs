@@ -157,3 +157,44 @@ test("A tenth ocean can never be placed", async () => {
     "the ocean counter saturates at 9, so the board must refuse a tenth"
   );
 });
+
+// The tile help promises an ocean adjacency bonus; the engine pays one. They
+// have to be the same number, and the help has to count the same neighbours.
+test("the placement help matches what the engine actually pays", async () => {
+  const { OCEAN_ADJACENCY_BONUS, getAdjacentCells } = await import("../app/game-logic.js");
+  const { describePlacement, OCEAN_ADJACENCY_MC } = await import("../app/tile-help.js");
+
+  assert.equal(
+    OCEAN_ADJACENCY_MC,
+    OCEAN_ADJACENCY_BONUS,
+    "the help must quote the engine's own adjacency bonus"
+  );
+
+  // Two oceans beside one空きマス: the help must say 2 x the bonus, and it must
+  // use the same six neighbours the engine does.
+  const cell = { q: 0, r: 0, tileType: "empty" };
+  const neighbours = getAdjacentCells(0, 0);
+  assert.equal(neighbours.length, 6, "a hex has six neighbours");
+
+  const board = { "0,0": cell };
+  for (const pos of neighbours) {
+    board[`${pos.q},${pos.r}`] = { ...pos, tileType: "empty" };
+  }
+  assert.equal(describePlacement(cell, board), "", "no oceans, nothing to promise");
+
+  board[`${neighbours[0].q},${neighbours[0].r}`].tileType = "ocean";
+  board[`${neighbours[3].q},${neighbours[3].r}`].tileType = "ocean";
+  const help = describePlacement(cell, board);
+  assert.match(help, /海洋2枚/, "it counts both");
+  assert.ok(
+    help.includes(`MC +${2 * OCEAN_ADJACENCY_BONUS}`),
+    `it must price them at the engine's rate, got: ${help}`
+  );
+
+  // A space that charges to build on says so.
+  assert.match(
+    describePlacement({ q: 5, r: 5, tileType: "empty", placementCost: 6 }, {}),
+    /6 MC/,
+    "the Hellas south pole charges 6 M€"
+  );
+});

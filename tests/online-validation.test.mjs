@@ -169,6 +169,7 @@ test("the server routes shared actions through the command layer", () => {
     "trade",
     "pass",
     "resolveChoice",
+    "confirmSetup",
     "chooseCorporation",
     "choosePreludes",
     "convertFinalGreenery",
@@ -197,7 +198,7 @@ test("the server exempts the same simultaneous answers the engine does", async (
   assert.ok(simultaneous, "the server must name the actions it exempts");
   const exempt = [...simultaneous[1].matchAll(/"([a-zA-Z]+)"/g)].map(m => m[1]);
 
-  for (const action of ["chooseCorporation", "choosePreludes", "draftPick", "buyResearch"]) {
+  for (const action of ["confirmSetup", "chooseCorporation", "choosePreludes", "draftPick", "buyResearch"]) {
     assert.ok(exempt.includes(action), `${action} is answered by every seat at once`);
   }
 

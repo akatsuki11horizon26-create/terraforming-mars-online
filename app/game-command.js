@@ -44,6 +44,7 @@ import {
   selectSoloColonies,
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
+  seatCorporation,
   getPreludeCost,
   PRELUDES,
   corporationFor,
@@ -73,6 +74,7 @@ export const COMMAND = {
   END_TURN: "END_TURN",
   RESOLVE_PENDING: "RESOLVE_PENDING",
   SELECT_CORPORATION: "SELECT_CORPORATION",
+  CONFIRM_SETUP: "CONFIRM_SETUP",
   SELECT_PRELUDES: "SELECT_PRELUDES",
   DRAFT_PICK: "DRAFT_PICK",
   BUY_RESEARCH: "BUY_RESEARCH",
@@ -124,6 +126,7 @@ function done(state, logs) {
 // A command may only come from the seat it names, and only on that seat's turn.
 // Setup steps are exempt: players choose corporations simultaneously.
 const SETUP_COMMANDS = new Set([
+  COMMAND.CONFIRM_SETUP,
   COMMAND.SELECT_CORPORATION,
   COMMAND.SELECT_PRELUDES,
   COMMAND.DRAFT_PICK,
@@ -169,6 +172,9 @@ function checkPhase(state, command) {
     return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
   }
   if (FINAL_GREENERY_COMMANDS.has(command.type) && state.phase !== "final_greenery") {
+    return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
+  }
+  if (command.type === COMMAND.CONFIRM_SETUP && state.phase !== "setup") {
     return fail(state, ERROR.WRONG_PHASE, "今はその操作を行えるフェーズではありません。");
   }
   if (command.type === COMMAND.BUY_RESEARCH && !["setup", "research"].includes(state.phase)) {
@@ -1104,6 +1110,93 @@ const HANDLERS = {
       return { ok: true, state: spent, events: [] };
     }
     return done(settled, settledLogs);
+  },
+
+  // The whole opening choice as one command: the corporation, the starting
+  // cards bought with its money, and the two preludes -- chosen while looking
+  // at all three, which is how the game is actually played. The three older
+  // commands stay for saves and rooms that are already partway through setup.
+  [COMMAND.CONFIRM_SETUP](state, command) {
+    const actor = getPlayer(state, command.playerId);
+    const cardIds = command.cardIds ?? [];
+    const preludeIds = command.preludeIds ?? [];
+    const offeredCards = actor.researchCards ?? [];
+    const offeredPreludes = actor.preludeOptions ?? [];
+
+    if (actor.corporationId) {
+      return fail(state, ERROR.ACTION_REFUSED, "この席はすでに確定しています。");
+    }
+    if (!(actor.corporationOptions ?? []).includes(command.corporationId)) {
+      return fail(state, ERROR.ACTION_REFUSED, "その企業は選べません。");
+    }
+    if (new Set(cardIds).size !== cardIds.length) {
+      return fail(state, ERROR.DUPLICATE_CARD, "同じカードは1枚しか購入できません。");
+    }
+    if (!cardIds.every(id => offeredCards.includes(id))) {
+      return fail(state, ERROR.CARD_NOT_OFFERED, "提示されていないカードです。");
+    }
+    // Preludes are all-or-nothing: a board that dealt them expects exactly two.
+    if (offeredPreludes.length >= 2) {
+      if (new Set(preludeIds).size !== preludeIds.length) {
+        return fail(state, ERROR.DUPLICATE_CARD, "同じPreludeは1枚しか選べません。");
+      }
+      if (preludeIds.length !== 2 || !preludeIds.every(id => offeredPreludes.includes(id))) {
+        return fail(state, ERROR.ACTION_REFUSED, "提示された4枚から2枚を選んでください。");
+      }
+    } else if (preludeIds.length > 0) {
+      return fail(state, ERROR.ACTION_REFUSED, "このゲームではPreludeを使用しません。");
+    }
+
+    // The corporation has to be applied before the hand can be priced: the
+    // money the cards are bought with is the one the player just chose, and
+    // Beginner Corporation's ten are free.
+    let next = seatCorporation(state, command.corporationId, command.playerId);
+    if (next === state) return fail(state, ERROR.ACTION_REFUSED, "その企業は選べません。");
+
+    const seated = getPlayer(next, command.playerId);
+    const corporation = corporationFor(seated);
+    const free = Boolean(corporation?.effects?.freeStartingCards);
+    const kept = free ? offeredCards : cardIds;
+    const cost = free ? 0 : cardIds.length * RESEARCH_CARD_COST;
+    // Checked against the chosen corporation's funds, not the seat's balance
+    // before it had one. No prelude money is reserved -- see BUY_RESEARCH.
+    if ((seated.mc ?? 0) < cost) {
+      return fail(state, ERROR.CANNOT_AFFORD, "選んだ企業の資金ではそのカードを購入できません。");
+    }
+
+    next.players = next.players.map(player =>
+      player.id === command.playerId
+        ? {
+            ...player,
+            mc: player.mc - cost,
+            hand: [...player.hand, ...kept],
+            researchCards: [],
+            preludeOptions: offeredPreludes,
+            setupStep: offeredPreludes.length >= 2 ? "prelude" : "complete"
+          }
+        : player
+    );
+    next.discardPile = [...next.discardPile, ...offeredCards.filter(id => !kept.includes(id))];
+    next.logs = addLog(
+      next.logs,
+      "player",
+      free
+        ? `初期カード${kept.length}枚を無料で保持しました。`
+        : kept.length > 0 ? `カードを${kept.length}枚購入しました。` : "カードを購入しませんでした。",
+      actor.name
+    );
+
+    // Preludes resolve last, once the hand exists: Eccentric Sponsor plays a
+    // card out of it, so resolving before the purchase would find it empty.
+    if (offeredPreludes.length >= 2) {
+      const resolved = applyPreludes(next, preludeIds, command.playerId);
+      if (resolved === next) {
+        return fail(state, ERROR.ACTION_REFUSED, "そのPreludeは選べません。");
+      }
+      return { ok: true, state: resolved, events: [] };
+    }
+
+    return { ok: true, state: advanceSetupTurn(next), events: [] };
   },
 
   [COMMAND.SELECT_CORPORATION](state, command) {

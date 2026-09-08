@@ -62,7 +62,8 @@ import {
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors,
   MAX_OXYGEN,
   MAX_TEMPERATURE,
-  MAX_OCEANS
+  MAX_OCEANS,
+  getSoloGenerationLimit as jsGetSoloGenerationLimit
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
 import { colonyDescriptionJP } from "./colony-text.js";
@@ -78,7 +79,7 @@ import {
   makeBotRng as jsMakeBotRng,
   getBotDifficulty
 } from "./bot-player";
-import { describeCell, TILE_LEGEND } from "./tile-help";
+import { describeCell, describePlacement, TILE_LEGEND } from "./tile-help";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
 
@@ -150,6 +151,8 @@ interface PlayerRecord {
   hand?: string[];
   usedCardActions?: string[];
   researchCards?: string[];
+  preludeOptions?: string[];
+  corporationOptions?: string[];
   playedProjects?: string[];
   playedEvents?: string[];
   selectedPreludeIds?: string[];
@@ -453,6 +456,8 @@ export default function Home() {
   // The hand must be readable at a glance without scrolling, so the cards are
   // sized to whatever the strip can hold. More cards means smaller cards rather
   // than cards disappearing off the edge.
+  const [handFilter, setHandFilter] = useState("");
+  const [handPlayableOnly, setHandPlayableOnly] = useState(false);
   const handRef = React.useRef<HTMLDivElement | null>(null);
   const [handBox, setHandBox] = useState({ width: 0, height: 0 });
 
@@ -602,6 +607,13 @@ export default function Home() {
   // or not the track could still move: "酸素とTRが1上がります" on a board already
   // at 14% oxygen told the player they would gain a TR they will not gain.
   // These describe what raising the track will ACTUALLY do from here.
+  // "この試合の勝ち方" -- the manual printed the solo 14-generation mission
+  // whatever was actually being played, so a Prelude game was told it had 14
+  // when the engine gives it 12, and a multiplayer game was given a solo
+  // success condition it is not scored by.
+  const soloGenerationLimit = (jsGetSoloGenerationLimit as (state: unknown) => number)(activeState);
+  const isSoloMission = activeState.mode === "solo";
+
   const raisesOxygen = (activeState.oxygen ?? 0) < MAX_OXYGEN;
   const raisesTemperature = (activeState.temperature ?? 0) < MAX_TEMPERATURE;
   const raisesOceans = (activeState.oceans ?? 0) < MAX_OCEANS;
@@ -645,11 +657,16 @@ export default function Home() {
   // One card, one card. The flashes above say a number moved; this says which
   // card moved it and — on someone else's turn — who played it. Without it a
   // robot's turn is just numbers changing for no visible reason.
+  // `shown` is what the cut-in reads; the report itself is kept after the
+  // cut-in has gone so the HUD can repeat it. The audit found a move that
+  // shifted several resources and a production track was unreadable in 1.3
+  // seconds and could not be brought back.
   const [actionReport, setActionReport] = useState<{
     id: number;
     title: string;
     who: string | null;
     mine: boolean;
+    shown: boolean;
     changes: { label: string; delta: number; unit: string }[];
   } | null>(null);
   // The four global parameters, shown centre-screen with their readings.
@@ -846,6 +863,7 @@ export default function Home() {
       title: action.cardName ?? "アクション",
       who: mine ? null : action.playerName ?? null,
       mine,
+      shown: true,
       changes
     });
   }, [activeState, currentPlayerId, isOnline, seatId]);
@@ -855,9 +873,10 @@ export default function Home() {
   // what just happened, so it stays long enough to read. Both durations let the
   // blink finish; cutting a panel mid-blink reads as a glitch.
   useEffect(() => {
-    if (!actionReport) return;
+    if (!actionReport?.shown) return;
     const timer = setTimeout(
-      () => setActionReport(null),
+      // Hidden, not discarded: the HUD line below still reports it.
+      () => setActionReport(current => (current ? { ...current, shown: false } : null)),
       actionReport.mine ? 1300 : 2600
     );
     return () => clearTimeout(timer);
@@ -1391,6 +1410,53 @@ export default function Home() {
     saveState(nextState);
   };
 
+  // R4: the whole opening choice in one confirmation. The corporation, the
+  // cards its money buys and the two preludes are picked while all three are on
+  // screen, which is how the game is played at a table -- the engine used to
+  // ask for them in three separate steps, so the hand had to be bought before
+  // the player knew which preludes they would take.
+  const setupSeat =
+    (isRobotGame && !isOnline
+      ? players.find(player => player.id === HUMAN_ID)
+      : players.find(player => player.id === currentPlayerId)) ?? null;
+  const setupCorporation = CORPORATIONS.find(item => item.id === selectedCorporationId);
+  const setupPreludeOptions = setupSeat?.preludeOptions ?? [];
+  const setupNeedsPreludes = setupPreludeOptions.length >= 2;
+  const setupCardCost = setupCorporation?.effects?.freeStartingCards
+    ? 0
+    : selectedResearchCardIds.length * 3;
+  // What the seat is left holding once the cards are paid for. Prelude costs are
+  // shown but not subtracted: they resolve in order and one may pay for the
+  // next, so a running total here would be wrong as often as right.
+  const setupBalance = Number(setupCorporation?.starting?.mc ?? 0) - setupCardCost;
+  const setupReady =
+    Boolean(selectedCorporationId) &&
+    setupBalance >= 0 &&
+    (!setupNeedsPreludes || selectedPreludeIds.length === 2);
+
+  const handleSetupConfirm = () => {
+    if (!setupReady || !selectedCorporationId) return;
+    const payload = {
+      corporationId: selectedCorporationId,
+      cardIds: selectedResearchCardIds,
+      preludeIds: setupNeedsPreludes ? selectedPreludeIds : []
+    };
+    if (isOnline) {
+      online.sendAction("confirmSetup", payload);
+    } else {
+      const result = executeGameCommand(activeState as never, {
+        type: "CONFIRM_SETUP",
+        playerId: setupSeat?.id ?? currentPlayerId,
+        ...payload
+      }) as { ok: boolean; state: GameState };
+      if (!result.ok) return;
+      saveState(result.state);
+    }
+    setSelectedCorporationId(null);
+    setSelectedResearchCardIds([]);
+    setSelectedPreludeIds([]);
+  };
+
   const handleCorporationConfirm = () => {
     if (!selectedCorporationId) return;
     // Online the server owns the state; sending the intent is the whole action.
@@ -1454,8 +1520,7 @@ export default function Home() {
     }
   };
 
-  const handlePass = () => {
-    if (!isMyTurn) return;
+  const passPlayerNow = () => {
     if (isOnline) return void online.sendAction("pass");
     // Passing leaves the action phase for this generation only; production runs
     // once every player has passed.
@@ -1465,6 +1530,23 @@ export default function Home() {
     };
     runEngine(result);
     setSelectedCardId(null);
+  };
+
+  // Ending a turn hands the seat over and comes round again; passing leaves the
+  // whole generation and cannot be taken back. The audit found a confirmation
+  // on every standard project but none on the one irreversible move, so only
+  // the pass is confirmed -- and only while actions are still going spare,
+  // since passing with nothing left to do is the ordinary way to end a turn.
+  const handlePass = () => {
+    if (!isMyTurn) return;
+    const seat = players.find(player => player.id === currentPlayerId);
+    const unusedActions = seat?.actionsRemaining ?? 0;
+    if (unusedActions < 2) return passPlayerNow();
+    confirmAction(
+      "この世代を離脱",
+      `まだ ${unusedActions} 回行動できます。パスすると、この世代はもう行動できません。`,
+      passPlayerNow
+    );
   };
 
   const handleFinalGreeneryConvert = () => {
@@ -1492,9 +1574,26 @@ export default function Home() {
     return ALL_CARDS.find(c => c.id === selectedCardId) || null;
   }, [selectedCardId]);
 
-  const handCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
+  const allHandCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
     gameState.hand ??
     []) as string[];
+
+  // A late-game hand is a list with no way into it: the audit found no search
+  // and no filter, so finding a card meant reading every one. Filtering only
+  // changes what is shown -- the cards themselves are untouched, and clearing
+  // the box brings the whole hand straight back.
+  const handQuery = handFilter.trim().toLowerCase();
+  const handCards = allHandCards.filter(cardId => {
+    const card = ALL_CARDS.find(item => item.id === cardId);
+    if (!card) return false;
+    if (handPlayableOnly && !getCardPlayableStatus(card, activeState, 0, 0).playable) return false;
+    if (!handQuery) return true;
+    const haystack = [card.name, card.effectText, card.reqText, ...(card.tags ?? [])]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(handQuery);
+  });
+  const handHidden = allHandCards.length - handCards.length;
 
   // Find the largest card width whose rows still fit the strip's height. Cards
   // are 1.58x tall, wrap on the cross axis, and have a 6px gap.
@@ -1839,7 +1938,7 @@ export default function Home() {
             新規ゲーム設定
           </button>
           <button className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowRestartConfirm(true)}>
-            指令リセット
+            最初からやり直す
           </button>
           <span className="header-version">非公式ファンメイド試作版</span>
         </div>
@@ -1865,7 +1964,7 @@ export default function Home() {
             <span className="hud-stat" title="世代">
               <span className="hud-stat-label">世代</span>
               <span className="hud-stat-value">
-                {activeState.generation}{activeState.mode === "solo" ? "/14" : ""}
+                {activeState.generation}{isSoloMission ? `/${soloGenerationLimit}` : ""}
               </span>
             </span>
             <span className="hud-stat" title="テラフォーミングレーティング">
@@ -1895,6 +1994,22 @@ export default function Home() {
               onOpen={() => setOpenDrawer("planet")}
             />
           </div>
+
+          {/* The cut-in is gone in a second or two by design, so what it said
+              is repeated here where it can be read at leisure. */}
+          {actionReport && !actionReport.shown && (
+            <div className="hud-last-action" data-testid="last-action" title="直前の行動">
+              <span className="hud-last-action-label">直前</span>
+              <span className="hud-last-action-title">
+                {actionReport.who ? `${actionReport.who}: ` : ""}{actionReport.title}
+              </span>
+              {actionReport.changes.map(change => (
+                <span key={change.label} className="hud-last-action-delta" data-sign={change.delta > 0 ? "up" : "down"}>
+                  {change.label}{change.delta > 0 ? "+" : "−"}{Math.abs(change.delta)}{change.unit}
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* Eight equally-weighted buttons gave no clue which ones were moves
               and which were reference material. The planet readout, the Turmoil
@@ -2030,7 +2145,11 @@ export default function Home() {
 
                 const isInteractionDisabled = tileChoiceCells ? !isValid : true;
 
-                const help = describeCell(cell);
+                // What the space is, plus what placing here would pay. The
+                // adjacency bonus and any placement cost are only knowable from
+                // the live board, so the static description cannot carry them.
+                const placement = tileChoiceCells && isValid ? describePlacement(cell, activeState.board) : "";
+                const help = [describeCell(cell), placement].filter(Boolean).join(" ");
 
                 return (
                   <button
@@ -2166,28 +2285,124 @@ export default function Home() {
           {activeState.phase === "setup" && activeState.setupStep === "corporation" && (
             <div className="cyber-panel" data-testid="corp-panel" data-online={isOnline ? "1" : "0"} data-seats={players.length} style={{ border: "2px solid var(--color-gold)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(238, 190, 77, 0.15)" }}>
-                <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>企業選択</h2>
+                <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>初期セットアップ</h2>
               </div>
-              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>2枚から1枚を選択。初期MC・資源・生産と企業効果が適用される。</p>
+              <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>
+                  企業・初期カード{setupNeedsPreludes ? "・Prelude" : ""}をまとめて選び、最後に一度だけ確定する。確定するまでは何度でも選び直せる。
+                </p>
                 {!dealt && (
                   <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
                 )}
-                {activeState.corporationOptions.map(id => {
-                  const corporation = CORPORATIONS.find(item => item.id === id);
-                  if (!corporation) return null;
-                  const selected = selectedCorporationId === id;
-                  return (
-                    <button key={id} data-testid="corp-option" data-starting-mc={corporation.starting?.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
-                      <div style={{ fontWeight: "bold" }}>{corporation.name}</div>
-                      <div style={{ margin: "3px 0" }}>
-                        <CardTags tags={corporation.tags} />
-                      </div>
-                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{corporation.effectText}</div>
-                    </button>
-                  );
-                })}
-                <button className="btn-primary" data-testid="corp-confirm-button" disabled={!selectedCorporationId} onClick={handleCorporationConfirm}>企業を確定</button>
+
+                <div>
+                  <div className="section-title"><span>1. 企業（2枚から1枚）</span></div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {(setupSeat?.corporationOptions ?? activeState.corporationOptions).map(id => {
+                      const corporation = CORPORATIONS.find(item => item.id === id);
+                      if (!corporation) return null;
+                      const selected = selectedCorporationId === id;
+                      const starting = corporation.starting ?? {};
+                      {/* The audit's point: the numbers a player picks a
+                          corporation by were never on screen together. */}
+                      const resources: [string, number][] = ([
+                        ["建材", starting.steel],
+                        ["チタン", starting.titanium],
+                        ["植物", starting.plants],
+                        ["電力", starting.energy],
+                        ["熱", starting.heat]
+                      ] as [string, unknown][])
+                        .map(entry => [entry[0], Number(entry[1] ?? 0)] as [string, number])
+                        .filter(entry => entry[1] > 0);
+                      const production: [string, number][] = Object.entries(starting.production ?? {})
+                        .map(entry => [entry[0], Number(entry[1] ?? 0)] as [string, number])
+                        .filter(entry => entry[1] !== 0);
+                      return (
+                        <button key={id} data-testid="corp-option" data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
+                            <span style={{ fontWeight: "bold" }}>{corporation.name}</span>
+                            <span style={{ color: "var(--color-gold)", fontWeight: "bold" }}>{Number(starting.mc ?? 0)} MC</span>
+                          </div>
+                          <div style={{ margin: "3px 0" }}>
+                            <CardTags tags={corporation.tags} />
+                          </div>
+                          {(resources.length > 0 || production.length > 0) && (
+                            <div style={{ fontSize: "0.62rem", color: "var(--color-cyan)" }}>
+                              {resources.map(entry => `${entry[0]}${entry[1]}`).join(" ")}
+                              {resources.length > 0 && production.length > 0 ? " / " : ""}
+                              {production.map(entry => `${entry[0]}生産${entry[1] > 0 ? "+" : ""}${entry[1]}`).join(" ")}
+                            </div>
+                          )}
+                          <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{corporation.effectText}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="section-title">
+                    <span>2. 初期カード（1枚 3 MC）</span>
+                    <span className="section-note" data-testid="setup-card-cost">{selectedResearchCardIds.length}枚 / {setupCardCost} MC</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "200px", overflowY: "auto" }}>
+                    {(setupSeat?.researchCards ?? []).map(id => {
+                      const card = ALL_CARDS.find(c => c.id === id);
+                      if (!card) return null;
+                      const isSelected = selectedResearchCardIds.includes(id);
+                      return (
+                        <button key={id} data-testid="setup-card-option" onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.75rem" }}>
+                          <div>
+                            <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                            <div style={{ margin: "3px 0" }}><CardTags tags={card.tags} /></div>
+                            <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
+                          </div>
+                          <div style={{ width: "16px", height: "16px", flex: "0 0 auto", borderRadius: "2px", border: "1px solid var(--color-cyan)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? "var(--color-cyan)" : "transparent" }}>
+                            {isSelected && <span style={{ color: "black", fontSize: "0.6rem", fontWeight: "bold" }}>✓</span>}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {setupNeedsPreludes && (
+                  <div>
+                    <div className="section-title">
+                      <span>3. Prelude（4枚から2枚）</span>
+                      <span className="section-note">{selectedPreludeIds.length} / 2</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                      {setupPreludeOptions.map(id => {
+                        const prelude = PRELUDES.find(item => item.id === id);
+                        if (!prelude) return null;
+                        const selected = selectedPreludeIds.includes(id);
+                        const order = selectedPreludeIds.indexOf(id);
+                        const cost = getPreludeCost(prelude);
+                        return (
+                          <button key={id} data-testid="setup-prelude-option" onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                            <div style={{ fontWeight: "bold" }}>
+                              {selected ? `${order + 1}. ` : ""}{prelude.name}{cost ? ` (支払 ${cost} MC)` : ""}
+                            </div>
+                            <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{prelude.effectText}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <p style={{ fontSize: "0.62rem", color: "#c9bfae", marginTop: "4px" }}>
+                      選んだ順に解決する。先に収入を得るPreludeを選べば、その資金を次の支払いに充てられる。
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ borderTop: "1px solid rgba(242,232,220,0.1)", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
+                  <div style={{ fontSize: "0.75rem" }} data-testid="setup-balance">
+                    購入後残高: <strong style={{ color: setupBalance < 0 ? "var(--color-ember)" : "var(--color-cyan)" }}>{selectedCorporationId ? setupBalance : "—"}</strong> MC
+                  </div>
+                  <button className="btn-primary" data-testid="corp-confirm-button" disabled={!setupReady} onClick={handleSetupConfirm}>
+                    セットアップを確定
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2341,7 +2556,7 @@ export default function Home() {
         </div>
       )}
 
-      {actionReport && (
+      {actionReport?.shown && (
         <div
           className="action-report"
           data-testid="action-report"
@@ -2431,9 +2646,31 @@ export default function Home() {
         <div className="hand-container">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
-              PROJECT CARDS (手札: {activeState.hand.length}枚) {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
+              PROJECT CARDS (手札: {activeState.hand.length}枚){handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{handCards.length}枚を表示中</span>} {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
             </h2>
-            <div style={{ display: "flex", gap: "10px" }}>
+            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+              {allHandCards.length > 0 && !isSellingPatents && (
+                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                  <input
+                    type="search"
+                    data-testid="hand-filter"
+                    value={handFilter}
+                    onChange={event => setHandFilter(event.target.value)}
+                    placeholder="カード名・効果・タグ"
+                    aria-label="手札を絞り込む"
+                    style={{ width: "150px", padding: "2px 6px", fontSize: "0.7rem", color: "var(--color-ink)", background: "rgba(8,9,8,0.6)", border: "1px solid rgba(242,232,220,0.2)", borderRadius: "3px" }}
+                  />
+                  <label style={{ display: "flex", gap: "4px", alignItems: "center", fontSize: "0.7rem", color: "#c9bfae", whiteSpace: "nowrap" }}>
+                    <input
+                      type="checkbox"
+                      data-testid="hand-playable-only"
+                      checked={handPlayableOnly}
+                      onChange={event => setHandPlayableOnly(event.target.checked)}
+                    />
+                    出せるカードのみ
+                  </label>
+                </div>
+              )}
               {activeState.phase !== "action" ? null : isSellingPatents ? (
                 <div style={{ display: "flex", gap: "8px" }}>
                   <button
@@ -2552,6 +2789,29 @@ export default function Home() {
                     ※ {playDisableReason}
                   </span>
                 )}
+                {/* The card face is small enough that its own text is only
+                    readable at a glance; the audit found the selection panel
+                    repeated the name and never the effect. This is where the
+                    card can actually be read, at a size meant for reading. */}
+                <div data-testid="selected-card-detail" style={{ marginTop: "6px", maxWidth: "62ch" }}>
+                  {selectedCard.reqText && selectedCard.reqText !== "なし" && (
+                    <div style={{ fontSize: "0.78rem", color: "var(--color-cyan)", marginBottom: "2px" }}>
+                      条件: {selectedCard.reqText}
+                    </div>
+                  )}
+                  <div style={{ fontSize: "0.85rem", lineHeight: 1.45, color: "var(--color-ink)" }}>
+                    {selectedCard.effectText}
+                  </div>
+                  <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "3px", fontSize: "0.72rem", color: "#c9bfae" }}>
+                    <span>基本コスト {selectedCard.cost} MC</span>
+                    {Boolean(selectedCard.victoryPoints) && <span>勝利点 {selectedCard.victoryPoints}</span>}
+                    {seatCardResources[selectedCard.id] > 0 && (
+                      <span style={{ color: "var(--color-gold)" }}>
+                        このカード上の資源 {seatCardResources[selectedCard.id]}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 {canPlaySelected && (
                   <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
                     {selectedCard.tags.includes("Building") && maxSteel > 0 && (
@@ -3000,17 +3260,28 @@ export default function Home() {
               <p style={{ fontWeight: "bold", color: "var(--color-ember)", marginBottom: "10px" }}>
                 公式ソロルール準拠・非公式ファンメイド
               </p>
-              <p style={{ marginBottom: "8px" }}>
-                あなたは14世代の制限時間内に、火星を人が呼吸可能な緑の惑星へ作り変える指令を受けました。
+              <p style={{ marginBottom: "8px" }} data-testid="win-condition">
+                {isSoloMission
+                  ? `あなたは${soloGenerationLimit}世代の制限時間内に、火星を人が呼吸可能な緑の惑星へ作り変える指令を受けました。`
+                  : "火星のテラフォーミングを競います。ゲーム終了時にもっとも勝利点の高いプレイヤーが勝者です。"}
               </p>
-              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ クリア条件 (全パラメータの最大化)</h4>
+              <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>
+                {isSoloMission ? "■ クリア条件 (全パラメータの最大化)" : "■ ゲーム終了条件 (全パラメータの最大化)"}
+              </h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
                 <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> (最大)</li>
                 <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> (最大)</li>
                 <li><strong>海洋数:</strong> <strong>9タイル</strong> すべての配置</li>
+                {activeState.venusEnabled && isSoloMission && (
+                  <li><strong>金星:</strong> <strong>30%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
+                )}
               </ul>
               <p style={{ marginBottom: "10px" }}>
-                ※ 第14世代の終了時（アクションおよび生産完了後）に上記すべての条件をクリアすれば<strong>ミッション成功 (WIN)</strong>、達成できなければ<strong>失敗 (LOSS)</strong>となります。
+                {isSoloMission
+                  ? `※ 第${soloGenerationLimit}世代の終了時（アクションおよび生産完了後）に上記すべての条件をクリアすれば`
+                  : "※ 上記をすべて満たした世代で最終得点計算に入ります。"}
+                {isSoloMission && <><strong>ミッション成功 (WIN)</strong>、達成できなければ<strong>失敗 (LOSS)</strong>となります。</>}
+                {!isSoloMission && "勝敗は勝利点で決まるため、パラメータの最大化そのものが勝利条件ではありません。"}
               </p>
 
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ 世代の進行フロー</h4>
@@ -3019,7 +3290,7 @@ export default function Home() {
                 <li><strong>研究開発フェーズ (第2世代以降):</strong> 各世代の開始時に4枚のカードが公開され、1枚 3 MC で任意の枚数を選択・購入できます。</li>
                 <li><strong>アクションフェーズ:</strong> プレイヤーは1ターンに1回または2回のアクションを行うことができます。1アクション実行後、「もう1アクション」または「ターン終了」を選択します。「ターン終了」を選ぶか2アクション実行すると新たなターンとなります。プレイヤーが「パス」を選択するとその世代のアクションフェーズを終え、生産フェーズへと移行します。</li>
                 <li><strong>生産フェーズ:</strong> 蓄積されたエネルギーはすべて熱資源に変換され、TR（開拓評価）＋MC生産量（最低-5まで）に等しいMCと、その他の資源が生産されます。</li>
-                <li><strong>最終植物緑化:</strong> 第14世代の生産フェーズ終了後、保有する植物資源 (8につき1枚) を使用して最後の緑地配置が可能です。</li>
+                <li><strong>最終植物緑化:</strong> 最終世代の生産フェーズ終了後、保有する植物資源 (8につき1枚) を使用して最後の緑地配置が可能です。</li>
               </ul>
 
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ アクションの種類</h4>

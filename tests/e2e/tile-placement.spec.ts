@@ -49,10 +49,10 @@ async function startSoloGame(page: Page) {
     }
   }
   expect(picked, "no dealt corporation could afford an aquifer").toBe(true);
+  // One confirmation now takes the corporation, the starting cards and the
+  // preludes together. Buying nothing keeps the opening deterministic: the
+  // dealt hand is random, so selecting cards would make the starting MC vary.
   await page.getByTestId("corp-confirm-button").click();
-  // Buying nothing is legal and keeps the opening deterministic: the dealt hand
-  // is random, so selecting cards would make the starting MC vary.
-  await page.getByTestId("buy-cards-confirm-button").click();
 }
 
 test("buying an aquifer places an ocean tile, advances ocean count and TR, and shows parameter cut-in", async ({ page }) => {

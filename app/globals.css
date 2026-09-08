@@ -1660,3 +1660,44 @@ div[tabindex="0"]:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .hex-cell.hex-just-placed { animation-duration: 1ms; }
 }
+
+/* The action cut-in clears itself after a second or two so it does not sit over
+   the board. This repeats what it said, in the HUD, where it can be read at
+   leisure -- a move that shifted three resources and a production track is not
+   readable in 1.3 seconds, and there was no way to see it again. */
+.hud-last-action {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  color: #c9bfae;
+  background-color: color-mix(in srgb, var(--surface-1) 55%, transparent);
+  border: 1px solid var(--line-soft);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.hud-last-action-label {
+  color: var(--color-gold);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.hud-last-action-title {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.hud-last-action-delta {
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-last-action-delta[data-sign="up"] {
+  color: var(--color-cyan);
+}
+
+.hud-last-action-delta[data-sign="down"] {
+  color: var(--color-rust);
+}

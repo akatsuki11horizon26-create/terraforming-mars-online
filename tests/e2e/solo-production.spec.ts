@@ -45,10 +45,10 @@ async function startSoloGame(page: Page) {
     }
   }
   expect(picked, "no dealt corporation could afford a city").toBe(true);
+  // One confirmation now takes the corporation, the starting cards and the
+  // preludes together. Buying nothing keeps the opening deterministic: the
+  // dealt hand is random, so selecting cards would make the starting MC vary.
   await page.getByTestId("corp-confirm-button").click();
-  // Buying nothing is legal and keeps the opening deterministic: the dealt hand
-  // is random, so selecting cards would make the starting MC vary.
-  await page.getByTestId("buy-cards-confirm-button").click();
 }
 
 test("a city shows both its cost and the production it moved", async ({ page }) => {
@@ -135,4 +135,35 @@ test("a city shows both its cost and the production it moved", async ({ page }) 
   await expect(mcProduction).toHaveText(new RegExp(`^\\+?${before + step}$`));
 
   expect(crashes, `page errors: ${crashes.join(" | ")}`).toEqual([]);
+});
+
+// The cut-in clears itself after 1.3 seconds so it does not sit over the board.
+// The audit's point was that a move shifting several resources and a production
+// track cannot be read in that time, and there was no way to see it again.
+test("what the action cut-in said is still readable after it goes", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.clear());
+  await startSoloGame(page);
+
+  // Any move at all; the aquifer is the cheapest way to shift several readouts.
+  await page.getByTestId("open-standard-projects").click();
+  const aquifer = page.getByTestId("sp-aquifer-btn");
+  await expect(aquifer).toBeEnabled();
+  await aquifer.click();
+  await page.getByTestId("confirm-dialog-execute").click();
+
+  // Place the ocean the project asks for.
+  const target = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();
+  await expect(target).toBeVisible();
+  await target.click();
+
+  const cutIn = page.getByTestId("action-report");
+  const lasting = page.getByTestId("last-action");
+
+  // The cut-in appears, then leaves of its own accord...
+  await expect(cutIn).toBeVisible({ timeout: 7000 });
+  await expect(cutIn).toBeHidden({ timeout: 7000 });
+
+  // ...and what it said is still on screen.
+  await expect(lasting).toBeVisible();
+  await expect(lasting).toContainText("直前");
 });

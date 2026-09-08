@@ -385,8 +385,39 @@ test("setup is completed through bot commands", () => {
   const state = engine.getInitialState({ playerCount: 2, mode: "robot", prelude: true });
   const after = runBotSetup(engine, state, "player2", "normal", makeBotRng(8));
   const bot = engine.getPlayer(after, "player2");
-  assert.ok(bot.corporationId);
-  assert.equal(bot.setupStep, "projects", "preludes wait until every corporation has been selected");
+
+  // The bot confirms its whole opening in one command, like the player's panel:
+  // a corporation, the cards its money buys and two of the four preludes.
+  assert.ok(bot.corporationId, "the bot took a corporation");
+  assert.deepEqual(bot.corporationOptions, [], "and the other is gone");
+  assert.deepEqual(bot.researchCards, [], "its offer was answered");
+  assert.deepEqual(bot.preludeOptions, [], "and so were its preludes");
+  assert.equal(bot.setupStep, "complete", "nothing is left owing for this seat");
+  assert.ok((bot.mc ?? 0) >= 0, "it did not overspend on the starting hand");
+
+  // The other seat has not set up, so the game is still in setup.
+  assert.equal(after.phase, "setup");
+});
+
+test("a bot prices its starting hand against the corporation it is taking", () => {
+  // The seat holds no money until a corporation is applied, so a bot that
+  // priced its hand against its current balance would always buy nothing.
+  const state = engine.getInitialState({ playerCount: 2, mode: "robot", prelude: false, seed: 3 });
+  const after = runBotSetup(engine, state, "player2", "easy", makeBotRng(4));
+  const bot = engine.getPlayer(after, "player2");
+  const corporation = engine.CORPORATIONS.find(item => item.id === bot.corporationId);
+
+  const spent = (corporation.starting.mc ?? 0) - bot.mc;
+  assert.ok(bot.mc >= 0, "never below zero");
+  if (corporation.effects?.freeStartingCards) {
+    // Beginner Corporation keeps all ten and pays nothing for them.
+    assert.equal(spent, 0);
+    assert.equal(bot.hand.length, 10);
+    return;
+  }
+  assert.equal(spent % 3, 0, "cards cost 3 each");
+  assert.equal(spent / 3, bot.hand.length, "and it paid for exactly what it holds");
+  assert.ok(bot.hand.length > 0, "a bot with money to spend takes some cards");
 });
 
 test("choice scoring avoids attacking the bot itself", () => {

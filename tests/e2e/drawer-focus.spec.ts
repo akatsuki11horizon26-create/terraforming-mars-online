@@ -36,8 +36,8 @@ async function startSoloGame(page: Page) {
   const options = page.getByTestId("corp-option");
   await expect(options.first()).toBeVisible();
   await options.first().click();
+  // One confirmation takes the corporation, the cards and the preludes.
   await page.getByTestId("corp-confirm-button").click();
-  await page.getByTestId("buy-cards-confirm-button").click();
 }
 
 // Where focus sits, described well enough to name in a failure message.

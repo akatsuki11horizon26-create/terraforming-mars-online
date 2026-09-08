@@ -7,6 +7,8 @@ import {
   countAdjacentOceans,
   cloneGameState,
   hasPositiveVpIcon,
+  CORPORATIONS,
+  RESEARCH_CARD_COST,
   DECLINE_CHOICE
 } from "./game-logic.js";
 import { executeGameCommand, getLegalCommands, COMMAND } from "./game-command.js";
@@ -485,6 +487,28 @@ export function describeBotMove(move) {
   return "企業アクションを実行しました。";
 }
 
+// What the bot takes from its opening offer, priced against the corporation it
+// is about to choose rather than the money it holds now (which is zero).
+function startingHandFor(bot, state, botId, difficultyId, corporationId) {
+  const offered = bot.researchCards ?? [];
+  if (offered.length === 0) return [];
+  const corporation = CORPORATIONS.find(item => item.id === corporationId);
+  if (corporation?.effects?.freeStartingCards) return offered;
+
+  const difficulty = getBotDifficulty(difficultyId);
+  const budget = Math.max(
+    0,
+    Math.floor(((corporation?.starting?.mc ?? 0) - difficulty.researchReserve) / RESEARCH_CARD_COST)
+  );
+  const factors = phaseFactors(state);
+  return offered
+    .map(cardId => ({ cardId, value: researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, factors) }))
+    .filter(entry => entry.value >= difficulty.researchThreshold)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, budget)
+    .map(entry => entry.cardId);
+}
+
 export function runBotResearch(engine, state, botId, difficultyId) {
   const difficulty = getBotDifficulty(difficultyId);
   const bot = getPlayer(state, botId);
@@ -519,7 +543,18 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
     let command = null;
     if (!bot.corporationId && (bot.corporationOptions?.length ?? 0) > 0) {
       const corporationId = bot.corporationOptions[Math.floor(random() * bot.corporationOptions.length)];
-      command = { type: COMMAND.SELECT_CORPORATION, playerId: botId, corporationId };
+      // One confirmation, the same command the player's panel sends. Drafting
+      // takes the starting hand away and hands it back later, so a drafted game
+      // confirms with no cards and buys from the draft afterwards.
+      const drafting = Boolean(current.draft);
+      const cards = drafting ? [] : startingHandFor(bot, current, botId, difficultyId, corporationId);
+      command = {
+        type: COMMAND.CONFIRM_SETUP,
+        playerId: botId,
+        corporationId,
+        cardIds: cards,
+        preludeIds: (bot.preludeOptions?.length ?? 0) >= 2 ? bot.preludeOptions.slice(0, 2) : []
+      };
     } else if ((bot.preludeOptions?.length ?? 0) >= 2 && (bot.selectedPreludeIds?.length ?? 0) === 0) {
       command = { type: COMMAND.SELECT_PRELUDES, playerId: botId, preludeIds: bot.preludeOptions.slice(0, 2) };
     } else if (current.draft?.queues?.[botId]?.length > 0) {

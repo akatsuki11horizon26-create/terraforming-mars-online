@@ -1565,6 +1565,17 @@ function applyEffect(state, effect, logs, options = {}) {
 // one holding currentPlayerId, and without it one client could pick everyone
 // else's corporation.
 export function applyCorporation(state, corporationId, playerId) {
+  const seated = seatCorporation(state, corporationId, playerId);
+  if (seated === state) return state;
+  return advanceSetupTurn(seated);
+}
+
+// Everything applyCorporation does EXCEPT deciding whose turn is next. The
+// atomic setup confirmation applies a corporation, charges for the starting
+// hand and stores the chosen preludes as one step, and it has to do all three
+// before the seat may move on -- calling applyCorporation there would hand the
+// turn away halfway through.
+export function seatCorporation(state, corporationId, playerId) {
   const actorId = playerId ?? state.currentPlayerId;
   const actor = getPlayer(state, actorId);
   const corporation = CORPORATIONS.find(item => item.id === corporationId);
@@ -1635,7 +1646,7 @@ export function applyCorporation(state, corporationId, playerId) {
 
   nextState.logs = addLog(nextState.logs, "player", `${actor.name} が企業【${corporation.name}】を選択しました。`);
   nextState.currentPlayerId = state.currentPlayerId;
-  return advanceSetupTurn(nextState);
+  return nextState;
 }
 
 // In hotseat every player sets up in turn. Hand the seat to the next player who
@@ -8259,6 +8270,13 @@ export function isGameOverCheck(temp, oxy, oce) {
 // The three Mars tracks end the game in every mode. The Venus solo variant adds
 // one more condition for WINNING it: 30% Venus. It is deliberately not part of
 // isGameOverCheck, because in a multiplayer game Venus never ends anything.
+// Prelude shortens the solo game (プレリュード ルール説明書 第5刷 p.3). The
+// manual used to print 14 whatever the settings were, so a Prelude game told
+// the player they had two generations they did not have.
+export function getSoloGenerationLimit(state) {
+  return state?.preludeEnabled ? 12 : 14;
+}
+
 export function isSoloMissionComplete(state) {
   if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans)) return false;
   return state.venusEnabled ? (state.venus ?? 0) >= 30 : true;
@@ -9638,8 +9656,7 @@ export function triggerProduction(state, logAcc) {
 
   nextState.logs = localLog;
 
-  // Prelude shortens the solo game (プレリュード ルール説明書 第5刷 p.3).
-  const soloGenerationLimit = nextState.preludeEnabled ? 12 : 14;
+  const soloGenerationLimit = getSoloGenerationLimit(nextState);
   const generationLimitReached =
     nextState.mode === "solo" && nextState.generation >= soloGenerationLimit;
   // A Venus solo game is not finished when Mars is: 30% Venus is part of the

@@ -50,3 +50,34 @@ export function describeCell(cell) {
 
   return parts.join(" ");
 }
+
+// What placing here would actually pay, which the cell alone cannot say: the
+// ocean adjacency bonus depends on the tiles already down, and a few named
+// spaces charge to build on. describeCell answers "what is this space"; this
+// answers "what happens if I put a tile here".
+const ADJACENT = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, -1],
+  [-1, 1]
+];
+
+export const OCEAN_ADJACENCY_MC = 2;
+
+export function describePlacement(cell, board) {
+  const parts = [];
+
+  if (cell.placementCost > 0) parts.push(`配置に ${cell.placementCost} MC かかる。`);
+
+  const adjacentOceans = ADJACENT.reduce((sum, [dq, dr]) => {
+    const neighbour = board?.[`${cell.q + dq},${cell.r + dr}`];
+    return sum + (neighbour?.tileType === "ocean" ? 1 : 0);
+  }, 0);
+  if (adjacentOceans > 0) {
+    parts.push(`海洋${adjacentOceans}枚に隣接: MC +${adjacentOceans * OCEAN_ADJACENCY_MC}`);
+  }
+
+  return parts.join(" ");
+}
