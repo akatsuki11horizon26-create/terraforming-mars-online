@@ -136,6 +136,96 @@ function distinctCardResources(context) {
   return kinds.size;
 }
 
+
+// --- Amazonis Planitia --------------------------------------------------
+// Transcribed from the reference implementation the boards came from
+// (src/server/milestones/amazonisPlanitia, src/server/awards/amazonisPlanitia).
+
+// "Own 3 tiles in the middle 3 equatorial rows." Upstream reads y 3..5 of the
+// nine printed rows, so this counts from the top row rather than trusting the
+// axial r to start at zero.
+const EQUATORIAL_ROWS = [3, 4, 5];
+
+function tilesInEquatorialRows(context) {
+  const rows = Object.values(context.board).map(cell => cell.r);
+  const minR = Math.min(...rows);
+  return ownedTiles(context).filter(cell => EQUATORIAL_ROWS.includes(cell.r - minR)).length;
+}
+
+// "Have the most tags of any one type in play." Events are skipped, and the
+// score is the largest single tag count rather than the total.
+function largestSingleTagCount(context) {
+  const counts = new Map();
+  for (const id of context.player.playedProjects ?? []) {
+    const card = context.cards.find(item => item.id === id);
+    if (!card || card.type === "event") continue;
+    for (const tag of card.tags ?? []) {
+      const key = String(tag).toLowerCase();
+      if (key === "event") continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  const held = Array.isArray(context.corporation) ? context.corporation : [context.corporation];
+  for (const entry of held) {
+    for (const tag of entry?.tags ?? []) {
+      const key = String(tag).toLowerCase();
+      if (key === "event") continue;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+  }
+  return counts.size === 0 ? 0 : Math.max(...counts.values());
+}
+
+// "Own the most animal and microbe resources."
+const ZOOLOGIST_RESOURCES = new Set(["animal", "microbe"]);
+
+function animalAndMicrobeResources(context) {
+  let total = 0;
+  for (const [id, count] of Object.entries(context.player.cardResources ?? {})) {
+    if (!count) continue;
+    const card = context.cards.find(item => item.id === id);
+    const kind = String(card?.resourceType ?? "").toLowerCase();
+    if (ZOOLOGIST_RESOURCES.has(kind)) total += count;
+  }
+  return total;
+}
+
+// "Have the most empty spaces adjacent to your tiles." A space touching two of
+// the player's tiles counts once -- the award counts spaces, not adjacencies.
+function emptySpacesAdjacentToOwnTiles(context) {
+  const own = ownedTiles(context);
+  const seen = new Set();
+  for (const cell of own) {
+    for (const pos of adjacentPositions(cell.q, cell.r)) {
+      const key = `${pos.q},${pos.r}`;
+      const neighbour = context.board[key];
+      if (neighbour && neighbour.tileType === "empty") seen.add(key);
+    }
+  }
+  return seen.size;
+}
+
+// "Have the most cards in play that directly alter your own production."
+// Upstream keeps a hand-written list plus a rule reading the card's own
+// definition; we have the definition for every card, so the rule is enough.
+function altersOwnProduction(card) {
+  const spec = card?.effectSpec ?? card?.effect;
+  if (!spec) return false;
+  const production = spec.production;
+  if (production && Object.keys(production).length > 0) return true;
+  // Some cards spell production out as their own keys rather than nesting it.
+  return ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"].some(
+    key => Boolean(spec[key])
+  );
+}
+
+function productionAlteringCards(context) {
+  return (context.player.playedProjects ?? []).reduce((sum, id) => {
+    const card = context.cards.find(item => item.id === id);
+    return sum + (card && card.type !== "event" && altersOwnProduction(card) ? 1 : 0);
+  }, 0);
+}
+
 export const BOARD_MILESTONES = {
   hellas: [
     { id: "diversifier", name: "多角化", description: "異なるタグ8種類以上", threshold: 8, getScore: distinctTags },
@@ -210,12 +300,30 @@ BOARD_AWARDS.elysium = [
   { id: "benefactor", name: "篤志家", description: "TRが最多", getScore: context => context.player.tr ?? 0 }
 ];
 
-// Amazonis has its own printed milestones and awards (Terran, Landshaper,
-// Merchant, Sponsor, Lobbyist / Collector and four others). Until that sheet is
-// transcribed it borrows the Utopia set, which is a KNOWN divergence rather
-// than the printed rule -- see docs/OFFICIAL_SCOPE.md.
-BOARD_MILESTONES.amazonis = BOARD_MILESTONES.utopia;
-BOARD_AWARDS.amazonis = BOARD_AWARDS.utopia;
+BOARD_MILESTONES.amazonis = [
+  { id: "colonizer", name: "入植者", description: "植民地4つ以上", threshold: 4, getScore: context => context.colonyCount ?? 0 },
+  { id: "forester", name: "森林管理者", description: "植物生産量4以上", threshold: 4, getScore: context => context.player.plantsProd ?? 0 },
+  {
+    // The only milestone claimed by staying BELOW its threshold, which is why
+    // getMilestoneStatus has to know which way to compare.
+    id: "minimalist",
+    name: "ミニマリスト",
+    description: "手札2枚以下",
+    threshold: 2,
+    atMost: true,
+    getScore: context => (context.player.hand ?? []).length
+  },
+  { id: "terran", name: "地球人", description: "地球タグ6個以上", threshold: 6, getScore: context => countTags(context.player, context.cards, "Earth", context.corporation) },
+  { id: "tropicalist", name: "熱帯育ち", description: "赤道付近3列にタイル3枚以上", threshold: 3, getScore: tilesInEquatorialRows }
+];
+
+BOARD_AWARDS.amazonis = [
+  { id: "curator", name: "学芸員", description: "同一種のタグが最多（イベントを除く）", getScore: largestSingleTagCount },
+  { id: "amazonis-engineer", name: "技師", description: "自分の生産量を変えるカードが最多", getScore: productionAlteringCards },
+  { id: "promoter", name: "興行主", description: "イベントカードが最多", getScore: context => (context.player.playedEvents ?? []).length },
+  { id: "tourist", name: "旅行者", description: "自分のタイルに隣接する空きマスが最多", getScore: emptySpacesAdjacentToOwnTiles },
+  { id: "amazonis-zoologist", name: "動物学者", description: "動物・微生物資源の合計が最多", getScore: animalAndMicrobeResources }
+];
 
 export function milestonesForBoard(boardId) {
   return BOARD_MILESTONES[boardId] ?? MILESTONES;

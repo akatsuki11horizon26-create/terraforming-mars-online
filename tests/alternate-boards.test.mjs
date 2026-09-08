@@ -247,3 +247,159 @@ test("Incorporator counts cards costing 10 M€ or less", async () => {
   assert.equal(score("c19"), 0, "19 M€ does not count");
   assert.equal(score("c20"), 0, "20 M€ does not count");
 });
+
+// Amazonis borrowed the Utopia sheet, so every Amazonis game claimed and scored
+// the wrong ten. Transcribed from the reference implementation
+// (src/server/milestones/amazonisPlanitia, src/server/awards/amazonisPlanitia),
+// which is the same source the boards themselves came from.
+test("Amazonis brings its own five milestones and five awards", () => {
+  assert.deepEqual(
+    milestonesForBoard("amazonis").map(entry => entry.id).sort(),
+    ["colonizer", "forester", "minimalist", "terran", "tropicalist"].sort()
+  );
+  assert.deepEqual(
+    awardsForBoard("amazonis").map(entry => entry.id).sort(),
+    ["curator", "amazonis-engineer", "promoter", "tourist", "amazonis-zoologist"].sort()
+  );
+  // And they must not simply be the Utopia set under new names.
+  assert.notDeepEqual(
+    milestonesForBoard("amazonis").map(entry => entry.id),
+    milestonesForBoard("utopia").map(entry => entry.id)
+  );
+});
+
+test("the Amazonis milestones score what the reference scores", () => {
+  const milestone = id => milestonesForBoard("amazonis").find(entry => entry.id === id);
+
+  // Minimalist: "Have no more than 2 cards in hand" -- the only one here whose
+  // claim is a ceiling rather than a floor.
+  const minimalist = milestone("minimalist");
+  assert.equal(minimalist.atMost, true, "Minimalist is claimed by holding FEW cards");
+  assert.equal(minimalist.threshold, 2);
+  assert.equal(minimalist.getScore({ player: { hand: ["a", "b"] } }), 2);
+
+  // Forester: 4 plant production. Production, not plants held.
+  assert.equal(milestone("forester").threshold, 4);
+  assert.equal(milestone("forester").getScore({ player: { plantsProd: 4, plants: 0 } }), 4);
+
+  // Colonizer: 4 colonies, where Utopia's Pioneer wanted 3.
+  assert.equal(milestone("colonizer").threshold, 4);
+  assert.equal(milestone("colonizer").getScore({ colonyCount: 4 }), 4);
+
+  // Terran: 6 Earth tags.
+  assert.equal(milestone("terran").threshold, 6);
+
+  // Tropicalist: 3 tiles in the middle three equatorial rows (y 3..5).
+  const tropicalist = milestone("tropicalist");
+  assert.equal(tropicalist.threshold, 3);
+  // A full nine-row board, so the row offsets are the printed ones rather than
+  // whatever the fixture's lowest r happens to be.
+  const board = {};
+  for (let r = 0; r < 9; r += 1) board[`9,${r}`] = { q: 9, r, tileType: "empty", placedBy: null };
+  for (const r of [2, 3, 4, 5, 6]) board[`0,${r}`] = { q: 0, r, tileType: "city", placedBy: "player" };
+  assert.equal(
+    tropicalist.getScore({ player: { id: "player" }, board }),
+    3,
+    "rows 3, 4 and 5 count; 2 and 6 do not"
+  );
+});
+
+test("the Amazonis awards score what the reference scores", () => {
+  const award = id => awardsForBoard("amazonis").find(entry => entry.id === id);
+  const cards = [
+    { id: "e1", type: "event", tags: ["Earth"] },
+    { id: "e2", type: "event", tags: ["Space"] },
+    { id: "p1", type: "automated", tags: ["Earth", "Earth"] }
+  ];
+
+  // Promoter counts the event pile, which the engine keeps separately.
+  assert.equal(
+    award("promoter").getScore({ player: { playedEvents: ["e1", "e2"], playedProjects: ["p1"] }, cards }),
+    2
+  );
+
+  // Curator: the most tags of any ONE type, and events are excluded.
+  assert.equal(
+    award("curator").getScore({
+      player: { playedProjects: ["p1"], playedEvents: ["e1", "e2"] },
+      cards,
+      corporation: null
+    }),
+    2,
+    "two Earth tags on the played project; the events' tags do not count"
+  );
+
+  // A. Zoologist: animal and microbe resources only.
+  const zooCards = [
+    { id: "a", resourceType: "animal" },
+    { id: "m", resourceType: "microbe" },
+    { id: "f", resourceType: "floater" }
+  ];
+  assert.equal(
+    award("amazonis-zoologist").getScore({
+      player: { cardResources: { a: 3, m: 2, f: 9 } },
+      cards: zooCards
+    }),
+    5,
+    "floaters are not animals or microbes"
+  );
+
+  // Tourist: empty spaces ADJACENT to the player's tiles, counted once each.
+  const board = {};
+  for (let q = -2; q <= 2; q += 1) {
+    for (let r = -2; r <= 2; r += 1) board[`${q},${r}`] = { q, r, tileType: "empty", placedBy: null };
+  }
+  board["0,0"] = { q: 0, r: 0, tileType: "city", placedBy: "player" };
+  const tourist = award("tourist").getScore({ player: { id: "player" }, board });
+  assert.equal(tourist, 6, "a lone tile in open ground touches six empty spaces");
+
+  // A. Engineer: cards in play that alter the owner's own production.
+  const prodCards = [
+    { id: "prod", type: "automated", effectSpec: { production: { mc: 1 } } },
+    { id: "flat", type: "automated", effectSpec: { mc: 3 } }
+  ];
+  assert.equal(
+    award("amazonis-engineer").getScore({ player: { playedProjects: ["prod", "flat"] }, cards: prodCards }),
+    1,
+    "only the card that moves production counts"
+  );
+});
+
+// Through the real claim path, not just the scoring function: Minimalist is the
+// first milestone whose claim is a ceiling, and getMilestoneStatus compared
+// score >= threshold for everything.
+test("Minimalist is claimed by holding few cards, through the engine", async () => {
+  const { getInitialState, applyCorporation, completeSetupPurchase, cloneGameState, getPlayer, getMilestoneStatus } =
+    await import("../app/game-logic.js");
+
+  let state = getInitialState({ playerCount: 2, board: "amazonis" });
+  for (const player of state.players) {
+    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
+  }
+  let guard = 0;
+  while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
+  state = cloneGameState(state);
+  state.phase = "action";
+
+  const seat = "player";
+  const withHand = size =>
+    getMilestoneStatus(
+      {
+        ...state,
+        players: state.players.map(player =>
+          player.id === seat ? { ...player, hand: Array.from({ length: size }, (_, i) => `c${i}`), mc: 40 } : player
+        )
+      },
+      "minimalist",
+      seat
+    );
+
+  assert.equal(withHand(2).claimable, true, "two cards is at most two");
+  assert.equal(withHand(0).claimable, true, "and none is fewer still");
+  assert.equal(withHand(3).claimable, false, "three is one too many");
+  assert.match(withHand(3).reason, /以下/, "the reason must read as a ceiling");
+
+  // A floor milestone on the same board must still compare the usual way.
+  const terran = getMilestoneStatus({ ...state, phase: "action" }, "terran", seat);
+  assert.equal(terran.claimable, false, "no Earth tags yet");
+});

@@ -7724,8 +7724,19 @@ export function getMilestoneStatus(state, milestoneId, playerId) {
   if ((state.claimedMilestones ?? []).length >= MAX_MILESTONES) {
     return { claimable: false, reason: "マイルストーンは3つまでしか獲得できません。", score, threshold, description };
   }
-  if (score < threshold) {
-    return { claimable: false, reason: `条件を満たしていません (${score}/${threshold})。`, score, threshold, description };
+  // Minimalist is claimed by holding NO MORE THAN two cards, so the comparison
+  // runs the other way for it. Every other milestone is a floor.
+  const met = milestone.atMost ? score <= threshold : score >= threshold;
+  if (!met) {
+    return {
+      claimable: false,
+      reason: milestone.atMost
+        ? `条件を満たしていません (${score}/${threshold}以下)。`
+        : `条件を満たしていません (${score}/${threshold})。`,
+      score,
+      threshold,
+      description
+    };
   }
   if (player.mc < MILESTONE_COST) {
     return { claimable: false, reason: `${MILESTONE_COST} MC必要です。`, score, threshold, description };

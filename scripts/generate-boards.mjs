@@ -103,7 +103,7 @@ const BOARDS = {
       b.land(PLANT, PLANT).land(STEEL, PLANT).land(STEEL, HEAT).land(HEAT, PLANT).land(ANIMAL).land().land(MICROBE);
       b.land().ocean(PLANT).land().land(PLANT).land(HEAT, PLANT).land(STEEL).land(PLANT).ocean(STEEL, PLANT);
       b.land(PLANT).land(PLANT).land().land(HEAT, HEAT).restricted().doNotShuffleLastSpace()
-        .land(HEAT, HEAT).land().land(PLANT).land(PLANT);
+        .land(HEAT, HEAT).volcanic(PLANT, PLANT).land().land(TITANIUM, TITANIUM);
       b.ocean(PLANT, PLANT).land(PLANT).land(STEEL).land(HEAT, PLANT).land(PLANT).volcanic(CARD).land().ocean(PLANT);
       b.ocean(PLANT).land().land(MICROBE).volcanic(HEAT, PLANT).land().land(PLANT, PLANT).ocean(PLANT, PLANT);
       b.land(TITANIUM).ocean(PLANT).land(STEEL).land().land(ANIMAL).land(PLANT);
