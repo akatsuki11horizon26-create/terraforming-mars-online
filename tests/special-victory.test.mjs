@@ -1816,3 +1816,75 @@ test("the three special cards print a victory point badge of their own", async (
   // Nothing else grew a special badge.
   assert.equal(ALL_CARDS.filter(card => card.specialVictoryDisplay).length, 3);
 });
+
+// The TR solo variant: instead of terraforming Mars completely, the solo player
+// wins by reaching TR 63, and gains one extra standard project -- Buffer Gas,
+// 16 M€ for TR +1 -- offered in that mode only.
+// Source: the reference implementation's Game.isSoloModeWin and
+// BufferGasStandardProject.
+test("the TR solo variant wins at TR 63 rather than by terraforming", async () => {
+  const { getInitialState, isSoloMissionComplete, cloneGameState } =
+    await import("../app/game-logic.js");
+
+  const base = getInitialState({ playerCount: 1, mode: "solo", soloTr: true, seed: 5 });
+  assert.equal(base.soloTrVariant, true, "the setting is recorded on the state");
+
+  const at = (tr, patch = {}) => {
+    const state = cloneGameState({ ...base, ...patch });
+    state.players = state.players.map(player => ({ ...player, tr }));
+    return state;
+  };
+
+  // Mars untouched, but TR is there: that is a win in this variant.
+  assert.equal(isSoloMissionComplete(at(63)), true, "TR 63 wins");
+  assert.equal(isSoloMissionComplete(at(62)), false, "62 does not");
+
+  // And the ordinary condition no longer decides it: a fully terraformed Mars
+  // below 63 TR is not a win here.
+  const terraformed = { temperature: 8, oxygen: 14, oceans: 9 };
+  assert.equal(isSoloMissionComplete(at(40, terraformed)), false, "terraforming alone is not the goal");
+  assert.equal(isSoloMissionComplete(at(63, terraformed)), true);
+
+  // The ordinary solo game is untouched by any of this.
+  const ordinary = getInitialState({ playerCount: 1, mode: "solo", seed: 5 });
+  assert.equal(ordinary.soloTrVariant, false);
+  const ordinaryDone = cloneGameState({ ...ordinary, ...terraformed });
+  assert.equal(isSoloMissionComplete(ordinaryDone), true, "terraforming still wins the normal game");
+});
+
+test("Buffer Gas is offered only in the TR solo variant", async () => {
+  const { getInitialState, cloneGameState, getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, getStandardProjectCost, COMMAND } =
+    await import("../app/game-command.js");
+
+  const ready = options => {
+    const state = cloneGameState(getInitialState({ playerCount: 1, mode: "solo", seed: 7, ...options }));
+    state.phase = "action";
+    state.players = state.players.map(player => ({ ...player, mc: 40, actionsRemaining: 2, tr: 20 }));
+    return state;
+  };
+
+  // Not in a normal solo game...
+  const normal = ready({});
+  assert.equal(getStandardProjectCost(normal, "player", "buffer-gas"), null, "not a project here");
+  const refused = executeGameCommand(normal, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: "player",
+    projectId: "buffer-gas"
+  });
+  assert.equal(refused.ok, false, "and it cannot be played");
+
+  // ...and 16 M€ for one TR in the TR variant.
+  const variant = ready({ soloTr: true });
+  assert.equal(getStandardProjectCost(variant, "player", "buffer-gas"), 16);
+  const before = getPlayer(variant, "player");
+  const used = executeGameCommand(variant, {
+    type: COMMAND.STANDARD_PROJECT,
+    playerId: "player",
+    projectId: "buffer-gas"
+  });
+  assert.equal(used.ok, true);
+  const after = getPlayer(used.state, "player");
+  assert.equal(after.mc, before.mc - 16, "16 M€");
+  assert.equal(after.tr, before.tr + 1, "for one step of TR");
+});

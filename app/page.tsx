@@ -263,6 +263,8 @@ interface GameState {
   preludeEnabled?: boolean;
   promoEnabled?: boolean;
   prelude2Enabled?: boolean;
+  soloTrVariant?: boolean;
+  initialDraftEnabled?: boolean;
   botDifficulty?: string | null;
   boardId?: string;
   usedCardActions: string[];
@@ -505,6 +507,8 @@ export default function Home() {
   const [setupPrelude, setSetupPrelude] = useState(false);
   const [setupVenus, setSetupVenus] = useState(false);
   const [setupPrelude2, setSetupPrelude2] = useState(false);
+  const [setupSoloTr, setSetupSoloTr] = useState(false);
+  const [setupInitialDraft, setSetupInitialDraft] = useState(false);
   const [setupPromo, setSetupPromo] = useState(false);
   // Drafting is a turn rule rather than an expansion, and the engine ignores it
   // in a one-seat game, so it rides alongside the expansion flags but is only
@@ -613,6 +617,7 @@ export default function Home() {
   // success condition it is not scored by.
   const soloGenerationLimit = (jsGetSoloGenerationLimit as (state: unknown) => number)(activeState);
   const isSoloMission = activeState.mode === "solo";
+  const isSoloTr = Boolean(activeState.soloTrVariant);
 
   const raisesOxygen = (activeState.oxygen ?? 0) < MAX_OXYGEN;
   const raisesTemperature = (activeState.temperature ?? 0) < MAX_TEMPERATURE;
@@ -1226,9 +1231,11 @@ export default function Home() {
     colonies?: boolean;
     prelude?: boolean;
     prelude2?: boolean;
+    soloTr?: boolean;
     venus?: boolean;
     promo?: boolean;
     draft?: boolean;
+    initialDraft?: boolean;
     mode?: "solo" | "hotseat" | "robot";
     botDifficulty?: string;
     board?: string;
@@ -1332,10 +1339,11 @@ export default function Home() {
     city: "city",
     plants_convert: "convert-plants",
     heat_convert: "convert-heat",
+    buffer_gas: "buffer-gas",
     sell_patents: "sell-patents"
   };
 
-  const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "sell_patents") => {
+  const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "buffer_gas" | "sell_patents") => {
     // The bots drive themselves; acting on their turn would spend their action.
     if (!isMyTurn) return;
     // The drawer has served its purpose once a project is chosen, and it covers
@@ -1747,6 +1755,7 @@ export default function Home() {
     colonies: setupColonies,
     prelude: setupPrelude,
     prelude2: setupPrelude2,
+    soloTr: setupSoloTr,
     venus: setupVenus,
     promo: setupPromo
   });
@@ -1762,6 +1771,7 @@ export default function Home() {
       mode: "robot",
       botDifficulty: robotDifficulty,
       draft: setupDraft,
+      initialDraft: setupInitialDraft,
       ...chosenExpansions()
     });
     setShowRobotSetup(false);
@@ -1788,6 +1798,7 @@ export default function Home() {
         .map(name => name.trim())
         .map((name, index) => name || `プレイヤー${index + 1}`),
       draft: setupDraft,
+      initialDraft: setupInitialDraft,
       ...chosenExpansions()
     });
   };
@@ -1829,12 +1840,16 @@ export default function Home() {
     onPrelude: setSetupPrelude,
     prelude2: setupPrelude2,
     onPrelude2: setSetupPrelude2,
+    soloTr: setupSoloTr,
+    onSoloTr: setSetupSoloTr,
     venus: setupVenus,
     onVenus: setSetupVenus,
     promo: setupPromo,
     onPromo: setSetupPromo,
     draft: setupDraft,
     onDraft: setSetupDraft,
+    initialDraft: setupInitialDraft,
+    onInitialDraft: setSetupInitialDraft,
     onCancel: () => setShowGameSetup(false),
     onStart: startFromSetup
   };
@@ -1931,6 +1946,8 @@ export default function Home() {
               setSetupVenus(Boolean(gameState.venusEnabled));
               setSetupPromo(Boolean(gameState.promoEnabled));
               setSetupPrelude2(Boolean(gameState.prelude2Enabled));
+              setSetupSoloTr(Boolean(gameState.soloTrVariant));
+              setSetupInitialDraft(Boolean(gameState.initialDraftEnabled));
               setSetupIntent("custom");
               setShowGameSetup(true);
             }}
@@ -3119,6 +3136,25 @@ export default function Home() {
                 </div>
               )}
 
+              {/* Buffer Gas: the TR variant's own project, and only there. */}
+              {activeState.soloTrVariant && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>緩衝ガスの放出 (Buffer Gas)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>16 MC | TR +1（TRソロ専用）</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    disabled={activeState.mc < 16 || Boolean(pendingChoice)}
+                    data-testid="sp-buffer-gas-btn"
+                    onClick={() => confirmAction("緩衝ガスの放出", "16 MC を支払い、TRが1上がります。", () => handleStandardProjectPlay("buffer_gas"))}
+                  >
+                    実行
+                  </button>
+                </div>
+              )}
+
               {/* 8. Sell patents */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
@@ -3261,19 +3297,30 @@ export default function Home() {
                 公式ソロルール準拠・非公式ファンメイド
               </p>
               <p style={{ marginBottom: "8px" }} data-testid="win-condition">
-                {isSoloMission
-                  ? `あなたは${soloGenerationLimit}世代の制限時間内に、火星を人が呼吸可能な緑の惑星へ作り変える指令を受けました。`
-                  : "火星のテラフォーミングを競います。ゲーム終了時にもっとも勝利点の高いプレイヤーが勝者です。"}
+                {!isSoloMission
+                  ? "火星のテラフォーミングを競います。ゲーム終了時にもっとも勝利点の高いプレイヤーが勝者です。"
+                  : isSoloTr
+                    ? `あなたは${soloGenerationLimit}世代の制限時間内に、TR63の到達を目指します（TRソロ）。`
+                    : `あなたは${soloGenerationLimit}世代の制限時間内に、火星を人が呼吸可能な緑の惑星へ作り変える指令を受けました。`}
               </p>
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>
-                {isSoloMission ? "■ クリア条件 (全パラメータの最大化)" : "■ ゲーム終了条件 (全パラメータの最大化)"}
+                {isSoloTr ? "■ クリア条件 (TR63)" : isSoloMission ? "■ クリア条件 (全パラメータの最大化)" : "■ ゲーム終了条件 (全パラメータの最大化)"}
               </h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> (最大)</li>
-                <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> (最大)</li>
-                <li><strong>海洋数:</strong> <strong>9タイル</strong> すべての配置</li>
-                {activeState.venusEnabled && isSoloMission && (
-                  <li><strong>金星:</strong> <strong>30%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
+                {isSoloTr ? (
+                  <>
+                    <li><strong>TR:</strong> <strong>63</strong> 以上（火星の完全テラフォーミングは不要）</li>
+                    <li><strong>緩衝ガスの放出:</strong> 16 MC を支払って TR +1。このバリエーション専用の標準プロジェクト。</li>
+                  </>
+                ) : (
+                  <>
+                    <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> (最大)</li>
+                    <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> (最大)</li>
+                    <li><strong>海洋数:</strong> <strong>9タイル</strong> すべての配置</li>
+                    {activeState.venusEnabled && isSoloMission && (
+                      <li><strong>金星:</strong> <strong>30%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
+                    )}
+                  </>
                 )}
               </ul>
               <p style={{ marginBottom: "10px" }}>

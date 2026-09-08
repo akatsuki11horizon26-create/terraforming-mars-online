@@ -73,3 +73,33 @@ test("a completed draft is recognised", () => {
   assert.equal(isDraftComplete({ queues: { p1: [], p2: [] } }), true);
   assert.equal(isDraftComplete({ queues: { p1: [], p2: ["x"] } }), false);
 });
+
+// The opening ten and the four cards dealt each generation are two separate
+// variants upstream (initialDraftVariant and draftVariant), and one setting
+// here drove both -- so a table wanting the ordinary research draft was forced
+// into drafting its starting hand too.
+test("the initial draft and the research draft are separate settings", async () => {
+  const { getInitialState } = await import("../app/game-logic.js");
+
+  const both = getInitialState({ playerCount: 2, draft: true, initialDraft: true, seed: 4 });
+  assert.ok(both.draft, "the opening ten are passed around");
+  assert.equal(both.draftEnabled, true, "and so are the generation's four");
+
+  // The ordinary research draft, with the starting hands dealt whole.
+  const researchOnly = getInitialState({ playerCount: 2, draft: true, initialDraft: false, seed: 4 });
+  assert.equal(researchOnly.draft, null, "the opening ten are dealt, not drafted");
+  assert.equal(researchOnly.draftEnabled, true, "the generation's four are still drafted");
+  for (const player of researchOnly.players) {
+    assert.equal(player.researchCards.length, 10, "each seat holds its own ten to buy from");
+  }
+
+  // Neither.
+  const plain = getInitialState({ playerCount: 2, draft: false, seed: 4 });
+  assert.equal(plain.draft, null);
+  assert.equal(plain.draftEnabled, false);
+
+  // A caller from before the split said only "draft" and got both, which is
+  // what it was playing with.
+  const legacy = getInitialState({ playerCount: 2, draft: true, seed: 4 });
+  assert.ok(legacy.draft, "the old single flag still drafts the opening ten");
+});

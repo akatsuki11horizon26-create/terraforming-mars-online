@@ -117,12 +117,16 @@ export function GameSetupPanel({
   onPrelude,
   prelude2,
   onPrelude2,
+  soloTr,
+  onSoloTr,
   venus,
   onVenus,
   promo,
   onPromo,
   draft,
   onDraft,
+  initialDraft,
+  onInitialDraft,
   onCancel,
   onStart
 }: {
@@ -143,12 +147,16 @@ export function GameSetupPanel({
   onPrelude: (on: boolean) => void;
   prelude2: boolean;
   onPrelude2: (on: boolean) => void;
+  soloTr: boolean;
+  onSoloTr: (on: boolean) => void;
   venus: boolean;
   onVenus: (on: boolean) => void;
   promo: boolean;
   onPromo: (on: boolean) => void;
   draft: boolean;
   onDraft: (on: boolean) => void;
+  initialDraft: boolean;
+  onInitialDraft: (on: boolean) => void;
   onCancel: () => void;
   onStart: () => void;
 }) {
@@ -208,6 +216,10 @@ export function GameSetupPanel({
       set: onPromo
     }
   ];
+
+  // TR63 is a different way to win a solo game, not an expansion, and there is
+  // nothing for it to mean at a table scored on points.
+  const isSoloSetup = intent === "solo" || (intent === "custom" && playerCount === 1);
 
   const heading =
     intent === "solo" ? "ソロプレイの設定" : intent === "robot" ? "ロボット戦の設定" : "新規ゲーム設定";
@@ -291,11 +303,27 @@ export function GameSetupPanel({
                 </span>
               </div>
               <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
-                <input type="checkbox" checked={draft} onChange={event => onDraft(event.target.checked)} />
+                <input type="checkbox" data-testid="setup-draft" checked={draft} onChange={event => onDraft(event.target.checked)} />
                 <span>
-                  <strong style={{ fontSize: "0.8rem" }}>ドラフト制</strong>
+                  <strong style={{ fontSize: "0.8rem" }}>ドラフト制（研究フェイズ）</strong>
                   <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
                     研究フェイズに4枚受け取り、1枚選んで残りを隣へ回す。世代ごとに回す向きが反転する。
+                  </div>
+                </span>
+              </label>
+              {/* The opening ten are a separate variant upstream; one setting
+                  used to force both. */}
+              <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer", marginTop: "8px" }}>
+                <input
+                  type="checkbox"
+                  data-testid="setup-initial-draft"
+                  checked={initialDraft}
+                  onChange={event => onInitialDraft(event.target.checked)}
+                />
+                <span>
+                  <strong style={{ fontSize: "0.8rem" }}>初期ドラフト</strong>
+                  <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>
+                    開始時の10枚もドラフトで配る。オフなら各自が10枚をそのまま受け取る。
                   </div>
                 </span>
               </label>
@@ -348,6 +376,29 @@ export function GameSetupPanel({
               </label>
             ))}
           </div>
+
+          {isSoloSetup && (
+            <div>
+              <div className="section-title">
+                <span>ソロの勝利条件</span>
+                <span className="section-note">任意</span>
+              </div>
+              <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  data-testid="setup-solo-tr"
+                  checked={soloTr}
+                  onChange={event => onSoloTr(event.target.checked)}
+                />
+                <span>
+                  <span style={{ display: "block", fontSize: "0.8rem" }}>TRソロ (TR 63)</span>
+                  <span style={{ display: "block", fontSize: "0.7rem", color: "#c9bfae" }}>
+                    火星の完全テラフォーミングではなく、TR63到達で勝利する公式バリエーション。標準プロジェクト「緩衝ガスの放出」(16 MC → TR+1) が追加される。
+                  </span>
+                </span>
+              </label>
+            </div>
+          )}
 
           <p style={{ fontSize: "0.7rem", color: "var(--color-rust)" }}>
             開始すると現在の進行状況は消去されます。

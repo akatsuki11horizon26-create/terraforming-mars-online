@@ -45,6 +45,7 @@ import {
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   seatCorporation,
+  increaseTerraformRating,
   getPreludeCost,
   PRELUDES,
   corporationFor,
@@ -314,7 +315,9 @@ function finishAction(state, command, label, before) {
 // the bot cannot disagree about what a corporation discounts.
 export function getStandardProjectCost(state, playerId, projectId) {
   const project = STANDARD_PROJECTS[projectId];
-  if (!project) return null;
+  // A project the variant does not offer has no price, the same as one that
+  // does not exist -- "unavailable" is not the same as "too expensive".
+  if (!project || (project.available && !project.available(state))) return null;
   const actor = getPlayer(state, playerId);
   const corporation = corporationFor(actor);
   return project.cost(state, corporation);
@@ -391,6 +394,18 @@ const STANDARD_PROJECTS = {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
       raiseTemperature(state, command.playerId);
       return finishProject(state, command, "熱による加熱", before);
+    }
+  },
+  // Prelude's solo-only extra project. It exists only in the TR variant, where
+  // TR is the win condition -- offering it in a normal game would sell a step
+  // towards a goal that game is not scored on.
+  "buffer-gas": {
+    label: "緩衝ガスの放出",
+    cost: () => 16,
+    available: state => Boolean(state.soloTrVariant),
+    run(state, command) {
+      increaseTerraformRating(state, command.playerId, 1, "standard-project");
+      return finishProject(state, command, "緩衝ガスの放出");
     }
   },
   "sell-patents": {
@@ -1219,7 +1234,9 @@ const HANDLERS = {
   // and the online build could not run them at all.
   [COMMAND.STANDARD_PROJECT](state, command) {
     const project = STANDARD_PROJECTS[command.projectId];
-    if (!project) return fail(state, ERROR.UNKNOWN_PROJECT, "不明な標準プロジェクトです。");
+    if (!project || (project.available && !project.available(state))) {
+      return fail(state, ERROR.UNKNOWN_PROJECT, "不明な標準プロジェクトです。");
+    }
 
     const actor = getPlayer(state, command.playerId);
     const corporation = corporationFor(actor);

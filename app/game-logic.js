@@ -7073,8 +7073,8 @@ export function getPlaceholderState() {
     onboarded: false
   });
 
-  // The opening ten cards are drafted too when the option is on.
-  if (draftEnabled) {
+  // The opening ten cards are drafted too when the initial draft is on.
+  if (initialDraftEnabled) {
     const hands = Object.fromEntries(
       state.players.map(player => [player.id, player.researchCards ?? []])
     );
@@ -7125,6 +7125,10 @@ export function getInitialState(options = {}) {
   const botDifficulty = options.botDifficulty ?? null;
   // Drafting only makes sense with more than one player at the table.
   const draftEnabled = Boolean(options.draft) && playerCount > 1;
+  // Two variants, not one. The research draft passes the four cards dealt each
+  // generation; the initial draft passes the opening ten as well. A caller from
+  // before the split sent only "draft" and was playing with both.
+  const initialDraftEnabled = (options.initialDraft ?? options.draft) && playerCount > 1;
   const names = options.playerNames ?? [];
   const boardId = BOARDS[options.board] ? options.board : "tharsis";
   const board = {};
@@ -7217,6 +7221,7 @@ export function getInitialState(options = {}) {
     botDifficulty,
     boardId,
     draftEnabled,
+    initialDraftEnabled: Boolean(initialDraftEnabled),
     draft: null,
     generation: 1,
     phase: "setup", // setup, research, action, production, final_greenery, game_over
@@ -7233,6 +7238,10 @@ export function getInitialState(options = {}) {
     // panel could no longer tell whether the expansion had been on.
     venusEnabled: Boolean(options.venus),
     preludeEnabled: preludesInPlay,
+    // The TR solo variant: TR 63 wins instead of terraforming Mars, and Buffer
+    // Gas becomes available. Solo only -- there is nothing to vary in a game
+    // that is scored on points.
+    soloTrVariant: mode === "solo" && Boolean(options.soloTr),
     prelude2Enabled: Boolean(options.prelude2 ?? options.prelude),
     promoEnabled: Boolean(options.promo),
     oceans: 0,
@@ -7274,8 +7283,8 @@ export function getInitialState(options = {}) {
     rngDraws: dealer.rngDraws
   });
 
-  // The opening ten cards are drafted too when the option is on.
-  if (draftEnabled) {
+  // The opening ten cards are drafted too when the initial draft is on.
+  if (initialDraftEnabled) {
     const hands = Object.fromEntries(
       state.players.map(player => [player.id, player.researchCards ?? []])
     );
@@ -8277,7 +8286,15 @@ export function getSoloGenerationLimit(state) {
   return state?.preludeEnabled ? 12 : 14;
 }
 
+export const SOLO_TR_TARGET = 63;
+
 export function isSoloMissionComplete(state) {
+  // The TR variant replaces the terraforming goal rather than adding to it: a
+  // fully terraformed Mars below 63 TR is a loss, and 63 TR on an untouched one
+  // is a win.
+  if (state.soloTrVariant) {
+    return (getPlayer(state, state.turnOrder?.[0] ?? "player")?.tr ?? 0) >= SOLO_TR_TARGET;
+  }
   if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans)) return false;
   return state.venusEnabled ? (state.venus ?? 0) >= 30 : true;
 }

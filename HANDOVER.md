@@ -33,6 +33,8 @@
 | U7 | 行動結果が1.3秒で消えて読み返せない | **修正済み**（HUDに「直前」の行を残す） |
 | U8 | 手札に検索・絞り込みが無い | **修正済み**（名前/効果/タグ検索・出せるカードのみ） |
 | U9 | 配置前に結果が分からない | **修正済み**（海洋隣接MC・配置コストを候補マスに表示） |
+| §4.1 TRソロ | 公式バリエーションが選べない | **修正済み**（TR63勝利＋緩衝ガス） |
+| §4.1 初期ドラフト | 研究ドラフトと連動していた | **修正済み**（独立設定に分離） |
 
 ### U1の原因は3つ重なっていた（いずれも修正済み）
 
@@ -87,18 +89,35 @@ Eccentric Sponsor が空の手札を見ることになる。
 botも同じコマンドを使う（`startingHandFor` が、まだ持っていない
 企業の開始資金でカード代を見積もる）。
 
+### 一次実装を照合に使う
+
+`docs/audit-20260908-assets/` の監査は公式PDFを根拠にしていたが、
+**盤面・称号・表彰・バリエーションは一次実装（TypeScript）と機械照合できる**。
+チェックアウトは `C:/Users/takkun/AppData/Local/Temp/tm-src`（`TM_SOURCE` で変更可）。
+
+- `scripts/audit-boards-against-upstream.mjs` が全マップの builder 呼び出しを行単位で照合する。
+  **これでアマゾニスの誤り1行が見つかった。** チェックアウトが無ければ「比較しなかった」と報告して exit 0。
+- 称号・表彰・TRソロ・ドラフトの分離も、同じソースの
+  `src/server/milestones/`・`src/server/awards/`・`src/server/Game.ts`・
+  `src/server/game/GameOptions.ts` から転記した。
+
+**監査報告が公式PDFから読み取った内容と一次実装が食い違うことがある**
+（アマゾニスの称号名は報告書とは別物だった）。
+再現対象は一次実装なので、そちらを正とした。
+
 ### 検証（2026-09-08時点の実測）
 
 | 実行 | 結果 |
 |---|---|
-| `npm test` | 675成功・失敗0 |
+| `npm test` | 692成功・失敗0 |
 | `npm run types` | app/workerとも成功 |
-| `npm run lint` | エラー0（警告5、いずれも既存） |
-| `npx playwright test --project=pages-static` | 18成功（並列4workerで4回連続） |
+| `npm run lint` | エラー0（警告6、いずれも既存） |
+| `npx playwright test --project=pages-static` | 27成功 |
 | `npx playwright test --project=online` | 1成功 |
-| 監査スクリプト24本 | 全成功 |
-| `playtest --games=20 --players=4` 全拡張 | 20完走・問題0 |
-| `playtest --prelude2` 単独 | 10完走・問題0 |
+| 監査スクリプト25本 | 全成功（盤面照合を追加） |
+| `playtest` 20戦4人 全拡張 | 完走・問題0 |
+| `playtest --prelude2` 単独 / `--board=amazonis` / `--solotr` | いずれも完走・問題0 |
+| `playtest --draft` と `--draft --initialdraft` | 別々に完走・問題0（得点分布も異なる＝設定が効いている） |
 | `node docs/audit-20260908-assets/reproduce-findings.mjs` | R1/R3/R5/R6が監査時と異なる出力に |
 
 監査時点との差分は `docs/audit-20260908-assets/reproduction-after-fixes.json` に保存してある。
