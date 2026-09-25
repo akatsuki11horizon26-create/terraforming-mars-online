@@ -114,6 +114,7 @@ export {
 };
 import {
   COLONY_TILES,
+  OFFICIAL_COLONY_TILES,
   activateResourceColonies,
   availableFleets,
   buildColony,
@@ -7403,7 +7404,7 @@ export function getInitialState(options = {}) {
       )
     : null;
   const colonies = options.colonies
-    ? createColoniesState(turnOrder, shuffle(COLONY_TILES.map(tile => tile.id), dealer), {
+    ? createColoniesState(turnOrder, shuffle(OFFICIAL_COLONY_TILES.map(tile => tile.id), dealer), {
         soloDraft: mode === "solo"
       })
     : null;

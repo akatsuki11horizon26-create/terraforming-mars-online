@@ -11,9 +11,10 @@ const REFERENCE =
   process.env.TM_REFERENCE ?? "C:\\Users\\takkun\\AppData\\Local\\Temp\\tm-reference";
 const COLONIES_DIR = join(REFERENCE, "src", "server", "colonies");
 
-// The eleven official Colonies-expansion tiles. Deimos and Pluto ship with the
-// expansion too; Miranda/Titan/Triton/Enceladus/Europa/Io/Callisto/Ganymede/Luna/
-// Ceres complete the set. Files that are infrastructure rather than a tile are skipped.
+// The source contains the eleven official Colonies tiles plus Deimos, a
+// community colony that requires Ares. Keep all source data in the generated
+// catalog; createColoniesState excludes Deimos from official games.
+// Files that are infrastructure rather than a tile are skipped.
 const SKIP = new Set([
   "Colony.ts",
   "ColoniesHandler.ts",

@@ -23,7 +23,7 @@ function activeTile(colonies) {
 }
 
 
-test("All twelve colony tiles carry a seven-step trade track", () => {
+test("all twelve catalogued tiles, including community Deimos, carry a seven-step trade track", () => {
   assert.equal(COLONY_TILES.length, 12);
   for (const tile of COLONY_TILES) {
     const steps = tile.trade.quantity ?? tile.trade.resourceTrack;
@@ -566,6 +566,36 @@ test("Solo Colonies deals four tiles and keeps three", async () => {
     false,
     "and it cannot be chosen twice"
   );
+});
+
+test("new official games never deal the Ares-only Deimos colony", () => {
+  const officialIds = COLONY_TILES.map(tile => tile.id).filter(id => id !== "deimos");
+  assert.equal(officialIds.length, 11);
+  for (let seed = 1; seed <= 24; seed++) {
+    for (const playerCount of [1, 2, 5]) {
+      const state = getInitialState({ playerCount, colonies: true, seed });
+      const colonies = state.colonies;
+      const allIds = [
+        ...colonies.tilesInPlay,
+        ...(colonies.offeredTileIds ?? []),
+        ...colonies.unusedTileIds
+      ];
+      assert.deepEqual([...allIds].sort(), [...officialIds].sort(), `seed ${seed}, ${playerCount} players`);
+      assert.equal(allIds.includes("deimos"), false);
+    }
+  }
+});
+
+test("a saved legacy game can still restore a Deimos colony already in play", async () => {
+  const { serializeSavedState, loadSavedState } = await import("../app/save-migration.js");
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["deimos", ...state.colonies.tilesInPlay];
+  state.colonies.tiles.deimos = {
+    id: "deimos", trackPosition: 2, colonies: ["player"], active: true
+  };
+  const restored = loadSavedState(serializeSavedState(state));
+  assert.equal(restored.colonies.tiles.deimos.colonies[0], "player");
+  assert.equal(restored.colonies.tilesInPlay[0], "deimos");
 });
 
 test("Pluto colony owners each draw and choose one card to discard", async () => {

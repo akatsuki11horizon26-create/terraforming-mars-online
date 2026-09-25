@@ -1308,6 +1308,10 @@ test("Titan Floating Launch-Pad buys a trade with a floater", () => {
     seat.hand = [];
     seat.actionsRemaining = 2;
     seat.cardResources = { [id]: held };
+    state.colonies.tilesInPlay = ["ceres"];
+    state.colonies.tiles = {
+      ceres: { id: "ceres", trackPosition: 3, colonies: [], active: true }
+    };
     for (const tile of state.colonies.tilesInPlay) {
       state.colonies.tiles[tile].trackPosition = 3;
     }

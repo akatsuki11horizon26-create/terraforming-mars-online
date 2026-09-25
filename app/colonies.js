@@ -11,6 +11,7 @@ export const MAX_FLEET_SIZE = 5;
 export const TILES_IN_PLAY = { 1: 5, 2: 5, 3: 5, 4: 6, 5: 7 };
 
 export { COLONY_TILES, getColonyTile };
+export const OFFICIAL_COLONY_TILES = COLONY_TILES.filter(tile => tile.id !== "deimos");
 
 // These three pay out in a resource that has to live on a card, so their marker
 // starts on the moon picture rather than on the track: until somebody plays a
@@ -51,8 +52,12 @@ export const SOLO_COLONY_OFFER = 4;
 export const SOLO_COLONY_KEEP = 3;
 
 export function createColoniesState(playerIds, shuffledTileIds, options = {}) {
+  // Deimos belongs to the community Ares module, which this game does not
+  // enable. Keep its catalog entry for existing saves, but never deal it into
+  // a new official Colonies game or Aridor's unused tile pool.
+  const officialTileIds = shuffledTileIds.filter(id => id !== "deimos");
   if (options.soloDraft) {
-    const offered = shuffledTileIds.slice(0, SOLO_COLONY_OFFER);
+    const offered = officialTileIds.slice(0, SOLO_COLONY_OFFER);
     const fleets = {};
     const usedFleets = {};
     for (const playerId of playerIds) {
@@ -64,14 +69,14 @@ export function createColoniesState(playerIds, shuffledTileIds, options = {}) {
       // kept because Aridor may later pull from the tiles nobody took.
       tilesInPlay: [],
       offeredTileIds: offered,
-      unusedTileIds: shuffledTileIds.slice(SOLO_COLONY_OFFER),
+      unusedTileIds: officialTileIds.slice(SOLO_COLONY_OFFER),
       tiles: {},
       fleets,
       usedFleets
     };
   }
   const count = TILES_IN_PLAY[playerIds.length] ?? 5;
-  const inPlay = shuffledTileIds.slice(0, count);
+  const inPlay = officialTileIds.slice(0, count);
 
   const tiles = {};
   for (const id of inPlay) {
@@ -90,7 +95,7 @@ export function createColoniesState(playerIds, shuffledTileIds, options = {}) {
   // adds one of them to play as its first action.
   return {
     tilesInPlay: inPlay,
-    unusedTileIds: shuffledTileIds.slice(count),
+    unusedTileIds: officialTileIds.slice(count),
     tiles,
     fleets,
     usedFleets
