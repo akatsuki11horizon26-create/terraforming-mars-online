@@ -94,7 +94,7 @@ export function PendingChoiceDialog({
       <div className="choice-banner" role="status" aria-label={choice.prompt}>
         <div className="choice-banner-prompt">{choice.prompt}</div>
         <div className="choice-banner-note">
-          光っているマスをクリックして配置してください。
+          光っているマスを選んでください。スマホでは下部のボタンで確定します。
           {remaining > 1 ? ` (残り ${remaining} 回)` : ""}
         </div>
         {choice.optional ? (

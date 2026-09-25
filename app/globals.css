@@ -356,6 +356,58 @@ div[tabindex="0"]:focus-visible {
   border: 2px solid var(--color-cyan) !important;
   z-index: 5;
 }
+.hex-placement-selected {
+  animation: none;
+  background-color: rgba(114, 217, 208, 0.65);
+  border: 3px solid #fff !important;
+  filter: drop-shadow(0 0 8px var(--color-cyan));
+  z-index: 11;
+}
+
+.mobile-board-controls,
+.mobile-placement-confirm {
+  display: none;
+}
+
+@media (max-width: 820px) {
+  .mobile-board-controls {
+    display: flex;
+    justify-content: flex-end;
+  }
+  .mobile-board-controls .hud-btn {
+    flex: 0 0 auto;
+  }
+  .board-panel--zoomed {
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+  .mobile-placement-confirm {
+    position: fixed;
+    left: 10px;
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    z-index: 65;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    background: var(--surface-1);
+    border: 1px solid var(--color-cyan);
+    box-shadow: var(--shadow-modal);
+  }
+  .mobile-placement-description {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .mobile-placement-confirm .hud-btn {
+    flex: 0 0 auto;
+  }
+  .main-content--placing {
+    padding-bottom: 100px;
+  }
+}
 
 /* Onboarding overlay */
 .overlay-container {

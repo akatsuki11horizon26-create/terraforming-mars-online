@@ -127,8 +127,47 @@ test("Europa's ocean choice can be completed on a phone", async ({ page }) => {
   await expect(placeable).toBeVisible();
   const key = await placeable.getAttribute("data-cell-key");
   await placeable.click();
+  await expect(placeable).toHaveClass(/hex-placement-selected/);
+  await expect(placeable).not.toHaveClass(/(?:^|\s)hex-ocean(?:\s|$)/);
+  await page.getByTestId("confirm-board-placement").click();
   await expect(page.locator(`[data-testid="board-cell"][data-cell-key="${key}"]`)).toHaveClass(/hex-ocean/);
   await expect(page.locator('span.param-chip[title^="海洋 "] .param-chip-value')).toHaveText("1/9");
+});
+
+test("a phone can enlarge the placement board without widening the page", async ({ page }) => {
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["europa"];
+  state.colonies.tiles = {
+    europa: { id: "europa", trackPosition: 1, colonies: [], active: true }
+  };
+  state.players[0].mc = 40;
+  state.onboarded = true;
+  const built = buildColonyOn(state, "europa", state.logs, "player");
+  await page.addInitScript(({ key, saved }) => localStorage.setItem(key, saved), {
+    key: SAVE_KEY,
+    saved: serializeSavedState(built.state)
+  });
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByTestId("mode-continue").click();
+
+  const cell = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();
+  const fittedWidth = (await cell.boundingBox())?.width ?? 0;
+  const zoom = page.getByTestId("board-zoom-toggle");
+  await zoom.click();
+  await expect(zoom).toHaveAttribute("aria-pressed", "true");
+  expect((await cell.boundingBox())?.width ?? 0).toBeGreaterThan(fittedWidth);
+  const dimensions = await page.evaluate(() => ({
+    page: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    board: document.querySelector(".board-panel")!.scrollWidth - document.querySelector(".board-panel")!.clientWidth
+  }));
+  expect(dimensions.page).toBeLessThanOrEqual(1);
+  expect(dimensions.board).toBeGreaterThan(0);
+  await cell.click();
+  await expect(page.getByTestId("confirm-board-placement")).toBeVisible();
+  await zoom.click();
+  await expect(zoom).toHaveAttribute("aria-pressed", "false");
+  await expect(cell).toHaveClass(/hex-placement-selected/);
 });
 
 test("a colony resource target can be selected on a phone", async ({ page }) => {

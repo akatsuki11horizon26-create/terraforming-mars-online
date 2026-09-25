@@ -430,6 +430,8 @@ export default function Home() {
   const MIN_BOARD_SCALE = 0.45;
   const boardRef = React.useRef<HTMLDivElement | null>(null);
   const [boardScale, setBoardScale] = useState(1);
+  const [zoomedChoiceId, setZoomedChoiceId] = useState<string | null>(null);
+  const [selectedPlacement, setSelectedPlacement] = useState<{ choiceId: string; cellKey: string } | null>(null);
 
   // The board panel does not exist on the first render -- the title and setup
   // screens stand in its place -- so an effect that reads boardRef once at
@@ -1824,6 +1826,13 @@ export default function Home() {
           .filter((key): key is string => Boolean(key))
       )
     : null;
+  const selectedPlacementOption = tileChoice && selectedPlacement?.choiceId === tileChoice.id
+    ? tileChoice.options.find(option => option.targetCellKey === selectedPlacement.cellKey)
+    : null;
+  const selectedPlacementCell = selectedPlacementOption?.targetCellKey
+    ? activeState.board[selectedPlacementOption.targetCellKey]
+    : null;
+  const boardZoomed = Boolean(tileChoice && zoomedChoiceId === tileChoice.id);
 
   // One set of props for the panel, which both the title screen and the running
   // game render — the title screen returns early, so it needs its own copy.
@@ -1982,7 +1991,7 @@ export default function Home() {
         </div>
       )}
 
-      <main className="main-content">
+      <main className={`main-content${selectedPlacementOption ? " main-content--placing" : ""}`}>
         {/* Compact status bar: the detail lives in drawers so the board keeps the room. */}
         <div className="hud-bar">
           <div className="hud-stats">
@@ -2126,11 +2135,25 @@ export default function Home() {
           </div>
         )}
 
+        {tileChoice && (
+          <div className="mobile-board-controls">
+            <button
+              type="button"
+              className="hud-btn"
+              data-testid="board-zoom-toggle"
+              aria-pressed={boardZoomed}
+              onClick={() => setZoomedChoiceId(boardZoomed ? null : tileChoice.id)}
+            >
+              {boardZoomed ? "盤面を全体表示" : "盤面を拡大して選ぶ"}
+            </button>
+          </div>
+        )}
+
         {/* Center Column: Mars Board */}
         <div
-          className="board-panel"
+          className={`board-panel${boardZoomed ? " board-panel--zoomed" : ""}`}
           ref={attachBoardRef}
-          style={{ ["--board-scale" as string]: String(boardScale) }}
+          style={{ ["--board-scale" as string]: String(boardZoomed ? 1 : boardScale) }}
         >
           <div className="mars-sphere">
             <div className="hex-grid">
@@ -2189,6 +2212,9 @@ export default function Home() {
                 if (isValid) {
                   classes += " hex-placement-valid";
                 }
+                if (selectedPlacement?.choiceId === tileChoice?.id && selectedPlacement?.cellKey === `${cell.q},${cell.r}`) {
+                  classes += " hex-placement-selected";
+                }
 
                 const isInteractionDisabled = tileChoiceCells ? !isValid : true;
 
@@ -2216,7 +2242,13 @@ export default function Home() {
                       const option = (tileChoice?.options ?? []).find(
                         entry => entry.targetCellKey === `${cell.q},${cell.r}`
                       );
-                      if (option) handleResolveChoice(option.id);
+                      if (!option) return;
+                      if (window.matchMedia("(max-width: 820px)").matches) {
+                        setSelectedPlacement({ choiceId: tileChoice!.id, cellKey: `${cell.q},${cell.r}` });
+                        setHoveredCell(null);
+                        return;
+                      }
+                      handleResolveChoice(option.id);
                     }}
                     aria-disabled={isInteractionDisabled}
                     onMouseEnter={() => setHoveredCell({ key: `${cell.q},${cell.r}`, text: help })}
@@ -2235,12 +2267,31 @@ export default function Home() {
             </div>
           </div>
 
-          {hoveredCell && (
+          {hoveredCell && !selectedPlacementOption && (
             <div className="hex-tooltip" role="status" onClick={() => setHoveredCell(null)}>
               {hoveredCell.text}
             </div>
           )}
         </div>
+
+        {selectedPlacementOption && selectedPlacementCell && (
+          <div className="mobile-placement-confirm" role="region" aria-label="配置の確認">
+            <div className="mobile-placement-description">
+              {describeCell(selectedPlacementCell)} {describePlacement(selectedPlacementCell, activeState.board)}
+            </div>
+            <button
+              type="button"
+              className="hud-btn hud-btn--primary"
+              data-testid="confirm-board-placement"
+              onClick={() => {
+                setSelectedPlacement(null);
+                handleResolveChoice(selectedPlacementOption.id);
+              }}
+            >
+              このマスに配置
+            </button>
+          </div>
+        )}
 
         {/* Right Column: Resources & Actions */}
         <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
