@@ -4347,6 +4347,19 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      if (choice.continuation.stage === "pluto-colony-discard") {
+        const owner = choice.ownerPlayerId;
+        const discardedId = option.cardId ?? option.id;
+        next.players = next.players.map(player =>
+          player.id === owner
+            ? { ...player, hand: player.hand.filter(id => id !== discardedId) }
+            : player
+        );
+        next.discardPile = [...next.discardPile, discardedId];
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(nextLogs, "system", `${getPlayer(next, owner)?.name}: 【${gone?.name ?? discardedId}】を捨てました。`);
+        break;
+      }
       // "Discard any number of cards from your hand to gain 2 M€ for each." Which
       // cards go is the player's decision, so they are asked one at a time and
       // may stop whenever they like -- the question is optional, and declining
@@ -7511,6 +7524,26 @@ function grantColonyBenefit(state, benefit, playerId, logs) {
         p.id === playerId ? { ...p, hand: [...p.hand, ...drawn] } : p
       );
       nextLogs = addLog(nextLogs, "system", `${player.name}: カードを${drawn.length}枚引きました。`);
+      break;
+    }
+    case "DRAW_CARDS_AND_DISCARD_ONE": {
+      const drawn = drawFromDeck(state, 1);
+      if (drawn.length === 0) break;
+      state.players = state.players.map(p =>
+        p.id === playerId ? { ...p, hand: [...p.hand, ...drawn] } : p
+      );
+      nextLogs = addLog(nextLogs, "system", `${player.name}: カードを1枚引きました。`);
+      const choice = buildDiscardChoice(state, getPlayer(state, playerId).hand, {
+        sourceKind: "colony",
+        sourceId: "pluto",
+        stage: "pluto-colony-discard",
+        optional: false,
+        prompt: `${player.name}: プルートの報酬で捨てるカードを1枚選んでください。`
+      }, ALL_CARDS);
+      if (choice) {
+        choice.ownerPlayerId = playerId;
+        openOrEnqueuePendingChoice(state, choice);
+      }
       break;
     }
     case "GAIN_TR": {

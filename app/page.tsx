@@ -649,6 +649,7 @@ export default function Home() {
       : undefined;
   const currentPlayerId =
     seatId ?? hotseatChoiceOwner ?? activeState.currentPlayerId ?? players[0]?.id ?? "player";
+  const viewingPlayer = players.find(player => player.id === currentPlayerId) ?? players[0];
   // In an online view currentPlayerId is rewritten to the viewer so the legacy
   // accessors read their own hand; turnHolderId carries who actually acts.
   const turnHolderId =
@@ -2018,6 +2019,24 @@ export default function Home() {
               onOpen={() => setOpenDrawer("planet")}
             />
           </div>
+
+          {viewingPlayer && (
+            <div className="hud-resources" aria-label="自分の資源">
+              {([
+                ["MC", viewingPlayer.mc],
+                ["建材", viewingPlayer.steel],
+                ["チタン", viewingPlayer.titanium],
+                ["植物", viewingPlayer.plants],
+                ["電力", viewingPlayer.energy],
+                ["熱", viewingPlayer.heat]
+              ] as const).map(([label, value]) => (
+                <span className="hud-resource" key={label} title={`${label}: ${value}`}>
+                  <span className="hud-resource-label">{label}</span>
+                  <span className="hud-resource-value">{value}</span>
+                </span>
+              ))}
+            </div>
+          )}
 
           {/* The cut-in is gone in a second or two by design, so what it said
               is repeated here where it can be read at leisure. */}

@@ -84,6 +84,10 @@ test("the resource bar stays put while the page scrolls", async ({ page }) => {
   });
   expect(stuck?.position, "the bar must be sticky on a phone").toBe("sticky");
   expect(stuck?.top, "and stuck to the top of the screen").toBeLessThanOrEqual(1);
+  const resources = hud.locator(".hud-resource");
+  await expect(resources).toHaveCount(6);
+  await expect(resources.first()).toContainText("MC");
+  await expect(resources.first()).toBeInViewport();
 });
 
 test("the buttons are big enough to hit with a thumb", async ({ page }) => {

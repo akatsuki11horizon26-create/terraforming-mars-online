@@ -567,3 +567,35 @@ test("Solo Colonies deals four tiles and keeps three", async () => {
     "and it cannot be chosen twice"
   );
 });
+
+test("Pluto colony owners each draw and choose one card to discard", async () => {
+  const { resolvePendingChoice } = await import("../app/game-logic.js");
+  let state = getInitialState({ playerCount: 3, colonies: true });
+  state.colonies.tilesInPlay = ["pluto"];
+  state.colonies.tiles = {
+    pluto: { id: "pluto", trackPosition: 2, colonies: ["player", "player2"] }
+  };
+  state.players = state.players.map(player => ({
+    ...player,
+    hand: player.id === "player3" ? [] : [player.researchCards[0]]
+  }));
+  const before = Object.fromEntries(state.players.map(player => [player.id, [...player.hand]]));
+
+  const traded = tradeWith(state, "pluto", state.logs, "player3");
+  assert.equal(traded.traded, true);
+  assert.equal(traded.state.pendingChoice.ownerPlayerId, "player");
+  assert.equal(traded.state.pendingChoice.optional, false);
+  assert.equal(traded.state.pendingChoiceQueue[0].ownerPlayerId, "player2");
+  assert.equal(traded.state.players[0].hand.length, before.player.length + 1);
+  assert.equal(traded.state.players[1].hand.length, before.player2.length + 1);
+  const afterFirst = resolvePendingChoice(traded.state, before.player[0], traded.logs, "player");
+  assert.equal(afterFirst.state.pendingChoice.ownerPlayerId, "player2");
+  const afterSecond = resolvePendingChoice(afterFirst.state, before.player2[0], afterFirst.logs, "player2");
+  assert.equal(afterSecond.state.pendingChoice, null);
+  for (const id of ["player", "player2"]) {
+    const player = afterSecond.state.players.find(seat => seat.id === id);
+    assert.equal(player.hand.length, before[id].length);
+    assert.equal(player.hand.includes(before[id][0]), false);
+    assert.equal(afterSecond.state.discardPile.includes(before[id][0]), true);
+  }
+});

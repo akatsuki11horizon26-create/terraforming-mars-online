@@ -729,6 +729,10 @@ div[tabindex="0"]:focus-visible {
   font-variant-numeric: tabular-nums;
 }
 
+.hud-resources {
+  display: none;
+}
+
 .hud-buttons {
   display: flex;
   flex-wrap: wrap;
@@ -1063,6 +1067,31 @@ div[tabindex="0"]:focus-visible {
     position: sticky;
     top: 0;
     z-index: 30;
+  }
+  .hud-resources {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    flex: 1 1 100%;
+    gap: 3px;
+  }
+  .hud-resource {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2px 0;
+    background: var(--surface-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .hud-resource-label {
+    color: var(--text-mid);
+    font-size: 0.75rem;
+  }
+  .hud-resource-value {
+    color: var(--text-hi);
+    font-size: 0.875rem;
+    font-weight: 700;
+    line-height: 1.15;
   }
   .hud-btn {
     flex: 1 1 auto;
