@@ -2376,12 +2376,21 @@ export function applyCardEffect(state, card, logs, options = {}) {
       if (!bonus) continue;
       const held = (tile.colonies ?? []).filter(owner => owner === result.state.currentPlayerId).length;
       for (let i = 0; i < held; i++) {
-        const granted = grantColonyBenefit(result.state, bonus, result.state.currentPlayerId, nextLogs);
+        const granted = grantColonyBenefit(result.state, bonus, result.state.currentPlayerId, nextLogs, tile.id);
         result.state = granted.state;
         nextLogs = granted.logs;
       }
     }
     result.state.logs = nextLogs;
+    if (result.state.pendingChoice) {
+      result.state.pendingChoice.continuation.consumedAction = options.consumedAction ?? true;
+      return {
+        status: "pending",
+        state: result.state,
+        logs: nextLogs,
+        pendingChoice: result.state.pendingChoice
+      };
+    }
   }
 
   // Neither the party nor the delegate is chosen, so this resolves outright.
@@ -4603,7 +4612,7 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       const placed = buildColony(next.colonies, option.targetTileId, actorId, { allowDuplicates });
       if (placed.built) {
         next.colonies = placed.colonies;
-        const granted = grantColonyBenefit(next, placed.bonus, actorId, nextLogs);
+        const granted = grantColonyBenefit(next, placed.bonus, actorId, nextLogs, option.targetTileId);
         nextLogs = addLog(granted.logs, "system", `${option.label} に入植しました。`);
       }
       break;
@@ -7493,7 +7502,7 @@ export function getInitialState(options = {}) {
 }
 
 // Applies a colony build/trade/colony benefit to one player.
-function grantColonyBenefit(state, benefit, playerId, logs) {
+function grantColonyBenefit(state, benefit, playerId, logs, tileId) {
   if (!benefit) return { state, logs };
   let nextLogs = logs;
   const amount = benefit.amount ?? benefit.quantity ?? 1;
@@ -7546,6 +7555,33 @@ function grantColonyBenefit(state, benefit, playerId, logs) {
       }
       break;
     }
+    case "ADD_RESOURCES_TO_CARD": {
+      if (amount <= 0) break;
+      const resourceType = {
+        enceladus: "microbe",
+        miranda: "animal",
+        titan: "floater"
+      }[tileId];
+      const choice = buildResourceChoice(state, { type: resourceType, count: amount }, {
+        sourceKind: "colony",
+        sourceId: tileId,
+        consumedAction: false,
+        paid: true,
+        cards: ALL_CARDS,
+        getResourceType: getCardResourceType
+      });
+      if (choice?.autoTarget) {
+        applyResourceToCard(state, choice.autoTarget, amount);
+        nextLogs = addLog(nextLogs, "system", `${player.name}: ${choice.autoTarget.label}に${resourceType}を${amount}個置きました。`);
+      } else if (choice) {
+        choice.ownerPlayerId = playerId;
+        choice.id = `any-card-resource:${tileId}:${playerId}`;
+        openOrEnqueuePendingChoice(state, choice);
+      } else {
+        nextLogs = addLog(nextLogs, "system", `${player.name}: ${resourceType}を置けるカードがありません。`);
+      }
+      break;
+    }
     case "GAIN_TR": {
       state.players = state.players.map(p =>
         p.id === playerId ? { ...p, tr: p.tr + amount } : p
@@ -7554,10 +7590,17 @@ function grantColonyBenefit(state, benefit, playerId, logs) {
       break;
     }
     case "PLACE_OCEAN_TILE": {
-      const legal = legalCellsFor(state, "ocean", playerId);
-      if (legal.length > 0) {
-        placeTileAt(state, legal[0], "ocean", playerId);
-        nextLogs = addLog(nextLogs, "system", `${player.name}: 海洋タイルを配置しました。`);
+      const legal = state.oceans < MAX_OCEANS ? legalCellsFor(state, "ocean", playerId) : [];
+      const choice = buildTileChoice(state, "ocean", {
+        sourceKind: "colony",
+        sourceId: tileId,
+        consumedAction: false,
+        paid: true
+      }, legal);
+      if (choice) {
+        choice.ownerPlayerId = playerId;
+        choice.id = `tile-placement:${tileId}:${playerId}`;
+        openOrEnqueuePendingChoice(state, choice);
       }
       break;
     }
@@ -7638,7 +7681,7 @@ export function buildColonyOn(state, tileId, logs, playerId) {
     `${getPlayer(next, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} に入植しました。`
   );
 
-  const granted = grantColonyBenefit(next, result.bonus, actorId, nextLogs);
+  const granted = grantColonyBenefit(next, result.bonus, actorId, nextLogs, tileId);
   next.logs = granted.logs;
   return { state: next, logs: granted.logs, built: true };
 }
@@ -7665,9 +7708,9 @@ export function tradeWith(state, tileId, logs, playerId, options = {}) {
       "system",
       `${getPlayer(freeState, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} と無償で交易しました。`
     );
-    freeLogs = grantColonyBenefit(freeState, outcome.tradeBenefit, actorId, freeLogs).logs;
+    freeLogs = grantColonyBenefit(freeState, outcome.tradeBenefit, actorId, freeLogs, tileId).logs;
     for (const owner of outcome.colonyOwners) {
-      freeLogs = grantColonyBenefit(freeState, outcome.colonyBonus, owner, freeLogs).logs;
+      freeLogs = grantColonyBenefit(freeState, outcome.colonyBonus, owner, freeLogs, tileId).logs;
     }
     freeState.logs = freeLogs;
     return { state: freeState, logs: freeLogs, traded: true };
@@ -7721,12 +7764,12 @@ export function tradeWith(state, tileId, logs, playerId, options = {}) {
     `${getPlayer(next, actorId)?.name ?? actorId} が ${tile?.name ?? tileId} と交易しました（${payment.cost}${TRADE_LABELS[payment.resource]} 支払い）。`
   );
 
-  const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs);
+  const traded = grantColonyBenefit(next, result.tradeBenefit, actorId, nextLogs, tileId);
   nextLogs = traded.logs;
 
   // Every colony owner on the tile collects the colony bonus, including the trader.
   for (const owner of result.colonyOwners) {
-    const granted = grantColonyBenefit(next, result.colonyBonus, owner, nextLogs);
+    const granted = grantColonyBenefit(next, result.colonyBonus, owner, nextLogs, tileId);
     nextLogs = granted.logs;
   }
 

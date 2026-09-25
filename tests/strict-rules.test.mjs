@@ -2866,6 +2866,45 @@ test("Productive Outpost collects a bonus for every colony held", async () => {
   }
 });
 
+test("Productive Outpost spends one action after its colony target choices", () => {
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  state.colonies.tilesInPlay = ["enceladus"];
+  state.colonies.tiles = {
+    enceladus: { id: "enceladus", trackPosition: 2, colonies: ["player", "player"], active: true }
+  };
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.playedProjects = [player.id === "player" ? "card-base-ants" : "card-base-ghg-producing-bacteria"];
+  }
+  state.players[0].mc = 100;
+  state.players[0].actionsRemaining = 2;
+  state.players[0].hand = ["card-colonies-productive-outpost"];
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-colonies-productive-outpost"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.players[0].actionsRemaining, 2);
+  assert.equal(played.state.pendingChoice.ownerPlayerId, "player");
+  const first = executeGameCommand(played.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: played.state.pendingChoice.options[0].id
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.state.players[0].actionsRemaining, 2);
+  assert.equal(first.state.pendingChoice.ownerPlayerId, "player");
+  const second = executeGameCommand(first.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: "player",
+    optionId: first.state.pendingChoice.options[0].id
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.state.pendingChoice, null);
+  assert.equal(second.state.players[0].actionsRemaining, 1);
+});
+
 test("Market Manipulation raises one colony track and lowers another", async () => {
   const { getPlayer, resolvePendingChoice } = await import("../app/game-logic.js");
 

@@ -599,3 +599,92 @@ test("Pluto colony owners each draw and choose one card to discard", async () =>
     assert.equal(afterSecond.state.discardPile.includes(before[id][0]), true);
   }
 });
+
+test("resource colony rewards reach matching cards and let each owner choose a target", async () => {
+  const { resolvePendingChoice } = await import("../app/game-logic.js");
+  const cases = [
+    ["enceladus", "card-base-ants"],
+    ["miranda", "card-base-predators"],
+    ["titan", "card-colonies-titan-floating-launch-pad"]
+  ];
+  for (const [tileId, cardId] of cases) {
+    let state = getInitialState({ playerCount: 3, colonies: true });
+    state.colonies.tilesInPlay = [tileId];
+    state.colonies.tiles = {
+      [tileId]: { id: tileId, trackPosition: 2, colonies: ["player", "player2"], active: true }
+    };
+    state.players = state.players.map(player => ({
+      ...player,
+      playedProjects: player.id === "player3" ? [cardId] : [],
+      cardResources: {}
+    }));
+    const bonus = tradeWith(state, tileId, state.logs, "player3");
+    assert.equal(bonus.traded, true, tileId);
+    assert.equal(bonus.state.pendingChoice, null, `${tileId}: one target is automatic`);
+    const held = bonus.state.players[2].cardResources[cardId];
+    const ownerRewards = getColonyTile(tileId).colony.type === "ADD_RESOURCES_TO_CARD" ? 2 : 0;
+    assert.equal(held, getColonyTile(tileId).trade.quantity[2] + ownerRewards, tileId);
+
+    state = getInitialState({ playerCount: 3, colonies: true });
+    state.colonies.tilesInPlay = [tileId];
+    state.colonies.tiles = {
+      [tileId]: { id: tileId, trackPosition: 2, colonies: ["player", "player2"], active: true }
+    };
+    state.players = state.players.map(player => ({
+      ...player,
+      playedProjects: player.id === "player3" ? [] : [cardId],
+      cardResources: {}
+    }));
+    const traded = tradeWith(state, tileId, state.logs, "player3");
+    assert.equal(traded.state.pendingChoice.ownerPlayerId, "player3", tileId);
+    assert.equal(traded.state.pendingChoiceQueue.length, ownerRewards, tileId);
+    let pending = traded;
+    const answers = ownerRewards
+      ? [["player3", "player"], ["player", "player"], ["player2", "player2"]]
+      : [["player3", "player"]];
+    for (const [owner, target] of answers) {
+      assert.equal(pending.state.pendingChoice.ownerPlayerId, owner, tileId);
+      const option = pending.state.pendingChoice.options.find(entry => entry.targetPlayerId === target);
+      pending = resolvePendingChoice(pending.state, option.id, pending.logs, owner);
+    }
+    assert.equal(pending.state.pendingChoice, null, tileId);
+    assert.equal(pending.state.players[0].cardResources[cardId], getColonyTile(tileId).trade.quantity[2] + (ownerRewards ? 1 : 0), tileId);
+    assert.equal(pending.state.players[1].cardResources[cardId] ?? 0, ownerRewards ? 1 : 0, tileId);
+  }
+});
+
+test("Europa colonist chooses the ocean space after paying the colony cost", async () => {
+  const { resolvePendingChoice } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["europa"];
+  state.colonies.tiles = {
+    europa: { id: "europa", trackPosition: 1, colonies: [], active: true }
+  };
+  state.players[0].mc = 40;
+  const built = buildColonyOn(state, "europa", state.logs, "player");
+  assert.equal(built.built, true);
+  assert.equal(built.state.players[0].mc, 23);
+  assert.equal(built.state.oceans, 0);
+  assert.equal(built.state.pendingChoice.kind, "tile-placement");
+  const options = built.state.pendingChoice.options;
+  assert.ok(options.length > 1);
+  const chosen = options.at(-1);
+  const placed = resolvePendingChoice(built.state, chosen.id, built.logs, "player");
+  assert.equal(placed.state.board[chosen.targetCellKey].tileType, "ocean");
+  assert.equal(placed.state.oceans, 1);
+  assert.equal(placed.state.pendingChoice, null);
+});
+
+test("settling a resource colony applies its printed amount", () => {
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["enceladus"];
+  state.colonies.tiles = {
+    enceladus: { id: "enceladus", trackPosition: 1, colonies: [], active: true }
+  };
+  state.players[0].mc = 40;
+  state.players[1].playedProjects = ["card-base-ants"];
+  const built = buildColonyOn(state, "enceladus", state.logs, "player");
+  assert.equal(built.built, true);
+  assert.equal(built.state.players[1].cardResources["card-base-ants"], 3);
+  assert.equal(built.state.pendingChoice, null);
+});
