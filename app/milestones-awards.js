@@ -191,6 +191,7 @@ export function scoreAward(award, state, context) {
       ...context,
       player,
       board: state.board,
+      colonyCount: context.countColonies?.(state.colonies, player.id) ?? 0,
       // Taken from the state rather than the caller's context, so a caller that
       // forgets to pass it cannot silently drop the off-board cities.
       offBoardCities: state.offBoardCities ?? [],

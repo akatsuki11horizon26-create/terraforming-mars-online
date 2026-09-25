@@ -16,8 +16,8 @@ function activeTile(colonies) {
 
 const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis", "terra-cimmeria", "vastitas-borealis"];
 
-test("every map is a complete 61-space board", () => {
-  for (const id of MAPS) {
+test("standard-size maps have the complete 61-space layout", () => {
+  for (const id of MAPS.filter(id => id !== "amazonis")) {
     const cells = getBoardCells(id);
     assert.equal(cells.length, 61, `${id} must have 61 spaces`);
 
@@ -248,18 +248,15 @@ test("Incorporator counts cards costing 10 M€ or less", async () => {
   assert.equal(score("c20"), 0, "20 M€ does not count");
 });
 
-// Amazonis borrowed the Utopia sheet, so every Amazonis game claimed and scored
-// the wrong ten. Transcribed from the reference implementation
-// (src/server/milestones/amazonisPlanitia, src/server/awards/amazonisPlanitia),
-// which is the same source the boards themselves came from.
+// The physical map's objectives differ from the older online reference.
 test("Amazonis brings its own five milestones and five awards", () => {
   assert.deepEqual(
     milestonesForBoard("amazonis").map(entry => entry.id).sort(),
-    ["colonizer", "forester", "minimalist", "terran", "tropicalist"].sort()
+    ["a-terran", "a-landshaper", "a-merchant", "a-sponsor", "a-lobbyist"].sort()
   );
   assert.deepEqual(
     awardsForBoard("amazonis").map(entry => entry.id).sort(),
-    ["curator", "amazonis-engineer", "promoter", "tourist", "amazonis-zoologist"].sort()
+    ["a-collector", "a-innovator", "a-constructor", "a-manufacturer", "a-physicist"].sort()
   );
   // And they must not simply be the Utopia set under new names.
   assert.notDeepEqual(
@@ -268,8 +265,8 @@ test("Amazonis brings its own five milestones and five awards", () => {
   );
 });
 
-test("the Amazonis milestones score what the reference scores", () => {
-  const milestone = id => milestonesForBoard("amazonis").find(entry => entry.id === id);
+test("legacy Amazonis milestones stay registered for saved games", () => {
+  const milestone = id => getMilestone(id);
 
   // Minimalist: "Have no more than 2 cards in hand" -- the only one here whose
   // claim is a ceiling rather than a floor.
@@ -304,8 +301,8 @@ test("the Amazonis milestones score what the reference scores", () => {
   );
 });
 
-test("the Amazonis awards score what the reference scores", () => {
-  const award = id => awardsForBoard("amazonis").find(entry => entry.id === id);
+test("legacy Amazonis awards stay registered for saved games", () => {
+  const award = id => getAward(id);
   const cards = [
     { id: "e1", type: "event", tags: ["Earth"] },
     { id: "e2", type: "event", tags: ["Space"] },
@@ -365,43 +362,89 @@ test("the Amazonis awards score what the reference scores", () => {
   );
 });
 
-// Through the real claim path, not just the scoring function: Minimalist is the
-// first milestone whose claim is a ceiling, and getMilestoneStatus compared
-// score >= threshold for everything.
-test("Minimalist is claimed by holding few cards, through the engine", async () => {
-  const { getInitialState, applyCorporation, completeSetupPurchase, cloneGameState, getPlayer, getMilestoneStatus } =
-    await import("../app/game-logic.js");
+test("official Amazonis milestones use printed thresholds and live state", () => {
+  const milestone = id => milestonesForBoard("amazonis").find(entry => entry.id === id);
+  const cards = [
+    { id: "earth", tags: ["Earth"] },
+    { id: "expensive", cost: 20 },
+    { id: "cheap", cost: 19 }
+  ];
+  const player = { id: "player", playedProjects: ["earth", "expensive", "cheap"], selectedPreludeIds: [], mc: 3, steel: 3, titanium: 3, plants: 3, energy: 3, heat: 2 };
+  const board = {
+    "0,0": { q: 0, r: 0, tileType: "forest", placedBy: "player" },
+    "1,0": { q: 1, r: 0, tileType: "city", placedBy: "player" },
+    "2,0": { q: 2, r: 0, tileType: "special", placedBy: "player" }
+  };
+  assert.equal(milestone("a-terran").threshold, 5);
+  assert.equal(milestone("a-terran").getScore({ player, cards, corporation: { tags: ["Earth"] } }), 2);
+  assert.equal(milestone("a-landshaper").getScore({ player, board }), 3);
+  assert.equal(milestone("a-merchant").getScore({ player }), 5);
+  assert.equal(milestone("a-sponsor").getScore({ player, cards }), 1);
+  assert.equal(milestone("a-lobbyist").getScore({ player, turmoil: { delegateReserve: { player: 0 }, lobby: [], parties: {} } }), 7);
+  assert.equal(milestone("a-lobbyist").getScore({ player, turmoil: { delegateReserve: { player: 1 }, lobby: ["player"], parties: {} } }), 5);
+  assert.equal(milestone("a-lobbyist").getScore({ player, turmoil: null }), 0);
+});
 
-  let state = getInitialState({ playerCount: 2, board: "amazonis" });
-  for (const player of state.players) {
-    state = applyCorporation(state, getPlayer(state, player.id).corporationOptions[0], player.id);
-  }
-  let guard = 0;
-  while (state.phase === "setup" && guard++ < 12) state = completeSetupPurchase(state);
-  state = cloneGameState(state);
+test("official Amazonis awards count the printed resources, cards, tiles and tags", () => {
+  const award = id => awardsForBoard("amazonis").find(entry => entry.id === id);
+  const cards = [
+    { id: "animal", resourceType: "animal", tags: ["Science"] },
+    { id: "microbe", resourceType: "microbe", tags: ["Space"] },
+    { id: "event", type: "event", tags: ["Space"] }
+  ];
+  const player = { id: "player", mc: 3, steel: 1, titanium: 0, plants: 1, energy: 0, heat: 0,
+    cardResources: { animal: 2, microbe: 3, "card-colonies-arklight": 1, "card-prelude2-cloud-tourism": 1 },
+    playedProjects: ["animal", "microbe"], playedEvents: ["event"],
+    steelProd: 2, heatProd: 3, selectedPreludeIds: [] };
+  const board = { "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" } };
+  const context = { player, cards, board, colonyCount: 2, corporation: null, preludes: [] };
+  assert.equal(award("a-collector").getScore(context), 6);
+  assert.equal(award("a-innovator").getScore(context), 3);
+  assert.equal(award("a-constructor").getScore(context), 3);
+  assert.equal(award("a-manufacturer").getScore(context), 5);
+  assert.equal(award("a-physicist").getScore(context), 2);
+});
+
+test("Amazonis Lobbyist and Constructor use the actual game state", async () => {
+  const { getMilestoneStatus, computeScore } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2, board: "amazonis", turmoil: true, colonies: true });
   state.phase = "action";
+  state.players[0].mc = 40;
+  state.turmoil.delegateReserve.player = 0;
+  state.turmoil.lobby = state.turmoil.lobby.filter(id => id !== "player");
+  state.turmoil.parties.mars.delegates.push(...Array(7).fill("player"));
+  assert.equal(getMilestoneStatus(state, "a-lobbyist", "player").claimable, true);
+  state.turmoil.delegateReserve.player = 1;
+  state.turmoil.parties.mars.delegates.pop();
+  assert.equal(getMilestoneStatus(state, "a-lobbyist", "player").claimable, false);
 
-  const seat = "player";
-  const withHand = size =>
-    getMilestoneStatus(
-      {
-        ...state,
-        players: state.players.map(player =>
-          player.id === seat ? { ...player, hand: Array.from({ length: size }, (_, i) => `c${i}`), mc: 40 } : player
-        )
-      },
-      "minimalist",
-      seat
-    );
+  const ownCity = Object.values(state.board).find(cell => !cell.isOceanOnly);
+  const rivalCities = Object.values(state.board).filter(cell => !cell.isOceanOnly && cell.id !== ownCity.id).slice(0, 2);
+  state.board[`${ownCity.q},${ownCity.r}`].tileType = "city";
+  state.board[`${ownCity.q},${ownCity.r}`].placedBy = "player";
+  for (const cell of rivalCities) {
+    state.board[`${cell.q},${cell.r}`].tileType = "city";
+    state.board[`${cell.q},${cell.r}`].placedBy = "player2";
+  }
+  const colonyTiles = Object.values(state.colonies.tiles).slice(0, 2);
+  for (const tile of colonyTiles) tile.colonies.push("player");
+  state.fundedAwards = [{ awardId: "a-constructor", playerId: "player" }];
+  const withColonies = computeScore(state, "player");
+  for (const tile of colonyTiles) tile.colonies = [];
+  const withoutColonies = computeScore(state, "player");
+  assert.equal(withColonies - withoutColonies, 5);
+});
 
-  assert.equal(withHand(2).claimable, true, "two cards is at most two");
-  assert.equal(withHand(0).claimable, true, "and none is fewer still");
-  assert.equal(withHand(3).claimable, false, "three is one too many");
-  assert.match(withHand(3).reason, /以下/, "the reason must read as a ceiling");
-
-  // A floor milestone on the same board must still compare the usual way.
-  const terran = getMilestoneStatus({ ...state, phase: "action" }, "terran", seat);
-  assert.equal(terran.claimable, false, "no Earth tags yet");
+test("obsolete Amazonis objectives cannot be claimed or funded in new games", async () => {
+  const { getMilestoneStatus, getAwardStatus, computeScore } = await import("../app/game-logic.js");
+  const state = getInitialState({ playerCount: 2, board: "amazonis" });
+  assert.equal(getMilestoneStatus(state, "minimalist", "player").claimable, false);
+  assert.match(getMilestoneStatus(state, "minimalist", "player").reason, /この盤面/);
+  assert.equal(getAwardStatus(state, "curator", "player").fundable, false);
+  assert.match(getAwardStatus(state, "curator", "player").reason, /この盤面/);
+  const before = computeScore(state, "player");
+  state.fundedAwards = [{ awardId: "curator", playerId: "player" }];
+  assert.equal(computeScore(state, "player") - before, 5, "an old funded award still scores after loading");
 });
 
 // Terra Cimmeria's own five and five, transcribed from the reference
@@ -567,13 +610,13 @@ test("Vastitas Borealis has its own board, milestones and awards", () => {
   assert.equal(pole.unshufflable, true);
   assert.equal(pole.bonusAmount, 1);
   assert.deepEqual(milestonesForBoard("vastitas-borealis").map(entry => entry.id),
-    ["v-electrician", "smith", "tradesman", "irrigator", "capitalist"]);
+    ["v-agronomist", "v-engineer", "v-spacefarer", "v-geologist", "v-farmer"]);
   assert.deepEqual(awardsForBoard("vastitas-borealis").map(entry => entry.id),
-    ["forecaster", "edgedancer", "visionary", "naturalist", "voyager"]);
+    ["v-traveller", "v-landscaper", "v-highlander", "v-promoter", "v-blacksmith"]);
 });
 
-test("Vastitas milestones score both sides of their thresholds", () => {
-  const milestone = id => milestonesForBoard("vastitas-borealis").find(entry => entry.id === id);
+test("legacy Vastitas milestones stay registered for saved games", () => {
+  const milestone = id => getMilestone(id);
   const cards = [
     ...Array.from({ length: 4 }, (_, i) => ({ id: `power${i}`, tags: ["Power"] })),
     { id: "animal", resourceType: "animal" }, { id: "animal2", resourceType: "animal" },
@@ -614,8 +657,8 @@ test("Vastitas milestones score both sides of their thresholds", () => {
   }
 });
 
-test("Vastitas awards score requirements, edges, hand, production and Jovian tags", () => {
-  const award = id => awardsForBoard("vastitas-borealis").find(entry => entry.id === id);
+test("legacy Vastitas awards stay registered for saved games", () => {
+  const award = id => getAward(id);
   const cards = [
     { id: "required", type: "active", requirements: [{ temperature: -10 }], tags: ["Jovian"] },
     { id: "text", type: "automated", reqText: "海洋3枚", tags: [] },
@@ -636,6 +679,49 @@ test("Vastitas awards score requirements, edges, hand, production and Jovian tag
     board[key] = { ...board[key], tileType: "city", placedBy: owner };
   }
   assert.equal(award("edgedancer").getScore({ ...context, board }), 3);
+});
+
+test("official Vastitas milestones use tags, production, volcanoes and card resources", () => {
+  const milestone = id => milestonesForBoard("vastitas-borealis").find(entry => entry.id === id);
+  const cards = [
+    { id: "plant", tags: ["Plant"] }, { id: "space", tags: ["Space"] },
+    { id: "animal", resourceType: "animal" }, { id: "microbe", resourceType: "microbe" },
+    { id: "floater", resourceType: "floater" }
+  ];
+  const player = { id: "player", playedProjects: ["plant", "space"], selectedPreludeIds: [],
+    energyProd: 6, heatProd: 4, cardResources: { animal: 3, microbe: 2, floater: 9 } };
+  const board = {
+    "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player", volcanic: true },
+    "1,0": { q: 1, r: 0, tileType: "forest", placedBy: "player" },
+    "2,0": { q: 2, r: 0, tileType: "city", placedBy: "player" },
+    "3,0": { q: 3, r: 0, tileType: "city", placedBy: "player" }
+  };
+  const context = { player, cards, board, corporation: null, preludes: [] };
+  assert.equal(milestone("v-agronomist").getScore(context), 1);
+  assert.equal(milestone("v-engineer").getScore(context), 10);
+  assert.equal(milestone("v-spacefarer").getScore(context), 1);
+  assert.equal(milestone("v-geologist").getScore(context), 2);
+  assert.equal(milestone("v-farmer").getScore(context), 5);
+});
+
+test("official Vastitas awards count connected groups and non-coastal tiles", () => {
+  const award = id => awardsForBoard("vastitas-borealis").find(entry => entry.id === id);
+  const cards = [{ id: "j", tags: ["Jovian"] }, { id: "e", tags: ["Earth"] }];
+  const player = { id: "player", playedProjects: ["j", "e"], playedEvents: ["event"],
+    selectedPreludeIds: [], steelProd: 2, titaniumProd: 3 };
+  const board = {
+    "0,0": { q: 0, r: 0, tileType: "city", placedBy: "player" },
+    "1,0": { q: 1, r: 0, tileType: "forest", placedBy: "player" },
+    "2,0": { q: 2, r: 0, tileType: "city", placedBy: "player" },
+    "5,0": { q: 5, r: 0, tileType: "city", placedBy: "player" },
+    "1,1": { q: 1, r: 1, tileType: "ocean", placedBy: null }
+  };
+  const context = { player, cards, board, corporation: null, preludes: [] };
+  assert.equal(award("v-traveller").getScore(context), 2);
+  assert.equal(award("v-landscaper").getScore(context), 3);
+  assert.equal(award("v-highlander").getScore(context), 2);
+  assert.equal(award("v-promoter").getScore(context), 1);
+  assert.equal(award("v-blacksmith").getScore(context), 5);
 });
 
 async function vastitasTable(mc = 20, temperature = -30) {
@@ -826,13 +912,13 @@ test("Vastitas prelude waits for the paid temperature ocean before resuming setu
 });
 
 test("Vastitas Electrician counts actual power cards and prelude tags", async () => {
-  const { ALL_CARDS, getMilestoneStatus } = await import("../app/game-logic.js");
+  const { ALL_CARDS, getMilestoneStatus, getPlayer } = await import("../app/game-logic.js");
   const { state, seat } = await vastitasTable(64);
   const power = ALL_CARDS.filter(card => card.type !== "event" && card.tags.includes("Power")).slice(0, 3);
   assert.equal(power.length, 3);
   state.players = state.players.map(p => p.id === seat ? { ...p, playedProjects: power.map(c => c.id), selectedPreludeIds: ["prelude-power-generation"] } : p);
-  assert.equal(getMilestoneStatus(state, "v-electrician", seat).score, 4);
-  assert.equal(getMilestoneStatus(state, "v-electrician", seat).claimable, true);
+  assert.equal(getMilestone("v-electrician").getScore({ player: getPlayer(state, seat), cards: ALL_CARDS, corporation: null, preludes: [] }), 3);
+  assert.equal(getMilestoneStatus(state, "v-electrician", seat).claimable, false);
   state.players = state.players.map(p => p.id === seat ? { ...p, selectedPreludeIds: [] } : p);
   assert.equal(getMilestoneStatus(state, "v-electrician", seat).claimable, false);
 });

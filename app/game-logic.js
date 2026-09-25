@@ -22,9 +22,7 @@ import {
 import { THARSIS_CELLS } from "./tharsis-board.js";
 import { ALTERNATE_BOARDS } from "./alternate-boards.js";
 import { createDraft, pickDraftCard, isDraftComplete, draftedHandFor, DRAFT_HAND_SIZE } from "./draft.js";
-// Importing registers the alternate maps' milestones and awards so their ids
-// resolve; without it a Hellas milestone cannot be claimed at all.
-import "./board-milestones.js";
+// Importing registers the alternate maps' milestones and awards so their ids resolve.
 import {
   AWARDS,
   MAX_AWARDS,
@@ -38,7 +36,7 @@ import {
   getNextAwardCost,
   scoreAward
 } from "./milestones-awards.js";
-import { awardsForBoard } from "./board-milestones.js";
+import { awardsForBoard, milestonesForBoard } from "./board-milestones.js";
 
 export { AWARDS, MILESTONES, getNextAwardCost, getMilestoneDescription, getMilestoneThreshold, scoreAward };
 import {
@@ -7978,6 +7976,7 @@ function milestoneContext(state, player) {
     corporation: corporationFor(player),
     // Utopia's Pioneer milestone counts colonies, which live outside the player.
     colonyCount: state.colonies ? countColonies(state.colonies, player.id) : 0,
+    turmoil: state.turmoil,
     // Terra Cimmeria's Gambler counts the awards this player funded, which live
     // on the game rather than on the player.
     fundedAwards: state.fundedAwards ?? []
@@ -7987,6 +7986,9 @@ function milestoneContext(state, player) {
 export function getMilestoneStatus(state, milestoneId, playerId) {
   const milestone = getMilestone(milestoneId);
   if (!milestone) return { claimable: false, reason: "不明なマイルストーンです。", score: 0, threshold: 0, description: "" };
+  if (!milestonesForBoard(state.boardId).some(entry => entry.id === milestoneId)) {
+    return { claimable: false, reason: "この盤面のマイルストーンではありません。", score: 0, threshold: 0, description: "" };
+  }
 
   const player = getPlayer(state, playerId);
   if (!player) return { claimable: false, reason: "プレイヤーが見つかりません。", score: 0, threshold: 0, description: "" };
@@ -8065,6 +8067,9 @@ function getAwardCostFor(state, player) {
 export function getAwardStatus(state, awardId, playerId) {
   const award = getAward(awardId);
   if (!award) return { fundable: false, reason: "不明な表彰です。" };
+  if (!awardsForBoard(state.boardId).some(entry => entry.id === awardId)) {
+    return { fundable: false, reason: "この盤面の表彰ではありません。" };
+  }
 
   const player = getPlayer(state, playerId);
   if (!player) return { fundable: false, reason: "プレイヤーが見つかりません。" };

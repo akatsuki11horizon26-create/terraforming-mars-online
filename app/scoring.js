@@ -330,6 +330,7 @@ export function buildScoreContributions(state, options = {}) {
     cards,
     preludes,
     corporations: CORPORATIONS,
+    countColonies,
     offBoardCities: state.offBoardCities ?? []
   });
   for (const [playerId, points] of Object.entries(awardVp)) {

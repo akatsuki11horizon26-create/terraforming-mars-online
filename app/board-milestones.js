@@ -1,7 +1,9 @@
 // The alternate maps replace the five milestones and five awards with their own.
-// Transcribed from the printed rulebooks (TM_HE_WRAP_ENGi.pdf, TM_UA_WRAP_ENG.pdf),
+// Transcribed from the printed rulebooks (TM_HE_WRAP_ENGi.pdf, TM_UA_WRAP_ENG.pdf,
+// TM_AV_WRAP_ENG.pdf),
 // whose text was read out of the PDFs rather than recalled.
 import { MILESTONES, AWARDS, countTiles, countTags, registerBoardMilestones } from "./milestones-awards.js";
+import { getCardResourceType } from "./card-resource-types.js";
 
 const PRODUCTION_KEYS = ["mcProd", "steelProd", "titaniumProd", "plantsProd", "energyProd", "heatProd"];
 
@@ -138,9 +140,9 @@ function distinctCardResources(context) {
 }
 
 
-// --- Amazonis Planitia --------------------------------------------------
-// Transcribed from the reference implementation the boards came from
-// (src/server/milestones/amazonisPlanitia, src/server/awards/amazonisPlanitia).
+// --- Earlier online-map objectives -------------------------------------
+// Kept for awards already funded in old saves; new games use the physical
+// Amazonis & Vastitas objectives below.
 
 // "Own 3 tiles in the middle 3 equatorial rows." Upstream reads y 3..5 of the
 // nine printed rows, so this counts from the top row rather than trusting the
@@ -185,7 +187,7 @@ function animalAndMicrobeResources(context) {
   for (const [id, count] of Object.entries(context.player.cardResources ?? {})) {
     if (!count) continue;
     const card = context.cards.find(item => item.id === id);
-    const kind = String(card?.resourceType ?? "").toLowerCase();
+    const kind = String(card?.resourceType ?? getCardResourceType(id) ?? "").toLowerCase();
     if (ZOOLOGIST_RESOURCES.has(kind)) total += count;
   }
   return total;
@@ -225,6 +227,81 @@ function productionAlteringCards(context) {
     const card = context.cards.find(item => item.id === id);
     return sum + (card && card.type !== "event" && altersOwnProduction(card) ? 1 : 0);
   }, 0);
+}
+
+function cardInPlayAtLeast(context, cost) {
+  return (context.player.playedProjects ?? []).filter(id =>
+    (context.cards.find(card => card.id === id)?.cost ?? -1) >= cost
+  ).length;
+}
+
+function landshaperTiles(context) {
+  const types = new Set(ownedTiles(context).map(cell => cell.tileType));
+  return Number(types.has("forest")) + Number(types.has("city")) +
+    Number([...types].some(type => !["empty", "forest", "city", "ocean"].includes(type)));
+}
+
+function merchantResources(context) {
+  return ["mc", "steel", "titanium", "plants", "energy", "heat"]
+    .filter(resource => (context.player[resource] ?? 0) >= 3).length;
+}
+
+function delegatesInPlay(context) {
+  const id = context.player.id;
+  if (!context.turmoil) return 0;
+  return 7 - (context.turmoil.delegateReserve?.[id] ?? 7) -
+    (context.turmoil.lobby ?? []).filter(delegate => delegate === id).length;
+}
+
+function resourceKinds(context) {
+  const kinds = new Set(["mc", "steel", "titanium", "plants", "energy", "heat"]
+    .filter(resource => (context.player[resource] ?? 0) > 0));
+  for (const [id, amount] of Object.entries(context.player.cardResources ?? {})) {
+    if (amount <= 0) continue;
+    const card = context.cards.find(entry => entry.id === id);
+    const kind = card?.resourceType ?? getCardResourceType(id);
+    if (kind) kinds.add(String(kind).toLowerCase());
+  }
+  return kinds.size;
+}
+
+function playedCardCount(context) {
+  return (context.player.playedProjects ?? []).length + (context.player.playedEvents ?? []).length;
+}
+
+function coloniesAndCities(context) {
+  return (context.colonyCount ?? 0) + countTiles(context.board, context.player.id, "city");
+}
+
+function geologistTiles(context) {
+  return ownedTiles(context).filter(cell =>
+    cell.volcanic || adjacentPositions(cell.q, cell.r).some(pos =>
+      context.board[`${pos.q},${pos.r}`]?.volcanic
+    )
+  ).length;
+}
+
+function largestTileGroup(context) {
+  const own = new Set(ownedTiles(context).map(cell => `${cell.q},${cell.r}`));
+  let largest = 0;
+  while (own.size > 0) {
+    const first = own.values().next().value;
+    const queue = [first];
+    own.delete(first);
+    let count = 0;
+    while (queue.length > 0) {
+      const key = queue.pop();
+      count += 1;
+      const [q, r] = key.split(",").map(Number);
+      for (const pos of adjacentPositions(q, r)) {
+        const next = `${pos.q},${pos.r}`;
+        if (!own.delete(next)) continue;
+        queue.push(next);
+      }
+    }
+    largest = Math.max(largest, count);
+  }
+  return largest;
 }
 
 
@@ -392,7 +469,7 @@ BOARD_AWARDS["terra-cimmeria"] = [
   { id: "warmonger", name: "戦争屋", description: "他プレイヤーの資源・生産量を減らすカードが最多（イベントを含む）", getScore: attackCards }
 ];
 
-BOARD_MILESTONES.amazonis = [
+const LEGACY_AMAZONIS_MILESTONES = [
   { id: "colonizer", name: "入植者", description: "植民地4つ以上", threshold: 4, getScore: context => context.colonyCount ?? 0 },
   { id: "forester", name: "森林管理者", description: "植物生産量4以上", threshold: 4, getScore: context => context.player.plantsProd ?? 0 },
   {
@@ -409,7 +486,7 @@ BOARD_MILESTONES.amazonis = [
   { id: "tropicalist", name: "熱帯育ち", description: "赤道付近3列にタイル3枚以上", threshold: 3, getScore: tilesInEquatorialRows }
 ];
 
-BOARD_AWARDS.amazonis = [
+const LEGACY_AMAZONIS_AWARDS = [
   { id: "curator", name: "学芸員", description: "同一種のタグが最多（イベントを除く）", getScore: largestSingleTagCount },
   { id: "amazonis-engineer", name: "技師", description: "自分の生産量を変えるカードが最多", getScore: productionAlteringCards },
   { id: "promoter", name: "興行主", description: "イベントカードが最多", getScore: context => (context.player.playedEvents ?? []).length },
@@ -417,7 +494,7 @@ BOARD_AWARDS.amazonis = [
   { id: "amazonis-zoologist", name: "動物学者", description: "動物・微生物資源の合計が最多", getScore: animalAndMicrobeResources }
 ];
 
-BOARD_MILESTONES["vastitas-borealis"] = [
+const LEGACY_VASTITAS_MILESTONES = [
   { id: "v-electrician", name: "電気技師", description: "電力タグ4個以上", threshold: 4, getScore: context => countTags(context.player, context.cards, "Power", context.corporation, context.preludes) },
   { id: "smith", name: "鍛冶屋", description: "建材とチタンの生産量の合計6以上", threshold: 6, getScore: context => (context.player.steelProd ?? 0) + (context.player.titaniumProd ?? 0) },
   { id: "tradesman", name: "商人", description: "カード上の資源が3種類以上", threshold: 3, getScore: distinctCardResources },
@@ -425,12 +502,47 @@ BOARD_MILESTONES["vastitas-borealis"] = [
   { id: "capitalist", name: "資本家", description: "64 MC以上保有", threshold: 64, getScore: context => context.player.mc ?? 0 }
 ];
 
-BOARD_AWARDS["vastitas-borealis"] = [
+const LEGACY_VASTITAS_AWARDS = [
   { id: "forecaster", name: "予報士", description: "条件付きカードが最多（イベントを除く）", getScore: context => cardsWithRequirements(context, true) },
   { id: "edgedancer", name: "縁の舞踏者", description: "盤面の縁にあるタイルが最多", getScore: tilesOnEdge },
   { id: "visionary", name: "幻視者", description: "手札が最多", getScore: context => (context.player.hand ?? []).length },
   { id: "naturalist", name: "博物学者", description: "植物と熱の生産量の合計が最多", getScore: context => (context.player.plantsProd ?? 0) + (context.player.heatProd ?? 0) },
   { id: "voyager", name: "航海者", description: "ジョビアンタグが最多", getScore: context => countTags(context.player, context.cards, "Jovian", context.corporation, context.preludes) }
+];
+
+// The physical Amazonis & Vastitas sheet has different objectives from the
+// earlier online reference. Keep the old IDs registered for saved games, but
+// offer only these printed objectives in new games.
+BOARD_MILESTONES.amazonis = [
+  { id: "a-terran", name: "地球人", description: "地球タグ5個以上", threshold: 5, getScore: context => countTags(context.player, context.cards, "Earth", context.corporation, context.preludes) },
+  { id: "a-landshaper", name: "造地家", description: "緑地・特殊・都市タイルを各1枚以上", threshold: 3, getScore: landshaperTiles },
+  { id: "a-merchant", name: "商人", description: "標準資源6種を各3個以上", threshold: 6, getScore: merchantResources },
+  { id: "a-sponsor", name: "後援者", description: "コスト20 MC以上のプレイ済みカード3枚以上", threshold: 3, getScore: context => cardInPlayAtLeast(context, 20) },
+  { id: "a-lobbyist", name: "ロビイスト", description: "自分の代表者7人全員が議会にいる", threshold: 7, getScore: delegatesInPlay }
+];
+
+BOARD_AWARDS.amazonis = [
+  { id: "a-collector", name: "収集家", description: "保有する資源の種類が最多", getScore: resourceKinds },
+  { id: "a-innovator", name: "革新者", description: "プレイしたカードが最多（イベントを含む）", getScore: playedCardCount },
+  { id: "a-constructor", name: "建設家", description: "植民地と都市タイルの合計が最多", getScore: coloniesAndCities },
+  { id: "a-manufacturer", name: "製造家", description: "建材と熱の生産量の合計が最多", getScore: context => (context.player.steelProd ?? 0) + (context.player.heatProd ?? 0) },
+  { id: "a-physicist", name: "物理学者", description: "科学と宇宙タグの合計が最多", getScore: context => countTags(context.player, context.cards, "Science", context.corporation, context.preludes) + countTags(context.player, context.cards, "Space", context.corporation, context.preludes) }
+];
+
+BOARD_MILESTONES["vastitas-borealis"] = [
+  { id: "v-agronomist", name: "農学者", description: "植物タグ4個以上", threshold: 4, getScore: context => countTags(context.player, context.cards, "Plant", context.corporation, context.preludes) },
+  { id: "v-engineer", name: "技師", description: "電力と熱の生産量の合計10以上", threshold: 10, getScore: context => (context.player.energyProd ?? 0) + (context.player.heatProd ?? 0) },
+  { id: "v-spacefarer", name: "宇宙旅行者", description: "宇宙タグ4個以上", threshold: 4, getScore: context => countTags(context.player, context.cards, "Space", context.corporation, context.preludes) },
+  { id: "v-geologist", name: "地質学者", description: "火山マス上または隣接する自分のタイル3枚以上", threshold: 3, getScore: geologistTiles },
+  { id: "v-farmer", name: "農家", description: "動物・微生物資源の合計5個以上", threshold: 5, getScore: animalAndMicrobeResources }
+];
+
+BOARD_AWARDS["vastitas-borealis"] = [
+  { id: "v-traveller", name: "旅行者", description: "ジョビアンと地球タグの合計が最多", getScore: context => countTags(context.player, context.cards, "Jovian", context.corporation, context.preludes) + countTags(context.player, context.cards, "Earth", context.corporation, context.preludes) },
+  { id: "v-landscaper", name: "造園家", description: "自分の最大連結タイル群が最多", getScore: largestTileGroup },
+  { id: "v-highlander", name: "高地人", description: "海洋に隣接しない自分のタイルが最多", getScore: context => ownedTiles(context).length - tilesAdjacentToOcean(context) },
+  { id: "v-promoter", name: "興行主", description: "プレイしたイベントカードが最多", getScore: context => (context.player.playedEvents ?? []).length },
+  { id: "v-blacksmith", name: "鍛冶屋", description: "建材とチタンの生産量の合計が最多", getScore: context => (context.player.steelProd ?? 0) + (context.player.titaniumProd ?? 0) }
 ];
 
 export function milestonesForBoard(boardId) {
@@ -445,3 +557,5 @@ export function awardsForBoard(boardId) {
 for (const boardId of Object.keys(BOARD_MILESTONES)) {
   registerBoardMilestones(BOARD_MILESTONES[boardId], BOARD_AWARDS[boardId] ?? []);
 }
+registerBoardMilestones(LEGACY_AMAZONIS_MILESTONES, LEGACY_AMAZONIS_AWARDS);
+registerBoardMilestones(LEGACY_VASTITAS_MILESTONES, LEGACY_VASTITAS_AWARDS);
