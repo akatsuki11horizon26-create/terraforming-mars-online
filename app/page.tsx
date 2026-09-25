@@ -2201,7 +2201,7 @@ export default function Home() {
                     else if (cell.bonusType === "card") content = `🃏${cell.bonusAmount}`;
                     else if (cell.bonusType === "temperature") {
                       content = "🌡️";
-                      label = "配置ボーナス: 任意で3 MCを支払い、気温 +2°C";
+                      label = "配置ボーナス: 4 MCを支払い、気温 +2°C";
                     }
                   }
                   if (cell.isOceanOnly && cell.tileType === "empty") {

@@ -3496,14 +3496,14 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
           Object.assign(next, crossed.state);
           nextLogs = crossed.logs;
         }
-        if (amount > 0 && next.temperature < MAX_TEMPERATURE && getPlayer(next, target).mc >= 3) {
-          next.players = next.players.map(player => player.id === target ? { ...player, mc: player.mc - 3 } : player);
+        if (amount > 0 && next.temperature < MAX_TEMPERATURE && getPlayer(next, target).mc >= 4) {
+          next.players = next.players.map(player => player.id === target ? { ...player, mc: player.mc - 4 } : player);
           const beforeTemp = next.temperature;
           raiseTemperature(next, target);
           const crossed = applyParameterThresholds(next, {
             beforeTemp, beforeOxy: next.oxygen, actorPlayerId: target, grantTr: true, logs: nextLogs
           });
-          nextLogs = addLog(crossed.logs, "system", "配置ボーナス: 3 MCを支払い、気温 +2°C。");
+          nextLogs = addLog(crossed.logs, "system", "配置ボーナス: 4 MCを支払い、気温 +2°C。");
         } else {
           nextLogs = addLog(nextLogs, "system", "配置ボーナスの加熱を使用しませんでした。");
         }
@@ -5749,17 +5749,17 @@ function grantPlacementBonus(state, cell, ownerId) {
   const ordered = [...grants.filter(grant => grant.type !== "temperature"), ...grants.filter(grant => grant.type === "temperature")];
   for (const grant of ordered) {
     if (grant.type === "temperature") {
-      if (state.temperature < MAX_TEMPERATURE && getPlayer(state, ownerId).mc >= 3) {
+      if (state.temperature < MAX_TEMPERATURE && getPlayer(state, ownerId).mc >= 4) {
         for (let i = 0; i < grant.amount; i++) {
           const choice = buildAmountChoice(state, {
             sourceKind: "placement-bonus",
             sourceId: `temperature:${cell.id ?? `${cell.q},${cell.r}`}`,
             stage: "placement-temperature",
             max: 1,
-            optional: true,
+            optional: false,
             consumedAction: state.phase === "action",
-            prompt: "配置ボーナス: 3 MCを支払い、気温を1段階上げますか？",
-            labelFor: () => "3 MCを支払い、気温 +2°C"
+            prompt: "配置ボーナス: 4 MCを支払い、気温を1段階上げます。",
+            labelFor: () => "4 MCを支払い、気温 +2°C"
           });
           choice.ownerPlayerId = ownerId;
           openOrEnqueuePendingChoice(state, choice);

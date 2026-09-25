@@ -652,31 +652,34 @@ async function vastitasTable(mc = 20, temperature = -30) {
   return { state, pole, seat: state.currentPlayerId };
 }
 
-for (const answer of ["amount-1", "__decline__"]) {
-  test(`Vastitas real placement offers an optional paid temperature step: ${answer}`, async () => {
+for (const answer of ["amount-1"]) {
+  test(`Vastitas real placement requires the paid temperature step: ${answer}`, async () => {
     const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
     const { getPlayer } = await import("../app/game-logic.js");
-    const { state, pole, seat } = await vastitasTable(3);
+    const { state, pole, seat } = await vastitasTable(4);
     const project = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "convert-plants" });
     assert.equal(project.ok, true);
     const placed = executeGameCommand(project.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: `${pole.q},${pole.r}` });
     assert.equal(placed.ok, true);
     assert.equal(placed.state.board[`${pole.q},${pole.r}`].tileType, "forest");
     assert.equal(placed.state.pendingChoice?.continuation.stage, "placement-temperature");
-    assert.equal(placed.state.pendingChoice.optional, true);
+    assert.equal(placed.state.pendingChoice.optional, false);
+    assert.equal(placed.state.pendingChoice.options[0].label, "4 MCを支払い、気温 +2°C");
     assert.equal(placed.state.temperature, -30);
+    const declined = executeGameCommand(placed.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: "__decline__" });
+    assert.equal(declined.state.pendingChoice?.continuation.stage, "placement-temperature");
+    assert.equal(declined.state.temperature, -30);
     const before = getPlayer(placed.state, seat);
     const paid = executeGameCommand(placed.state, { type: COMMAND.RESOLVE_PENDING, playerId: seat, optionId: answer });
     assert.equal(paid.ok, true);
-    const accepted = answer === "amount-1";
-    assert.equal(getPlayer(paid.state, seat).mc, before.mc - (accepted ? 3 : 0));
-    assert.equal(getPlayer(paid.state, seat).tr, before.tr + (accepted ? 1 : 0));
-    assert.equal(paid.state.temperature, accepted ? -28 : -30);
+    assert.equal(getPlayer(paid.state, seat).mc, before.mc - 4);
+    assert.equal(getPlayer(paid.state, seat).tr, before.tr + 1);
+    assert.equal(paid.state.temperature, -28);
     assert.equal(paid.state.pendingChoice, null);
   });
 }
 
-for (const [mc, temperature] of [[2, -30], [0, -30], [3, 8]]) {
+for (const [mc, temperature] of [[3, -30], [0, -30], [4, 8]]) {
   test(`Vastitas skips unaffordable or capped temperature bonus (${mc}, ${temperature})`, async () => {
     const { placeTileAt, getPlayer } = await import("../app/game-logic.js");
     const { state, pole, seat } = await vastitasTable(mc, temperature);
@@ -718,7 +721,7 @@ for (const start of [-26, -22, -2]) {
 test("Vastitas multi-bonuses and repeated payments preserve other choices and never overdraw", async () => {
   const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
   const { buildAmountChoice } = await import("../app/pending-choice.js");
-  const { state, pole, seat } = await vastitasTable(3);
+  const { state, pole, seat } = await vastitasTable(4);
   const original = buildAmountChoice(state, { sourceKind: "test", sourceId: "existing", max: 1 });
   state.pendingChoice = original;
   const before = getPlayer(state, seat);
@@ -736,7 +739,7 @@ test("Vastitas multi-bonuses and repeated payments preserve other choices and ne
   assert.equal(result.state.pendingChoice, null);
 });
 
-for (const answer of ["amount-1", "__decline__"]) {
+for (const answer of ["amount-1"]) {
   test(`Vastitas preserves a card's follow-up placement and after-play work: ${answer}`, async () => {
     const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
     const { buildTileChoice } = await import("../app/pending-choice.js");
@@ -759,7 +762,7 @@ for (const answer of ["amount-1", "__decline__"]) {
   });
 }
 
-for (const answer of ["amount-1", "__decline__"]) {
+for (const answer of ["amount-1"]) {
   test(`Vastitas automatic prelude placement resumes the next prelude: ${answer}`, async () => {
     const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
     const { getPlayer } = await import("../app/game-logic.js");
@@ -837,7 +840,7 @@ test("Vastitas Electrician counts actual power cards and prelude tags", async ()
 test("Vastitas mixed resource payout can fund the temperature offer", async () => {
   const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
   const { state, pole, seat } = await vastitasTable(0);
-  placeTileAt(state, { ...pole, bonusType: "multi", bonus: [{ type: "temperature", amount: 1 }, { type: "mc", amount: 3 }] }, "city", seat);
+  placeTileAt(state, { ...pole, bonusType: "multi", bonus: [{ type: "temperature", amount: 1 }, { type: "mc", amount: 4 }] }, "city", seat);
   assert.equal(state.pendingChoice?.continuation.stage, "placement-temperature");
   const result = resolvePendingChoice(state, "amount-1", state.logs, seat);
   assert.equal(getPlayer(result.state, seat).mc, 0);
@@ -861,7 +864,7 @@ test("Vastitas greenery threshold and paid step award each heat threshold once",
 
 test("Vastitas payment and TR belong to the placer and reject another player's answer", async () => {
   const { placeTileAt, resolvePendingChoice, getPlayer } = await import("../app/game-logic.js");
-  const { state, pole, seat } = await vastitasTable(3);
+  const { state, pole, seat } = await vastitasTable(4);
   const owner = state.players.find(p => p.id !== seat).id;
   const before = getPlayer(state, owner);
   placeTileAt(state, pole, "city", owner);
@@ -870,5 +873,5 @@ test("Vastitas payment and TR belong to the placer and reject another player's a
   const result = resolvePendingChoice(state, "amount-1", state.logs, owner);
   assert.equal(getPlayer(result.state, owner).mc, 0);
   assert.equal(getPlayer(result.state, owner).tr, before.tr + 1);
-  assert.equal(getPlayer(result.state, seat).mc, 3);
+  assert.equal(getPlayer(result.state, seat).mc, 4);
 });

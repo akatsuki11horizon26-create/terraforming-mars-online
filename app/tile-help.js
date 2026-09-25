@@ -4,7 +4,7 @@ const BONUS_TEXT = {
   titanium: n => `チタン +${n}`,
   mc: n => `MC +${n}`,
   card: n => `カードを${n}枚引く`,
-  temperature: () => "任意で3 MCを支払い、気温 +2°C（上限時は効果なし）"
+  temperature: () => "4 MCを支払い、気温 +2°C（支払えない場合・上限時は効果なし）"
 };
 
 export const TILE_LEGEND = [
