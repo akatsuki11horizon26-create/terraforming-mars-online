@@ -1,4 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
+import { buildColonyOn, getInitialState, tradeWith } from "../../app/game-logic.js";
+import { SAVE_KEY, serializeSavedState } from "../../app/save-migration.js";
 
 // U3 from the audit: on a 390x844 phone the page ran to 1577px, the header and
 // board were cut off sideways, and the player's own resources scrolled away.
@@ -103,4 +105,56 @@ test("the buttons are big enough to hit with a thumb", async ({ page }) => {
       .filter(entry => entry.height > 0 && entry.height < 40);
   });
   expect(small, `these are under the 40px target: ${JSON.stringify(small)}`).toEqual([]);
+});
+
+test("Europa's ocean choice can be completed on a phone", async ({ page }) => {
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["europa"];
+  state.colonies.tiles = {
+    europa: { id: "europa", trackPosition: 1, colonies: [], active: true }
+  };
+  state.players[0].mc = 40;
+  state.onboarded = true;
+  const built = buildColonyOn(state, "europa", state.logs, "player");
+  await page.addInitScript(({ key, saved }) => localStorage.setItem(key, saved), {
+    key: SAVE_KEY,
+    saved: serializeSavedState(built.state)
+  });
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByTestId("mode-continue").click();
+  const placeable = page.locator('[data-testid="board-cell"][data-placeable="true"]').last();
+  await expect(placeable).toBeVisible();
+  const key = await placeable.getAttribute("data-cell-key");
+  await placeable.click();
+  await expect(page.locator(`[data-testid="board-cell"][data-cell-key="${key}"]`)).toHaveClass(/hex-ocean/);
+  await expect(page.locator('span.param-chip[title^="海洋 "] .param-chip-value')).toHaveText("1/9");
+});
+
+test("a colony resource target can be selected on a phone", async ({ page }) => {
+  const state = getInitialState({ playerCount: 2, colonies: true });
+  state.colonies.tilesInPlay = ["enceladus"];
+  state.colonies.tiles = {
+    enceladus: { id: "enceladus", trackPosition: 2, colonies: [], active: true }
+  };
+  state.players[0].playedProjects = ["card-base-ants"];
+  state.players[1].playedProjects = ["card-base-ghg-producing-bacteria"];
+  state.onboarded = true;
+  const traded = tradeWith(state, "enceladus", state.logs, "player");
+  const choice = traded.state.pendingChoice;
+  const target = choice.options[0];
+  await page.addInitScript(({ key, saved }) => localStorage.setItem(key, saved), {
+    key: SAVE_KEY,
+    saved: serializeSavedState(traded.state)
+  });
+  await page.setViewportSize(PHONE);
+  await page.goto("/");
+  await page.getByTestId("mode-continue").click();
+  const dialog = page.getByRole("dialog", { name: choice.prompt });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: target.label }).click();
+  await expect(dialog).not.toBeVisible();
+  const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key) ?? "{}"), SAVE_KEY);
+  const owner = saved.players.find((player: { id: string }) => player.id === target.targetPlayerId);
+  expect(owner.cardResources[target.targetCardId]).toBe(2);
 });
