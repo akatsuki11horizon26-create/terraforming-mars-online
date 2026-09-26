@@ -8562,7 +8562,9 @@ export function isGameOverCheck(temp, oxy, oce, boardId) {
 // manual used to print 14 whatever the settings were, so a Prelude game told
 // the player they had two generations they did not have.
 export function getSoloGenerationLimit(state) {
-  return state?.preludeEnabled ? 12 : 14;
+  const standardLimit = state?.preludeEnabled ? 12 : 14;
+  // Amazonis adds one generation to both solo limits on its printed track.
+  return standardLimit + (state?.boardId === "amazonis" ? 1 : 0);
 }
 
 export const SOLO_TR_TARGET = 63;

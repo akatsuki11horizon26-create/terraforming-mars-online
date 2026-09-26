@@ -10,7 +10,8 @@ import {
   CORPORATIONS,
   RESEARCH_CARD_COST,
   DECLINE_CHOICE,
-  getGlobalParameterLimits
+  getGlobalParameterLimits,
+  getSoloGenerationLimit
 } from "./game-logic.js";
 import { executeGameCommand, getLegalCommands, COMMAND } from "./game-command.js";
 
@@ -111,7 +112,7 @@ const TILE_BONUS_WEIGHT = {
 
 function phaseFactors(state) {
   const generation = state.generation ?? 1;
-  const limit = state.mode === "solo" ? (state.preludeEnabled ? 12 : 14) : 14;
+  const limit = state.mode === "solo" ? getSoloGenerationLimit(state) : 14;
   const left = Math.max(0, limit - generation);
   const limits = getGlobalParameterLimits(state.boardId);
   const completed = [state.oxygen >= limits.oxygen, state.temperature >= limits.temperature, state.oceans >= limits.oceans].filter(Boolean).length;

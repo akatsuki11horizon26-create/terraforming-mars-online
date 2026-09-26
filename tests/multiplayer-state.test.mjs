@@ -224,6 +224,19 @@ test("A solo game with Prelude ends after 12 generations, not 14", () => {
   );
 });
 
+test("Amazonis solo allows one additional generation with or without Prelude", () => {
+  for (const prelude of [false, true]) {
+    const limit = prelude ? 13 : 15;
+    const before = getInitialState({ board: "amazonis", prelude });
+    before.generation = limit - 1;
+    assert.equal(triggerProduction(before, before.logs).phase, "research");
+
+    const final = getInitialState({ board: "amazonis", prelude });
+    final.generation = limit;
+    assert.equal(triggerProduction(final, final.logs).phase, "final_greenery");
+  }
+});
+
 test("A version 3 save is converted to a solo game rather than discarded", () => {
   const legacy = {
     rulesVersion: 3,

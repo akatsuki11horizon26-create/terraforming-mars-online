@@ -3011,7 +3011,7 @@ export default function Home() {
             <div className="status-cell">
               <span className="status-label">世代</span>
               <span className="status-value">
-                {activeState.generation}{activeState.mode === "solo" ? " / 14" : ""}
+                {activeState.generation}{activeState.mode === "solo" ? ` / ${soloGenerationLimit}` : ""}
               </span>
             </div>
             <div className="status-cell">
