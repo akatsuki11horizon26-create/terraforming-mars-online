@@ -45,16 +45,17 @@ const BOARDS = {
   "vastitas-borealis": {
     name: "ヴァスティタス・ボレアリス",
     englishName: "Vastitas Borealis",
+    volcanoNames: ["Hecates Tholus", "Elysium Mons", "Alba Mons", "Uranius Tholus"],
     build(b) {
-      b.land(STEEL, STEEL).land(PLANT).land().land().volcanic(TITANIUM, TITANIUM);
-      b.land(STEEL, STEEL).land(STEEL).land().land().volcanic(TITANIUM).land(PLANT);
+      b.land(STEEL, STEEL).land(PLANT).volcanic().land().land(TITANIUM, TITANIUM);
+      b.land(STEEL, STEEL).land(STEEL).land().land().land(TITANIUM).volcanic();
       b.land(TITANIUM).land().land().land().land(CARD).ocean(PLANT, CARD).ocean(PLANT);
-      b.volcanic(STEEL, TITANIUM).volcanic(STEEL, CARD).land(STEEL).ocean(HEAT, HEAT).ocean(HEAT, HEAT).ocean().ocean(PLANT, PLANT).land(STEEL, PLANT);
+      b.volcanic(TITANIUM, TITANIUM).land(STEEL, CARD).land(STEEL).ocean(HEAT, HEAT).ocean(HEAT, HEAT).ocean().ocean(PLANT, PLANT).land(DELEGATE);
       b.land().land().land().ocean(HEAT, HEAT).land(TEMPERATURE).doNotShuffleLastSpace().land(STEEL).land().land(PLANT).ocean(TITANIUM);
       b.land(PLANT).land().land(PLANT).ocean(HEAT, HEAT).land(HEAT, HEAT).land().land(PLANT).land(TITANIUM, PLANT);
-      b.land(PLANT, PLANT).land().ocean().land().land(STEEL, PLANT).land(PLANT).land(PLANT, PLANT);
+      b.volcanic(CARD).land().ocean().land().land(STEEL, PLANT).land(PLANT).land(PLANT, PLANT);
       b.ocean(PLANT).land().land(CARD).land(STEEL).land().land(PLANT, PLANT);
-      b.ocean(PLANT, PLANT).land().land(PLANT).land(PLANT, PLANT).land(STEEL, PLANT);
+      b.land(DELEGATE).land().land(PLANT).land(PLANT, PLANT).land(STEEL, PLANT);
     }
   },
   hellas: {

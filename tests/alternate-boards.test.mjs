@@ -853,10 +853,38 @@ test("Vastitas Borealis has its own board, milestones and awards", () => {
   assert.equal(pole.id, "33");
   assert.equal(pole.unshufflable, true);
   assert.equal(pole.bonusAmount, 1);
+  assert.deepEqual(cells.filter(cell => cell.volcanic).map(cell => [cell.id, cell.name]), [
+    ["05", "Hecates Tholus"], ["13", "Elysium Mons"],
+    ["21", "Alba Mons"], ["46", "Uranius Tholus"]
+  ]);
+  assert.deepEqual(cells.filter(cell => cell.bonusType === "delegate").map(cell => cell.id), ["28", "59"]);
   assert.deepEqual(milestonesForBoard("vastitas-borealis").map(entry => entry.id),
     ["v-agronomist", "v-engineer", "v-spacefarer", "v-geologist", "v-farmer"]);
   assert.deepEqual(awardsForBoard("vastitas-borealis").map(entry => entry.id),
     ["v-traveller", "v-landscaper", "v-highlander", "v-promoter", "v-blacksmith"]);
+});
+
+test("Vastitas Viking sites send a free delegate only with Turmoil", async () => {
+  const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
+  for (const id of ["28", "59"]) {
+    const state = getInitialState({ board: "vastitas-borealis", turmoil: true });
+    state.phase = "action";
+    const owner = state.currentPlayerId;
+    const cell = Object.values(state.board).find(candidate => candidate.id === id);
+    const beforeMc = getPlayer(state, owner).mc;
+    const beforeReserve = state.turmoil.delegateReserve[owner];
+    placeTileAt(state, cell, "city", owner);
+    assert.equal(state.pendingChoice?.kind, "placement-delegate", id);
+    const settled = resolvePendingChoice(state, "mars", state.logs, owner).state;
+    assert.equal(settled.turmoil.delegateReserve[owner], beforeReserve - 1, id);
+    assert.equal(getPlayer(settled, owner).mc, beforeMc, id);
+
+    const noTurmoil = getInitialState({ board: "vastitas-borealis" });
+    noTurmoil.phase = "action";
+    const sameCell = Object.values(noTurmoil.board).find(candidate => candidate.id === id);
+    placeTileAt(noTurmoil, sameCell, "city", noTurmoil.currentPlayerId);
+    assert.equal(noTurmoil.pendingChoice, null, id);
+  }
 });
 
 test("legacy Vastitas milestones stay registered for saved games", () => {
