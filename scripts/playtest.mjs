@@ -6,6 +6,7 @@
 //   node scripts/playtest.mjs [--games=20] [--players=1] [--turmoil] [--colonies] [--draft] [--seed=N]
 import {
   getInitialState,
+  getGlobalParameterLimits,
   applyCorporation,
   draftPick,
   applyPreludes,
@@ -102,6 +103,7 @@ function report(kind, detail, context = {}) {
 
 // Invariants that must hold after every single step of every game.
 function checkInvariants(state, where) {
+  const limits = getGlobalParameterLimits(state.boardId);
   for (const player of state.players) {
     for (const field of ["mc", "steel", "titanium", "plants", "energy", "heat"]) {
       const value = player[field];
@@ -123,9 +125,9 @@ function checkInvariants(state, where) {
     }
   }
 
-  if (state.oceans > 9) report("too-many-oceans", `oceans = ${state.oceans}`, { where });
-  if (state.oxygen > 14) report("oxygen-over-max", `oxygen = ${state.oxygen}`, { where });
-  if (state.temperature > 8) report("temperature-over-max", `temp = ${state.temperature}`, { where });
+  if (state.oceans > limits.oceans) report("too-many-oceans", `oceans = ${state.oceans}`, { where });
+  if (state.oxygen > limits.oxygen) report("oxygen-over-max", `oxygen = ${state.oxygen}`, { where });
+  if (state.temperature > limits.temperature) report("temperature-over-max", `temp = ${state.temperature}`, { where });
   if (state.temperature % 2 !== 0) report("temperature-off-grid", `temp = ${state.temperature}`, { where });
 
   const oceanTiles = Object.values(state.board).filter(cell => cell.tileType === "ocean").length;
@@ -293,6 +295,7 @@ function playGame(seed) {
   // Setup follows the real flow: the engine hands the seat between players, so
   // drive whoever it says is up rather than looping over the roster ourselves.
   let setupGuard = 0;
+  let lastSetupChoice = null;
   // Setup is corporation, then the starting-hand purchase, then preludes, then
   // the corporation's first action -- each a separate step per player, and any
   // of them can raise a question. 40 was tight enough that a five-player game
@@ -303,6 +306,7 @@ function playGame(seed) {
     // the whole setup, which read as "nothing left to choose".
     if (state.pendingChoice) {
       const choice = state.pendingChoice;
+      lastSetupChoice = { kind: choice.kind, owner: choice.ownerPlayerId, continuation: choice.continuation };
       const option = choice.options?.[Math.floor(rng() * choice.options.length)];
       if (!option) {
         report("setup-choice-empty", `${choice.kind} offered nothing`, { where });
@@ -422,7 +426,7 @@ function playGame(seed) {
       checkInvariants(state, `${where}/prelude:${seat.id}`);
       continue;
     }
-    report("setup-stuck", `${seat.id} has nothing left to choose`, { where });
+    report("setup-stuck", `${seat.id} has nothing left to choose (${state.players.map(player => `${player.id}:${player.setupStep}:corp=${player.corporationId}:initial=${player.initialActionDone}:cards=${player.researchCards?.length ?? 0}:preludes=${player.preludeOptions?.length ?? 0}/${player.selectedPreludeIds?.length ?? 0}`).join(" ")}; lastChoice=${JSON.stringify(lastSetupChoice)}; recent=${state.logs.slice(0, 4).map(log => log.text).join(" | ")})`, { where });
     break;
   }
   if (state.phase === "setup") {
@@ -481,9 +485,10 @@ function playGame(seed) {
     // and then scoring the unfinished state reported "完走" for a game that
     // never ended.
     if (state.generation > 80) {
+      const limits = getGlobalParameterLimits(state.boardId);
       report(
         "generation-limit",
-        `gen ${state.generation} with oceans=${state.oceans}/9 oxygen=${state.oxygen}/14 temp=${state.temperature}/8` +
+        `gen ${state.generation} with oceans=${state.oceans}/${limits.oceans} oxygen=${state.oxygen}/${limits.oxygen} temp=${state.temperature}/${limits.temperature}` +
         ` [ocean spaces left=${legalCellsFor(state, "ocean").length}, money=${state.players.map(x => x.mc).join("/")}]`,
         { where }
       );
@@ -579,9 +584,10 @@ function playGame(seed) {
     // parameter is short, aim at that one -- otherwise a base-only game can
     // spend twenty generations buying the two that are already finished.
     const wanted = new Set();
-    if (state.oceans < 9) wanted.add("aquifer");
-    if (state.oxygen < 14) { wanted.add("greenery"); wanted.add("convert-plants"); }
-    if (state.temperature < 8) { wanted.add("asteroid"); wanted.add("convert-heat"); }
+    const limits = getGlobalParameterLimits(state.boardId);
+    if (state.oceans < limits.oceans) wanted.add("aquifer");
+    if (state.oxygen < limits.oxygen) { wanted.add("greenery"); wanted.add("convert-plants"); }
+    if (state.temperature < limits.temperature) { wanted.add("asteroid"); wanted.add("convert-heat"); }
     const closing = moves.filter(entry => entry.kind === "standard" && wanted.has(entry.id));
     const terraforming = moves.filter(entry => entry.kind === "standard");
 

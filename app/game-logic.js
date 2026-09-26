@@ -4630,6 +4630,26 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
         next.colonies = placed.colonies;
         const granted = grantColonyBenefit(next, placed.bonus, actorId, nextLogs, option.targetTileId);
         nextLogs = addLog(granted.logs, "system", `${option.label} に入植しました。`);
+        if (next.pendingChoice) {
+          const pending = next.pendingChoice;
+          next.pendingChoice = {
+            ...pending,
+            continuation: {
+              ...pending.continuation,
+              placementResumes: [{
+                choice: {
+                  ...choice,
+                  kind: "placement-continuation",
+                  options: [{ id: "resume" }],
+                  continuation: { ...choice.continuation, stage: "colony-placement-complete", placementResumes: [] }
+                },
+                optionId: "resume"
+              }]
+            }
+          };
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+        }
       }
       break;
     }

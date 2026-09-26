@@ -2015,6 +2015,39 @@ test("a prelude that asks once still resumes immediately", () => {
   assert.equal(current.pendingChoice, null, "the prelude finished");
 });
 
+test("a prelude colony on Europa resumes setup after its ocean placement", () => {
+  const state = getInitialState({ playerCount: 2, prelude2: true, colonies: true, seed: 4 });
+  state.colonies.tilesInPlay = ["europa"];
+  state.colonies.tiles = {
+    europa: { id: "europa", trackPosition: 1, colonies: [], active: true }
+  };
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.researchCards = [];
+    player.corporationId = "corp-teractor";
+    player.initialActionDone = true;
+  }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = ["card-prelude2-old-mining-colony", "prelude-biolab"];
+  seat.hand = (state.deck ?? []).slice(0, 3);
+
+  let current = applyPreludes(state, seat.preludeOptions, seat.id);
+  assert.equal(current.pendingChoice?.kind, "colony-placement");
+  const colony = current.pendingChoice.options.find(option => option.targetTileId === "europa");
+  current = resolvePendingChoice(current, colony.id, [], seat.id).state;
+  assert.equal(current.pendingChoice?.kind, "tile-placement");
+  current = structuredClone(current);
+  const ocean = current.pendingChoice.options[0];
+  current = resolvePendingChoice(current, ocean.id, [], seat.id).state;
+
+  assert.equal(current.oceans, 1);
+  assert.equal(current.pendingChoice, null);
+  assert.equal(current.players[0].plantsProd, 1, "the second prelude resolves");
+  assert.equal(current.currentPlayerId, state.players[1].id, "setup advances to the next seat");
+});
+
 test("Arklight collects an animal per animal or plant tag", () => {
   const state = getInitialState({ playerCount: 2, colonies: true, seed: 4 });
   state.phase = "action";
