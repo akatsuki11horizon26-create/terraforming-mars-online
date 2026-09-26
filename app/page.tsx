@@ -3410,7 +3410,7 @@ export default function Home() {
               {helpPage === 1 && (
                 <>
               <p style={{ fontWeight: "bold", color: "var(--color-ember)", marginBottom: "10px" }}>
-                公式ソロルール準拠・非公式ファンメイド
+                この試合のルール・非公式ファンメイド
               </p>
               <p style={{ marginBottom: "8px" }} data-testid="win-condition">
                 {!isSoloMission
@@ -3449,18 +3449,18 @@ export default function Home() {
 
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ 世代の進行フロー</h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                <li><strong>初期セットアップ:</strong> 最初に配られる10枚のカードから、1枚 3 MC で必要な数だけ購入し、手札としてスタートします。初期TRは14、各資源の初期生産量は0です。</li>
+                <li><strong>初期セットアップ:</strong> 企業と初期カード10枚{activeState.preludeEnabled ? "、プレリュード2枚" : ""}を比較して選びます。通常はカード1枚につき3 MC、初心者企業なら10枚を無料で保持します。初期TRは{isSoloMission ? 14 : 20}、各生産量は{activeState.corporateEra === false ? 1 : 0}を基準に企業効果を適用します。</li>
                 <li><strong>研究開発フェーズ (第2世代以降):</strong> 各世代の開始時に4枚のカードが公開され、1枚 3 MC で任意の枚数を選択・購入できます。</li>
                 <li><strong>アクションフェーズ:</strong> プレイヤーは1ターンに1回または2回のアクションを行うことができます。1アクション実行後、「もう1アクション」または「ターン終了」を選択します。「ターン終了」を選ぶか2アクション実行すると新たなターンとなります。プレイヤーが「パス」を選択するとその世代のアクションフェーズを終え、生産フェーズへと移行します。</li>
                 <li><strong>生産フェーズ:</strong> 蓄積されたエネルギーはすべて熱資源に変換され、TR（開拓評価）＋MC生産量（最低-5まで）に等しいMCと、その他の資源が生産されます。</li>
-                <li><strong>最終植物緑化:</strong> 最終世代の生産フェーズ終了後、保有する植物資源 (8につき1枚) を使用して最後の緑地配置が可能です。</li>
+                <li><strong>最終植物緑化:</strong> 最終世代の生産フェーズ終了後、保有する植物資源 ({plantGreeneryCost}につき1枚) を使用して最後の緑地配置が可能です。</li>
               </ul>
 
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ アクションの種類</h4>
               <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
                 <li><strong>カードのプレイ:</strong> 手札のカードを、MCを支払ってプレイします。「建」タグには建材（1つ=2MC）、「宇」タグにはチタン（1つ=3MC）を値引きに使用できます。（お釣りは出ません）</li>
                 <li><strong>標準プロジェクト:</strong> 発電所（11MC：エネルギー生産+1）、小惑星（14MC：気温上昇）、海洋（18MC）、緑化（23MC）、都市（25MC：MC生産+1）、特許の売却（不要カードを1枚1MCで売却）が可能です。</li>
-                <li><strong>資源の直接変換:</strong> 植物8を緑地へ、または熱8を気温上昇へ直接変換できます。</li>
+                <li><strong>資源の直接変換:</strong> 植物{plantGreeneryCost}を緑地へ、または熱8を気温上昇へ直接変換できます。</li>
               </ul>
 
               <h4 style={{ color: "var(--color-gold)", marginTop: "14px", marginBottom: "6px" }}>■ タイル配置ルール</h4>
@@ -3480,9 +3480,9 @@ export default function Home() {
                 <>
                   <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ プレリュード (Prelude)</h4>
                   <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                    <li>企業選択のあと、配られた<strong>4枚から2枚</strong>を選び、<strong>即座に解決</strong>します。</li>
-                    <li>解決後に通常どおり初期手札を購入します（1枚3 MC）。</li>
-                    <li>支払いを伴うプレリュードは、支払えない場合は選べません。</li>
+                    <li>企業・初期カードと合わせて、配られた<strong>4枚から2枚</strong>を比較して選びます。</li>
+                    <li>初期カードの購入後に、選んだプレリュードを順に解決します。</li>
+                    <li>解決時に効果をすべて実行できないプレリュードは公開して捨て、代わりに15 MCを得ます。</li>
                     <li>ゲームの立ち上がりが数世代ぶん速くなるため、全体の世代数が短くなります。</li>
                   </ul>
 
@@ -3491,7 +3491,7 @@ export default function Home() {
                     <li><strong>金星スケール</strong>が4つ目のグローバルパラメータとして加わります（0%〜{getVenusTrackLimit(activeState)}%）。</li>
                     <li>1ステップ＝<strong>{getVenusTrackLimit(activeState) > 30 ? "30%までは2%、以降は1%" : "2%"}</strong>。1ステップ上げるごとに<strong>TR +1</strong>。</li>
                     <li><strong>金星大気の減圧</strong>は15 MCで金星を1段階上げる標準プロジェクトです。</li>
-                    <li>金星は<strong>ゲーム終了条件に含まれません</strong>。気温・酸素・海洋の3つが最大になればゲームは終わります。</li>
+                    <li>金星は<strong>対戦の終了条件には含まれません</strong>。ただし金星拡張を使う通常のソロでは、成功するために金星も{getVenusTrackLimit(activeState)}%まで上げる必要があります。TRソロでは不要です。</li>
                     <li>8%到達で<strong>カードを1枚ドロー</strong>、16%到達で<strong>TR +1</strong>のマイルストーンがあります。</li>
                     <li>金星タグ（♀）を持つカードが追加されます。</li>
                   </ul>

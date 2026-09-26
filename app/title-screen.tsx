@@ -1,6 +1,7 @@
 "use client";
 
 import { BOT_DIFFICULTIES } from "./bot-player";
+import { getGlobalParameterLimits, getSoloGenerationLimit, getVenusTrackLimit } from "./game-logic";
 
 export function TitleScreen({
   onSolo,
@@ -228,6 +229,15 @@ export function GameSetupPanel({
   // TR63 is a different way to win a solo game, not an expansion, and there is
   // nothing for it to mean at a table scored on points.
   const isSoloSetup = intent === "solo" || (intent === "custom" && playerCount === 1);
+  const soloLimit = getSoloGenerationLimit({ boardId: selectedBoard, preludeEnabled: prelude || prelude2 });
+  const limits = getGlobalParameterLimits(selectedBoard);
+  const venusLimit = getVenusTrackLimit({ boardId: selectedBoard, extendedVenus: extendedVenus && venus });
+  const marsGoal = `気温 +${limits.temperature}°C・酸素 ${limits.oxygen}%・海洋 ${limits.oceans}枚`;
+  const objective = isSoloSetup
+    ? soloTr
+      ? `${soloLimit}世代以内にTR63へ到達。火星の全パラメータを最大にする必要はありません。`
+      : `${soloLimit}世代以内に${marsGoal}${venus ? `・金星 ${venusLimit}%` : ""}を達成。`
+    : `${marsGoal}を達成した世代で終了し、勝利点が最も高い人が勝利。金星は終了条件に含みません。`;
 
   const heading =
     intent === "solo" ? "ソロプレイの設定" : intent === "robot" ? "ロボット戦の設定" : "新規ゲーム設定";
@@ -239,12 +249,15 @@ export function GameSetupPanel({
           <h3 className="modal-title" style={{ color: "var(--color-gold)" }}>{heading}</h3>
         </div>
         <div className="modal-body" style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+          <div data-testid="setup-objective" aria-live="polite" style={{ padding: "10px 12px", border: "1px solid var(--line-hard)", background: "var(--surface-2)", fontSize: "0.875rem", lineHeight: 1.5 }}>
+            <strong>この試合の勝ち方</strong><br />{objective}
+          </div>
           {asksPlayerCount && (
             <div>
               <div className="section-title">
                 <span>プレイ人数</span>
                 <span className="section-note">
-                  {playerCount === 1 ? `公式ソロルール・${(prelude ? 12 : 14) + (selectedBoard === "amazonis" ? 1 : 0)}世代制限` : "ホットシート（1画面を交代で使用）"}
+                  {playerCount === 1 ? `公式ソロルール・${soloLimit}世代制限` : "ホットシート（1画面を交代で使用）"}
                 </span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, getBoardCells, getGlobalParameterLimits, getVenusTrackLimit, getPlayer, applyGlobalParameterChange, applyCardEffect, isCellPlacementValid, isGameOverCheck, isSoloMissionComplete, worldGovernmentOptions } from "../app/game-logic.js";
+import { getInitialState, getBoardCells, getGlobalParameterLimits, getSoloGenerationLimit, getVenusTrackLimit, getPlayer, applyGlobalParameterChange, applyCardEffect, isCellPlacementValid, isGameOverCheck, isSoloMissionComplete, worldGovernmentOptions } from "../app/game-logic.js";
 import { nextThreshold } from "../app/parameter-thresholds.js";
 import { milestonesForBoard, awardsForBoard } from "../app/board-milestones.js";
 import { getMilestone, getAward } from "../app/milestones-awards.js";
@@ -27,6 +27,15 @@ test("Amazonis extends all three Mars tracks without changing standard maps", ()
   assert.equal(isGameOverCheck(8, 14, 9, "tharsis"), true);
   assert.equal(nextThreshold("temperature", 8, getGlobalParameterLimits("amazonis")).at, 14);
   assert.equal(nextThreshold("oxygen", 14, getGlobalParameterLimits("amazonis")).at, 18);
+});
+
+test("Prelude 2 alone shortens the solo limit on both standard and Amazonis boards", () => {
+  const standard = getInitialState({ board: "tharsis", prelude: false, prelude2: true });
+  const amazonis = getInitialState({ board: "amazonis", prelude: false, prelude2: true });
+  assert.equal(standard.preludeEnabled, true);
+  assert.equal(getSoloGenerationLimit(standard), 12);
+  assert.equal(amazonis.preludeEnabled, true);
+  assert.equal(getSoloGenerationLimit(amazonis), 13);
 });
 
 test("Amazonis parameter changes continue beyond standard caps and stop at its own caps", () => {
