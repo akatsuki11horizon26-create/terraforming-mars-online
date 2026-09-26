@@ -2401,6 +2401,63 @@ test("Double Down cannot copy a prelude that has not resolved yet", () => {
   assert.equal(tiles, 3, "Project Eden's three tiles still resolve");
 });
 
+test("Double Down repeats Project Eden's choices without consuming the original ledger", () => {
+  const eden = "card-prelude2-project-eden";
+  const copy = "card-promo-double-down";
+  const state = getInitialState({ playerCount: 2, prelude2: true, colonies: true, promo: true, seed: 4 });
+  for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = [eden, copy];
+  seat.hand = (state.deck ?? []).slice(0, 10);
+  const discardedBefore = state.discardPile.length;
+
+  let current = applyPreludes(state, [eden, copy], seat.id);
+  let selectedCopy = false;
+  for (let i = 0; i < 40 && current.pendingChoice; i++) {
+    const choice = current.pendingChoice;
+    const option = choice.kind === "double-down"
+      ? choice.options.find(entry => entry.cardId === eden)
+      : choice.options[0];
+    assert.ok(option, `choice ${choice.kind} has a legal option`);
+    if (choice.kind === "double-down") selectedCopy = true;
+    current = resolvePendingChoice(structuredClone(current), option.id, [], choice.ownerPlayerId).state;
+  }
+
+  const tiles = Object.values(current.board)
+    .filter(cell => ["ocean", "city", "forest"].includes(cell.tileType)).length;
+  assert.equal(selectedCopy, true);
+  assert.equal(tiles, 6);
+  assert.equal(current.discardPile.length - discardedBefore, 6, "both copies discarded three cards");
+  assert.equal(current.pendingChoice, null);
+  assert.equal(current.choiceOccurrence, null);
+  assert.equal(current.resolvedChoices[eden].filter(stage => stage.startsWith("project-eden-step:")).length, 4);
+  assert.equal(current.resolvedChoices[`${eden}:double-down:${seat.id}`]
+    .filter(stage => stage.startsWith("project-eden-step:")).length, 4);
+});
+
+test("Double Down cannot repeat Project Eden after its required discards empty the hand", () => {
+  const eden = "card-prelude2-project-eden";
+  const copy = "card-promo-double-down";
+  const state = getInitialState({ playerCount: 2, prelude2: true, colonies: true, promo: true, seed: 4 });
+  for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = [eden, copy];
+  seat.hand = (state.deck ?? []).slice(0, 3);
+
+  let current = applyPreludes(state, [eden, copy], seat.id);
+  for (let i = 0; i < 20 && current.pendingChoice; i++) {
+    const choice = current.pendingChoice;
+    assert.notEqual(choice.kind, "double-down");
+    current = resolvePendingChoice(current, choice.options[0].id, [], choice.ownerPlayerId).state;
+  }
+  assert.ok(!current.players[0].selectedPreludeIds.includes(copy));
+  assert.equal(current.pendingChoice, null);
+});
+
 test("every corporation trigger fires on the path a player actually uses", () => {
   // Arklight, Recyclon and Spire were tested by spreading the player onto the
   // state -- `{ ...state, ...seat }` -- which gives applyCorporationTriggers a

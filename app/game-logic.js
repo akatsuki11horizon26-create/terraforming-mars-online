@@ -1784,7 +1784,8 @@ function doubleDownCandidates(state, selectedIds) {
     .filter(prelude =>
       (owner?.mc ?? 0) >= getPreludeCost(prelude) || canAffordPreludeSpecially(state, prelude)
     )
-    .filter(prelude => prelude.id !== OLD_MINING_COLONY_ID || (owner?.hand ?? []).length > 0);
+    .filter(prelude => prelude.id !== OLD_MINING_COLONY_ID || (owner?.hand ?? []).length > 0)
+    .filter(prelude => prelude.id !== PROJECT_EDEN_ID || (owner?.hand ?? []).length >= 3);
 }
 
 // "That prelude fizzled; gain 15 M€ instead." The prelude is taken back out of
@@ -2592,6 +2593,10 @@ function projectEdenRemainingSteps(state, cardId, done) {
   }).map(step => ({ id: step.id, stepId: step.id, label: step.label }));
 }
 
+function resolvedChoiceKey(state, cardId) {
+  return state.choiceOccurrence?.cardId === cardId ? state.choiceOccurrence.key : cardId;
+}
+
 // One offer per revealed card: pay the research price for it, or let it go.
 // Venus Orbital Survey reveals two and keeps the Venus ones free; Inventors'
 // Guild and Business Network reveal one and offer it.
@@ -2671,7 +2676,7 @@ function queuePendingChoices(state, card, context) {
     markChoiceResolved(state, card.id, "tile-placement");
     return bonus;
   }
-  const done = state.resolvedChoices?.[card.id] ?? [];
+  const done = state.resolvedChoices?.[resolvedChoiceKey(state, card.id)] ?? [];
 
   // A discard that pays for the card is asked before anything the card does,
   // because it is the price rather than an effect. Nothing read spend.cards, so
@@ -3295,7 +3300,8 @@ function applyResourceToCard(state, target, amount) {
 
 function markChoiceResolved(state, sourceId, stage) {
   const resolved = { ...(state.resolvedChoices ?? {}) };
-  resolved[sourceId] = [...(resolved[sourceId] ?? []), stage];
+  const key = resolvedChoiceKey(state, sourceId);
+  resolved[key] = [...(resolved[key] ?? []), stage];
   state.resolvedChoices = resolved;
 }
 
@@ -4028,20 +4034,30 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       const copied = PRELUDES.find(item => item.id === option.cardId);
       if (copied) {
         const applied = applyEffect(next, getCardEffect(copied), nextLogs);
-        // applyEffect returns a fresh state, and `next` is the one this switch
-        // hands back, so the result is copied into it rather than reassigned.
         Object.assign(next, applied.state);
         nextLogs = addLog(applied.logs, "system", `Double Down: 【${option.label}】の効果を複製しました。`);
-
-        // Known gap: a prelude whose work is a question rather than a payout
-        // gets none of it from applyEffect. Copying Project Eden places no
-        // second ocean, city or greenery, because all three are asked for.
-        // Queueing the copy's questions here is not enough on its own -- the
-        // steps a card has taken are recorded against its id, so the copy and
-        // the original share one ledger and whichever runs second finds its
-        // work already done. Giving the copy its own id breaks the builders,
-        // which dispatch on the exact id. It needs the ledger keyed by
-        // occurrence rather than by card, which is more than this line.
+        next.choiceOccurrence = {
+          cardId: copied.id,
+          key: `${copied.id}:double-down:${actorId}`
+        };
+        const replay = queuePendingChoices(next, copied, {
+          sourceKind: "prelude",
+          sourceId: copied.id,
+          consumedAction: false,
+          paid: true,
+          preludeResume: choice.continuation.preludeResume
+        });
+        if (replay) {
+          replay.continuation = {
+            ...replay.continuation,
+            preludeResume: choice.continuation.preludeResume
+          };
+          next.pendingChoice = replay;
+          nextLogs = addLog(nextLogs, "system", replay.prompt);
+          next.logs = nextLogs;
+          return { status: "pending", state: next, logs: nextLogs, pendingChoice: replay };
+        }
+        next.choiceOccurrence = null;
       }
       break;
     }
@@ -5069,6 +5085,7 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
           return { status: "pending", state: next, logs: nextLogs, pendingChoice: stillOwed };
         }
         next.pendingChoice = null;
+        if (next.choiceOccurrence?.cardId === choice.continuation.sourceId) next.choiceOccurrence = null;
         const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
         return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
       }
@@ -5297,10 +5314,11 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
     projectEdenRemainingSteps(
       next,
       PROJECT_EDEN_ID,
-      next.resolvedChoices?.[PROJECT_EDEN_ID] ?? []
+      next.resolvedChoices?.[resolvedChoiceKey(next, PROJECT_EDEN_ID)] ?? []
     ).length > 0;
 
   if (choice.continuation.preludeResume && !next.pendingChoice && !askerStillOwes) {
+    if (next.choiceOccurrence?.cardId === choice.continuation.sourceId) next.choiceOccurrence = null;
     const resumed = resumePreludeResolution(next, choice.continuation.preludeResume, nextLogs);
     return { status: "resolved", state: resumed, logs: resumed.logs ?? nextLogs };
   }
