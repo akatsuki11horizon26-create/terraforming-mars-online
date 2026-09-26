@@ -188,6 +188,27 @@ test("Amazonis delegate bonuses send from reserve without payment only with Turm
   assert.equal(noTurmoil.pendingChoice, null);
 });
 
+test("repeated Amazonis delegate bonuses never ask for more delegates than remain in reserve", async () => {
+  const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
+  const state = getInitialState({ board: "amazonis", turmoil: true, playerCount: 2 });
+  state.phase = "action";
+  const owner = state.currentPlayerId;
+  state.turmoil.delegateReserve[owner] = 3;
+  const cell = Object.values(state.board).find(candidate => candidate.bonusType === "delegate" && candidate.bonusAmount === 2);
+  placeTileAt(state, cell, "city", owner, "card-prelude2-frontier-town", { placementBonusMultiplier: 3 });
+  let settled = state;
+  let choices = 0;
+  while (settled.pendingChoice && choices < 7) {
+    const result = resolvePendingChoice(settled, "mars", settled.logs, owner);
+    settled = result.state;
+    choices++;
+  }
+  assert.equal(choices, 3);
+  assert.equal(settled.pendingChoice, null);
+  assert.equal(settled.turmoil.delegateReserve[owner], 0);
+  assert.equal(settled.turmoil.parties.mars.delegates.filter(id => id === owner).length, 3);
+});
+
 test("a paid tile project completes after both Amazonis wild-resource choices", async () => {
   const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
   const state = getInitialState({ board: "amazonis", playerCount: 2 });

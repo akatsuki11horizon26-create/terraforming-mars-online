@@ -5836,9 +5836,12 @@ function grantPlacementBonus(state, cell, ownerId) {
     }
     if (grant.type === "delegate") {
       if (!state.turmoil) continue;
-      for (let i = 0; i < Math.min(grant.amount, state.turmoil.delegateReserve?.[ownerId] ?? 0); i++) {
+      const reserved = [state.pendingChoice, ...(state.pendingChoiceQueue ?? [])]
+        .filter(choice => choice?.kind === "placement-delegate" && choice.ownerPlayerId === ownerId).length;
+      const available = Math.max(0, (state.turmoil.delegateReserve?.[ownerId] ?? 0) - reserved);
+      for (let i = 0; i < Math.min(grant.amount, available); i++) {
         openOrEnqueuePendingChoice(state, {
-          id: makeChoiceId("placement-delegate", `${cell.id}:${i}`, ownerId),
+          id: makeChoiceId("placement-delegate", `${cell.id}:${reserved + i}`, ownerId),
           kind: "placement-delegate",
           ownerPlayerId: ownerId,
           prompt: "配置ボーナス: 予備の代表者を無償で送る政党を選んでください。",
@@ -5846,7 +5849,7 @@ function grantPlacementBonus(state, cell, ownerId) {
           options: PARTIES.map(party => ({ id: party.id, label: party.name })),
           continuation: {
             sourceKind: "placement-bonus",
-            sourceId: `delegate:${cell.id}:${i}`,
+            sourceId: `delegate:${cell.id}:${reserved + i}`,
             stage: "placement-delegate",
             consumedAction: false,
             paid: true,
