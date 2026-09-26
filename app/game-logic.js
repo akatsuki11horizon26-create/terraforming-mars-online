@@ -437,6 +437,19 @@ export const RESEARCH_CARD_COST = 3;
 
 export const MAX_VENUS = 30;
 
+export function getVenusTrackLimit(state) {
+  return state?.boardId === "amazonis" && state?.extendedVenus ? 33 : MAX_VENUS;
+}
+
+function venusStepIndex(value) {
+  return value <= 30 ? value / 2 : 15 + value - 30;
+}
+
+function advanceVenusTrack(state, value, steps) {
+  const target = Math.max(0, Math.min(venusStepIndex(getVenusTrackLimit(state)), venusStepIndex(value) + steps));
+  return target <= 15 ? target * 2 : 30 + target - 15;
+}
+
 export function getGlobalParameterLimits(boardId) {
   return boardId === "amazonis"
     ? { temperature: 14, oxygen: 18, oceans: 11 }
@@ -1383,16 +1396,15 @@ function applyEffect(state, effect, logs, options = {}) {
     });
   }
   if (effect.venusSteps) {
-    // Raising the Venus scale one step (2%) raises TR by 1, the same way the
-    // temperature and oxygen tracks do.
+    // Each Venus track step raises TR by 1, including the 1% steps past 30%.
     const beforeVenus = nextState.venus ?? 0;
-    nextState.venus = Math.min(MAX_VENUS, beforeVenus + effect.venusSteps * 2);
+    nextState.venus = advanceVenusTrack(nextState, beforeVenus, effect.venusSteps);
     if (!effect.noRating) {
-      increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.venus - beforeVenus) / 2), "card");
+      increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, venusStepIndex(nextState.venus) - venusStepIndex(beforeVenus)), "card");
     }
     // Aphrodite and anything else watching the scale reacts to a card's step
     // just as it does to the World Government's.
-    grantParameterRaisedCardEffects(nextState, "venus", (nextState.venus - beforeVenus) / 2);
+    grantParameterRaisedCardEffects(nextState, "venus", venusStepIndex(nextState.venus) - venusStepIndex(beforeVenus));
     const venusBonus = applyVenusThresholds(nextState, beforeVenus, nextLogs);
     nextState = venusBonus.state;
     nextLogs = venusBonus.logs;
@@ -5476,7 +5488,7 @@ export function applyGlobalParameterChange(state, options, logs) {
   const limits = {
     temperature: { max: boardLimits.temperature, perStep: 2 },
     oxygen: { max: boardLimits.oxygen, perStep: 1 },
-    venus: { max: MAX_VENUS, perStep: 2 },
+    venus: { max: getVenusTrackLimit(state), perStep: 2 },
     oceans: { max: boardLimits.oceans, perStep: 1 }
   };
   const limit = limits[parameter];
@@ -5485,13 +5497,17 @@ export function applyGlobalParameterChange(state, options, logs) {
   const beforeTemp = state.temperature;
   const beforeOxy = state.oxygen;
   const before = state[parameter];
-  const after = Math.min(limit.max, before + limit.perStep * steps);
+  const after = parameter === "venus"
+    ? advanceVenusTrack(state, before, steps)
+    : Math.min(limit.max, before + limit.perStep * steps);
   state[parameter] = after;
 
   let nextLogs = logs;
   if (after === before) return { state, logs: nextLogs };
 
-  const stepsTaken = Math.round((after - before) / limit.perStep);
+  const stepsTaken = parameter === "venus"
+    ? venusStepIndex(after) - venusStepIndex(before)
+    : Math.round((after - before) / limit.perStep);
 
   // TR follows the track actually moving, and only for a player who earned it.
   if (grantTr && actorPlayerId) bumpTr(state, actorPlayerId, stepsTaken);
@@ -5598,10 +5614,10 @@ function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId,
 }
 
 // The four things the World Government may do, minus whatever is already maxed.
-// An ocean is only offered while fewer than nine are on the board.
+// An ocean is only offered while tiles remain for this board.
 export function worldGovernmentOptions(state) {
   const options = [];
-  if (state.venus < MAX_VENUS) {
+  if (state.venus < getVenusTrackLimit(state)) {
     options.push({ id: "venus", label: "金星を1段階上昇", parameter: "venus" });
   }
   if (state.temperature < getGlobalParameterLimits(state.boardId).temperature) {
@@ -6215,8 +6231,8 @@ export function applyCardAction(state, card, logs, branchIndex) {
     const cost = venusShuttlesCost(nextState, nextState.currentPlayerId);
     nextState.mc = (nextState.mc ?? 0) - cost;
     const beforeVenus = nextState.venus ?? 0;
-    nextState.venus = Math.min(MAX_VENUS, beforeVenus + 2);
-    const raised = (nextState.venus - beforeVenus) / 2;
+    nextState.venus = advanceVenusTrack(nextState, beforeVenus, 1);
+    const raised = venusStepIndex(nextState.venus) - venusStepIndex(beforeVenus);
     if (raised > 0) {
       increaseTerraformRating(nextState, nextState.currentPlayerId, raised, "card");
       grantParameterRaisedCardEffects(nextState, "venus", raised);
@@ -6454,7 +6470,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
     if (nextState.temperature >= limits.temperature) completed += 1;
     if (nextState.oxygen >= limits.oxygen) completed += 1;
     if (nextState.oceans >= limits.oceans) completed += 1;
-    if (nextState.venusEnabled && nextState.venus >= MAX_VENUS) completed += 1;
+    if (nextState.venusEnabled && nextState.venus >= getVenusTrackLimit(nextState)) completed += 1;
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.mc += completed * 3;
     return {
@@ -7440,6 +7456,7 @@ export function getInitialState(options = {}) {
     // reason: once the preludes are chosen the pool is empty, and the setup
     // panel could no longer tell whether the expansion had been on.
     venusEnabled: Boolean(options.venus),
+    extendedVenus: boardId === "amazonis" && Boolean(options.venus) && Boolean(options.extendedVenus),
     preludeEnabled: preludesInPlay,
     // The TR solo variant: TR 63 wins instead of terraforming Mars, and Buffer
     // Gas becomes available. Solo only -- there is nothing to vary in a game
@@ -8577,7 +8594,7 @@ export function isSoloMissionComplete(state) {
     return (getPlayer(state, state.turnOrder?.[0] ?? "player")?.tr ?? 0) >= SOLO_TR_TARGET;
   }
   if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans, state.boardId)) return false;
-  return state.venusEnabled ? (state.venus ?? 0) >= 30 : true;
+  return state.venusEnabled ? (state.venus ?? 0) >= getVenusTrackLimit(state) : true;
 }
 
 // Scoring lives in scoring.js so that a card paying someone other than its

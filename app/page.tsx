@@ -61,6 +61,7 @@ import {
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors,
   getGlobalParameterLimits,
+  getVenusTrackLimit,
   getSoloGenerationLimit as jsGetSoloGenerationLimit
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
@@ -258,6 +259,7 @@ interface GameState {
   oxygen: number;
   venus: number;
   venusEnabled?: boolean;
+  extendedVenus?: boolean;
   preludeEnabled?: boolean;
   promoEnabled?: boolean;
   prelude2Enabled?: boolean;
@@ -507,6 +509,7 @@ export default function Home() {
   const [setupColonies, setSetupColonies] = useState(false);
   const [setupPrelude, setSetupPrelude] = useState(false);
   const [setupVenus, setSetupVenus] = useState(false);
+  const [setupExtendedVenus, setSetupExtendedVenus] = useState(true);
   const [setupPrelude2, setSetupPrelude2] = useState(false);
   const [setupSoloTr, setSetupSoloTr] = useState(false);
   const [setupInitialDraft, setSetupInitialDraft] = useState(false);
@@ -1238,6 +1241,7 @@ export default function Home() {
     soloTr?: boolean;
     corporateEra?: boolean;
     venus?: boolean;
+    extendedVenus?: boolean;
     promo?: boolean;
     draft?: boolean;
     initialDraft?: boolean;
@@ -1763,6 +1767,7 @@ export default function Home() {
     soloTr: setupSoloTr,
     corporateEra: setupCorporateEra,
     venus: setupVenus,
+    extendedVenus: setupVenus && selectedBoard === "amazonis" && setupExtendedVenus,
     promo: setupPromo
   });
 
@@ -1859,6 +1864,8 @@ export default function Home() {
     onCorporateEra: setSetupCorporateEra,
     venus: setupVenus,
     onVenus: setSetupVenus,
+    extendedVenus: setupExtendedVenus,
+    onExtendedVenus: setSetupExtendedVenus,
     promo: setupPromo,
     onPromo: setSetupPromo,
     draft: setupDraft,
@@ -1959,6 +1966,7 @@ export default function Home() {
               setSetupColonies(Boolean(gameState.colonies));
               setSetupPrelude(Boolean(gameState.preludeEnabled));
               setSetupVenus(Boolean(gameState.venusEnabled));
+              setSetupExtendedVenus(gameState.extendedVenus !== false);
               setSetupPromo(Boolean(gameState.promoEnabled));
               setSetupPrelude2(Boolean(gameState.prelude2Enabled));
               setSetupSoloTr(Boolean(gameState.soloTrVariant));
@@ -2024,6 +2032,7 @@ export default function Home() {
               oceans={activeState.oceans}
               venus={activeState.venus ?? 0}
               boardId={activeState.boardId}
+              extendedVenus={activeState.extendedVenus}
               showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
               onOpen={() => setOpenDrawer("planet")}
             />
@@ -3049,6 +3058,7 @@ export default function Home() {
             oceans={activeState.oceans}
             venus={activeState.venus ?? 0}
             boardId={activeState.boardId}
+            extendedVenus={activeState.extendedVenus}
             showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
           />
         </div>
@@ -3400,7 +3410,7 @@ export default function Home() {
                     <li><strong>酸素濃度:</strong> 0% から <strong>{parameterLimits.oxygen}%</strong> (最大)</li>
                     <li><strong>海洋数:</strong> <strong>{parameterLimits.oceans}タイル</strong> すべての配置</li>
                     {activeState.venusEnabled && isSoloMission && (
-                      <li><strong>金星:</strong> <strong>30%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
+                      <li><strong>金星:</strong> <strong>{getVenusTrackLimit(activeState)}%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
                     )}
                   </>
                 )}
@@ -3454,8 +3464,8 @@ export default function Home() {
 
                   <h4 style={{ color: "var(--color-gold)", marginBottom: "6px" }}>■ 金星 (Venus Next)</h4>
                   <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
-                    <li><strong>金星スケール</strong>が4つ目のグローバルパラメータとして加わります（0%〜30%）。</li>
-                    <li>1ステップ＝<strong>2%</strong>。1ステップ上げるごとに<strong>TR +1</strong>。</li>
+                    <li><strong>金星スケール</strong>が4つ目のグローバルパラメータとして加わります（0%〜{getVenusTrackLimit(activeState)}%）。</li>
+                    <li>1ステップ＝<strong>{getVenusTrackLimit(activeState) > 30 ? "30%までは2%、以降は1%" : "2%"}</strong>。1ステップ上げるごとに<strong>TR +1</strong>。</li>
                     <li>金星は<strong>ゲーム終了条件に含まれません</strong>。気温・酸素・海洋の3つが最大になればゲームは終わります。</li>
                     <li>8%到達で<strong>カードを1枚ドロー</strong>、16%到達で<strong>TR +1</strong>のマイルストーンがあります。</li>
                     <li>金星タグ（♀）を持つカードが追加されます。</li>

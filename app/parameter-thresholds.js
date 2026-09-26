@@ -39,7 +39,7 @@ const STEP_FOR = {
 // The next unreached bonus on a track, with how far away it is. Returns null
 // once every threshold is behind us, which is the caller's cue to say nothing
 // rather than to print a zero.
-export function nextThreshold(key, value, /** @type {{temperature?: number, oxygen?: number, oceans?: number} | null} */ limits = null) {
+export function nextThreshold(key, value, /** @type {{temperature?: number, oxygen?: number, oceans?: number, venus?: number} | null} */ limits = null) {
   const list = PARAMETER_THRESHOLDS[key];
   if (!list) return null;
   const step = STEP_FOR[key] ?? 1;
@@ -53,7 +53,9 @@ export function nextThreshold(key, value, /** @type {{temperature?: number, oxyg
     at: upcoming.at,
     reward: upcoming.reward,
     gap,
-    steps: Math.ceil(gap / step)
+    steps: key === "venus" && cap > 30 && upcoming.at > 30
+      ? Math.ceil(Math.max(0, (30 - Math.min(value, 30)) / 2)) + upcoming.at - Math.max(value, 30)
+      : Math.ceil(gap / step)
   };
 }
 
@@ -61,7 +63,7 @@ const UNIT = { temperature: "℃", oxygen: "%", venus: "%" };
 
 // One short line for the UI: how far, and what it pays. Kept here so the HUD
 // chip and the drawer track cannot drift apart.
-export function nextThresholdLabel(key, value, /** @type {{temperature?: number, oxygen?: number, oceans?: number} | null} */ limits = null) {
+export function nextThresholdLabel(key, value, /** @type {{temperature?: number, oxygen?: number, oceans?: number, venus?: number} | null} */ limits = null) {
   const next = nextThreshold(key, value, limits);
   if (!next) return "";
   const unit = UNIT[key] ?? "";

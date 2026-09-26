@@ -2,7 +2,7 @@
 
 import React from "react";
 import { nextThreshold, nextThresholdLabel } from "./parameter-thresholds.js";
-import { getGlobalParameterLimits } from "./game-logic.js";
+import { getGlobalParameterLimits, getVenusTrackLimit } from "./game-logic.js";
 
 // The three terraforming tracks, shown together the way the digital edition
 // does: they are the game's win condition, so their distance from target has to
@@ -13,7 +13,8 @@ export function GlobalParameters({
   oceans,
   venus,
   showVenus,
-  boardId
+  boardId,
+  extendedVenus
 }: {
   temperature: number;
   oxygen: number;
@@ -21,8 +22,9 @@ export function GlobalParameters({
   venus: number;
   showVenus: boolean;
   boardId?: string;
+  extendedVenus?: boolean;
 }) {
-  const limits = getGlobalParameterLimits(boardId);
+  const limits = { ...getGlobalParameterLimits(boardId), venus: getVenusTrackLimit({ boardId, extendedVenus }) };
   const tracks = [
     {
       key: "temperature",
@@ -61,11 +63,11 @@ export function GlobalParameters({
       key: "venus",
       label: "金星",
       value: `${venus}%`,
-      target: "30%",
-      progress: (venus / 30) * 100,
-      done: venus >= 30,
+      target: `${limits.venus}%`,
+      progress: (venus / limits.venus) * 100,
+      done: venus >= limits.venus,
       color: "var(--accent-violet)",
-      note: nextThresholdLabel("venus", venus)
+      note: nextThresholdLabel("venus", venus, limits)
     });
   }
 
@@ -105,6 +107,7 @@ export function GlobalParametersCompact({
   venus,
   showVenus,
   boardId,
+  extendedVenus,
   onOpen
 }: {
   temperature: number;
@@ -113,9 +116,10 @@ export function GlobalParametersCompact({
   venus: number;
   showVenus: boolean;
   boardId?: string;
+  extendedVenus?: boolean;
   onOpen?: () => void;
 }) {
-  const limits = getGlobalParameterLimits(boardId);
+  const limits = { ...getGlobalParameterLimits(boardId), venus: getVenusTrackLimit({ boardId, extendedVenus }) };
   // A track that is one step from paying out changes what is worth doing THIS
   // turn, so the chip carries the distance rather than hiding it in a tooltip.
   const near = (key: "temperature" | "oxygen" | "venus", value: number) => {
@@ -142,10 +146,10 @@ ${nextThresholdLabel("oxygen", oxygen, limits) || "閾値ボーナスはすべ�
       value: `${venus}%`,
       hint: suffix("venus", venus),
       imminent: near("venus", venus)?.steps === 1,
-      done: venus >= 30,
+      done: venus >= limits.venus,
       color: "var(--accent-violet)",
-      title: `金星 ${venus}% / 目標 30% ・ 1段階=2%でTR+1
-${nextThresholdLabel("venus", venus) || "閾値ボーナスはすべて獲得済み"}`
+      title: `金星 ${venus}% / 目標 ${limits.venus}% ・ 1段階=${limits.venus > 30 ? "30%まで2%、以降1%" : "2%"}でTR+1
+${nextThresholdLabel("venus", venus, limits) || "閾値ボーナスはすべて獲得済み"}`
     });
   }
 

@@ -123,6 +123,8 @@ export function GameSetupPanel({
   onCorporateEra,
   venus,
   onVenus,
+  extendedVenus,
+  onExtendedVenus,
   promo,
   onPromo,
   draft,
@@ -155,6 +157,8 @@ export function GameSetupPanel({
   onCorporateEra: (on: boolean) => void;
   venus: boolean;
   onVenus: (on: boolean) => void;
+  extendedVenus: boolean;
+  onExtendedVenus: (on: boolean) => void;
   promo: boolean;
   onPromo: (on: boolean) => void;
   draft: boolean;
@@ -208,7 +212,7 @@ export function GameSetupPanel({
     {
       key: "venus",
       name: "金星 (Venus Next)",
-      desc: "金星スケール(0〜30%)が4つ目のパラメータになる。2%ごとにTR+1。",
+      desc: "金星スケールが4つ目のパラメータになる。通常は0〜30%。",
       on: venus,
       set: onVenus
     },
@@ -240,7 +244,7 @@ export function GameSetupPanel({
               <div className="section-title">
                 <span>プレイ人数</span>
                 <span className="section-note">
-                  {playerCount === 1 ? "公式ソロルール・14世代制限" : "ホットシート（1画面を交代で使用）"}
+                  {playerCount === 1 ? `公式ソロルール・${(prelude ? 12 : 14) + (selectedBoard === "amazonis" ? 1 : 0)}世代制限` : "ホットシート（1画面を交代で使用）"}
                 </span>
               </div>
               <div style={{ display: "flex", gap: "6px" }}>
@@ -379,6 +383,15 @@ export function GameSetupPanel({
                 </span>
               </label>
             ))}
+            {venus && selectedBoard === "amazonis" && (
+              <label style={{ display: "flex", gap: "8px", alignItems: "flex-start", cursor: "pointer" }}>
+                <input type="checkbox" data-testid="setup-extended-venus" checked={extendedVenus} onChange={event => onExtendedVenus(event.target.checked)} />
+                <span>
+                  <strong style={{ fontSize: "0.8rem" }}>アマゾニス用の長い金星トラック</strong>
+                  <div style={{ fontSize: "0.7rem", color: "#c9bfae" }}>33%まで。30%を超えると1%で1段階（TR+1）。</div>
+                </span>
+              </label>
+            )}
           </div>
 
           <div>

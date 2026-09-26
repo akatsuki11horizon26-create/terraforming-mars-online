@@ -38,7 +38,7 @@ export function MultiplayerLobby({
   playerId: string;
   onConnect: (code: string, name: string) => void;
   onDisconnect: () => void;
-  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; prelude2: boolean; venus: boolean; promo: boolean; board: string; draft: boolean; initialDraft: boolean; corporateEra: boolean }) => void;
+  onStart: (options: { turmoil: boolean; colonies: boolean; prelude: boolean; prelude2: boolean; venus: boolean; extendedVenus: boolean; promo: boolean; board: string; draft: boolean; initialDraft: boolean; corporateEra: boolean }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState("");
@@ -50,6 +50,7 @@ export function MultiplayerLobby({
   const [initialDraft, setInitialDraft] = useState(false);
   const [corporateEra, setCorporateEra] = useState(true);
   const [venus, setVenus] = useState(false);
+  const [extendedVenus, setExtendedVenus] = useState(true);
   const [promo, setPromo] = useState(false);
   const [board, setBoard] = useState("tharsis");
   const [draft, setDraft] = useState(false);
@@ -237,6 +238,12 @@ export function MultiplayerLobby({
                     <input type="checkbox" checked={venus} onChange={e => setVenus(e.target.checked)} />
                     <span style={{ fontSize: "0.8rem" }}>金星 (Venus Next)</span>
                   </label>
+                  {venus && board === "amazonis" && (
+                    <label style={checkboxRow}>
+                      <input type="checkbox" checked={extendedVenus} onChange={e => setExtendedVenus(e.target.checked)} />
+                      <span style={{ fontSize: "0.8rem" }}>長い金星トラック（33%）</span>
+                    </label>
+                  )}
                   <label style={checkboxRow}>
                     <input type="checkbox" checked={promo} onChange={e => setPromo(e.target.checked)} />
                     <span style={{ fontSize: "0.8rem" }}>プロモ (Promo)</span>
@@ -295,7 +302,7 @@ export function MultiplayerLobby({
                   className="btn-primary"
                   disabled={!canStart}
                   title={canStart ? undefined : "2人以上必要です"}
-                  onClick={() => onStart({ turmoil, colonies, prelude, prelude2, venus, promo, board, draft, initialDraft, corporateEra })}
+                  onClick={() => onStart({ turmoil, colonies, prelude, prelude2, venus, extendedVenus: venus && board === "amazonis" && extendedVenus, promo, board, draft, initialDraft, corporateEra })}
                 >
                   ゲーム開始
                 </button>

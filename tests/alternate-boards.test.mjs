@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, getBoardCells, getGlobalParameterLimits, applyGlobalParameterChange, applyCardEffect, isCellPlacementValid, isGameOverCheck } from "../app/game-logic.js";
+import { getInitialState, getBoardCells, getGlobalParameterLimits, getVenusTrackLimit, getPlayer, applyGlobalParameterChange, applyCardEffect, isCellPlacementValid, isGameOverCheck, isSoloMissionComplete, worldGovernmentOptions } from "../app/game-logic.js";
 import { nextThreshold } from "../app/parameter-thresholds.js";
 import { milestonesForBoard, awardsForBoard } from "../app/board-milestones.js";
 import { getMilestone, getAward } from "../app/milestones-awards.js";
@@ -65,6 +65,49 @@ test("Amazonis allows the tenth and eleventh oceans, but not a twelfth", () => {
   assert.equal(isCellPlacementValid(spaces[10], "ocean", state.board, "player", null, state.boardId), true);
   spaces[10].tileType = "ocean";
   assert.equal(isCellPlacementValid(spaces[11], "ocean", state.board, "player", null, state.boardId), false);
+});
+
+test("the optional Amazonis Venus board runs from 30% to 33% in one-percent steps", () => {
+  const state = getInitialState({ board: "amazonis", venus: true, extendedVenus: true });
+  assert.equal(getVenusTrackLimit(state), 33);
+  state.venus = 28;
+  const actor = state.currentPlayerId;
+  const beforeTr = getPlayer(state, actor).tr;
+  assert.ok(worldGovernmentOptions(state).some(option => option.parameter === "venus"));
+  applyGlobalParameterChange(state, { parameter: "venus", steps: 4, actorPlayerId: actor }, []);
+  assert.equal(state.venus, 33);
+  assert.equal(getPlayer(state, actor).tr, beforeTr + 4);
+  assert.equal(worldGovernmentOptions(state).some(option => option.parameter === "venus"), false);
+  applyGlobalParameterChange(state, { parameter: "venus", steps: 1, actorPlayerId: actor }, []);
+  assert.equal(state.venus, 33);
+  assert.equal(getPlayer(state, actor).tr, beforeTr + 4);
+  assert.equal(nextThreshold("venus", 30, { venus: 33 }).steps, 3);
+  assert.equal(nextThreshold("venus", 31, { venus: 33 }).steps, 2);
+});
+
+test("short Venus stays at 30%, and Amazonis solo needs 33% only when extended", () => {
+  const extended = getInitialState({ board: "amazonis", venus: true, extendedVenus: true });
+  extended.temperature = 14;
+  extended.oxygen = 18;
+  extended.oceans = 11;
+  extended.venus = 30;
+  assert.equal(isSoloMissionComplete(extended), false);
+  extended.venus = 33;
+  assert.equal(isSoloMissionComplete(extended), true);
+
+  const short = getInitialState({ board: "amazonis", venus: true, extendedVenus: false });
+  assert.equal(getVenusTrackLimit(short), 30);
+  const otherBoard = getInitialState({ board: "tharsis", venus: true, extendedVenus: true });
+  assert.equal(getVenusTrackLimit(otherBoard), 30);
+});
+
+test("cards raise extended Venus one track step and pay one TR past 30%", () => {
+  const state = getInitialState({ board: "amazonis", venus: true, extendedVenus: true });
+  state.venus = 30;
+  const beforeTr = getPlayer(state, state.currentPlayerId).tr;
+  const result = applyCardEffect(state, { id: "test-long-venus", effect: { venusSteps: 1 } }, []);
+  assert.equal(result.state.venus, 31);
+  assert.equal(getPlayer(result.state, state.currentPlayerId).tr, beforeTr + 1);
 });
 
 test("standard-size maps have the complete 61-space layout", () => {

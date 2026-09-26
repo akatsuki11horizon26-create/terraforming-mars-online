@@ -17,3 +17,19 @@ test("hotseat is reachable from the title screen", async ({ page }) => {
   await expect(page.getByPlaceholder("プレイヤー1")).toBeVisible();
   await expect(page.getByPlaceholder("プレイヤー2")).toBeVisible();
 });
+
+test("long Venus track is offered only with Amazonis and Venus Next", async ({ page }) => {
+  await page.addInitScript(() => window.localStorage.clear());
+  await page.goto("/");
+  await page.getByTestId("mode-solo").click();
+  const longTrack = page.getByTestId("setup-extended-venus");
+  await expect(longTrack).toHaveCount(0);
+  await page.getByRole("button", { name: /アマゾニス/ }).click();
+  await expect(longTrack).toHaveCount(0);
+  await page.getByText("金星 (Venus Next)", { exact: true }).click();
+  await expect(longTrack).toBeChecked();
+  await longTrack.uncheck();
+  await expect(longTrack).not.toBeChecked();
+  await page.getByRole("button", { name: /タルシス/ }).click();
+  await expect(longTrack).toHaveCount(0);
+});

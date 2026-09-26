@@ -29,6 +29,7 @@ interface RoomOptions {
   // "prelude" and was playing with both, so that is what it keeps getting.
   prelude2: boolean;
   venus: boolean;
+  extendedVenus: boolean;
   promo: boolean;
   board: string;
   draft: boolean;
@@ -49,7 +50,7 @@ export class GameRoom {
   private code = "";
   private hostId: string | null = null;
   private started = false;
-  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, prelude2: false, venus: false, promo: false, board: "tharsis", draft: false, initialDraft: false, corporateEra: true, maxPlayers: 5 };
+  private options: RoomOptions = { turmoil: false, colonies: false, prelude: false, prelude2: false, venus: false, extendedVenus: false, promo: false, board: "tharsis", draft: false, initialDraft: false, corporateEra: true, maxPlayers: 5 };
   private loaded = false;
   // member id -> the seat (engine player id) they occupy
   private seatMap = new Map<string, string | undefined>();
@@ -243,6 +244,7 @@ export class GameRoom {
       prelude: Boolean(options.prelude),
       prelude2: Boolean(options.prelude2 ?? options.prelude),
       venus: Boolean(options.venus),
+      extendedVenus: Boolean(options.extendedVenus),
       promo: Boolean(options.promo),
       board: typeof options.board === "string" ? options.board : "tharsis",
       draft: Boolean(options.draft),
@@ -259,6 +261,7 @@ export class GameRoom {
       prelude: this.options.prelude,
       prelude2: this.options.prelude2,
       venus: this.options.venus,
+      extendedVenus: this.options.extendedVenus,
       promo: this.options.promo,
       board: this.options.board,
       draft: this.options.draft,
