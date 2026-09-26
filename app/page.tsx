@@ -435,7 +435,7 @@ export default function Home() {
   const MIN_BOARD_SCALE = 0.45;
   const boardRef = React.useRef<HTMLDivElement | null>(null);
   const [boardScale, setBoardScale] = useState(1);
-  const [zoomedChoiceId, setZoomedChoiceId] = useState<string | null>(null);
+  const [boardZoomed, setBoardZoomed] = useState(false);
   const [selectedPlacement, setSelectedPlacement] = useState<{ choiceId: string; cellKey: string } | null>(null);
 
   // The board panel does not exist on the first render -- the title and setup
@@ -1842,8 +1842,6 @@ export default function Home() {
   const selectedPlacementCell = selectedPlacementOption?.targetCellKey
     ? activeState.board[selectedPlacementOption.targetCellKey]
     : null;
-  const boardZoomed = Boolean(tileChoice && zoomedChoiceId === tileChoice.id);
-
   // One set of props for the panel, which both the title screen and the running
   // game render — the title screen returns early, so it needs its own copy.
   const setupPanelProps = {
@@ -2150,19 +2148,17 @@ export default function Home() {
           </div>
         )}
 
-        {tileChoice && (
-          <div className="mobile-board-controls">
-            <button
-              type="button"
-              className="hud-btn"
-              data-testid="board-zoom-toggle"
-              aria-pressed={boardZoomed}
-              onClick={() => setZoomedChoiceId(boardZoomed ? null : tileChoice.id)}
-            >
-              {boardZoomed ? "盤面を全体表示" : "盤面を拡大して選ぶ"}
-            </button>
-          </div>
-        )}
+        <div className="mobile-board-controls">
+          <button
+            type="button"
+            className="hud-btn"
+            data-testid="board-zoom-toggle"
+            aria-pressed={boardZoomed}
+            onClick={() => setBoardZoomed(zoomed => !zoomed)}
+          >
+            {boardZoomed ? "盤面を全体表示" : tileChoice ? "盤面を拡大して選ぶ" : "盤面を拡大して見る"}
+          </button>
+        </div>
 
         {/* Center Column: Mars Board */}
         <div
