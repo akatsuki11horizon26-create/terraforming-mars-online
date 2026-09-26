@@ -372,6 +372,7 @@ const PUBLIC_PLANS_ID = "card-promo-public-plans";
 const ASTRA_MECHANICA_ID = "card-promo-astra-mechanica";
 const TERRAFORMING_DEAL_ID = "card-prelude2-terraforming-deal";
 const PRESERVATION_PROGRAM_ID = "card-prelude2-preservation-program";
+const OLD_MINING_COLONY_ID = "card-prelude2-old-mining-colony";
 const LAND_CLAIM_ID = "card-base-land-claim";
 const ARCADIAN_COMMUNITIES_ID = "card-promo-arcadian-communities";
 const PHILARES_ID = "card-promo-philares";
@@ -1774,6 +1775,18 @@ export function getPreludeCost(prelude) {
   return getCardEffect(prelude).payMc ?? getCardEffect(prelude).payment?.mc ?? 0;
 }
 
+function doubleDownCandidates(state, selectedIds) {
+  const owner = getCurrentPlayer(state);
+  return selectedIds
+    .filter(id => id !== DOUBLE_DOWN_ID && (owner?.selectedPreludeIds ?? []).includes(id))
+    .map(id => PRELUDES.find(prelude => prelude.id === id))
+    .filter(prelude => prelude && Object.keys(getCardEffect(prelude) ?? {}).length > 0)
+    .filter(prelude =>
+      (owner?.mc ?? 0) >= getPreludeCost(prelude) || canAffordPreludeSpecially(state, prelude)
+    )
+    .filter(prelude => prelude.id !== OLD_MINING_COLONY_ID || (owner?.hand ?? []).length > 0);
+}
+
 // "That prelude fizzled; gain 15 M€ instead." The prelude is taken back out of
 // play, so nothing printed on it happens.
 const PRELUDE_FIZZLE_MC = 15;
@@ -1844,6 +1857,17 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
         "system",
         `Prelude【${prelude.name}】は支払えないため不発。MC +${PRELUDE_FIZZLE_MC}。`
       );
+      continue;
+    }
+    if (prelude.id === OLD_MINING_COLONY_ID && (nextState.hand ?? []).length === 0) {
+      nextState = fizzlePrelude(nextState, prelude);
+      nextLogs = addLog(nextLogs, "system", `Prelude【${prelude.name}】は捨てる手札がないため不発。MC +${PRELUDE_FIZZLE_MC}。`);
+      continue;
+    }
+    if (prelude.id === DOUBLE_DOWN_ID &&
+        doubleDownCandidates(nextState, selected.slice(0, index).map(item => item.id)).length === 0) {
+      nextState = fizzlePrelude(nextState, prelude);
+      nextLogs = addLog(nextLogs, "system", `Prelude【${prelude.name}】は複製できるプレリュードがないため不発。MC +${PRELUDE_FIZZLE_MC}。`);
       continue;
     }
 
@@ -2891,11 +2915,10 @@ function queuePendingChoices(state, card, context) {
   // resolved by the time this does, so its effect is applied a second time --
   // and Double Down cannot copy itself, nor another Double Down.
   if (card.id === DOUBLE_DOWN_ID && !done.includes("double-down")) {
-    const owner = getCurrentPlayer(state);
-    const options = (owner?.selectedPreludeIds ?? [])
-      .filter(id => id !== DOUBLE_DOWN_ID)
-      .map(id => PRELUDES.find(item => item.id === id))
-      .filter(prelude => prelude && Object.keys(getCardEffect(prelude) ?? {}).length > 0)
+    const priorIds = context.preludeResume
+      ? context.preludeResume.selectedIds.slice(0, context.preludeResume.nextIndex - 1)
+      : getCurrentPlayer(state)?.selectedPreludeIds ?? [];
+    const options = doubleDownCandidates(state, priorIds)
       .map(prelude => ({ id: prelude.id, cardId: prelude.id, label: prelude.name }));
     if (options.length > 0) {
       return {
@@ -3157,6 +3180,18 @@ function queuePendingChoices(state, card, context) {
       .map(tile => ({ id: tile.id, name: getColonyTile(tile.id)?.name }));
     const built = buildColonyChoice(state, spec, context, legal);
     if (built) return built;
+  }
+
+  if (card.id === OLD_MINING_COLONY_ID && !done.includes("old-mining-colony-discard")) {
+    const hand = getCurrentPlayer(state)?.hand ?? [];
+    if (hand.length > 0) {
+      return buildDiscardChoice(state, hand, {
+        ...context,
+        stage: "old-mining-colony-discard",
+        prompt: "旧採掘植民地: 捨てる手札を1枚選んでください。",
+        optional: false
+      }, ALL_CARDS);
+    }
   }
 
   if (raw.standardResource && !done.includes("standard-resource")) {
@@ -4372,6 +4407,18 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       break;
     }
     case "discard-card": {
+      if (choice.continuation.stage === "old-mining-colony-discard") {
+        const owner = choice.ownerPlayerId ?? actorId;
+        const discardedId = option.cardId ?? option.id;
+        const seatBefore = next.currentPlayerId;
+        next.currentPlayerId = owner;
+        next.hand = next.hand.filter(id => id !== discardedId);
+        next.discardPile = [...next.discardPile, discardedId];
+        next.currentPlayerId = seatBefore;
+        const gone = ALL_CARDS.find(item => item.id === discardedId);
+        nextLogs = addLog(nextLogs, "system", `旧採掘植民地: 【${gone?.name ?? discardedId}】を捨てました。`);
+        break;
+      }
       if (choice.continuation.stage === "pluto-colony-discard") {
         const owner = choice.ownerPlayerId;
         const discardedId = option.cardId ?? option.id;

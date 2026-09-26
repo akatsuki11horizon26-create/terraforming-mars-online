@@ -114,7 +114,7 @@ function checkInvariants(state, where) {
       } else if (field === "mc" && value < 0) {
         // The rulebook floors a generation's MC income at zero, so going into
         // the red can only come from overspending — a real defect.
-        report("negative-resource", `${player.id}.mc = ${value}`, { where });
+        report("negative-resource", `${player.id}.mc = ${value}; preludes=${player.selectedPreludeIds?.join(",")}; recent=${state.logs.slice(0, 5).map(log => log.text).join(" | ")}`, { where });
       }
     }
     if (!Number.isFinite(player.tr) || player.tr < 0) {

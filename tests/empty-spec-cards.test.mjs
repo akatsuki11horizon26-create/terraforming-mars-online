@@ -2015,6 +2015,22 @@ test("a prelude that asks once still resumes immediately", () => {
   assert.equal(current.pendingChoice, null, "the prelude finished");
 });
 
+test("Double Down fizzles when its earlier prelude can no longer be afforded", () => {
+  const other = "card-prelude2-industrial-complex";
+  const copy = "card-promo-double-down";
+  const state = getInitialState({ playerCount: 2, prelude2: true, promo: true, seed: 4 });
+  const seat = getPlayer(state, "player");
+  seat.setupStep = "prelude";
+  seat.preludeOptions = [other, copy];
+  seat.researchCards = [];
+  seat.mc = 27;
+
+  const current = applyPreludes(state, [other, copy], seat.id);
+  assert.equal(current.pendingChoice?.kind, undefined);
+  assert.equal(getPlayer(current, seat.id).mc, 24, "18 M€ spent once, then 15 M€ fizzle compensation");
+  assert.ok(!getPlayer(current, seat.id).selectedPreludeIds.includes(copy));
+});
+
 test("a prelude colony on Europa resumes setup after its ocean placement", () => {
   const state = getInitialState({ playerCount: 2, prelude2: true, colonies: true, seed: 4 });
   state.colonies.tilesInPlay = ["europa"];
@@ -2043,9 +2059,38 @@ test("a prelude colony on Europa resumes setup after its ocean placement", () =>
   current = resolvePendingChoice(current, ocean.id, [], seat.id).state;
 
   assert.equal(current.oceans, 1);
+  assert.equal(current.pendingChoice?.continuation.stage, "old-mining-colony-discard");
+  assert.equal(current.pendingChoice?.optional, false);
+  const discardedId = current.pendingChoice.options[0].cardId;
+  current = resolvePendingChoice(current, discardedId, [], seat.id).state;
+  assert.ok(current.discardPile.includes(discardedId));
+  assert.equal(current.players[0].hand.length, 5, "one discarded, then Biolab draws three");
   assert.equal(current.pendingChoice, null);
   assert.equal(current.players[0].plantsProd, 1, "the second prelude resolves");
   assert.equal(current.currentPlayerId, state.players[1].id, "setup advances to the next seat");
+});
+
+test("Old Mining Colony cannot be played without a card to discard", () => {
+  const state = getInitialState({ playerCount: 2, prelude2: true, colonies: true, seed: 4 });
+  for (const player of state.players) {
+    player.setupStep = "complete";
+    player.researchCards = [];
+    player.corporationId = "corp-teractor";
+    player.initialActionDone = true;
+  }
+  const seat = state.players[0];
+  seat.setupStep = "prelude";
+  state.currentPlayerId = seat.id;
+  seat.preludeOptions = ["card-prelude2-old-mining-colony", "prelude-biolab"];
+  seat.hand = [];
+  const beforeMc = seat.mc;
+
+  const current = applyPreludes(state, seat.preludeOptions, seat.id);
+  assert.equal(current.pendingChoice, null);
+  assert.equal(current.players[0].titaniumProd, 0);
+  assert.equal(current.players[0].mc, beforeMc + 15);
+  assert.equal(current.players[0].plantsProd, 1);
+  assert.ok(!current.players[0].selectedPreludeIds.includes("card-prelude2-old-mining-colony"));
 });
 
 test("Arklight collects an animal per animal or plant tag", () => {
@@ -2332,18 +2377,7 @@ test("Nitrogen-Rich Asteroid pays its plant production, four with three plant ta
   }
 });
 
-test("Double Down copies a prelude's payout but not its questions", () => {
-  // A known gap, pinned so it is a measured number rather than a surprise.
-  // Double Down copies a chosen prelude by running its effect, which pays out
-  // whatever the prelude grants directly -- but a prelude whose whole work is a
-  // question grants nothing that way. Project Eden asks for all three of its
-  // tiles, so the copy places none of them.
-  //
-  // Queueing the copy's questions is not enough on its own: the steps a card
-  // has taken are recorded against its id, so the copy and the original share
-  // one ledger and whichever resolves second finds its work already done.
-  // Fixing it properly means keying that ledger by occurrence rather than by
-  // card, which is a larger change than this test.
+test("Double Down cannot copy a prelude that has not resolved yet", () => {
   const state = getInitialState({ playerCount: 2, prelude: true, colonies: true, promo: true, seed: 4 });
   for (const player of state.players) { player.setupStep = "complete"; player.researchCards = []; }
   const seat = state.players[0];
@@ -2353,19 +2387,18 @@ test("Double Down copies a prelude's payout but not its questions", () => {
   seat.hand = (state.deck ?? []).slice(0, 10);
 
   let current = applyPreludes(state, ["card-promo-double-down", "card-prelude2-project-eden"], seat.id);
+  assert.ok(!current.players[0].selectedPreludeIds.includes("card-promo-double-down"));
+  assert.notEqual(current.pendingChoice?.kind, "double-down");
   for (let i = 0; i < 40 && current.pendingChoice; i++) {
     const choice = current.pendingChoice;
-    const option = choice.kind === "double-down"
-      ? (choice.options.find(entry => entry.cardId === "card-prelude2-project-eden") ?? choice.options[0])
-      : choice.options[0];
-    const answered = resolvePendingChoice(current, option.id, [], choice.ownerPlayerId);
+    const answered = resolvePendingChoice(current, choice.options[0].id, [], choice.ownerPlayerId);
     if (answered.state === current) break;
     current = answered.state;
   }
 
   const tiles = Object.values(current.board)
     .filter(cell => ["ocean", "city", "forest"].includes(cell.tileType)).length;
-  assert.equal(tiles, 3, "the original's three; the copy places none (known gap)");
+  assert.equal(tiles, 3, "Project Eden's three tiles still resolve");
 });
 
 test("every corporation trigger fires on the path a player actually uses", () => {
