@@ -2,6 +2,7 @@
 
 import React from "react";
 import { nextThreshold, nextThresholdLabel } from "./parameter-thresholds.js";
+import { getGlobalParameterLimits } from "./game-logic.js";
 
 // The three terraforming tracks, shown together the way the digital edition
 // does: they are the game's win condition, so their distance from target has to
@@ -11,42 +12,45 @@ export function GlobalParameters({
   oxygen,
   oceans,
   venus,
-  showVenus
+  showVenus,
+  boardId
 }: {
   temperature: number;
   oxygen: number;
   oceans: number;
   venus: number;
   showVenus: boolean;
+  boardId?: string;
 }) {
+  const limits = getGlobalParameterLimits(boardId);
   const tracks = [
     {
       key: "temperature",
       label: "気温",
       value: `${temperature > 0 ? "+" : ""}${temperature}°C`,
-      target: "+8°C",
-      progress: ((temperature + 30) / 38) * 100,
-      done: temperature >= 8,
+      target: `+${limits.temperature}°C`,
+      progress: ((temperature + 30) / (limits.temperature + 30)) * 100,
+      done: temperature >= limits.temperature,
       color: "var(--accent-ember)",
-      note: nextThresholdLabel("temperature", temperature)
+      note: nextThresholdLabel("temperature", temperature, limits)
     },
     {
       key: "oxygen",
       label: "酸素",
       value: `${oxygen}%`,
-      target: "14%",
-      progress: (oxygen / 14) * 100,
-      done: oxygen >= 14,
+      target: `${limits.oxygen}%`,
+      progress: (oxygen / limits.oxygen) * 100,
+      done: oxygen >= limits.oxygen,
       color: "var(--accent-green)",
-      note: nextThresholdLabel("oxygen", oxygen)
+      note: nextThresholdLabel("oxygen", oxygen, limits)
     },
     {
       key: "oceans",
       label: "海洋",
       value: `${oceans}`,
-      target: "9枚",
-      progress: (oceans / 9) * 100,
-      done: oceans >= 9,
+      target: `${limits.oceans}枚`,
+      progress: (oceans / limits.oceans) * 100,
+      done: oceans >= limits.oceans,
       color: "var(--accent-cyan)",
       note: ""
     }
@@ -100,6 +104,7 @@ export function GlobalParametersCompact({
   oceans,
   venus,
   showVenus,
+  boardId,
   onOpen
 }: {
   temperature: number;
@@ -107,12 +112,14 @@ export function GlobalParametersCompact({
   oceans: number;
   venus: number;
   showVenus: boolean;
+  boardId?: string;
   onOpen?: () => void;
 }) {
+  const limits = getGlobalParameterLimits(boardId);
   // A track that is one step from paying out changes what is worth doing THIS
   // turn, so the chip carries the distance rather than hiding it in a tooltip.
   const near = (key: "temperature" | "oxygen" | "venus", value: number) => {
-    const upcoming = nextThreshold(key, value);
+    const upcoming = nextThreshold(key, value, limits);
     if (!upcoming || upcoming.reward.startsWith("上限")) return null;
     return upcoming;
   };
@@ -122,11 +129,11 @@ export function GlobalParametersCompact({
   };
 
   const chips = [
-    { key: "temperature", icon: "🌡", value: `${temperature > 0 ? "+" : ""}${temperature}°`, hint: suffix("temperature", temperature), imminent: near("temperature", temperature)?.steps === 1, done: temperature >= 8, color: "var(--accent-ember)", title: `気温 ${temperature}°C / 目標 +8°C ・ 1段階=2℃
-${nextThresholdLabel("temperature", temperature) || "閾値ボーナスはすべて獲得済み"}` },
-    { key: "oxygen", icon: "O₂", value: `${oxygen}%`, hint: suffix("oxygen", oxygen), imminent: near("oxygen", oxygen)?.steps === 1, done: oxygen >= 14, color: "var(--accent-green)", title: `酸素 ${oxygen}% / 目標 14% ・ 1段階=1%
-${nextThresholdLabel("oxygen", oxygen) || "閾値ボーナスはすべて獲得済み"}` },
-    { key: "oceans", icon: "🌊", value: `${oceans}/9`, hint: "", imminent: false, done: oceans >= 9, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 9枚 ・ 1枚ごとにTR+1` }
+    { key: "temperature", icon: "🌡", value: `${temperature > 0 ? "+" : ""}${temperature}°`, hint: suffix("temperature", temperature), imminent: near("temperature", temperature)?.steps === 1, done: temperature >= limits.temperature, color: "var(--accent-ember)", title: `気温 ${temperature}°C / 目標 +${limits.temperature}°C ・ 1段階=2℃
+${nextThresholdLabel("temperature", temperature, limits) || "閾値ボーナスはすべて獲得済み"}` },
+    { key: "oxygen", icon: "O₂", value: `${oxygen}%`, hint: suffix("oxygen", oxygen), imminent: near("oxygen", oxygen)?.steps === 1, done: oxygen >= limits.oxygen, color: "var(--accent-green)", title: `酸素 ${oxygen}% / 目標 ${limits.oxygen}% ・ 1段階=1%
+${nextThresholdLabel("oxygen", oxygen, limits) || "閾値ボーナスはすべて獲得済み"}` },
+    { key: "oceans", icon: "🌊", value: `${oceans}/${limits.oceans}`, hint: "", imminent: false, done: oceans >= limits.oceans, color: "var(--accent-cyan)", title: `海洋 ${oceans}枚 / 目標 ${limits.oceans}枚 ・ 1枚ごとにTR+1` }
   ];
   if (showVenus) {
     chips.push({

@@ -85,7 +85,7 @@ test("The collapsed planet readout shows symbols and numbers", async () => {
   assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");
   assert.ok(source.includes("param-chip-value"), "chips carry a numeric value");
   assert.ok(source.includes('icon: "🌡"'), "temperature has a symbol");
-  assert.ok(source.includes("${oceans}/9"), "oceans read as a count out of nine");
+  assert.ok(source.includes("${oceans}/${limits.oceans}"), "oceans read as a count out of the board limit");
 });
 
 test("Board tiles carry an explanation for hover and long-press", async () => {

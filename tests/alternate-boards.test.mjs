@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getInitialState, getBoardCells } from "../app/game-logic.js";
+import { getInitialState, getBoardCells, getGlobalParameterLimits, applyGlobalParameterChange, applyCardEffect, isCellPlacementValid, isGameOverCheck } from "../app/game-logic.js";
+import { nextThreshold } from "../app/parameter-thresholds.js";
 import { milestonesForBoard, awardsForBoard } from "../app/board-milestones.js";
 import { getMilestone, getAward } from "../app/milestones-awards.js";
 
@@ -15,6 +16,56 @@ function activeTile(colonies) {
 
 
 const MAPS = ["tharsis", "hellas", "elysium", "utopia", "amazonis", "terra-cimmeria", "vastitas-borealis"];
+
+test("Amazonis extends all three Mars tracks without changing standard maps", () => {
+  assert.deepEqual(getGlobalParameterLimits("amazonis"), { temperature: 14, oxygen: 18, oceans: 11 });
+  for (const id of MAPS.filter(id => id !== "amazonis")) {
+    assert.deepEqual(getGlobalParameterLimits(id), { temperature: 8, oxygen: 14, oceans: 9 });
+  }
+  assert.equal(isGameOverCheck(8, 14, 9, "amazonis"), false);
+  assert.equal(isGameOverCheck(14, 18, 11, "amazonis"), true);
+  assert.equal(isGameOverCheck(8, 14, 9, "tharsis"), true);
+  assert.equal(nextThreshold("temperature", 8, getGlobalParameterLimits("amazonis")).at, 14);
+  assert.equal(nextThreshold("oxygen", 14, getGlobalParameterLimits("amazonis")).at, 18);
+});
+
+test("Amazonis parameter changes continue beyond standard caps and stop at its own caps", () => {
+  const state = getInitialState({ playerCount: 2, board: "amazonis" });
+  state.temperature = 8;
+  state.oxygen = 14;
+  state.oceans = 9;
+  for (const parameter of ["temperature", "oxygen", "oceans"]) {
+    applyGlobalParameterChange(state, { parameter, steps: 10, grantTr: false }, []);
+  }
+  assert.equal(state.temperature, 14);
+  assert.equal(state.oxygen, 18);
+  assert.equal(state.oceans, 11);
+  assert.equal(isGameOverCheck(state.temperature, state.oxygen, state.oceans, state.boardId), true);
+});
+
+test("card effects use the Amazonis caps too", () => {
+  const state = getInitialState({ playerCount: 2, board: "amazonis" });
+  state.temperature = 8;
+  state.oxygen = 14;
+  const result = applyCardEffect(state, {
+    id: "test-amazonis-parameters",
+    effect: { temperatureSteps: 2, oxygenSteps: 2 }
+  }, []);
+  assert.equal(result.state.temperature, 12);
+  assert.equal(result.state.oxygen, 16);
+});
+
+test("Amazonis allows the tenth and eleventh oceans, but not a twelfth", () => {
+  const state = getInitialState({ playerCount: 2, board: "amazonis" });
+  const spaces = Object.values(state.board).filter(cell => cell.isOceanOnly);
+  assert.ok(spaces.length > 11);
+  for (let index = 0; index < 9; index++) spaces[index].tileType = "ocean";
+  assert.equal(isCellPlacementValid(spaces[9], "ocean", state.board, "player", null, state.boardId), true);
+  spaces[9].tileType = "ocean";
+  assert.equal(isCellPlacementValid(spaces[10], "ocean", state.board, "player", null, state.boardId), true);
+  spaces[10].tileType = "ocean";
+  assert.equal(isCellPlacementValid(spaces[11], "ocean", state.board, "player", null, state.boardId), false);
+});
 
 test("standard-size maps have the complete 61-space layout", () => {
   for (const id of MAPS.filter(id => id !== "amazonis")) {

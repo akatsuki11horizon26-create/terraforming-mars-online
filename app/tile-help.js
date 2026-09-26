@@ -10,7 +10,7 @@ const BONUS_TEXT = {
 export const TILE_LEGEND = [
   { icon: "🌲", name: "緑地タイル", text: "配置時に酸素を1%上昇。得点1点。隣接する自分の都市にも得点が入る。" },
   { icon: "🏙️", name: "都市タイル", text: "隣接する緑地1枚につき得点1点。緑地とは隣接できるが、他の都市とは隣接できない。" },
-  { icon: "🌊", name: "海洋タイル", text: "全部で9枚まで。配置時にTRが1上がる。海洋に隣接するタイトルを置くと2MCの隣接ボーナス。" },
+  { icon: "🌊", name: "海洋タイル", text: "全部で9枚まで。配置時にTRが1上がる。海洋に隣接するタイルを置くと2MCの隣接ボーナス。" },
   { icon: "🌱", name: "植物ボーナス", text: "このマスにタイルを置くと、書かれた数だけ植物を得る。" },
   { icon: "🤖", name: "建材ボーナス", text: "このマスにタイルを置くと、書かれた数だけ建材を得る。" },
   { icon: "🚀", name: "チタンボーナス", text: "このマスにタイルを置くと、書かれた数だけチタンを得る。" },
@@ -18,6 +18,12 @@ export const TILE_LEGEND = [
   { icon: "🌋", name: "火山", text: "火星の火山地帯。ゲーム上の効果はないが、都市や緑地の配置制限の目印になる。" },
   { icon: "🔒", name: "予約マス", text: "特定のカード専用のマス。そのカード以外では配置できない。" }
 ];
+
+export function tileLegendForOceanLimit(oceans) {
+  return TILE_LEGEND.map(item => item.name === "海洋タイル"
+    ? { ...item, text: item.text.replace("9枚", `${oceans}枚`) }
+    : item);
+}
 
 export function describeCell(cell) {
   const parts = [];

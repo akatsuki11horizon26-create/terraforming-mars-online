@@ -545,6 +545,23 @@ test("every standard project runs through the command layer", () => {
   }
 });
 
+test("Amazonis standard projects remain available beyond standard track caps", () => {
+  const { state, seat } = table({ board: "amazonis" });
+  state.temperature = 8;
+  state.oceans = 9;
+  const asteroid = executeGameCommand(cloneGameState(state), {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "asteroid"
+  });
+  assert.equal(asteroid.ok, true);
+  assert.equal(asteroid.state.temperature, 10);
+
+  const aquifer = executeGameCommand(cloneGameState(state), {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "aquifer"
+  });
+  assert.equal(aquifer.ok, true);
+  assert.ok(aquifer.state.pendingChoice);
+});
+
 test("a standard project nobody can pay for is refused for free", () => {
   const { state, seat } = table();
   const broke = cloneGameState(state);

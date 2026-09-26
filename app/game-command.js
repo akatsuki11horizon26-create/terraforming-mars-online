@@ -60,6 +60,7 @@ import {
   communitySpaceOptions,
   communityChoice,
   armPreservationProgram,
+  getGlobalParameterLimits,
 } from "./game-logic.js";
 import { buildTileChoice, buildAmountChoice } from "./pending-choice.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
@@ -342,7 +343,7 @@ const STANDARD_PROJECTS = {
   asteroid: {
     label: "小惑星の衝突",
     cost: () => 14,
-    blocked: state => (state.temperature >= 8 ? "気温は上限に達しています。" : null),
+    blocked: state => (state.temperature >= getGlobalParameterLimits(state.boardId).temperature ? "気温は上限に達しています。" : null),
     run(state, command) {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
       raiseTemperature(state, command.playerId);
@@ -353,7 +354,7 @@ const STANDARD_PROJECTS = {
     label: "海洋の沈降",
     cost: () => 18,
     places: "ocean",
-    blocked: state => (state.oceans >= 9 ? "海洋は上限に達しています。" : null),
+    blocked: state => (state.oceans >= getGlobalParameterLimits(state.boardId).oceans ? "海洋は上限に達しています。" : null),
     run: (state, command) => placeOrAsk(state, command, "ocean", "海洋の沈降")
   },
   greenery: {
@@ -390,7 +391,7 @@ const STANDARD_PROJECTS = {
     label: "熱による加熱",
     pays: "heat",
     cost: () => 8,
-    blocked: state => (state.temperature >= 8 ? "気温は上限に達しています。" : null),
+    blocked: state => (state.temperature >= getGlobalParameterLimits(state.boardId).temperature ? "気温は上限に達しています。" : null),
     run(state, command) {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
       raiseTemperature(state, command.playerId);
@@ -525,7 +526,7 @@ const CORPORATION_ACTIONS = {
     label: "Palladin Shipping: チタン2を支払い気温を1段階上げました。",
     blocked: (actor, state) => {
       if ((actor.titanium ?? 0) < 2) return "チタンが不足しています。";
-      return (state.temperature ?? -30) >= 8 ? "気温は上限に達しています。" : null;
+      return (state.temperature ?? -30) >= getGlobalParameterLimits(state.boardId).temperature ? "気温は上限に達しています。" : null;
     },
     run(state, command) {
       state.players = state.players.map(player =>

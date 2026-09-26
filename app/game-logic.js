@@ -424,8 +424,7 @@ const TILE_TYPE_BY_NUMBER = {
   43: { tile: "special", specialName: "Special Tile" }
 };
 
-// Global parameter limits from the rulebook: nine ocean tiles, oxygen to 14%,
-// temperature from -30°C to +8°C in 2° steps.
+// Standard-board parameter limits; Amazonis extends all three tracks.
 export const MAX_OCEANS = 9;
 // Each ocean tile pays 2 MC to a tile placed next to it.
 export const OCEAN_ADJACENCY_BONUS = 2;
@@ -437,6 +436,12 @@ export const MIN_TEMPERATURE = -30;
 export const RESEARCH_CARD_COST = 3;
 
 export const MAX_VENUS = 30;
+
+export function getGlobalParameterLimits(boardId) {
+  return boardId === "amazonis"
+    ? { temperature: 14, oxygen: 18, oceans: 11 }
+    : { temperature: MAX_TEMPERATURE, oxygen: MAX_OXYGEN, oceans: MAX_OCEANS };
+}
 
 // Reasons normalizeBehavior records that the pendingChoice flow now resolves.
 const HANDLED_BY_PENDING_CHOICE = new Set([
@@ -1507,14 +1512,14 @@ function applyEffect(state, effect, logs, options = {}) {
   const paysRating = !effect.noRating;
   if (effect.temperatureSteps) {
     const before = nextState.temperature;
-    nextState.temperature = Math.min(8, nextState.temperature + effect.temperatureSteps * 2);
+    nextState.temperature = Math.min(getGlobalParameterLimits(nextState.boardId).temperature, nextState.temperature + effect.temperatureSteps * 2);
     if (paysRating) {
       increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, (nextState.temperature - before) / 2), "card");
     }
   }
   if (effect.oxygenSteps) {
     const before = nextState.oxygen;
-    nextState.oxygen = Math.min(14, nextState.oxygen + effect.oxygenSteps);
+    nextState.oxygen = Math.min(getGlobalParameterLimits(nextState.boardId).oxygen, nextState.oxygen + effect.oxygenSteps);
     if (paysRating) {
       increaseTerraformRating(nextState, nextState.currentPlayerId, Math.max(0, nextState.oxygen - before), "card");
     }
@@ -3494,7 +3499,7 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
           Object.assign(next, crossed.state);
           nextLogs = crossed.logs;
         }
-        if (amount > 0 && next.temperature < MAX_TEMPERATURE && getPlayer(next, target).mc >= 4) {
+        if (amount > 0 && next.temperature < getGlobalParameterLimits(next.boardId).temperature && getPlayer(next, target).mc >= 4) {
           next.players = next.players.map(player => player.id === target ? { ...player, mc: player.mc - 4 } : player);
           const beforeTemp = next.temperature;
           raiseTemperature(next, target);
@@ -5359,13 +5364,13 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
   // so the tile still gets placed but no terraforming rating is awarded.
   if (tileType === "ocean") {
     const before = state.oceans;
-    state.oceans = Math.min(MAX_OCEANS, state.oceans + 1);
+    state.oceans = Math.min(getGlobalParameterLimits(state.boardId).oceans, state.oceans + 1);
     if (state.oceans > before && !worldGovernment) bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
     const before = state.oxygen;
     if (!finalGreenery) {
-      state.oxygen = Math.min(MAX_OXYGEN, state.oxygen + 1);
+      state.oxygen = Math.min(getGlobalParameterLimits(state.boardId).oxygen, state.oxygen + 1);
       if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
     }
   }
@@ -5467,11 +5472,12 @@ export function applyGlobalParameterChange(state, options, logs) {
     sourceLabel = null
   } = options;
 
+  const boardLimits = getGlobalParameterLimits(state.boardId);
   const limits = {
-    temperature: { max: MAX_TEMPERATURE, perStep: 2 },
-    oxygen: { max: MAX_OXYGEN, perStep: 1 },
+    temperature: { max: boardLimits.temperature, perStep: 2 },
+    oxygen: { max: boardLimits.oxygen, perStep: 1 },
     venus: { max: MAX_VENUS, perStep: 2 },
-    oceans: { max: MAX_OCEANS, perStep: 1 }
+    oceans: { max: boardLimits.oceans, perStep: 1 }
   };
   const limit = limits[parameter];
   if (!limit) return { state, logs };
@@ -5515,9 +5521,9 @@ function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId,
   let effectiveTemp = state.temperature;
 
   // Oxygen 8% pushes the temperature one step.
-  if (beforeOxy < 8 && state.oxygen >= 8 && state.temperature < MAX_TEMPERATURE) {
+  if (beforeOxy < 8 && state.oxygen >= 8 && state.temperature < getGlobalParameterLimits(state.boardId).temperature) {
     const tempBefore = state.temperature;
-    state.temperature = Math.min(MAX_TEMPERATURE, state.temperature + 2);
+    state.temperature = Math.min(getGlobalParameterLimits(state.boardId).temperature, state.temperature + 2);
     effectiveTemp = Math.max(effectiveTemp, state.temperature);
     if (state.temperature > tempBefore && grantTr && actorPlayerId) {
       bumpTr(state, actorPlayerId, 1);
@@ -5543,7 +5549,7 @@ function applyParameterThresholds(state, { beforeTemp, beforeOxy, actorPlayerId,
   // A player who crossed the mark owns it and is paid TR. When the World
   // Government or a global event crossed it, nobody is paid, so it goes to the
   // first player and skips the TR.
-  if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < MAX_OCEANS) {
+  if (beforeTemp < 0 && effectiveTemp >= 0 && state.oceans < getGlobalParameterLimits(state.boardId).oceans) {
     if (grantTr && actorPlayerId) {
       const choice = buildTileChoice(
         state,
@@ -5598,13 +5604,13 @@ export function worldGovernmentOptions(state) {
   if (state.venus < MAX_VENUS) {
     options.push({ id: "venus", label: "金星を1段階上昇", parameter: "venus" });
   }
-  if (state.temperature < MAX_TEMPERATURE) {
+  if (state.temperature < getGlobalParameterLimits(state.boardId).temperature) {
     options.push({ id: "temperature", label: "気温を1段階上昇", parameter: "temperature" });
   }
-  if (state.oxygen < MAX_OXYGEN) {
+  if (state.oxygen < getGlobalParameterLimits(state.boardId).oxygen) {
     options.push({ id: "oxygen", label: "酸素を1段階上昇", parameter: "oxygen" });
   }
-  if (state.oceans < MAX_OCEANS) {
+  if (state.oceans < getGlobalParameterLimits(state.boardId).oceans) {
     options.push({ id: "ocean", label: "海洋タイルを1枚配置", parameter: "ocean" });
   }
   return options;
@@ -5727,7 +5733,7 @@ function bumpTr(state, playerId, amount) {
 
 export function raiseTemperature(state, playerId) {
   const before = state.temperature;
-  state.temperature = Math.min(MAX_TEMPERATURE, before + 2);
+  state.temperature = Math.min(getGlobalParameterLimits(state.boardId).temperature, before + 2);
   const steps = (state.temperature - before) / 2;
   if (steps > 0) {
     increaseTerraformRating(state, playerId, steps, "action");
@@ -5747,7 +5753,7 @@ function grantPlacementBonus(state, cell, ownerId) {
   const ordered = [...grants.filter(grant => grant.type !== "temperature"), ...grants.filter(grant => grant.type === "temperature")];
   for (const grant of ordered) {
     if (grant.type === "temperature") {
-      if (state.temperature < MAX_TEMPERATURE && getPlayer(state, ownerId).mc >= 4) {
+      if (state.temperature < getGlobalParameterLimits(state.boardId).temperature && getPlayer(state, ownerId).mc >= 4) {
         for (let i = 0; i < grant.amount; i++) {
           const choice = buildAmountChoice(state, {
             sourceKind: "placement-bonus",
@@ -5772,7 +5778,7 @@ function grantPlacementBonus(state, cell, ownerId) {
     // paid for, the first legal one keeps the placement automatic like every
     // other bonus here.
     if (grant.type === "ocean-tile") {
-      if (state.oceans < MAX_OCEANS) {
+      if (state.oceans < getGlobalParameterLimits(state.boardId).oceans) {
         const target = firstLegalSpace(state, "ocean");
         if (target) placeTileAt(state, target, "ocean", ownerId);
       }
@@ -6444,9 +6450,10 @@ export function applyCardAction(state, card, logs, branchIndex) {
   // expansion is in play, as it does in the reference.
   if (card.id === FLOYD_CONTINUUM_ID) {
     let completed = 0;
-    if (nextState.temperature >= MAX_TEMPERATURE) completed += 1;
-    if (nextState.oxygen >= MAX_OXYGEN) completed += 1;
-    if (nextState.oceans >= MAX_OCEANS) completed += 1;
+    const limits = getGlobalParameterLimits(nextState.boardId);
+    if (nextState.temperature >= limits.temperature) completed += 1;
+    if (nextState.oxygen >= limits.oxygen) completed += 1;
+    if (nextState.oceans >= limits.oceans) completed += 1;
     if (nextState.venusEnabled && nextState.venus >= MAX_VENUS) completed += 1;
     nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     nextState.mc += completed * 3;
@@ -7589,7 +7596,7 @@ function grantColonyBenefit(state, benefit, playerId, logs, tileId) {
       break;
     }
     case "PLACE_OCEAN_TILE": {
-      const legal = state.oceans < MAX_OCEANS ? legalCellsFor(state, "ocean", playerId) : [];
+      const legal = state.oceans < getGlobalParameterLimits(state.boardId).oceans ? legalCellsFor(state, "ocean", playerId) : [];
       const choice = buildTileChoice(state, "ocean", {
         sourceKind: "colony",
         sourceId: tileId,
@@ -8443,7 +8450,7 @@ function applyGlobalEventEffect(state, event, logs) {
   // Aquifer Released by Public Council: the first player lays an ocean. It is
   // the board's ocean, not theirs, so it pays no TR or placement bonus — the
   // same terms as the World Government's.
-  if (spec.firstPlayerPlacesOcean && state.oceans < MAX_OCEANS) {
+  if (spec.firstPlayerPlacesOcean && state.oceans < getGlobalParameterLimits(state.boardId).oceans) {
     const choice = buildTileChoice(
       state,
       "ocean",
@@ -8543,8 +8550,9 @@ function findGlobalEvent(eventId) {
   return eventId ? GLOBAL_EVENTS.find(event => event.id === eventId) ?? null : null;
 }
 
-export function isGameOverCheck(temp, oxy, oce) {
-  return temp >= 8 && oxy >= 14 && oce >= 9;
+export function isGameOverCheck(temp, oxy, oce, boardId) {
+  const limits = getGlobalParameterLimits(boardId);
+  return temp >= limits.temperature && oxy >= limits.oxygen && oce >= limits.oceans;
 }
 
 // The three Mars tracks end the game in every mode. The Venus solo variant adds
@@ -8566,7 +8574,7 @@ export function isSoloMissionComplete(state) {
   if (state.soloTrVariant) {
     return (getPlayer(state, state.turnOrder?.[0] ?? "player")?.tr ?? 0) >= SOLO_TR_TARGET;
   }
-  if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans)) return false;
+  if (!isGameOverCheck(state.temperature, state.oxygen, state.oceans, state.boardId)) return false;
   return state.venusEnabled ? (state.venus ?? 0) >= 30 : true;
 }
 
@@ -9634,10 +9642,9 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
   if (!satisfiesPlacementRule(cell, placementRule, board, boardId, playerId)) return false;
 
   if (type === "ocean") {
-    // There are exactly nine ocean tiles. The counter saturated at 9 while the
-    // board kept accepting them, so a tenth could be placed.
+    // The board may have more reserved ocean spaces than ocean tiles.
     const placed = Object.values(board).filter(isOceanTile).length;
-    if (placed >= MAX_OCEANS) return false;
+    if (placed >= getGlobalParameterLimits(boardId).oceans) return false;
     // Artificial Lake says "on a non-reserved LAND area", which is exactly the
     // opposite of the default, so the card's own rule wins.
     if (placementRule === "land") return true;
@@ -9715,11 +9722,11 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
 
   // 1. Oxygen at 8% gives Temperature +1 step (+2°C)
   if (oldOxy < 8 && newOxy >= 8) {
-    if (nextState.temperature < 8) {
+    if (nextState.temperature < getGlobalParameterLimits(nextState.boardId).temperature) {
       const tempBefore = nextState.temperature;
-      nextState.temperature = Math.min(8, nextState.temperature + 2);
+      nextState.temperature = Math.min(getGlobalParameterLimits(nextState.boardId).temperature, nextState.temperature + 2);
       effectiveTemp = Math.max(effectiveTemp, nextState.temperature);
-      if (tempBefore < 8) {
+      if (tempBefore < getGlobalParameterLimits(nextState.boardId).temperature) {
         increaseTerraformRating(nextState, nextState.currentPlayerId, 1, "threshold");
         currentLogs = addLog(currentLogs, "system", "酸素濃度 8% 達成ボーナス: 気温 +2°C, TR +1");
       } else {
@@ -9742,7 +9749,7 @@ export function checkParameterThresholds(oldTemp, newTemp, oldOxy, newOxy, state
 
   // 4. Temperature 0°C places one ocean tile (if an ocean remains)
   if (oldTemp < 0 && effectiveTemp >= 0) {
-    if (nextState.oceans < 9) {
+    if (nextState.oceans < getGlobalParameterLimits(nextState.boardId).oceans) {
       const ownerId = nextState.currentPlayerId ?? nextState.firstPlayerId ?? nextState.turnOrder?.[0];
       const choice = buildTileChoice(
         nextState,
@@ -9953,7 +9960,7 @@ export function triggerProduction(state, logAcc) {
   const parametersComplete =
     nextState.mode === "solo"
       ? isSoloMissionComplete(nextState)
-      : isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans);
+      : isGameOverCheck(nextState.temperature, nextState.oxygen, nextState.oceans, nextState.boardId);
   if (generationLimitReached || parametersComplete) {
     nextState.phase = "final_greenery";
     nextState.currentPlayerId = nextState.firstPlayerId ?? nextState.turnOrder[0];

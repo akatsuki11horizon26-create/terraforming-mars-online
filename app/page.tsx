@@ -60,9 +60,7 @@ import {
   DECLINE_CHOICE as jsDeclineChoice,
   GLOBAL_EVENTS as jsGLOBAL_EVENTS,
   withLegacyPlayerAccessors as jsWithLegacyPlayerAccessors,
-  MAX_OXYGEN,
-  MAX_TEMPERATURE,
-  MAX_OCEANS,
+  getGlobalParameterLimits,
   getSoloGenerationLimit as jsGetSoloGenerationLimit
 } from "./game-logic.js";
 import { BOARD_CENTRE } from "./tharsis-board.js";
@@ -79,7 +77,7 @@ import {
   makeBotRng as jsMakeBotRng,
   getBotDifficulty
 } from "./bot-player";
-import { describeCell, describePlacement, TILE_LEGEND } from "./tile-help";
+import { describeCell, describePlacement, tileLegendForOceanLimit } from "./tile-help";
 import { MultiplayerLobby } from "./multiplayer-lobby";
 import { useRoom } from "./use-room";
 
@@ -623,15 +621,16 @@ export default function Home() {
   const isSoloMission = activeState.mode === "solo";
   const isSoloTr = Boolean(activeState.soloTrVariant);
 
-  const raisesOxygen = (activeState.oxygen ?? 0) < MAX_OXYGEN;
-  const raisesTemperature = (activeState.temperature ?? 0) < MAX_TEMPERATURE;
-  const raisesOceans = (activeState.oceans ?? 0) < MAX_OCEANS;
+  const parameterLimits = getGlobalParameterLimits(activeState.boardId);
+  const raisesOxygen = (activeState.oxygen ?? 0) < parameterLimits.oxygen;
+  const raisesTemperature = (activeState.temperature ?? 0) < parameterLimits.temperature;
+  const raisesOceans = (activeState.oceans ?? 0) < parameterLimits.oceans;
   const temperatureGain = raisesTemperature
     ? "気温を1段階(+2°C)上げます。TRが1上がります。"
     : "気温は上限に達しているため、上がりません（TRも増えません）。";
   const oceanGain = raisesOceans
     ? "海洋タイルを1枚配置します。TRが1上がります。"
-    : "海洋は9枚すべて配置済みのため、TRは増えません。";
+    : `海洋は${parameterLimits.oceans}枚すべて配置済みのため、TRは増えません。`;
   const greeneryGain = raisesOxygen
     ? "緑地タイルを1枚配置します。酸素とTRが1上がります。"
     : "緑地タイルを1枚配置します。酸素は上限に達しているため、TRは増えません。";
@@ -2024,6 +2023,7 @@ export default function Home() {
               oxygen={activeState.oxygen}
               oceans={activeState.oceans}
               venus={activeState.venus ?? 0}
+              boardId={activeState.boardId}
               showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
               onOpen={() => setOpenDrawer("planet")}
             />
@@ -3048,6 +3048,7 @@ export default function Home() {
             oxygen={activeState.oxygen}
             oceans={activeState.oceans}
             venus={activeState.venus ?? 0}
+            boardId={activeState.boardId}
             showVenus={Boolean(activeState.venusEnabled) || (activeState.venus ?? 0) > 0}
           />
         </div>
@@ -3121,7 +3122,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || activeState.temperature >= 8}
+                  disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || !raisesTemperature}
                   data-testid="sp-asteroid-btn"
                   onClick={() => confirmAction("小惑星の衝突", `14 MC を支払い、${temperatureGain}`, () => handleStandardProjectPlay("asteroid"))}
                 >
@@ -3138,7 +3139,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.75rem" }}
-                  disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || activeState.oceans >= 9}
+                  disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || !raisesOceans}
                   data-testid="sp-aquifer-btn"
                   onClick={() => confirmAction("海洋の沈降", `18 MC を支払い、${oceanGain}`, () => handleStandardProjectPlay("ocean"))}
                 >
@@ -3190,7 +3191,7 @@ export default function Home() {
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={activeState.heat < 8 || Boolean(pendingChoice) || activeState.temperature >= 8}
+                    disabled={activeState.heat < 8 || Boolean(pendingChoice) || !raisesTemperature}
                     onClick={() => confirmAction("熱の変換", `熱 8 を支払い、${temperatureGain}`, () => handleStandardProjectPlay("heat_convert"))}
                   >
                     変換
@@ -3333,7 +3334,7 @@ export default function Home() {
 
       <Drawer open={openDrawer === "legend"} title="タイル凡例" onClose={closeDrawer}>
         <ul className="legend-list">
-          {TILE_LEGEND.map(item => (
+          {tileLegendForOceanLimit(parameterLimits.oceans).map(item => (
             <li key={item.name} className="legend-item">
               <span className="legend-icon">{item.icon}</span>
               <span>
@@ -3395,9 +3396,9 @@ export default function Home() {
                   </>
                 ) : (
                   <>
-                    <li><strong>気温:</strong> -30°C から <strong>+8°C</strong> (最大)</li>
-                    <li><strong>酸素濃度:</strong> 0% から <strong>14%</strong> (最大)</li>
-                    <li><strong>海洋数:</strong> <strong>9タイル</strong> すべての配置</li>
+                    <li><strong>気温:</strong> -30°C から <strong>+{parameterLimits.temperature}°C</strong> (最大)</li>
+                    <li><strong>酸素濃度:</strong> 0% から <strong>{parameterLimits.oxygen}%</strong> (最大)</li>
+                    <li><strong>海洋数:</strong> <strong>{parameterLimits.oceans}タイル</strong> すべての配置</li>
                     {activeState.venusEnabled && isSoloMission && (
                       <li><strong>金星:</strong> <strong>30%</strong>（金星拡張のソロは、これも達成しないと成功になりません）</li>
                     )}

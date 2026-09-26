@@ -9,7 +9,8 @@ import {
   hasPositiveVpIcon,
   CORPORATIONS,
   RESEARCH_CARD_COST,
-  DECLINE_CHOICE
+  DECLINE_CHOICE,
+  getGlobalParameterLimits
 } from "./game-logic.js";
 import { executeGameCommand, getLegalCommands, COMMAND } from "./game-command.js";
 
@@ -112,7 +113,8 @@ function phaseFactors(state) {
   const generation = state.generation ?? 1;
   const limit = state.mode === "solo" ? (state.preludeEnabled ? 12 : 14) : 14;
   const left = Math.max(0, limit - generation);
-  const completed = [state.oxygen >= 14, state.temperature >= 8, state.oceans >= 9].filter(Boolean).length;
+  const limits = getGlobalParameterLimits(state.boardId);
+  const completed = [state.oxygen >= limits.oxygen, state.temperature >= limits.temperature, state.oceans >= limits.oceans].filter(Boolean).length;
   const endgame = Math.max(1 - Math.min(1, left / limit), completed / 3);
   return {
     production: Math.min(4, left * 0.5),
