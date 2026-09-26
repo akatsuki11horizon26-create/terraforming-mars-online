@@ -864,6 +864,30 @@ test("Vastitas Borealis has its own board, milestones and awards", () => {
     ["v-traveller", "v-landscaper", "v-highlander", "v-promoter", "v-blacksmith"]);
 });
 
+test("Vastitas printed board matches every space's terrain and placement bonus", () => {
+  const printedRows = [
+    "p1 - s1 - -",
+    "p2 p2 - - p1 c1",
+    "c1 o:p2 o:p2 p2 p1 - -",
+    "s2 t1 o:p2 p1 - c1 p1 d1",
+    "- - o:p1 p2 T1 o:p2 o:p2 o:p2 c2",
+    "c2 - p1 o:h2 o:h2+p1 o:c1 p1 t2",
+    "t1 s1 o:- o:h2 p2 p1 -",
+    "p1 - p1 s1+p1 s1 p1",
+    "d1 - c1 t1 s1"
+  ];
+  const symbol = { plant: "p", steel: "s", titanium: "t", heat: "h", card: "c", delegate: "d", temperature: "T" };
+  const cells = getBoardCells("vastitas-borealis");
+  const actualRows = [...new Set(cells.map(cell => cell.r))].map(row => cells
+    .filter(cell => cell.r === row)
+    .map(cell => {
+      const bonuses = cell.bonusType === "multi" ? cell.bonus :
+        cell.bonusType === "none" ? [] : [{ type: cell.bonusType, amount: cell.bonusAmount }];
+      return `${cell.isOceanOnly ? "o:" : ""}${bonuses.length ? bonuses.map(bonus => `${symbol[bonus.type]}${bonus.amount}`).join("+") : "-"}`;
+    }).join(" "));
+  assert.deepEqual(actualRows, printedRows);
+});
+
 test("Vastitas Viking sites send a free delegate only with Turmoil", async () => {
   const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
   for (const id of ["28", "59"]) {
