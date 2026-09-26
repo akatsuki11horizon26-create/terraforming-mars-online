@@ -562,6 +562,61 @@ test("Amazonis standard projects remain available beyond standard track caps", (
   assert.ok(aquifer.state.pendingChoice);
 });
 
+test("Air Scrapping is a Venus-only standard project with the printed cost and track rewards", () => {
+  const disabled = table();
+  assert.equal(getStandardProjectCost(disabled.state, disabled.seat, "air-scrapping"), null);
+  assert.equal(executeGameCommand(disabled.state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: disabled.seat, projectId: "air-scrapping"
+  }).ok, false);
+
+  const { state, seat } = table({ venus: true });
+  state.venus = 14;
+  const before = getPlayer(state, seat);
+  assert.equal(getStandardProjectCost(state, seat, "air-scrapping"), 15);
+  const result = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "air-scrapping"
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.venus, 16);
+  assert.equal(getPlayer(result.state, seat).mc, before.mc - 15);
+  assert.equal(getPlayer(result.state, seat).tr, before.tr + 2, "track step and 16% bonus each pay one TR");
+  assert.equal(getPlayer(result.state, seat).actionsRemaining, before.actionsRemaining - 1);
+
+  const drawState = cloneGameState(state);
+  drawState.venus = 6;
+  const handSize = getPlayer(drawState, seat).hand.length;
+  const drawResult = executeGameCommand(drawState, {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "air-scrapping"
+  });
+  assert.equal(drawResult.state.venus, 8);
+  assert.equal(getPlayer(drawResult.state, seat).hand.length, handSize + 1);
+
+  const capped = cloneGameState(state);
+  capped.venus = 30;
+  const refused = executeGameCommand(capped, {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "air-scrapping"
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(getPlayer(capped, seat).mc, before.mc);
+});
+
+test("Air Scrapping uses the extended Amazonis Venus track past 30%", () => {
+  const { state, seat } = table({ board: "amazonis", venus: true, extendedVenus: true });
+  state.venus = 30;
+  const before = getPlayer(state, seat);
+  const first = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "air-scrapping"
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.state.venus, 31);
+  assert.equal(getPlayer(first.state, seat).tr, before.tr + 1);
+  assert.equal(getPlayer(first.state, seat).mc, before.mc - 15);
+  first.state.venus = 33;
+  assert.equal(executeGameCommand(first.state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: seat, projectId: "air-scrapping"
+  }).ok, false);
+});
+
 test("a standard project nobody can pay for is refused for free", () => {
   const { state, seat } = table();
   const broke = cloneGameState(state);

@@ -80,6 +80,19 @@ test("A bot only considers moves it can actually afford", () => {
   );
 });
 
+test("the bot sees Air Scrapping only while Venus can still advance", () => {
+  const state = seatedGame();
+  state.phase = "action";
+  state.currentPlayerId = "player2";
+  state.venusEnabled = true;
+  state.venus = 28;
+  state.players = state.players.map(player => player.id === "player2" ? { ...player, mc: 30 } : player);
+  const offered = enumerateBotMoves(state, "player2");
+  assert.ok(offered.some(move => move.project?.commandId === "air-scrapping"));
+  state.venus = 30;
+  assert.equal(enumerateBotMoves(state, "player2").some(move => move.project?.commandId === "air-scrapping"), false);
+});
+
 test("A bot's card resolves for the bot, not the human", () => {
   // Card effects apply to currentPlayerId. Applying a bot's move while the human
   // held the seat credited the human with the bot's production.
@@ -342,10 +355,10 @@ test("a bot's standard projects move each parameter exactly once", () => {
   assert.equal(engine.getPlayer(afterGreenery, "player2").tr, beforeTr + 1);
 });
 
-test("the bot exposes all eight standard projects without a second implementation", () => {
+test("the bot exposes every standard project without a second implementation", () => {
   assert.deepEqual(
     BOT_STANDARD_PROJECTS.map(project => project.commandId).sort(),
-    ["aquifer", "asteroid", "city", "convert-heat", "convert-plants", "greenery", "power-plant", "sell-patents"].sort()
+    ["air-scrapping", "aquifer", "asteroid", "city", "convert-heat", "convert-plants", "greenery", "power-plant", "sell-patents"].sort()
   );
   assert.equal(BOT_STANDARD_PROJECTS.some(project => "apply" in project), false);
 });

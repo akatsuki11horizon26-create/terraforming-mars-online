@@ -1338,11 +1338,12 @@ export default function Home() {
   };
 
 
-  // The eight standard projects are named the same way everywhere now; these
+  // Standard projects are named the same way everywhere now; these
   // are the UI's older labels for them.
   const PROJECT_IDS: Record<string, string> = {
     power_plant: "power-plant",
     asteroid: "asteroid",
+    air_scrapping: "air-scrapping",
     ocean: "aquifer",
     greenery: "greenery",
     city: "city",
@@ -1352,7 +1353,7 @@ export default function Home() {
     sell_patents: "sell-patents"
   };
 
-  const handleStandardProjectPlay = (type: "asteroid" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "buffer_gas" | "sell_patents") => {
+  const handleStandardProjectPlay = (type: "asteroid" | "air_scrapping" | "greenery" | "ocean" | "plants_convert" | "heat_convert" | "power_plant" | "city" | "buffer_gas" | "sell_patents") => {
     // The bots drive themselves; acting on their turn would spend their action.
     if (!isMyTurn) return;
     // The drawer has served its purpose once a project is chosen, and it covers
@@ -3140,6 +3141,25 @@ export default function Home() {
                 </button>
               </div>
 
+              {/* Venus Next: Air Scrapping */}
+              {activeState.venusEnabled && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
+                  <div>
+                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>金星大気の減圧 (Air Scrapping)</div>
+                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 15 | 金星 +1段階, TR +1</div>
+                  </div>
+                  <button
+                    className="btn-secondary"
+                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    disabled={!canPayStandardCost(15) || Boolean(pendingChoice) || activeState.venus >= getVenusTrackLimit(activeState)}
+                    data-testid="sp-air-scrapping-btn"
+                    onClick={() => confirmAction("金星大気の減圧", "15 MC を支払い、金星を1段階上げてTRを1得ます。", () => handleStandardProjectPlay("air_scrapping"))}
+                  >
+                    実行
+                  </button>
+                </div>
+              )}
+
               {/* 3. Aquifer */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
@@ -3466,6 +3486,7 @@ export default function Home() {
                   <ul style={{ paddingLeft: "18px", marginBottom: "12px" }}>
                     <li><strong>金星スケール</strong>が4つ目のグローバルパラメータとして加わります（0%〜{getVenusTrackLimit(activeState)}%）。</li>
                     <li>1ステップ＝<strong>{getVenusTrackLimit(activeState) > 30 ? "30%までは2%、以降は1%" : "2%"}</strong>。1ステップ上げるごとに<strong>TR +1</strong>。</li>
+                    <li><strong>金星大気の減圧</strong>は15 MCで金星を1段階上げる標準プロジェクトです。</li>
                     <li>金星は<strong>ゲーム終了条件に含まれません</strong>。気温・酸素・海洋の3つが最大になればゲームは終わります。</li>
                     <li>8%到達で<strong>カードを1枚ドロー</strong>、16%到達で<strong>TR +1</strong>のマイルストーンがあります。</li>
                     <li>金星タグ（♀）を持つカードが追加されます。</li>

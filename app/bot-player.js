@@ -215,6 +215,7 @@ function researchCardValue(card, state, botId, factors) {
 export const BOT_STANDARD_PROJECTS = [
   { id: "power_plant", commandId: "power-plant", name: "発電所の建設", cost: 11 },
   { id: "asteroid", commandId: "asteroid", name: "小惑星の衝突", cost: 14 },
+  { id: "air_scrapping", commandId: "air-scrapping", name: "金星大気の減圧", cost: 15 },
   { id: "ocean", commandId: "aquifer", name: "海洋の沈降", cost: 18 },
   { id: "greenery", commandId: "greenery", name: "緑化プロジェクト", cost: 23 },
   { id: "city", commandId: "city", name: "都市の建設", cost: 25 },

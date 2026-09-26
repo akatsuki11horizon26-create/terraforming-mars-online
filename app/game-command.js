@@ -61,6 +61,9 @@ import {
   communityChoice,
   armPreservationProgram,
   getGlobalParameterLimits,
+  getVenusTrackLimit,
+  applyGlobalParameterChange,
+  applyVenusThresholds,
 } from "./game-logic.js";
 import { buildTileChoice, buildAmountChoice } from "./pending-choice.js";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones.js";
@@ -348,6 +351,20 @@ const STANDARD_PROJECTS = {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
       raiseTemperature(state, command.playerId);
       return finishProject(state, command, "小惑星の衝突", before);
+    }
+  },
+  "air-scrapping": {
+    label: "金星大気の減圧",
+    cost: () => 15,
+    available: state => Boolean(state.venusEnabled),
+    blocked: state => (state.venus >= getVenusTrackLimit(state) ? "金星は上限に達しています。" : null),
+    run(state, command) {
+      const before = state.venus ?? 0;
+      const raised = applyGlobalParameterChange(state, { parameter: "venus", actorPlayerId: command.playerId }, state.logs);
+      const priorLogs = raised.state.logs ?? raised.logs;
+      const settled = applyVenusThresholds(raised.state, before, priorLogs);
+      settled.state.logs = [...(settled.state.logs ?? priorLogs), ...settled.logs.slice(priorLogs.length)];
+      return finishProject(settled.state, command, "金星大気の減圧");
     }
   },
   aquifer: {
@@ -1231,7 +1248,7 @@ const HANDLERS = {
   // Buying from the research offer, in setup and every generation after. The
   // server had its own copy of this and never advanced the phase with it, so
   // an online game stalled once everyone had bought.
-  // The eight standard projects. The UI, the server and the bot each had their
+  // Standard projects. The UI, the server and the bot each had their
   // own copy of these, which is how the bot came to raise the ocean count twice
   // and the online build could not run them at all.
   [COMMAND.STANDARD_PROJECT](state, command) {
