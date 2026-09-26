@@ -111,6 +111,17 @@ test("The layout is pinned to the viewport", () => {
   assert.match(css, /\.main-content\s*\{[^}]*overflow:\s*hidden/s);
 });
 
+test("the scaled board releases its unused space on mobile", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const stage = css.match(/\.board-stage\s*\{[^}]*\}/)?.[0];
+  assert.ok(stage, "the sphere needs a layout box that matches its scaled size");
+  assert.match(stage, /width:\s*calc\(460px \* var\(--board-scale, 1\)\)/);
+  assert.match(stage, /height:\s*calc\(460px \* var\(--board-scale, 1\)\)/);
+  assert.match(page, /className="board-stage"[\s\S]*?className="mars-sphere"/);
+  assert.match(css, /\.mars-sphere\s*\{[^}]*transform-origin:\s*top left/s);
+  assert.match(css, /@media \(max-width: 820px\)\s*\{\s*\.board-panel\s*\{[^}]*height:\s*min\(460px, calc\(100vw - 24px\)\)/);
+});
+
 test("No hardcoded rust or ember values survive", () => {
   // These were the source of the red cast; colour now comes from tokens.
   assert.equal(css.includes("rgba(168, 50, 32"), false);

@@ -236,6 +236,7 @@ div[tabindex="0"]:focus-visible {
   align-items: center;
   justify-content: center;
   position: relative;
+  min-width: 0;
   min-height: 0;
   /* The board shrinks to fit, but only down to MIN_BOARD_SCALE -- past that the
      spaces stop being readable. On a screen too short for even that, the rest
@@ -245,14 +246,20 @@ div[tabindex="0"]:focus-visible {
   overscroll-behavior: contain;
 }
 
-/* The planet is a fixed 460px design scaled to whatever height is left, so the
-   board never forces the page to scroll. --board-scale is set from page.tsx. */
+/* Keep the layout box the same size as the scaled sphere. A transform alone
+   leaves a 460px box behind and pushes the hand below the phone viewport. */
+.board-stage {
+  width: calc(460px * var(--board-scale, 1));
+  height: calc(460px * var(--board-scale, 1));
+  flex: 0 0 auto;
+}
+
 .mars-sphere {
   width: 460px;
   height: 460px;
   flex: 0 0 auto;
   transform: scale(var(--board-scale, 1));
-  transform-origin: center center;
+  transform-origin: top left;
   border-radius: 50%;
   background: radial-gradient(circle at 32% 28%, #C4643A 0%, #8E3F28 48%, #2A1710 78%, #10151C 100%);
   position: relative;
@@ -370,6 +377,9 @@ div[tabindex="0"]:focus-visible {
 }
 
 @media (max-width: 820px) {
+  .board-panel {
+    height: min(460px, calc(100vw - 24px));
+  }
   .mobile-board-controls {
     display: flex;
     justify-content: flex-end;

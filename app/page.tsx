@@ -2166,7 +2166,8 @@ export default function Home() {
           ref={attachBoardRef}
           style={{ ["--board-scale" as string]: String(boardZoomed ? 1 : boardScale) }}
         >
-          <div className="mars-sphere">
+          <div className="board-stage">
+            <div className="mars-sphere">
             <div className="hex-grid">
               {Object.values(activeState.board).map(cell => {
                 let isValid = false;
@@ -2278,6 +2279,7 @@ export default function Home() {
                   </button>
                 );
               })}
+            </div>
             </div>
           </div>
 
