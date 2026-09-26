@@ -546,6 +546,53 @@ div[tabindex="0"]:focus-visible {
 /* Card list / Hand styles */
 /* A fixed-height strip at the bottom of the viewport rather than another block
    in the flow, so the hand is always visible without lengthening the page. */
+.hand-toolbar,
+.hand-toolbar-actions,
+.hand-filters,
+.hand-sell-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hand-toolbar {
+  justify-content: space-between;
+}
+
+.hand-toolbar h2 {
+  min-width: 0;
+}
+
+.hand-search {
+  width: 150px;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  background: rgba(8, 9, 8, 0.6);
+  border: 1px solid var(--line-soft);
+}
+
+.hand-playable-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  font-size: 0.875rem;
+  color: var(--text-mid);
+  white-space: nowrap;
+}
+
+.hand-turn-button {
+  min-height: 40px;
+  padding: 6px 14px;
+  font-size: 0.875rem;
+  border-color: var(--color-rust);
+  color: var(--color-rust);
+}
+
 .hand-container {
   flex: 0 0 auto;
   /* The strip also carries its own header and action row -- about 92px between
@@ -580,6 +627,40 @@ div[tabindex="0"]:focus-visible {
 }
 
 @media (max-width: 650px) {
+  .hand-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .hand-toolbar-actions,
+  .hand-filters,
+  .hand-sell-actions {
+    flex-wrap: wrap;
+  }
+
+  .hand-filters {
+    flex: 1 1 100%;
+  }
+
+  .hand-search {
+    flex: 1 1 160px;
+    width: auto;
+    min-height: 44px;
+  }
+
+  .hand-playable-filter {
+    min-height: 44px;
+  }
+
+  .hand-turn-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .hand-sell-actions > button {
+    min-height: 44px;
+  }
+
   .header {
     align-items: flex-start;
     flex-direction: column;

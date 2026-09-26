@@ -2758,23 +2758,23 @@ export default function Home() {
         activeState.phase === "research" ||
         activeState.phase === "setup") && (
         <div className="hand-container">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="hand-toolbar">
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
               PROJECT CARDS (手札: {activeState.hand.length}枚){handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{handCards.length}枚を表示中</span>} {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
             </h2>
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <div className="hand-toolbar-actions">
               {allHandCards.length > 0 && !isSellingPatents && (
-                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                <div className="hand-filters">
                   <input
                     type="search"
+                    className="hand-search"
                     data-testid="hand-filter"
                     value={handFilter}
                     onChange={event => setHandFilter(event.target.value)}
                     placeholder="カード名・効果・タグ"
                     aria-label="手札を絞り込む"
-                    style={{ width: "150px", padding: "2px 6px", fontSize: "0.7rem", color: "var(--color-ink)", background: "rgba(8,9,8,0.6)", border: "1px solid rgba(242,232,220,0.2)", borderRadius: "3px" }}
                   />
-                  <label style={{ display: "flex", gap: "4px", alignItems: "center", fontSize: "0.7rem", color: "#c9bfae", whiteSpace: "nowrap" }}>
+                  <label className="hand-playable-filter">
                     <input
                       type="checkbox"
                       data-testid="hand-playable-only"
@@ -2786,7 +2786,7 @@ export default function Home() {
                 </div>
               )}
               {activeState.phase !== "action" ? null : isSellingPatents ? (
-                <div style={{ display: "flex", gap: "8px" }}>
+                <div className="hand-sell-actions">
                   <button
                     className="btn-primary"
                     style={{ padding: "4px 14px", fontSize: "0.75rem", backgroundColor: "var(--color-gold)", borderColor: "var(--color-gold)", color: "#000" }}
@@ -2807,8 +2807,7 @@ export default function Home() {
                 </div>
               ) : (
                 <button
-                  className="btn-secondary"
-                  style={{ padding: "4px 14px", fontSize: "0.75rem", borderColor: "var(--color-rust)", color: "var(--color-rust)" }}
+                  className="btn-secondary hand-turn-button"
                   onClick={handlePass}
                   disabled={!isMyTurn || Boolean(pendingChoice)}
                 >

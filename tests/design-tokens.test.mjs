@@ -122,6 +122,18 @@ test("the scaled board releases its unused space on mobile", async () => {
   assert.match(css, /@media \(max-width: 820px\)\s*\{\s*\.board-panel\s*\{[^}]*height:\s*min\(460px, calc\(100vw - 24px\)\)/);
 });
 
+test("mobile hand controls wrap instead of clipping the search and pass action", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  assert.match(page, /className="hand-toolbar"/);
+  assert.match(page, /className="hand-toolbar-actions"/);
+  assert.match(page, /className="hand-search"/);
+  assert.match(page, /className="btn-secondary hand-turn-button"/);
+  const mobile = css.slice(css.indexOf("@media (max-width: 650px)"));
+  assert.match(mobile, /\.hand-toolbar\s*\{[^}]*flex-direction:\s*column/s);
+  assert.match(mobile, /\.hand-filters\s*\{[^}]*flex:\s*1 1 100%/s);
+  assert.match(mobile, /\.hand-turn-button\s*\{[^}]*width:\s*100%/s);
+});
+
 test("No hardcoded rust or ember values survive", () => {
   // These were the source of the red cast; colour now comes from tokens.
   assert.equal(css.includes("rgba(168, 50, 32"), false);
