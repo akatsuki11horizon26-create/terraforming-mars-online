@@ -1,6 +1,5 @@
-// Generates the alternate maps from the same builder calls the reference
-// implementation uses (src/server/boards/*Board.ts), so each board's 61 spaces,
-// their bonuses and ocean reservations match the printed boards exactly.
+// Generates the alternate maps from board-builder rows. The standard maps use
+// 61 spaces; the printed Amazonis board uses 91.
 //
 // The row layout and id assignment follow BoardBuilder.build(): nine rows of
 // [5,6,7,8,9,8,7,6,5], xOffset = 9 - tilesInThisRow, ids starting at 3.
@@ -13,14 +12,13 @@ const CARD = "card";
 const TITANIUM = "titanium";
 const HEAT = "heat";
 const ENERGY = "energy";
-const MICROBE = "microbe";
-const ANIMAL = "animal";
 const OCEAN = "ocean";
 const TEMPERATURE = "temperature";
+const WILD = "wild";
+const DELEGATE = "delegate";
 
 const TILES_PER_ROW = [5, 6, 7, 8, 9, 8, 7, 6, 5];
 const ROW_SHIFT = [0, 0, 0, 0, 0, -1, -2, -3, -4];
-const TOTAL = TILES_PER_ROW.reduce((a, b) => a + b, 0);
 
 // Mirrors BoardBuilder's chained calls so a board reads the same here as it does
 // in the reference source, which is what makes the transcription checkable.
@@ -41,7 +39,8 @@ function makeBuilder() {
   return api;
 }
 
-// Each board, transcribed from the reference implementation one row per line.
+// Standard boards follow the reference builder; Amazonis follows the printed
+// 2024 board, whose extra ring is absent from that reference implementation.
 const BOARDS = {
   "vastitas-borealis": {
     name: "ヴァスティタス・ボレアリス",
@@ -129,17 +128,24 @@ const BOARDS = {
   amazonis: {
     name: "アマゾニス平原",
     englishName: "Amazonis Planitia",
+    // Printed board: https://boardgamegeek.com/image/8344818/terraforming-mars-amazonis-and-vastitas
+    tilesPerRow: [6, 7, 8, 9, 10, 11, 10, 9, 8, 7, 6],
+    volcanoNames: ["Hecates Tholus", "Olympus Mons", "Ascraeus Mons", "Pavonis Mons", "Arsia Mons"],
     build(b) {
-      b.land().ocean(PLANT).land(PLANT, PLANT, PLANT).land(MICROBE).land(ANIMAL);
-      b.ocean(TITANIUM).volcanic(MICROBE, MICROBE).land().land().ocean(CARD, CARD).ocean();
-      b.land(PLANT, PLANT).land(STEEL, PLANT).land(STEEL, HEAT).land(HEAT, PLANT).land(ANIMAL).land().land(MICROBE);
-      b.land().ocean(PLANT).land().land(PLANT).land(HEAT, PLANT).land(STEEL).land(PLANT).ocean(STEEL, PLANT);
-      b.land(PLANT).land(PLANT).land().land(HEAT, HEAT).restricted().doNotShuffleLastSpace()
-        .land(HEAT, HEAT).volcanic(PLANT, PLANT).land().land(TITANIUM, TITANIUM);
-      b.ocean(PLANT, PLANT).land(PLANT).land(STEEL).land(HEAT, PLANT).land(PLANT).volcanic(CARD).land().ocean(PLANT);
-      b.ocean(PLANT).land().land(MICROBE).volcanic(HEAT, PLANT).land().land(PLANT, PLANT).ocean(PLANT, PLANT);
-      b.land(TITANIUM).ocean(PLANT).land(STEEL).land().land(ANIMAL).land(PLANT);
-      b.land().land(CARD).land(STEEL).ocean(PLANT).land(STEEL, STEEL);
+      b.land(STEEL).land(STEEL, STEEL).land(STEEL).land(TITANIUM).land(WILD, WILD).land();
+      b.ocean().land(DELEGATE).land(STEEL).land().land(PLANT).ocean(PLANT, PLANT).ocean(WILD, WILD);
+      b.ocean(STEEL, STEEL).land().land(TITANIUM, TITANIUM).land().land(PLANT).ocean().land().land();
+      b.land(WILD).ocean().land().land().land(PLANT).land(PLANT).land(PLANT, PLANT).land(PLANT).land(PLANT, TITANIUM);
+      b.volcanic(STEEL, STEEL).land(PLANT).land(CARD).land(PLANT).ocean(TITANIUM).land(PLANT).land(PLANT, PLANT).land(PLANT).land(CARD).ocean(PLANT, PLANT);
+      b.land(PLANT).land(PLANT).land(PLANT, PLANT).land(PLANT, PLANT).ocean(PLANT, PLANT).ocean(PLANT, PLANT)
+        .land(STEEL, PLANT, PLANT).land(PLANT).land().land(PLANT).ocean(TITANIUM);
+      b.land(PLANT).land(PLANT, PLANT).ocean(PLANT, PLANT).land(ENERGY, ENERGY).land(ENERGY)
+        .land(ENERGY, ENERGY).land(PLANT).land(PLANT).land().land();
+      b.land().ocean(TITANIUM, TITANIUM).land(PLANT).land(ENERGY).land(ENERGY, ENERGY)
+        .land(PLANT).volcanic(DELEGATE, DELEGATE).land(STEEL).volcanic(DELEGATE);
+      b.ocean(STEEL, WILD).land().land(WILD).land().land().land(PLANT, PLANT).land().volcanic(WILD);
+      b.ocean().land().land(CARD).land().land(PLANT, PLANT, PLANT).land(PLANT, PLANT).volcanic(STEEL, STEEL);
+      b.land().land(STEEL, WILD).land(STEEL, STEEL).land().land(PLANT).land(TITANIUM);
     }
   }
 };
@@ -149,21 +155,24 @@ function buildCells(definition) {
   definition.build(builder);
   const { spaceTypes, bonuses, volcanic, restricted, unshufflable } = builder.result();
 
-  if (spaceTypes.length !== TOTAL) {
-    throw new Error(`${definition.englishName}: expected ${TOTAL} spaces, got ${spaceTypes.length}`);
+  const tilesPerRow = definition.tilesPerRow ?? TILES_PER_ROW;
+  const total = tilesPerRow.reduce((sum, count) => sum + count, 0);
+  if (spaceTypes.length !== total) {
+    throw new Error(`${definition.englishName}: expected ${total} spaces, got ${spaceTypes.length}`);
   }
 
   const volcanoOrder = [...volcanic].sort((a, b) => a - b);
   const cells = [];
   let idx = 0;
-  for (let row = 0; row < 9; row++) {
-    const tilesInThisRow = TILES_PER_ROW[row];
-    const xOffset = 9 - tilesInThisRow;
+  for (let row = 0; row < tilesPerRow.length; row++) {
+    const tilesInThisRow = tilesPerRow[row];
+    const radius = Math.floor(tilesPerRow.length / 2);
+    const xOffset = tilesPerRow[radius] - tilesInThisRow;
     for (let i = 0; i < tilesInThisRow; i++) {
-      const id = String(idx + 3).padStart(2, "0");
+      const id = String(idx + (definition.tilesPerRow ? 1 : 3)).padStart(2, "0");
       const bonus = bonuses[idx];
-      const r = row - 4;
-      const q = xOffset + i + ROW_SHIFT[row];
+      const r = row - radius;
+      const q = xOffset + i + (definition.tilesPerRow ? Math.min(0, radius - row) : ROW_SHIFT[row]);
 
       const counts = {};
       for (const b of bonus) counts[b] = (counts[b] ?? 0) + 1;
@@ -187,7 +196,6 @@ function buildCells(definition) {
         const name = definition.volcanoNames?.[volcanoOrder.indexOf(idx)];
         if (name) cell.name = name;
       }
-      // Amazonis reserves one space for its own city; it is never shuffled.
       if (restricted.has(idx)) cell.restricted = true;
       if (unshufflable.has(idx)) cell.unshufflable = true;
       // The Hellas south pole: pay to place, receive an ocean tile.
@@ -223,8 +231,7 @@ const body = Object.entries(output)
 await writeFile(
   resolve("app/alternate-boards.js"),
   `// GENERATED by scripts/generate-boards.mjs — do not edit by hand.\n` +
-    `// Transcribed from the reference implementation's board builders so the\n` +
-    `// spaces, bonuses and ocean reservations match the printed boards.\n` +
+    `// Standard maps follow the reference builder; Amazonis follows the 91-space printed board.\n` +
     `export const ALTERNATE_BOARDS = {\n${body}\n};\n`,
   "utf8"
 );

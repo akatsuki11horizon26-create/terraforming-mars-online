@@ -1,11 +1,6 @@
-// Compares every alternate map's builder calls against the reference
-// implementation's own board sources.
-//
-// The four maps were transcribed by hand from src/server/boards/*Board.ts, and
-// three of them were perfect. Amazonis was not: the last four spaces of row
-// y=4 carried the wrong bonuses and dropped a volcanic space entirely, which
-// no test could see because every test asked "are there 61 spaces" and "do the
-// maps differ from each other" -- both true of a wrong board.
+// Compares the standard-size alternate maps' builder calls against the
+// reference implementation's board sources. The printed Amazonis map has 91
+// spaces, while that implementation still models 61, so it is not comparable.
 //
 // This normalises both sides to the same shape and diffs them, so the next
 // transcription slip is a failed audit rather than a quietly wrong map.
@@ -27,8 +22,7 @@ const MAPS = [
   { id: "hellas", file: "HellasBoard.ts" },
   { id: "elysium", file: "ElysiumBoard.ts" },
   { id: "utopia", file: "UtopiaPlanitiaBoard.ts" },
-  { id: "terra-cimmeria", file: "TerraCimmeriaBoard.ts" },
-  { id: "amazonis", file: "AmazonisBoard.ts" }
+  { id: "terra-cimmeria", file: "TerraCimmeriaBoard.ts" }
 ];
 
 if (!existsSync(boardsDir)) {

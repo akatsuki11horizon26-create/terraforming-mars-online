@@ -134,11 +134,94 @@ test("standard-size maps have the complete 61-space layout", () => {
   }
 });
 
+test("the printed Amazonis board has 91 unique spaces and five volcanic regions", () => {
+  const cells = getBoardCells("amazonis");
+  assert.equal(cells.length, 91);
+  const rows = new Map();
+  for (const cell of cells) rows.set(cell.r, (rows.get(cell.r) ?? 0) + 1);
+  assert.deepEqual([...rows.values()], [6, 7, 8, 9, 10, 11, 10, 9, 8, 7, 6]);
+  assert.equal(new Set(cells.map(cell => `${cell.q},${cell.r}`)).size, 91);
+  assert.equal(cells.filter(cell => cell.isOceanOnly).length, 15);
+  assert.deepEqual(cells.filter(cell => cell.volcanic).map(cell => cell.name),
+    ["Hecates Tholus", "Olympus Mons", "Ascraeus Mons", "Pavonis Mons", "Arsia Mons"]);
+  assert.ok(cells.some(cell => cell.bonusType === "wild"));
+  assert.ok(cells.some(cell => cell.bonusType === "delegate"));
+  assert.ok(cells.some(cell => cell.bonusType === "energy"));
+});
+
+test("Amazonis wild bonuses choose each standard resource separately", async () => {
+  const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
+  const state = getInitialState({ board: "amazonis" });
+  state.phase = "action";
+  const owner = state.currentPlayerId;
+  const cell = Object.values(state.board).find(candidate => candidate.bonusType === "wild" && candidate.bonusAmount === 2);
+  const before = getPlayer(state, owner);
+  placeTileAt(state, cell, "city", owner);
+  assert.equal(state.pendingChoice?.kind, "standard-resource");
+  const first = resolvePendingChoice(state, "steel", state.logs, owner);
+  assert.equal(first.state.pendingChoice?.kind, "standard-resource");
+  const second = resolvePendingChoice(first.state, "plants", first.logs, owner);
+  assert.equal(second.state.pendingChoice, null);
+  assert.equal(getPlayer(second.state, owner).steel, before.steel + 1);
+  assert.equal(getPlayer(second.state, owner).plants, before.plants + 1);
+});
+
+test("Amazonis delegate bonuses send from reserve without payment only with Turmoil", async () => {
+  const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
+  const state = getInitialState({ board: "amazonis", turmoil: true });
+  state.phase = "action";
+  const owner = state.currentPlayerId;
+  const cell = Object.values(state.board).find(candidate => candidate.bonusType === "delegate");
+  const beforeMc = getPlayer(state, owner).mc;
+  const beforeReserve = state.turmoil.delegateReserve[owner];
+  placeTileAt(state, cell, "city", owner);
+  assert.equal(state.pendingChoice?.kind, "placement-delegate");
+  const result = resolvePendingChoice(state, "mars", state.logs, owner);
+  assert.equal(result.state.turmoil.delegateReserve[owner], beforeReserve - 1);
+  assert.equal(getPlayer(result.state, owner).mc, beforeMc);
+  assert.ok(result.state.turmoil.parties.mars.delegates.includes(owner));
+
+  const noTurmoil = getInitialState({ board: "amazonis" });
+  noTurmoil.phase = "action";
+  const sameCell = noTurmoil.board[`${cell.q},${cell.r}`];
+  placeTileAt(noTurmoil, sameCell, "city", noTurmoil.currentPlayerId);
+  assert.equal(noTurmoil.pendingChoice, null);
+});
+
+test("a paid tile project completes after both Amazonis wild-resource choices", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const state = getInitialState({ board: "amazonis" });
+  state.phase = "action";
+  const owner = state.currentPlayerId;
+  state.players = state.players.map(player => player.id === owner ? { ...player, mc: 50 } : player);
+  const before = getPlayer(state, owner);
+  const wild = Object.values(state.board).find(cell => cell.bonusType === "wild" && cell.bonusAmount === 2);
+  const started = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, playerId: owner, projectId: "city" });
+  assert.equal(started.ok, true);
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: `${wild.q},${wild.r}`
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(placed.state.pendingChoice?.kind, "standard-resource");
+  const first = executeGameCommand(JSON.parse(JSON.stringify(placed.state)), {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: "energy"
+  });
+  assert.equal(first.state.pendingChoice?.kind, "standard-resource");
+  const second = executeGameCommand(first.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: "heat"
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.state.pendingChoice, null);
+  assert.equal(getPlayer(second.state, owner).energy, before.energy + 1);
+  assert.equal(getPlayer(second.state, owner).heat, before.heat + 1);
+  assert.equal(getPlayer(second.state, owner).actionsRemaining, before.actionsRemaining - 1);
+});
+
 test("a game can be dealt on any map", () => {
   for (const id of MAPS) {
     const state = getInitialState({ playerCount: 2, board: id });
     assert.equal(state.boardId, id);
-    assert.equal(Object.keys(state.board).length, 61);
+    assert.equal(Object.keys(state.board).length, id === "amazonis" ? 91 : 61);
   }
 });
 

@@ -5020,6 +5020,18 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       );
       break;
     }
+    case "placement-delegate": {
+      const owner = choice.ownerPlayerId;
+      const sent = sendDelegate(next.turmoil, owner, option.id);
+      if (sent.sent) {
+        next.turmoil = sent.turmoil;
+        next.players = next.players.map(player => player.id === owner
+          ? { ...player, delegatesPlaced: (player.delegatesPlaced ?? 0) + 1 }
+          : player);
+        nextLogs = addLog(nextLogs, "system", `${getPlayer(next, owner)?.name} が ${getParty(option.id)?.name} に予備の代表者を無償で送りました。`);
+      }
+      break;
+    }
     case "floater-placement": {
       changeCardResource(next, {
         ownerPlayerId: choice.ownerPlayerId,
@@ -5805,6 +5817,43 @@ function grantPlacementBonus(state, cell, ownerId) {
       state.players = state.players.map(player =>
         player.id === ownerId ? { ...player, hand: [...player.hand, ...drawn] } : player
       );
+      continue;
+    }
+    if (grant.type === "wild") {
+      for (let i = 0; i < grant.amount; i++) {
+        const choice = buildStandardResourceChoice(state, 1, {
+          sourceKind: "placement-bonus",
+          sourceId: `wild:${cell.id}:${i}`,
+          stage: "standard-resource",
+          consumedAction: false,
+          paid: true
+        });
+        choice.ownerPlayerId = ownerId;
+        choice.prompt = "配置ボーナス: 獲得する標準資源を1つ選んでください。";
+        openOrEnqueuePendingChoice(state, choice);
+      }
+      continue;
+    }
+    if (grant.type === "delegate") {
+      if (!state.turmoil) continue;
+      for (let i = 0; i < Math.min(grant.amount, state.turmoil.delegateReserve?.[ownerId] ?? 0); i++) {
+        openOrEnqueuePendingChoice(state, {
+          id: makeChoiceId("placement-delegate", `${cell.id}:${i}`, ownerId),
+          kind: "placement-delegate",
+          ownerPlayerId: ownerId,
+          prompt: "配置ボーナス: 予備の代表者を無償で送る政党を選んでください。",
+          optional: false,
+          options: PARTIES.map(party => ({ id: party.id, label: party.name })),
+          continuation: {
+            sourceKind: "placement-bonus",
+            sourceId: `delegate:${cell.id}:${i}`,
+            stage: "placement-delegate",
+            consumedAction: false,
+            paid: true,
+            remaining: 1
+          }
+        });
+      }
       continue;
     }
     const field = grant.type === "plant" ? "plants" : grant.type;

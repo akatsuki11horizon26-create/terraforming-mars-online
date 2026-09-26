@@ -189,7 +189,7 @@ interface CellState {
   isOceanOnly: boolean;
   // The alternate maps add heat, energy, microbe and animal spaces, and spaces
   // paying more than one resource carry the list in `bonus`.
-  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card" | "heat" | "energy" | "microbe" | "animal" | "multi" | "ocean-tile" | "temperature";
+  bonusType: "none" | "plant" | "steel" | "titanium" | "mc" | "card" | "heat" | "energy" | "microbe" | "animal" | "wild" | "delegate" | "multi" | "ocean-tile" | "temperature";
   bonus?: { type: string; amount: number }[];
   placementCost?: number;
   bonusAmount: number;
@@ -373,6 +373,11 @@ const HEX_WIDTH = 48;
 const HEX_HEIGHT = 41.6;
 const HEX_STEP_X = 46;
 const HEX_STEP_Y = 40;
+const AMAZONIS_HEX = { width: 39, height: 35, stepX: 37, stepY: 34, centreQ: 5 };
+const BONUS_SYMBOL: Record<string, string> = {
+  plant: "🌱", steel: "🤖", titanium: "🚀", mc: "💳", card: "🃏",
+  heat: "🔥", energy: "⚡", wild: "⭐", delegate: "🗳️"
+};
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
 
 interface ScoreContribution {
@@ -2176,13 +2181,17 @@ export default function Home() {
                   isValid = tileChoiceCells.has(`${cell.q},${cell.r}`);
                 }
 
-                // The axial origin is a corner of the Tharsis map, not its middle
-                // (q runs 0..8), so offset by BOARD_CENTRE or the whole board sits
-                // right of the planet. Spacing is scaled to keep 9 columns inside
-                // the sphere.
+                // Amazonis has 11 columns; its hexes are smaller so all 91
+                // spaces remain inside the same planet viewport.
+                const largeBoard = activeState.boardId === "amazonis";
+                const cellWidth = largeBoard ? AMAZONIS_HEX.width : HEX_WIDTH;
+                const cellHeight = largeBoard ? AMAZONIS_HEX.height : HEX_HEIGHT;
+                const stepX = largeBoard ? AMAZONIS_HEX.stepX : HEX_STEP_X;
+                const stepY = largeBoard ? AMAZONIS_HEX.stepY : HEX_STEP_Y;
+                const centreQ = largeBoard ? AMAZONIS_HEX.centreQ : BOARD_CENTRE.q;
                 const left =
-                  SPHERE_RADIUS + HEX_STEP_X * ((cell.q - BOARD_CENTRE.q) + (cell.r - BOARD_CENTRE.r) / 2) - HEX_WIDTH / 2;
-                const top = SPHERE_RADIUS + HEX_STEP_Y * (cell.r - BOARD_CENTRE.r) - HEX_HEIGHT / 2;
+                  SPHERE_RADIUS + stepX * ((cell.q - centreQ) + (cell.r - BOARD_CENTRE.r) / 2) - cellWidth / 2;
+                const top = SPHERE_RADIUS + stepY * (cell.r - BOARD_CENTRE.r) - cellHeight / 2;
 
                 let classes = "hex-cell ";
                 if (freshTiles.includes(`${cell.q},${cell.r}`)) classes += "hex-just-placed ";
@@ -2204,12 +2213,11 @@ export default function Home() {
                 } else {
                   classes += cell.isOceanOnly ? "hex-ocean-reserved" : "hex-empty";
                   if (cell.bonusType !== "none") {
-                    if (cell.bonusType === "plant") content = `🌱${cell.bonusAmount}`;
-                    else if (cell.bonusType === "steel") content = `🤖${cell.bonusAmount}`;
-                    else if (cell.bonusType === "titanium") content = `🚀${cell.bonusAmount}`;
-                    else if (cell.bonusType === "mc") content = `💳${cell.bonusAmount}`;
-                    else if (cell.bonusType === "card") content = `🃏${cell.bonusAmount}`;
-                    else if (cell.bonusType === "temperature") {
+                    if (cell.bonusType === "multi" && cell.bonus) {
+                      content = cell.bonus.map(bonus => `${BONUS_SYMBOL[bonus.type] ?? ""}${bonus.amount}`).join("");
+                    } else if (BONUS_SYMBOL[cell.bonusType]) {
+                      content = `${BONUS_SYMBOL[cell.bonusType]}${cell.bonusAmount}`;
+                    } else if (cell.bonusType === "temperature") {
                       content = "🌡️";
                       label = "配置ボーナス: 4 MCを支払い、気温 +2°C";
                     }
@@ -2241,7 +2249,7 @@ export default function Home() {
                     data-testid="board-cell"
                     data-cell-key={`${cell.q},${cell.r}`}
                     data-placeable={isValid ? "true" : "false"}
-                    style={{ left: `${left}px`, top: `${top}px` }}
+                    style={{ left: `${left}px`, top: `${top}px`, ...(largeBoard ? { width: `${cellWidth}px`, height: `${cellHeight}px` } : {}) }}
                     onClick={() => {
                       if (isInteractionDisabled) {
                         // Not placeable, but the player still wants to know what
@@ -2267,7 +2275,7 @@ export default function Home() {
                     onBlur={() => setHoveredCell(null)}
                     aria-label={`マス (${cell.q}, ${cell.r}) ${label} ${content} ${help}`}
                   >
-                    <span className="hex-bonus" style={{ pointerEvents: "none" }}>{content}</span>
+                    <span className="hex-bonus" style={{ pointerEvents: "none", ...(largeBoard ? { fontSize: "0.5rem" } : {}) }}>{content}</span>
                     <span className="hex-label" style={{ pointerEvents: "none", color: "var(--color-ink)", fontSize: "0.5rem" }}>
                       {cell.tileType === "empty" && cell.isOceanOnly ? "🌊" : label}
                     </span>
