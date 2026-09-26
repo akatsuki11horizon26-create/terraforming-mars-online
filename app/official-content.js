@@ -26,7 +26,7 @@ const CURATED_PROJECT_OVERRIDES = [
   // spec, so it was never taken -- and a player with no energy production could
   // play it, which the reference refuses because the reserved Noctis space
   // carries no energy bonus to cover the loss.
-  project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
+  project("card-base-noctis-city", "Noctis City", 18, ["City", "Building"], "automated", "エネルギー生産量-1、MC生産量+3。都市タイルを1枚置く。タルシスでは予約マス、他の盤面では通常の都市配置に従う。", {}, { effectSpec: { behavior: { production: { energy: -1, megacredits: 3 }, city: { space: "noctis-city" } } } }),
   // "Action: Add a microbe or animal to ANOTHER card." Upstream joins the two
   // resource lists and asks; two branches of an or say the same thing with keys
   // we already have.

@@ -144,7 +144,7 @@ export const JAPANESE_TEXT = {
   "card-base-nitrite-reducing-bacteria": {"name":"亜硝酸還元細菌","effectText":"アクション: このカードの微生物3個を取り除いてTR+1、またはこのカードに微生物を1個置く。"},
   "card-base-nitrogen-rich-asteroid": {"name":"窒素豊富小惑星","effectText":"TR+2、気温+1。植物生産量+1。ただし植物タグを3個持っていれば+4。"},
   "card-base-nitrophilic-moss": {"name":"硝酸好性コケ","effectText":"海洋タイル3枚以上と、植物を2失うことが必要。植物生産量+2。"},
-  "card-base-noctis-city": {"name":"ノクティス・シティ","effectText":"エネルギー生産量-1、MC生産量+3。予約された場所に都市タイルを1枚置く。通常の設置制限は無視する。"},
+  "card-base-noctis-city": {"name":"ノクティス・シティ","effectText":"エネルギー生産量-1、MC生産量+3。都市タイルを1枚置く。タルシスでは予約マス、他の盤面では通常の都市配置に従う。"},
   "card-base-noctis-farming": {"name":"ノクティス農場","effectText":"気温-20°C以上が必要。MC生産量+1、植物2を獲得。"},
   "card-base-nuclear-power": {"name":"原子力発電","effectText":"MC生産量-2、エネルギー生産量+3。"},
   "card-base-nuclear-zone": {"name":"核実験区域","effectText":"このタイルを置き、気温+2。"},

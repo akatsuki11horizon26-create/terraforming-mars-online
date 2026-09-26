@@ -460,6 +460,60 @@ test("a card needing a volcano loses that restriction on maps without one", asyn
   }
 });
 
+test("Noctis City uses its reserved Mars space only on Tharsis", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const { getAdjacentCells, getCardEffect, ALL_CARDS } = await import("../app/game-logic.js");
+  const cardId = "card-base-noctis-city";
+  assert.equal(getCardEffect(ALL_CARDS.find(card => card.id === cardId)).offBoardCity, undefined);
+  assert.equal(getCardEffect(ALL_CARDS.find(card => card.id === "card-base-ganymede-colony")).offBoardCity, "01");
+  for (const boardId of ["tharsis", "amazonis", "vastitas-borealis"]) {
+    const state = getInitialState({ board: boardId, playerCount: 2 });
+    state.phase = "action";
+    const owner = state.currentPlayerId;
+    const player = getPlayer(state, owner);
+    player.setupStep = "complete";
+    player.mc = 50;
+    player.energyProd = 1;
+    player.hand = [cardId];
+    const beforeMcProd = player.mcProd;
+    const beforeActions = player.actionsRemaining;
+    if (boardId === "tharsis") {
+      const reserved = Object.values(state.board).find(cell => cell.reservedFor === "noctis-city");
+      const neighbour = getAdjacentCells(reserved.q, reserved.r)
+        .map(pos => state.board[`${pos.q},${pos.r}`])
+        .find(cell => cell && !cell.isOceanOnly && !cell.reservedFor);
+      neighbour.tileType = "city";
+      neighbour.placedBy = "player2";
+    }
+    const result = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: owner, cardId });
+    assert.equal(result.ok, true, boardId);
+    let settled = result.state;
+    let target;
+    if (boardId === "tharsis") {
+      target = Object.values(settled.board).find(cell => cell.reservedFor === "noctis-city");
+      assert.equal(settled.pendingChoice, null);
+    } else {
+      assert.equal(settled.pendingChoice?.kind, "tile-placement", boardId);
+      target = Object.values(settled.board).find(cell =>
+        cell.tileType === "empty" && !cell.isOceanOnly && cell.bonusType === "none" &&
+        settled.pendingChoice.options.some(option => option.id === `${cell.q},${cell.r}`));
+      assert.ok(target, boardId);
+      const placed = executeGameCommand(JSON.parse(JSON.stringify(settled)), {
+        type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: `${target.q},${target.r}`
+      });
+      assert.equal(placed.ok, true, boardId);
+      settled = placed.state;
+    }
+    assert.equal(settled.board[`${target.q},${target.r}`].tileType, "city", boardId);
+    assert.equal(settled.board[`${target.q},${target.r}`].placedBy, owner, boardId);
+    assert.equal(getPlayer(settled, owner).energyProd, 0, boardId);
+    assert.equal(getPlayer(settled, owner).mcProd, beforeMcProd + 3, boardId);
+    assert.equal((settled.offBoardCities ?? []).some(city => city.cardId === cardId), false, boardId);
+    assert.equal(getPlayer(settled, owner).cardPlacements[cardId], `${target.q},${target.r}`, boardId);
+    assert.equal(getPlayer(settled, owner).actionsRemaining, beforeActions - 1, boardId);
+  }
+});
+
 // The Elysium sheet prints its own five awards; the code aliased them to the
 // Hellas set, so every Elysium game scored the wrong five.
 // Source: TM_HE_WRAP_ENGi.pdf (Hellas & Elysium rulebook).

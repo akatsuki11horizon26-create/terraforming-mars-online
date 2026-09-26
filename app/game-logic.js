@@ -1101,11 +1101,11 @@ function normalizeBehavior(raw, effect = {}, unsupported = []) {
     // Frontier Town takes the space's printed bonus three times over.
     if (raw.city.bonusMultiplier) effect.placementBonusMultiplier = raw.city.bonusMultiplier;
     if (raw.city.countsAsOcean) effect.countsAsOcean = true;
-    // A named space is one of the reserved slots off the map -- Ganymede,
-    // Phobos, the Venus cities, Stanford Torus. They are cities you own, but
-    // they are not ON Mars, so they must not take a board space, ask the player
-    // where to put them, or count for anything that reads the board.
-    if (raw.city.space !== undefined) effect.offBoardCity = String(raw.city.space);
+    // Noctis City is a reserved Mars space on Tharsis, and an ordinary city
+    // placement on maps without that region. The other named city spaces are
+    // off Mars and never enter the board's placement flow.
+    if (raw.city.space === "noctis-city") effect.tilePlacementRule = "noctis-city";
+    else if (raw.city.space !== undefined) effect.offBoardCity = String(raw.city.space);
   }
   if (raw.greenery !== undefined) {
     effect.tile = "forest";
@@ -9471,10 +9471,10 @@ export function getCardPlayableStatus(
   const NARROWING_RULES = new Set([
     "volcanic", "isolated", "away-from-cities", "greenery-adjacent",
     "mineral", "mineral-adjacent", "two-cities", "city-adjacent",
-    "upgradeable-ocean-new-holland"
+    "upgradeable-ocean-new-holland", "noctis-city"
   ]);
   const placement = card.effectSpec?.behavior?.tile ?? card.effectSpec?.behavior?.city;
-  const placementRule = placement?.on ?? null;
+  const placementRule = getCardEffect(card).tilePlacementRule ?? placement?.on ?? null;
   if (typeof placementRule === "string" && NARROWING_RULES.has(placementRule)) {
     const tileType = placement === card.effectSpec?.behavior?.city ? "city" : "special";
     if (legalCellsFor(state, tileType, state.currentPlayerId, placementRule).length === 0) {
@@ -9728,6 +9728,10 @@ function satisfiesPlacementRule(cell, rule, board, boardId, playerId) {
   // with nowhere legal to go, turning a playable card into a dead one.
   if (rule === "volcanic" && BOARDS[boardId]?.noVolcanicRestriction) return true;
   switch (rule) {
+    case "noctis-city":
+      return Object.values(board).some(space => space.reservedFor === "noctis-city")
+        ? cell.reservedFor === "noctis-city"
+        : true;
     case "ocean":
       return Boolean(cell.isOceanOnly);
     case "land":
@@ -9794,7 +9798,8 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
   }
   if (cell.tileType !== "empty") return false;
   // Noctis City's space is reserved for that card alone.
-  if (cell.reservedFor && cell.reservedFor !== type) return false;
+  const reservedForThisCard = placementRule === "noctis-city" && cell.reservedFor === "noctis-city";
+  if (cell.reservedFor && cell.reservedFor !== type && !reservedForThisCard) return false;
   if (!satisfiesPlacementRule(cell, placementRule, board, boardId, playerId)) return false;
 
   if (type === "ocean") {
@@ -9807,6 +9812,7 @@ export function isCellPlacementValid(cell, type, board, playerId = "player", pla
     return cell.isOceanOnly;
   } else if (type === "city") {
     if (cell.isOceanOnly) return false;
+    if (placementRule === "noctis-city" && cell.reservedFor === "noctis-city") return true;
     // Urbanized Area says "adjacent to at least 2 other city tiles", which is
     // the opposite of the default and therefore overrides it -- the card's own
     // rule wins, exactly as Artificial Lake's does over the ocean rule above.
