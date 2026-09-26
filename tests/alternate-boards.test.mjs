@@ -190,7 +190,7 @@ test("Amazonis delegate bonuses send from reserve without payment only with Turm
 
 test("a paid tile project completes after both Amazonis wild-resource choices", async () => {
   const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
-  const state = getInitialState({ board: "amazonis" });
+  const state = getInitialState({ board: "amazonis", playerCount: 2 });
   state.phase = "action";
   const owner = state.currentPlayerId;
   state.players = state.players.map(player => player.id === owner ? { ...player, mc: 50 } : player);
@@ -215,6 +215,43 @@ test("a paid tile project completes after both Amazonis wild-resource choices", 
   assert.equal(getPlayer(second.state, owner).energy, before.energy + 1);
   assert.equal(getPlayer(second.state, owner).heat, before.heat + 1);
   assert.equal(getPlayer(second.state, owner).actionsRemaining, before.actionsRemaining - 1);
+});
+
+test("a paid tile project sends both Amazonis bonus delegates after reload and spends one action", async () => {
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const state = getInitialState({ board: "amazonis", turmoil: true, playerCount: 2 });
+  state.phase = "action";
+  const owner = state.currentPlayerId;
+  state.players = state.players.map(player => player.id === owner ? { ...player, mc: 50 } : player);
+  const before = getPlayer(state, owner);
+  const beforeReserve = state.turmoil.delegateReserve[owner];
+  const cell = Object.values(state.board).find(candidate => candidate.bonusType === "delegate" && candidate.bonusAmount === 2);
+  const started = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, playerId: owner, projectId: "city" });
+  assert.equal(started.ok, true);
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: `${cell.q},${cell.r}`
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(placed.state.pendingChoice?.kind, "placement-delegate");
+  assert.equal(getPlayer(placed.state, owner).actionsRemaining, before.actionsRemaining);
+  const mcAfterPlacement = getPlayer(placed.state, owner).mc;
+  const first = executeGameCommand(JSON.parse(JSON.stringify(placed.state)), {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: "mars"
+  });
+  assert.equal(first.ok, true);
+  assert.equal(first.state.pendingChoice?.kind, "placement-delegate");
+  const second = executeGameCommand(first.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: owner, optionId: "unity"
+  });
+  assert.equal(second.ok, true);
+  assert.equal(second.state.pendingChoice, null);
+  assert.equal(second.state.turmoil.delegateReserve[owner], beforeReserve - 2);
+  assert.ok(second.state.turmoil.parties.mars.delegates.includes(owner));
+  assert.ok(second.state.turmoil.parties.unity.delegates.includes(owner));
+  assert.equal(getPlayer(second.state, owner).delegatesPlaced, (before.delegatesPlaced ?? 0) + 2);
+  assert.equal(getPlayer(second.state, owner).mc, mcAfterPlacement);
+  assert.equal(getPlayer(second.state, owner).actionsRemaining, before.actionsRemaining - 1);
+  assert.equal(second.state.board[`${cell.q},${cell.r}`].tileType, "city");
 });
 
 test("a game can be dealt on any map", () => {
