@@ -436,7 +436,7 @@ export default function Home() {
   const boardRef = React.useRef<HTMLDivElement | null>(null);
   const [boardScale, setBoardScale] = useState(1);
   const [boardZoomed, setBoardZoomed] = useState(false);
-  const [selectedPlacement, setSelectedPlacement] = useState<{ choiceId: string; cellKey: string } | null>(null);
+  const [selectedPlacement, setSelectedPlacement] = useState<{ choiceId: string; choiceRef: object; cellKey: string } | null>(null);
 
   // The board panel does not exist on the first render -- the title and setup
   // screens stand in its place -- so an effect that reads boardRef once at
@@ -1836,7 +1836,7 @@ export default function Home() {
           .filter((key): key is string => Boolean(key))
       )
     : null;
-  const selectedPlacementOption = tileChoice && selectedPlacement?.choiceId === tileChoice.id
+  const selectedPlacementOption = tileChoice && selectedPlacement?.choiceId === tileChoice.id && selectedPlacement.choiceRef === tileChoice
     ? tileChoice.options.find(option => option.targetCellKey === selectedPlacement.cellKey)
     : null;
   const selectedPlacementCell = selectedPlacementOption?.targetCellKey
@@ -2227,7 +2227,7 @@ export default function Home() {
                 if (isValid) {
                   classes += " hex-placement-valid";
                 }
-                if (selectedPlacement?.choiceId === tileChoice?.id && selectedPlacement?.cellKey === `${cell.q},${cell.r}`) {
+                if (selectedPlacement?.choiceRef === tileChoice && selectedPlacement?.cellKey === `${cell.q},${cell.r}`) {
                   classes += " hex-placement-selected";
                 }
 
@@ -2259,7 +2259,7 @@ export default function Home() {
                       );
                       if (!option) return;
                       if (window.matchMedia("(max-width: 820px)").matches) {
-                        setSelectedPlacement({ choiceId: tileChoice!.id, cellKey: `${cell.q},${cell.r}` });
+                        setSelectedPlacement({ choiceId: tileChoice!.id, choiceRef: tileChoice!, cellKey: `${cell.q},${cell.r}` });
                         setHoveredCell(null);
                         return;
                       }
@@ -2291,10 +2291,18 @@ export default function Home() {
         </div>
 
         {selectedPlacementOption && selectedPlacementCell && (
-          <div className="mobile-placement-confirm" role="region" aria-label="配置の確認">
+          <div className="mobile-placement-confirm" role="region" aria-label="配置の確認" aria-live="polite">
             <div className="mobile-placement-description">
               {describeCell(selectedPlacementCell)} {describePlacement(selectedPlacementCell, activeState.board)}
             </div>
+            <button
+              type="button"
+              className="hud-btn"
+              data-testid="cancel-board-placement"
+              onClick={() => setSelectedPlacement(null)}
+            >
+              選び直す
+            </button>
             <button
               type="button"
               className="hud-btn hud-btn--primary"

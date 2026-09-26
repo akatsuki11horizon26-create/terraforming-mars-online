@@ -398,6 +398,7 @@ div[tabindex="0"]:focus-visible {
     bottom: max(10px, env(safe-area-inset-bottom));
     z-index: 65;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 10px;
     padding: 10px;
@@ -406,16 +407,19 @@ div[tabindex="0"]:focus-visible {
     box-shadow: var(--shadow-modal);
   }
   .mobile-placement-description {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
-    font-size: 0.85rem;
+    font-size: 0.875rem;
     line-height: 1.4;
   }
   .mobile-placement-confirm .hud-btn {
-    flex: 0 0 auto;
+    flex: 1 1 0;
+    min-width: 0;
+    min-height: 44px;
+    font-size: 0.875rem;
   }
   .main-content--placing {
-    padding-bottom: 100px;
+    padding-bottom: calc(150px + env(safe-area-inset-bottom));
   }
 }
 

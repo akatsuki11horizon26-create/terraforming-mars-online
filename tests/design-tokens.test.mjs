@@ -134,6 +134,18 @@ test("mobile hand controls wrap instead of clipping the search and pass action",
   assert.match(mobile, /\.hand-turn-button\s*\{[^}]*width:\s*100%/s);
 });
 
+test("mobile placement can be unselected before it changes the board", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const cancel = page.slice(page.indexOf('data-testid="cancel-board-placement"'), page.indexOf('data-testid="confirm-board-placement"'));
+  assert.match(cancel, /onClick=\{\(\) => setSelectedPlacement\(null\)\}/);
+  assert.doesNotMatch(cancel, /handleResolveChoice/);
+  assert.match(page, /selectedPlacement\.choiceRef === tileChoice/);
+  assert.match(page, /className="mobile-placement-confirm"[^>]*aria-live="polite"/);
+  const mobile = css.slice(css.indexOf("@media (max-width: 820px)"));
+  assert.match(mobile, /\.mobile-placement-confirm\s*\{[^}]*flex-wrap:\s*wrap/s);
+  assert.match(mobile, /\.mobile-placement-confirm \.hud-btn\s*\{[^}]*min-height:\s*44px/s);
+});
+
 test("No hardcoded rust or ember values survive", () => {
   // These were the source of the red cast; colour now comes from tokens.
   assert.equal(css.includes("rgba(168, 50, 32"), false);
