@@ -2200,6 +2200,72 @@ test("Martian Lumber plants can cover a card while MC pays the Reds levy", async
   assert.equal(getPlayer(played.state, "player").plants, 0);
 });
 
+test("the Reds levy gates heat conversion and UNMI before their TR rises", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const table = corporationId => {
+    const state = getInitialState({ playerCount: 1, turmoil: true });
+    state.turmoil.rulingParty = "reds";
+    state.turmoil.rulingPolicyId = null;
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const player = getPlayer(state, "player");
+    player.corporationId = corporationId;
+    player.heat = 8;
+    player.tr = 21;
+    player.generationStartTr = 20;
+    return state;
+  };
+
+  const heat = table("corp-credicor");
+  getPlayer(heat, "player").mc = 0;
+  const refusedHeat = executeGameCommand(heat, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "convert-heat"
+  });
+  assert.equal(refusedHeat.ok, false);
+  assert.equal(heat.temperature, -30);
+  assert.equal(getPlayer(heat, "player").heat, 8);
+  getPlayer(heat, "player").mc = 3;
+  const paidHeat = executeGameCommand(heat, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "convert-heat"
+  });
+  assert.equal(paidHeat.ok, true);
+  assert.equal(paidHeat.state.temperature, -28);
+  assert.equal(getPlayer(paidHeat.state, "player").mc, 0);
+
+  const unmi = table("corp-unmi");
+  getPlayer(unmi, "player").mc = 3;
+  const refusedUnmi = executeGameCommand(unmi, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.equal(refusedUnmi.ok, false);
+  assert.equal(getPlayer(unmi, "player").tr, 21);
+  getPlayer(unmi, "player").mc = 6;
+  const paidUnmi = executeGameCommand(unmi, { type: COMMAND.CORPORATION_ACTION, playerId: "player" });
+  assert.equal(paidUnmi.ok, true);
+  assert.equal(getPlayer(paidUnmi.state, "player").mc, 0);
+  assert.equal(getPlayer(paidUnmi.state, "player").tr, 22);
+});
+
+test("Helion reserves the Reds levy when buying an asteroid project", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.corporationId = "corp-helion";
+  player.mc = 3;
+  player.heat = 14;
+  const played = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "asteroid"
+  });
+  assert.equal(played.ok, true);
+  assert.equal(played.state.temperature, -28);
+  assert.equal(getPlayer(played.state, "player").mc, 0);
+  assert.equal(getPlayer(played.state, "player").heat, 0);
+});
+
 // Scientists put a once-a-generation action on the table; Kelvinists put one
 // with no limit. Every other policy is passive or fires on a trigger.
 test("The ruling party's policy action follows its own usage limit", async () => {

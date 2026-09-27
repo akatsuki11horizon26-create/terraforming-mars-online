@@ -40,6 +40,7 @@ import {
   grantStandardProjectRebate,
   refreshColonyActivation,
   getRulingPolicy,
+  getTrSurcharge,
   drawCards,
   selectSoloColonies,
   calculateScoreBreakdowns,
@@ -213,29 +214,19 @@ function spend(state, result, flag) {
 
 // Paying for a standard project. Helion may cover megacredits with heat; the
 // two conversion projects are paid in the resource they convert.
-function payProjectCost(state, playerId, project, cost, corporation, requestedHeat) {
-  const actor = getPlayer(state, playerId);
+function payProjectCost(state, playerId, project, payment) {
   if (project.pays === "plants" || project.pays === "heat") {
     const field = project.pays;
     state.players = state.players.map(player =>
-      player.id === playerId ? { ...player, [field]: (player[field] ?? 0) - cost } : player
+      player.id === playerId ? { ...player, [field]: (player[field] ?? 0) - payment.cost } : player
     );
-    return 0;
+    return;
   }
-  const heatAvailable = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-  // Helion may spend heat as money, and how much is the player's decision --
-  // burning heat to keep megacredits is a real line of play. Without an
-  // explicit amount the old behaviour stands: heat only covers the shortfall.
-  const heatUsed =
-    requestedHeat === undefined
-      ? Math.min(heatAvailable, Math.max(0, cost - (actor.mc ?? 0)))
-      : Math.min(heatAvailable, Math.max(0, Math.trunc(requestedHeat)), cost);
   state.players = state.players.map(player =>
     player.id === playerId
-      ? { ...player, mc: player.mc - (cost - heatUsed), heat: (player.heat ?? 0) - heatUsed }
+      ? { ...player, mc: player.mc - payment.mc, heat: (player.heat ?? 0) - payment.heat }
       : player
   );
-  return heatUsed;
 }
 
 // A project that places a tile asks where, unless only one space is legal.
@@ -326,6 +317,24 @@ export function getStandardProjectCost(state, playerId, projectId) {
   return project.cost(state, corporation);
 }
 
+export function getStandardProjectPaymentPlan(state, playerId, projectId, payment = {}) {
+  const project = STANDARD_PROJECTS[projectId];
+  if (!project || (project.available && !project.available(state))) return null;
+  const actor = getPlayer(state, playerId);
+  const corporation = corporationFor(actor);
+  const cost = project.cost(state, corporation);
+  const levy = getTrSurcharge(state, Math.max(0, (project.trSteps ?? 0) - (actor.preservationProgram ? 1 : 0)));
+  const heatAvailable = corporation?.effects?.heatAsMoney && !project.pays ? actor.heat ?? 0 : 0;
+  const requestedHeat = payment?.heat;
+  const heat = requestedHeat === undefined
+    ? Math.min(heatAvailable, Math.max(0, cost - Math.max(0, (actor.mc ?? 0) - levy)))
+    : Math.min(heatAvailable, Math.max(0, Math.trunc(requestedHeat)), cost);
+  const mc = project.pays ? 0 : cost - heat;
+  const affordable = (actor.mc ?? 0) >= mc + levy &&
+    (!project.pays || (actor[project.pays] ?? 0) >= cost);
+  return { cost, heat, mc, levy, affordable };
+}
+
 const STANDARD_PROJECTS = {
   "power-plant": {
     label: "発電所の建設",
@@ -344,6 +353,7 @@ const STANDARD_PROJECTS = {
   asteroid: {
     label: "小惑星の衝突",
     cost: () => 14,
+    trSteps: 1,
     blocked: state => (state.temperature >= getGlobalParameterLimits(state.boardId).temperature ? "気温は上限に達しています。" : null),
     run(state, command) {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
@@ -354,6 +364,7 @@ const STANDARD_PROJECTS = {
   "air-scrapping": {
     label: "金星大気の減圧",
     cost: () => 15,
+    trSteps: 1,
     available: state => Boolean(state.venusEnabled),
     blocked: state => (state.venus >= getVenusTrackLimit(state) ? "金星は上限に達しています。" : null),
     run(state, command) {
@@ -406,6 +417,7 @@ const STANDARD_PROJECTS = {
     label: "熱による加熱",
     pays: "heat",
     cost: () => 8,
+    trSteps: 1,
     blocked: state => (state.temperature >= getGlobalParameterLimits(state.boardId).temperature ? "気温は上限に達しています。" : null),
     run(state, command) {
       const before = { temperature: state.temperature, oxygen: state.oxygen };
@@ -419,6 +431,7 @@ const STANDARD_PROJECTS = {
   "buffer-gas": {
     label: "緩衝ガスの放出",
     cost: () => 16,
+    trSteps: 1,
     available: state => Boolean(state.soloTrVariant),
     run(state, command) {
       increaseTerraformRating(state, command.playerId, 1, "standard-project");
@@ -519,20 +532,22 @@ const CORPORATION_ACTIONS = {
   "corp-unmi": {
     label: "UNMI: MC3を支払いTRを1上げました。",
     // UNMI may only buy a TR step in a generation where it already raised one.
-    blocked: actor => {
+    blocked: (actor, state) => {
       if ((actor.tr ?? 0) <= (actor.generationStartTr ?? 0)) {
         return "この世代にまだTRが上がっていません。";
       }
-      return (actor.mc ?? 0) < corporationCost("corp-unmi", "trActionCost")
+      const levy = getTrSurcharge(state, actor.preservationProgram ? 0 : 1);
+      return (actor.mc ?? 0) < corporationCost("corp-unmi", "trActionCost") + levy
         ? "MCが不足しています。"
         : null;
     },
     run(state, command) {
       state.players = state.players.map(player =>
         player.id === command.playerId
-          ? { ...player, mc: player.mc - corporationCost("corp-unmi", "trActionCost"), tr: player.tr + 1 }
+          ? { ...player, mc: player.mc - corporationCost("corp-unmi", "trActionCost") }
           : player
       );
+      increaseTerraformRating(state, command.playerId, 1, "action");
       return finishAction(state, command, "UNMI: MC3を支払いTRを1上げました。");
     }
   },
@@ -1220,18 +1235,9 @@ const HANDLERS = {
 
     const actor = getPlayer(state, command.playerId);
     const corporation = corporationFor(actor);
-    const cost = project.cost(state, corporation);
-
-    if (project.pays === "plants") {
-      if ((actor.plants ?? 0) < cost) return fail(state, ERROR.CANNOT_AFFORD, "植物が不足しています。");
-    } else if (project.pays === "heat") {
-      if ((actor.heat ?? 0) < cost) return fail(state, ERROR.CANNOT_AFFORD, "熱が不足しています。");
-    } else {
-      const heatAsMoney = corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-      if ((actor.mc ?? 0) + heatAsMoney < cost) {
-        return fail(state, ERROR.CANNOT_AFFORD, "MCが不足しています。");
-      }
-    }
+    const payment = getStandardProjectPaymentPlan(state, command.playerId, command.projectId, command.payment);
+    const cost = payment.cost;
+    if (!payment.affordable) return fail(state, ERROR.CANNOT_AFFORD, "資源またはTR上昇時の課税分のMCが不足しています。");
 
     const blocked = project.blocked?.(state, actor);
     if (blocked) return fail(state, ERROR.ACTION_REFUSED, blocked);
@@ -1247,7 +1253,7 @@ const HANDLERS = {
     }
 
     const next = cloneGameState(state);
-    payProjectCost(next, command.playerId, project, cost, corporation, command.payment?.heat);
+    payProjectCost(next, command.playerId, project, payment);
 
     // Standard Technology pays out "after you pay for a standard project",
     // excluding Sell Patents. The plant and heat conversions are standard
