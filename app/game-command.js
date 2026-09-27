@@ -766,6 +766,48 @@ const CORPORATION_ACTIONS = {
   }
 };
 
+export function getCardPaymentPlan(card, state, playerId, payment = {}) {
+  const actor = getPlayer(state, playerId);
+  const requested = payment ?? {};
+  const held = (value, stock) => {
+    const asked = Math.floor(Number(value ?? 0));
+    if (!Number.isFinite(asked) || asked <= 0) return 0;
+    return Math.min(asked, stock ?? 0);
+  };
+  const steel = held(requested.steel, actor.steel);
+  const titanium = held(requested.titanium, actor.titanium);
+  const cost = getCardPaymentCost(card, state, steel, titanium);
+  const corporation = corporationFor(actor);
+  const localHeatTrapping = card.id === "card-base-local-heat-trapping";
+  const stormcraftId = "card-colonies-stormcraft-incorporated";
+  const stormcraftFloaters = localHeatTrapping
+    ? actor.cardResources?.[stormcraftId] ?? 0
+    : 0;
+  const heatAvailable = localHeatTrapping || corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+  const heatMax = Math.min(heatAvailable, cost);
+  const heat = requested.heat === undefined
+    ? Math.max(0, Math.min(heatMax, cost - (actor.mc ?? 0)))
+    : held(requested.heat, heatMax);
+  const floaters = localHeatTrapping
+    ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heat))
+    : 0;
+  const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
+  const plantsMax = plantValue
+    ? Math.min(actor.plants ?? 0, Math.ceil(cost / plantValue))
+    : 0;
+  const plants = requested.plants === undefined
+    ? Math.min(plantsMax, plantValue
+      ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heat - floaters) / plantValue)
+      : 0)
+    : held(requested.plants, plantsMax);
+  const mc = Math.max(0, cost - heat - floaters - plants * plantValue);
+  return {
+    steel, titanium, heat, floaters, plants, mc, cost,
+    heatMax, plantsMax,
+    affordable: (actor.mc ?? 0) >= mc
+  };
+}
+
 const HANDLERS = {
   [COMMAND.PLAY_CARD](state, command) {
     const actor = getPlayer(state, command.playerId);
@@ -780,58 +822,12 @@ const HANDLERS = {
       return fail(state, ERROR.CARD_NOT_IN_HAND, "そのカードは手札にありません。");
     }
 
-    // A client picks these, so they are clamped to what the player actually
-    // holds and to whole non-negative numbers before anything is computed.
-    const held = (value, stock) => {
-      const asked = Math.floor(Number(value ?? 0));
-      if (!Number.isFinite(asked) || asked <= 0) return 0;
-      return Math.min(asked, stock ?? 0);
-    };
-    const steelUsed = held(command.payment?.steel, actor.steel);
-    const titaniumUsed = held(command.payment?.titanium, actor.titanium);
-    const status = getCardPlayableStatus(card, state, steelUsed, titaniumUsed);
+    const payment = getCardPaymentPlan(card, state, command.playerId, command.payment);
+    const status = getCardPlayableStatus(card, state, payment.steel, payment.titanium);
     if (!status.playable) return fail(state, ERROR.CARD_NOT_PLAYABLE, status.reason);
-
-    const cost = getCardPaymentCost(card, state, steelUsed, titaniumUsed);
-    const corporation = corporationFor(actor);
-    // Helion decides how much heat to burn; without an explicit amount the heat
-    // only covers what the megacredits cannot.
     const localHeatTrapping = card.id === "card-base-local-heat-trapping";
     const stormcraftId = "card-colonies-stormcraft-incorporated";
-    const stormcraftFloaters = localHeatTrapping
-      ? actor.cardResources?.[stormcraftId] ?? 0
-      : 0;
-    const heatAvailable = localHeatTrapping
-      ? actor.heat ?? 0
-      : corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-    const heatPaid =
-      command.payment?.heat === undefined
-        ? Math.max(0, Math.min(heatAvailable, cost - (actor.mc ?? 0)))
-        : Math.min(heatAvailable, Math.max(0, Math.trunc(command.payment.heat)), cost);
-    const floaterPaid = localHeatTrapping
-      ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heatPaid))
-      : 0;
-    // "When playing a building tag, plants MAY be used as 3 M€ each." The choice
-    // is the player's, exactly as Helion's heat is above: an explicit amount is
-    // honoured even when the money would have covered the cost on its own, and
-    // without one the plants only cover what the money cannot. No change is
-    // given, so a part unit is still a whole plant.
-    const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
-    const plantsAvailable = plantValue ? actor.plants ?? 0 : 0;
-    const plantsPaid =
-      command.payment?.plants === undefined
-        ? Math.min(
-            plantsAvailable,
-            plantValue
-              ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heatPaid - floaterPaid) / plantValue)
-              : 0
-          )
-        : Math.min(
-            plantsAvailable,
-            Math.max(0, Math.trunc(command.payment.plants)),
-            plantValue ? Math.ceil(cost / plantValue) : 0
-          );
-    if ((actor.mc ?? 0) + heatPaid + floaterPaid + plantsPaid * plantValue < cost) {
+    if (!payment.affordable) {
       return fail(state, ERROR.CANNOT_AFFORD, "支払いできません。");
     }
 
@@ -846,14 +842,14 @@ const HANDLERS = {
       player.id === command.playerId
         ? {
             ...player,
-            mc: Math.max(0, player.mc - (cost - heatPaid - floaterPaid - plantsPaid * plantValue)),
-            heat: (player.heat ?? 0) - heatPaid,
-            ...(plantsPaid > 0 ? { plants: (player.plants ?? 0) - plantsPaid } : {}),
-            ...(localHeatTrapping && floaterPaid > 0
-              ? { cardResources: { ...player.cardResources, [stormcraftId]: (player.cardResources?.[stormcraftId] ?? 0) - floaterPaid } }
+            mc: Math.max(0, player.mc - payment.mc),
+            heat: (player.heat ?? 0) - payment.heat,
+            ...(payment.plants > 0 ? { plants: (player.plants ?? 0) - payment.plants } : {}),
+            ...(localHeatTrapping && payment.floaters > 0
+              ? { cardResources: { ...player.cardResources, [stormcraftId]: (player.cardResources?.[stormcraftId] ?? 0) - payment.floaters } }
               : {}),
-            steel: (player.steel ?? 0) - steelUsed,
-            titanium: (player.titanium ?? 0) - titaniumUsed,
+            steel: (player.steel ?? 0) - payment.steel,
+            titanium: (player.titanium ?? 0) - payment.titanium,
             hand: player.hand.filter(id => id !== card.id),
             hostedCards: (player.hostedCards ?? []).filter(entry => entry.cardId !== card.id),
             ...(hadOneShot ? { oneShotRequirementBuffer: 0 } : {}),
@@ -888,7 +884,14 @@ const HANDLERS = {
     paid.logs = addLog(
       paid.logs,
       "player",
-      `【${card.name}】をプレイしました（${cost} MC）。`,
+      `【${card.name}】をプレイしました（${[
+        `${payment.mc} MC`,
+        ...(payment.steel ? [`建材 ${payment.steel}`] : []),
+        ...(payment.titanium ? [`チタン ${payment.titanium}`] : []),
+        ...(payment.heat ? [`熱 ${payment.heat}`] : []),
+        ...(payment.plants ? [`植物 ${payment.plants}`] : []),
+        ...(payment.floaters ? [`フローター ${payment.floaters}`] : [])
+      ].join("、")}）。`,
       actor.name
     );
 

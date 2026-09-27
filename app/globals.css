@@ -682,6 +682,15 @@ div[tabindex="0"]:focus-visible {
   font-size: 0.875rem;
 }
 
+.payment-select {
+  min-height: 40px;
+  padding: 6px 8px;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-soft);
+}
+
 .final-greenery-actions > button {
   flex: 1 1 0;
   min-height: 44px;
@@ -692,6 +701,10 @@ div[tabindex="0"]:focus-visible {
 @media (pointer: coarse) {
   .payment-stepper {
     min-width: 44px;
+    min-height: 44px;
+  }
+
+  .payment-select {
     min-height: 44px;
   }
 }

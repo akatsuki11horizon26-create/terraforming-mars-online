@@ -8,7 +8,7 @@ import {
   getPlayer,
   CORPORATIONS
 } from "../app/game-logic.js";
-import { executeGameCommand, getLegalCommands, getStandardProjectCost, COMMAND, ERROR } from "../app/game-command.js";
+import { executeGameCommand, getLegalCommands, getStandardProjectCost, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
@@ -1585,6 +1585,42 @@ test("Helion chooses how much heat to spend as money", async () => {
     buy("corp-credicor", { heat: 11 }), { mc: 11, heat: 0 },
     "a corporation without the ability cannot spend heat whatever it asks for"
   );
+});
+
+test("card payment preview matches the chosen heat and refuses an unaffordable split", async () => {
+  const { ALL_CARDS, getCardPlayableStatus } = await import("../app/game-logic.js");
+  const card = ALL_CARDS.find(item => item.id === "card-base-acquired-company");
+  const { state, seat } = table();
+  const player = getPlayer(state, seat);
+  player.corporationId = "corp-helion";
+  player.mc = 10;
+  player.heat = 10;
+
+  assert.deepEqual(
+    { mc: getCardPaymentPlan(card, state, seat).mc, heat: getCardPaymentPlan(card, state, seat).heat },
+    { mc: 10, heat: 0 },
+    "automatic payment preserves heat when credits cover the cost"
+  );
+  const choice = { heat: 5 };
+  const plan = getCardPaymentPlan(card, state, seat, choice);
+  assert.deepEqual({ mc: plan.mc, heat: plan.heat, affordable: plan.affordable }, { mc: 5, heat: 5, affordable: true });
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id, payment: choice
+  });
+  assert.equal(played.ok, true);
+  assert.equal(player.mc - getPlayer(played.state, seat).mc, plan.mc);
+  assert.equal(player.heat - getPlayer(played.state, seat).heat, plan.heat);
+  assert.ok(played.state.logs.some(entry => entry.text?.includes("5 MC、熱 5")));
+
+  const short = cloneGameState(state);
+  getPlayer(short, seat).mc = 0;
+  assert.equal(getCardPlayableStatus(card, short).playable, true, "aggregate resources pass the base rule check");
+  assert.equal(getCardPaymentPlan(card, short, seat, { heat: 0 }).affordable, false);
+  const refused = executeGameCommand(short, {
+    type: COMMAND.PLAY_CARD, playerId: seat, cardId: card.id, payment: { heat: 0 }
+  });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, ERROR.CANNOT_AFFORD);
 });
 
 test("Io Sulphur Research draws according to the player's active Venus tags", () => {

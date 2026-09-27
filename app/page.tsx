@@ -71,7 +71,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid, Standings } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getStandardProjectCost as jsGetStandardProjectCost } from "./game-command.js";
+import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getStandardProjectCost as jsGetStandardProjectCost, getCardPaymentPlan as jsGetCardPaymentPlan } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
@@ -413,6 +413,12 @@ const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: Game
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
 const canPlayCardWithAnyMaterialPayment = jsCanPlayCardWithAnyMaterialPayment as unknown as (card: Card, state: GameState) => boolean;
+const getCardPaymentPlan = jsGetCardPaymentPlan as unknown as (
+  card: Card,
+  state: GameState,
+  playerId: string,
+  payment: { steel: number; titanium: number; heat?: number; plants?: number }
+) => { steel: number; titanium: number; heat: number; plants: number; floaters: number; mc: number; cost: number; heatMax: number; plantsMax: number; affordable: boolean };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -536,6 +542,8 @@ export default function Home() {
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
+  const [heatChoice, setHeatChoice] = useState<number | null>(null);
+  const [plantsChoice, setPlantsChoice] = useState<number | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [helpPage, setHelpPage] = useState(1);
@@ -1263,6 +1271,8 @@ export default function Home() {
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
+    setHeatChoice(null);
+    setPlantsChoice(null);
     setSelectedCorporationId(null);
     setSelectedPreludeIds([]);
     setSelectedResearchCardIds([]);
@@ -1286,10 +1296,14 @@ export default function Home() {
       setSelectedCardId(null);
       setSteelUsed(0);
       setTitaniumUsed(0);
+      setHeatChoice(null);
+      setPlantsChoice(null);
     } else {
       setSelectedCardId(cardId);
       setSteelUsed(0);
       setTitaniumUsed(0);
+      setHeatChoice(null);
+      setPlantsChoice(null);
     }
   };
 
@@ -1299,15 +1313,16 @@ export default function Home() {
     if (!isMyTurn || !selectedCardId) return;
 
     if (isOnline) {
-      // The server recomputes the cost from these, so sending them is what
-      // makes steel and titanium usable online at all.
+      // The server recomputes the cost from the selected resource amounts.
       online.sendAction("playCard", {
         cardId: selectedCardId,
-        payment: { steel: steelUsed, titanium: titaniumUsed }
+        payment: { steel: steelUsed, titanium: titaniumUsed, ...(heatChoice !== null ? { heat: heatChoice } : {}), ...(plantsChoice !== null ? { plants: plantsChoice } : {}) }
       });
       setSelectedCardId(null);
       setSteelUsed(0);
       setTitaniumUsed(0);
+      setHeatChoice(null);
+      setPlantsChoice(null);
       return;
     }
 
@@ -1317,13 +1332,15 @@ export default function Home() {
       type: "PLAY_CARD",
       playerId: currentPlayerId,
       cardId: selectedCardId,
-      payment: { steel: steelUsed, titanium: titaniumUsed }
+      payment: { steel: steelUsed, titanium: titaniumUsed, ...(heatChoice !== null ? { heat: heatChoice } : {}), ...(plantsChoice !== null ? { plants: plantsChoice } : {}) }
     }) as { ok: boolean; state: GameState };
 
     if (!result.ok) return;
     setSelectedCardId(null);
     setSteelUsed(0);
     setTitaniumUsed(0);
+    setHeatChoice(null);
+    setPlantsChoice(null);
     saveState(result.state);
   };
 
@@ -1746,9 +1763,18 @@ export default function Home() {
     .filter((card): card is Card => Boolean(card && getCardEffect(card as Card).action)),
   [seatPlayedProjects, seatPreludeIds]);
 
-  const { playable: canPlaySelected, reason: playDisableReason } = selectedCard
+  const { playable: selectedCardRulesMet, reason: playDisableReason } = selectedCard
     ? getCardPlayableStatus(selectedCard, activeState, steelUsed, titaniumUsed)
     : { playable: false, reason: "" };
+  const selectedCardPayment = selectedCard
+    ? getCardPaymentPlan(selectedCard, activeState, currentPlayerId, {
+        steel: steelUsed,
+        titanium: titaniumUsed,
+        ...(heatChoice !== null ? { heat: heatChoice } : {}),
+        ...(plantsChoice !== null ? { plants: plantsChoice } : {})
+      })
+    : null;
+  const canPlaySelected = selectedCardRulesMet && Boolean(selectedCardPayment?.affordable);
   const selectedCardCanBePaid = selectedCard
     ? canPlayCardWithAnyMaterialPayment(selectedCard, activeState)
     : false;
@@ -2942,7 +2968,9 @@ export default function Home() {
                 </span>
                 {!canPlaySelected && (
                   <span style={{ color: "var(--accent-amber)", fontSize: "0.875rem", marginLeft: "10px" }}>
-                    ※ {selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。" : playDisableReason}
+                    ※ {selectedCardRulesMet
+                      ? "選んだ資源配分では支払えません。"
+                      : selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。" : playDisableReason}
                   </span>
                 )}
                 {/* The card face is small enough that its own text is only
@@ -2968,7 +2996,7 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "4px", alignItems: "center" }}>
                     {selectedCard.tags.includes("Building") && maxSteel > 0 && (
                       <div className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
                         <span>建材を使用 (1建材=2MC値引き):</span>
@@ -3011,8 +3039,43 @@ export default function Home() {
                       </div>
                     )}
 
+                    {selectedCardPayment && selectedCardPayment.heatMax > 0 && selectedCard.id !== "card-base-local-heat-trapping" && (
+                      <label className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
+                        <span>支払いに使う熱:</span>
+                        <select
+                          className="payment-select"
+                          value={heatChoice === null ? "auto" : String(Math.min(heatChoice, selectedCardPayment.heatMax))}
+                          onChange={event => setHeatChoice(event.target.value === "auto" ? null : Number(event.target.value))}
+                        >
+                          <option value="auto">自動（{selectedCardPayment.heat}）</option>
+                          {Array.from({ length: selectedCardPayment.heatMax + 1 }, (_, amount) => (
+                            <option key={amount} value={amount}>{amount}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    {selectedCardPayment && selectedCardPayment.plantsMax > 0 && (
+                      <label className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
+                        <span>支払いに使う植物（1個＝3 MC）:</span>
+                        <select
+                          className="payment-select"
+                          value={plantsChoice === null ? "auto" : String(Math.min(plantsChoice, selectedCardPayment.plantsMax))}
+                          onChange={event => setPlantsChoice(event.target.value === "auto" ? null : Number(event.target.value))}
+                        >
+                          <option value="auto">自動（{selectedCardPayment.plants}）</option>
+                          {Array.from({ length: selectedCardPayment.plantsMax + 1 }, (_, amount) => (
+                            <option key={amount} value={amount}>{amount}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
                     <span style={{ fontSize: "0.875rem" }}>
-                      実質コスト: <strong style={{ color: "var(--color-ember)" }}>{getCardPaymentCost(selectedCard, activeState, steelUsed, titaniumUsed)}</strong> MC
+                      支払うMC: <strong style={{ color: "var(--color-ember)" }}>{selectedCardPayment?.mc ?? 0}</strong>
+                      {selectedCardPayment && (selectedCardPayment.heat > 0 || selectedCardPayment.plants > 0 || selectedCardPayment.floaters > 0) && (
+                        <span>（熱 {selectedCardPayment.heat}、植物 {selectedCardPayment.plants}、フローター {selectedCardPayment.floaters}）</span>
+                      )}
                     </span>
                 </div>
               </div>
@@ -3024,7 +3087,7 @@ export default function Home() {
                   onClick={() =>
                     confirmAction(
                       `【${selectedCard.name}】をプレイ`,
-                      `支払い ${getCardPaymentCost(selectedCard, activeState, steelUsed, titaniumUsed)} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}。アクションを1回消費します。`,
+                      `支払い ${selectedCardPayment?.mc ?? 0} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}${selectedCardPayment?.heat ? `、熱 ${selectedCardPayment.heat}` : ""}${selectedCardPayment?.plants ? `、植物 ${selectedCardPayment.plants}` : ""}${selectedCardPayment?.floaters ? `、フローター ${selectedCardPayment.floaters}` : ""}。アクションを1回消費します。`,
                       handlePlayCardInit
                     )
                   }

@@ -4377,6 +4377,7 @@ test("Decomposers, Venusian Animals and Carbon Nanosystems collect per tag", asy
 
 test("Martian Lumber Corp pays for building cards with plants", async () => {
   const { getPlayer, getCardPlayableStatus, ALL_CARDS } = await import("../app/game-logic.js");
+  const { getCardPaymentPlan } = await import("../app/game-command.js");
 
   // "When playing a building tag, plants may be used as 3 M€ each." Only the
   // production half of this card was implemented; the ongoing half, which is
@@ -4451,13 +4452,16 @@ test("Martian Lumber Corp pays for building cards with plants", async () => {
   const seat = getPlayer(rich, "player");
   seat.mc = 100;
   seat.hand = [building.id];
+  const preview = getCardPaymentPlan(building, rich, "player", { plants: 2 });
+  assert.deepEqual({ mc: preview.mc, plants: preview.plants, affordable: preview.affordable },
+    { mc: building.cost - 6, plants: 2, affordable: true });
   const chosen = executeGameCommand(rich, {
     type: COMMAND.PLAY_CARD, playerId: "player", cardId: building.id, payment: { plants: 2 }
   });
   assert.equal(chosen.ok, true);
   const richAfter = getPlayer(chosen.state, "player");
   assert.equal(richAfter.plants, 8, "the two plants offered were taken");
-  assert.equal(richAfter.mc, 100 - (building.cost - 6), "and paid for six of the price");
+  assert.equal(richAfter.mc, 100 - preview.mc, "and paid for six of the price");
 });
 
 // "Add 1 resource to a card with at least 1 resource on it" needs such a card
