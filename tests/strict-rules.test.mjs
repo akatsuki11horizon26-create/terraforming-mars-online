@@ -15,7 +15,7 @@ import {
   advanceSetupTurn,
   completeSetupPurchase
 } from "../app/game-logic.js";
-import { executeGameCommand, COMMAND } from "../app/game-command.js";
+import { executeGameCommand, getLegalCommands, COMMAND } from "../app/game-command.js";
 
 // Setup runs corporation -> buy starting hand -> preludes -> corporation first
 // action, which is the order the reference uses: preludes sit between the first
@@ -3911,6 +3911,12 @@ test("Self-Replicating Robots hosts a card, doubles it, and discounts it", async
   assert.deepEqual(getPlayer(current, "player").hostedCards, [{ cardId: target.id, resources: 2 }]);
   assert.deepEqual(getPlayer(current, "player").hand, []);
   assert.equal(getCardPaymentCost(target, current), target.cost - 2, "2 M€ cheaper per resource");
+  assert.ok(getLegalCommands(current, "player").some(command =>
+    command.type === COMMAND.PLAY_CARD && command.cardId === target.id
+  ), "a card on the robots is offered as a legal play even outside the hand");
+  const { enumerateBotMoves } = await import("../app/bot-player.js");
+  assert.ok(enumerateBotMoves(current, "player").some(move => move.card?.id === target.id),
+    "the bot can also consider that legal play");
 
   // The other half of the action doubles what is already there.
   getPlayer(current, "player").usedCardActions = [];

@@ -1018,6 +1018,11 @@
   opacity: 0.45;
 }
 
+.tm-card[data-hosted="true"] {
+  border-style: dashed;
+  border-color: var(--accent-cyan);
+}
+
 .tm-card:disabled {
   cursor: not-allowed;
   opacity: 0.4;
@@ -1195,6 +1200,13 @@
   letter-spacing: 0.08em;
   color: var(--tm-type-color, var(--text-low));
   text-transform: uppercase;
+}
+
+.tm-card-hosted-resources {
+  font-size: calc(8 * var(--s));
+  font-weight: 700;
+  color: var(--accent-cyan);
+  white-space: nowrap;
 }
 
 /* Victory points sit in the bottom-right corner on the printed card. */

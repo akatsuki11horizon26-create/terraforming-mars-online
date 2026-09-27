@@ -149,6 +149,7 @@ interface PlayerRecord {
   passed?: boolean;
   actionsRemaining?: number;
   hand?: string[];
+  hostedCards?: { cardId: string; resources: number }[];
   usedCardActions?: string[];
   researchCards?: string[];
   preludeOptions?: string[];
@@ -1599,13 +1600,19 @@ export default function Home() {
     return ALL_CARDS.find(c => c.id === selectedCardId) || null;
   }, [selectedCardId]);
 
-  const allHandCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
-    gameState.hand ??
-    []) as string[];
-  const playableHandIds = useMemo(() => new Set(allHandCards.filter(cardId => {
+  const seatCards = activeState.players?.find(p => p.id === currentPlayerId);
+  const allHandCards = useMemo(
+    () => (seatCards?.hand ?? gameState.hand ?? []) as string[],
+    [seatCards?.hand, gameState.hand]
+  );
+  const hostedCards = useMemo(
+    () => seatCards?.hostedCards ?? [],
+    [seatCards?.hostedCards]
+  );
+  const playableCardIds = useMemo(() => new Set([...allHandCards, ...hostedCards.map(entry => entry.cardId)].filter(cardId => {
     const card = ALL_CARDS.find(item => item.id === cardId);
     return card && canPlayCardWithAnyMaterialPayment(card, activeState);
-  })), [allHandCards, activeState]);
+  })), [allHandCards, hostedCards, activeState]);
 
   // A late-game hand is a list with no way into it: the audit found no search
   // and no filter, so finding a card meant reading every one. Filtering only
@@ -1615,14 +1622,27 @@ export default function Home() {
   const handCards = allHandCards.filter(cardId => {
     const card = ALL_CARDS.find(item => item.id === cardId);
     if (!card) return false;
-    if (handPlayableOnly && !playableHandIds.has(cardId)) return false;
+    if (isSellingPatents) return true;
+    if (handPlayableOnly && !playableCardIds.has(cardId)) return false;
     if (!handQuery) return true;
     const haystack = [card.name, card.effectText, card.reqText, ...(card.tags ?? [])]
       .join(" ")
       .toLowerCase();
     return haystack.includes(handQuery);
   });
-  const handHidden = allHandCards.length - handCards.length;
+  const visibleHostedCards = isSellingPatents ? [] : hostedCards.filter(entry => {
+    const card = ALL_CARDS.find(item => item.id === entry.cardId);
+    if (!card) return false;
+    if (handPlayableOnly && !playableCardIds.has(entry.cardId)) return false;
+    if (!handQuery) return true;
+    return [card.name, card.effectText, card.reqText, ...(card.tags ?? [])]
+      .join(" ")
+      .toLowerCase()
+      .includes(handQuery);
+  });
+  const visibleCardCount = handCards.length + visibleHostedCards.length;
+  const handHidden = allHandCards.length + (isSellingPatents ? 0 : hostedCards.length) - visibleCardCount;
+  const selectedHosted = hostedCards.find(entry => entry.cardId === selectedCardId);
 
   // Find the largest card width whose rows still fit the strip's height. Cards
   // are 1.58x tall, wrap on the cross axis, and have a 6px gap.
@@ -1641,18 +1661,18 @@ export default function Home() {
   // carries "one row"; the magnitude is the width.
   const fittedCard = useMemo(() => {
     const { width, height } = handBox;
-    if (!width || !height || handCards.length === 0) return 148;
+    if (!width || !height || visibleCardCount === 0) return 148;
     const GAP = 6;
     for (let w = 148; w >= MIN_CARD_WIDTH; w -= 2) {
       const perRow = Math.max(1, Math.floor((width + GAP) / (w + GAP)));
-      const rows = Math.ceil(handCards.length / perRow);
+      const rows = Math.ceil(visibleCardCount / perRow);
       if (rows * (w * CARD_ASPECT + GAP) - GAP <= height) return w;
     }
     // Nothing fits stacked. Fit ONE row to the height instead, down to the
     // width below which the effect text stops being readable.
     const fitted = Math.floor(height / CARD_ASPECT);
     return -Math.max(MIN_CARD_WIDTH, Math.min(148, fitted));
-  }, [handBox, handCards.length]);
+  }, [handBox, visibleCardCount]);
   const cardWidth = Math.abs(fittedCard);
   const singleRow = fittedCard < 0;
 
@@ -2776,10 +2796,10 @@ export default function Home() {
         <div className="hand-container">
           <div className="hand-toolbar">
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
-              PROJECT CARDS (手札: {activeState.hand.length}枚){handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{handCards.length}枚を表示中</span>} {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
+              PROJECT CARDS (手札: {allHandCards.length}枚{hostedCards.length > 0 && !isSellingPatents && ` / 自己複製ロボット上: ${hostedCards.length}枚`}){handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{visibleCardCount}枚を表示中</span>} {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
             </h2>
             <div className="hand-toolbar-actions">
-              {allHandCards.length > 0 && !isSellingPatents && (
+              {(allHandCards.length > 0 || hostedCards.length > 0) && !isSellingPatents && (
                 <div className="hand-filters">
                   <input
                     type="search"
@@ -2836,23 +2856,27 @@ export default function Home() {
           </div>
 
           <div className={`hand-cards${singleRow ? " hand-cards-row" : ""}`} ref={attachHandRef} style={{ ["--card-w" as string]: `${cardWidth}px` }}>
-            {handCards.map(cardId => {
+            {[
+              ...handCards.map(cardId => ({ cardId, hostedResources: undefined as number | undefined })),
+              ...visibleHostedCards.map(entry => ({ cardId: entry.cardId, hostedResources: entry.resources }))
+            ].map(({ cardId, hostedResources }) => {
               const cardObj = ALL_CARDS.find(c => c.id === cardId);
               if (!cardObj) return null;
 
               const isSelected =
                 selectedCardId === cardId ||
                 (isSellingPatents && selectedSellCardIds.includes(cardId));
-              const affordable = playableHandIds.has(cardId);
+              const affordable = playableCardIds.has(cardId);
               const payable = getCardPaymentCost(cardObj, activeState, 0, 0);
 
               return (
                 <ProjectCard
-                  key={cardId}
+                  key={`${cardId}:${hostedResources === undefined ? "hand" : "hosted"}`}
                   card={cardObj as never}
                   cost={payable}
                   selected={isSelected}
                   affordable={affordable}
+                  hostedResources={hostedResources}
                   disabled={!isMyTurn || Boolean(pendingChoice)}
                   onClick={() => handleCardClick(cardId)}
                 />
@@ -2910,6 +2934,7 @@ export default function Home() {
             >
               <div>
                 <span style={{ fontSize: "0.875rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
+                {selectedHosted && <span style={{ fontSize: "0.875rem", color: "var(--color-cyan)", marginLeft: "8px" }}>自己複製ロボット上: 資源{selectedHosted.resources}個（{selectedHosted.resources} MC値引き）</span>}
                 <span style={{ marginLeft: "8px", display: "inline-flex", verticalAlign: "middle" }}>
                   <CardTags tags={selectedCard.tags} />
                 </span>

@@ -143,11 +143,24 @@ test("Building and space cards remain playable with materials when MC is empty",
 
   const source = await pageSource();
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
-  assert.ok(source.includes('handPlayableOnly && !playableHandIds.has(cardId)'));
-  assert.ok(source.includes('const affordable = playableHandIds.has(cardId)'));
+  assert.ok(source.includes('handPlayableOnly && !playableCardIds.has(cardId)'));
+  assert.ok(source.includes('const affordable = playableCardIds.has(cardId)'));
   assert.ok(source.includes('selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。"'));
   assert.equal(source.includes('{canPlaySelected && ('), false);
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.payment-stepper\s*\{[^}]*min-width: 44px;[^}]*min-height: 44px;/);
+});
+
+test("Cards on Self-Replicating Robots stay reachable but cannot be sold as patents", async () => {
+  const source = await pageSource();
+  const cardSource = await readFile(new URL("../app/project-card.tsx", import.meta.url), "utf8");
+  const css = await readFile(new URL("../app/expansion-ui.css", import.meta.url), "utf8");
+  assert.ok(source.includes('if (isSellingPatents) return true;'), "patent selection shows the full hand even with a filter set");
+  assert.ok(source.includes('const visibleHostedCards = isSellingPatents ? [] : hostedCards.filter'));
+  assert.ok(source.includes('...visibleHostedCards.map(entry => ({ cardId: entry.cardId, hostedResources: entry.resources }))'));
+  assert.ok(source.includes('hostedResources={hostedResources}'));
+  assert.ok(source.includes('const selectedHosted = hostedCards.find(entry => entry.cardId === selectedCardId)'));
+  assert.ok(cardSource.includes('data-hosted={hostedResources === undefined ? "false" : "true"}'));
+  assert.match(css, /\.tm-card\[data-hosted="true"\]\s*\{[^}]*border-style: dashed;/);
 });
 
 test("Standard projects show capped rewards in readable mobile rows", async () => {

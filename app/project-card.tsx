@@ -106,6 +106,7 @@ export function ProjectCard({
   disabled,
   affordable,
   cost,
+  hostedResources,
   onClick,
   footer
 }: {
@@ -114,6 +115,7 @@ export function ProjectCard({
   disabled?: boolean;
   affordable?: boolean;
   cost?: number;
+  hostedResources?: number;
   onClick?: () => void;
   footer?: React.ReactNode;
 }) {
@@ -132,10 +134,11 @@ export function ProjectCard({
       data-type={card.type}
       data-selected={selected ? "true" : "false"}
       data-affordable={affordable === false ? "false" : "true"}
+      data-hosted={hostedResources === undefined ? "false" : "true"}
       disabled={disabled}
       onClick={onClick}
       aria-pressed={selected}
-      title={effectText}
+      title={hostedResources === undefined ? effectText : `自己複製ロボット上（資源${hostedResources}個、${hostedResources} MC値引き）。${effectText}`}
     >
       <span className="tm-card-top">
         <span className="tm-card-cost" data-discounted={payable !== card.cost ? "true" : "false"}>
@@ -160,6 +163,7 @@ export function ProjectCard({
 
       <span className="tm-card-bottom">
         <span className="tm-card-type">{TYPE_LABEL[card.type] ?? card.type}</span>
+        {hostedResources !== undefined && <span className="tm-card-hosted-resources" title={`自己複製ロボット上、資源${hostedResources}個`}>保管中 {hostedResources}</span>}
         {vp && (
           <span className="tm-card-vp" title={vpTitle} aria-label={vpTitle ?? `${vp} 勝利点`}>
             {vp}

@@ -1667,7 +1667,11 @@ export function getLegalCommands(state, playerId) {
 
   if (state.phase !== "action" || state.currentPlayerId !== playerId) return commands;
 
-  for (const cardId of actor.hand ?? []) {
+  const availableCards = new Set([
+    ...(actor.hand ?? []),
+    ...(actor.hostedCards ?? []).map(entry => entry.cardId)
+  ]);
+  for (const cardId of availableCards) {
     const card = ALL_CARDS.find(item => item.id === cardId);
     if (!card) continue;
     const payment = legalCardPayment(state, card);
