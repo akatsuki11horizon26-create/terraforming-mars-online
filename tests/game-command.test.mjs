@@ -255,6 +255,40 @@ test("Eccentric Sponsor resumes Prelude setup after a project's nested choice", 
   assert.equal(actor.actionsRemaining, 2);
 });
 
+test("Ecology Experts resumes setup after its free-played card attacks production", () => {
+  const { state, seat } = preludeSetup(["card-base-biomass-combustors"], 80, "prelude-biolab");
+  const prepared = cloneGameState(state);
+  prepared.players = prepared.players.map(player =>
+    player.id === seat
+      ? { ...player, corporationId: "corp-credicor", corporationOptions: [], initialActionDone: true, researchCards: [], preludeOptions: ["prelude-ecology-experts", "prelude-biolab"] }
+      : { ...player, corporationId: "corp-credicor", corporationOptions: [], initialActionDone: true, researchCards: [], preludeOptions: [], setupStep: "complete", plantsProd: 2 }
+  );
+  const victim = prepared.players.find(player => player.id !== seat).id;
+
+  const selected = executeGameCommand(prepared, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-ecology-experts", "prelude-biolab"]
+  });
+  assert.equal(selected.ok, true);
+  assert.equal(selected.state.pendingChoice?.kind, "production-attack");
+
+  const attacked = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: victim
+  });
+  assert.equal(attacked.ok, true);
+  assert.equal(attacked.state.pendingChoice, null);
+  assert.equal(attacked.state.phase, "action", "setup moves on after the answer");
+  assert.equal(getPlayer(attacked.state, victim).plantsProd, 1);
+  const actor = getPlayer(attacked.state, seat);
+  assert.equal(actor.plantsProd, 2, "both preludes resolved");
+  assert.equal(actor.energyProd, 2, "the project effect resolved once");
+  assert.ok(actor.playedProjects.includes("card-base-biomass-combustors"));
+  assert.equal(actor.actionsRemaining, 2, "free play spent no action");
+});
+
 test("Eccentric Sponsor fizzles without a target and leaves no discount", () => {
   const { state, seat } = preludeSetup([], 0);
   const result = executeGameCommand(state, {

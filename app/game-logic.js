@@ -1987,6 +1987,14 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
           }
         });
         if (asked) {
+          asked.continuation = {
+            ...asked.continuation,
+            preludeResume: {
+              selectedIds: selected.map(item => item.id),
+              nextIndex: index + 1,
+              seatBefore
+            }
+          };
           nextState.pendingChoice = asked;
           nextLogs = addLog(nextLogs, "system", asked.prompt);
           nextState.logs = nextLogs;
@@ -5298,6 +5306,12 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
   if (card && choice.continuation.sourceKind !== "card-action") {
     const followUp = queuePendingChoices(next, card, choice.continuation);
     if (followUp) {
+      if (choice.continuation.preludeResume) {
+        followUp.continuation = {
+          ...followUp.continuation,
+          preludeResume: choice.continuation.preludeResume
+        };
+      }
       next.pendingChoice = followUp;
       nextLogs = addLog(nextLogs, "system", followUp.prompt);
       next.logs = nextLogs;
