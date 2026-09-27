@@ -28,7 +28,7 @@ import {
   getPlayer,
   getCardPlayableStatus,
   getCardDiscount,
-  getCardPaymentCost,
+  getCardPaymentPlan,
   resumePreludeResolution,
   getCardActionStatus,
   draftPick,
@@ -50,8 +50,6 @@ import {
   getPreludeCost,
   PRELUDES,
   corporationFor,
-  plantsAsMegacredits,
-  PLANT_MEGACREDIT_VALUE,
   applyCorporationTriggers,
   checkParameterThresholds,
   ALL_CARDS,
@@ -766,47 +764,7 @@ const CORPORATION_ACTIONS = {
   }
 };
 
-export function getCardPaymentPlan(card, state, playerId, payment = {}) {
-  const actor = getPlayer(state, playerId);
-  const requested = payment ?? {};
-  const held = (value, stock) => {
-    const asked = Math.floor(Number(value ?? 0));
-    if (!Number.isFinite(asked) || asked <= 0) return 0;
-    return Math.min(asked, stock ?? 0);
-  };
-  const steel = held(requested.steel, actor.steel);
-  const titanium = held(requested.titanium, actor.titanium);
-  const cost = getCardPaymentCost(card, state, steel, titanium);
-  const corporation = corporationFor(actor);
-  const localHeatTrapping = card.id === "card-base-local-heat-trapping";
-  const stormcraftId = "card-colonies-stormcraft-incorporated";
-  const stormcraftFloaters = localHeatTrapping
-    ? actor.cardResources?.[stormcraftId] ?? 0
-    : 0;
-  const heatAvailable = localHeatTrapping || corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-  const heatMax = Math.min(heatAvailable, cost);
-  const heat = requested.heat === undefined
-    ? Math.max(0, Math.min(heatMax, cost - (actor.mc ?? 0)))
-    : held(requested.heat, heatMax);
-  const floaters = localHeatTrapping
-    ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heat))
-    : 0;
-  const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
-  const plantsMax = plantValue
-    ? Math.min(actor.plants ?? 0, Math.ceil(cost / plantValue))
-    : 0;
-  const plants = requested.plants === undefined
-    ? Math.min(plantsMax, plantValue
-      ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heat - floaters) / plantValue)
-      : 0)
-    : held(requested.plants, plantsMax);
-  const mc = Math.max(0, cost - heat - floaters - plants * plantValue);
-  return {
-    steel, titanium, heat, floaters, plants, mc, cost,
-    heatMax, plantsMax,
-    affordable: (actor.mc ?? 0) >= mc
-  };
-}
+export { getCardPaymentPlan };
 
 const HANDLERS = {
   [COMMAND.PLAY_CARD](state, command) {

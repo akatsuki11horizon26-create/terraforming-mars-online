@@ -4338,24 +4338,31 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       const discounted = project
         ? { ...project, cost: Math.max(0, project.cost - ECCENTRIC_SPONSOR_DISCOUNT) }
         : null;
-      if (!project || !(owner?.hand ?? []).includes(project.id) || !getCardPlayableStatus(discounted, next).playable) {
+      const payment = discounted ? getCardPaymentPlan(discounted, next, choice.ownerPlayerId) : null;
+      if (!project || !(owner?.hand ?? []).includes(project.id) ||
+          !getCardPlayableStatus(discounted, next).playable || !payment.affordable) {
         next.pendingChoice = choice;
         next.logs = addLog(nextLogs, "system", "そのカードはもうプレイできません。");
         return { status: "pending", state: next, logs: next.logs, pendingChoice: choice };
       }
-      const payment = getCardPaymentCost(discounted, next);
       const destination = project.type === "event" ? "playedEvents" : "playedProjects";
       next.players = next.players.map(player =>
         player.id === choice.ownerPlayerId
           ? {
               ...player,
-              mc: player.mc - payment,
+              mc: player.mc - payment.mc,
+              heat: (player.heat ?? 0) - payment.heat,
+              ...(payment.plants > 0 ? { plants: (player.plants ?? 0) - payment.plants } : {}),
+              ...(payment.floaters > 0 ? { cardResources: {
+                ...player.cardResources,
+                [STORMCRAFT_INCORPORATED_ID]: (player.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0) - payment.floaters
+              } } : {}),
               hand: player.hand.filter(id => id !== project.id),
               [destination]: [...(player[destination] ?? []), project.id]
             }
           : player
       );
-      nextLogs = addLog(nextLogs, "system", `Prelude効果で【${project.name}】をプレイしました（支払MC ${payment}）。`);
+      nextLogs = addLog(nextLogs, "system", `Prelude効果で【${project.name}】をプレイしました（支払MC ${payment.mc}${payment.heat ? `、熱 ${payment.heat}` : ""}${payment.plants ? `、植物 ${payment.plants}` : ""}${payment.floaters ? `、フローター ${payment.floaters}` : ""}）。`);
       const beforeTemp = next.temperature;
       const beforeOxygen = next.oxygen;
       const played = applyCardEffect(next, project, nextLogs, {
@@ -8861,6 +8868,47 @@ export function getCardPaymentCost(card, state, steelUsed = 0, titaniumUsed = 0)
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = getOngoingDiscount(card, state);
   return Math.max(0, card.cost - corporationDiscount - ongoingDiscount - steelUsed * getSteelValue(state) - titaniumUsed * getTitaniumValue(state));
+}
+
+export function getCardPaymentPlan(card, state, playerId, payment = {}) {
+  const actor = getPlayer(state, playerId);
+  const requested = payment ?? {};
+  const held = (value, stock) => {
+    const asked = Math.floor(Number(value ?? 0));
+    if (!Number.isFinite(asked) || asked <= 0) return 0;
+    return Math.min(asked, stock ?? 0);
+  };
+  const steel = held(requested.steel, actor.steel);
+  const titanium = held(requested.titanium, actor.titanium);
+  const cost = getCardPaymentCost(card, state, steel, titanium);
+  const corporation = corporationFor(actor);
+  const localHeatTrapping = card.id === LOCAL_HEAT_TRAPPING_ID;
+  const stormcraftFloaters = localHeatTrapping
+    ? actor.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0
+    : 0;
+  const heatAvailable = localHeatTrapping || corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
+  const heatMax = Math.min(heatAvailable, cost);
+  const heat = requested.heat === undefined
+    ? Math.max(0, Math.min(heatMax, cost - (actor.mc ?? 0)))
+    : held(requested.heat, heatMax);
+  const floaters = localHeatTrapping
+    ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heat))
+    : 0;
+  const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
+  const plantsMax = plantValue
+    ? Math.min(actor.plants ?? 0, Math.ceil(cost / plantValue))
+    : 0;
+  const plants = requested.plants === undefined
+    ? Math.min(plantsMax, plantValue
+      ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heat - floaters) / plantValue)
+      : 0)
+    : held(requested.plants, plantsMax);
+  const mc = Math.max(0, cost - heat - floaters - plants * plantValue);
+  return {
+    steel, titanium, heat, floaters, plants, mc, cost,
+    heatMax, plantsMax,
+    affordable: (actor.mc ?? 0) >= mc
+  };
 }
 
 // Law Suit may only be aimed at someone who attacked you this generation, so

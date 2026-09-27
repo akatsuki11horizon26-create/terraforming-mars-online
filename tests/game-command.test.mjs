@@ -209,6 +209,53 @@ test("Eccentric Sponsor charges the remainder above its 25 MC discount", () => {
   assert.ok(getPlayer(played.state, seat).playedProjects.includes("card-base-asteroid-mining"));
 });
 
+test("Eccentric Sponsor uses Helion heat when the discounted card exceeds MC", () => {
+  const { state, seat } = preludeSetup(["card-base-asteroid-mining"], 0);
+  const player = getPlayer(state, seat);
+  player.corporationId = "corp-helion";
+  player.heat = 10;
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  assert.equal(selected.ok, true);
+  assert.equal(selected.state.pendingChoice?.kind, "prelude-project");
+  const played = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-asteroid-mining"
+  });
+  assert.equal(played.ok, true);
+  const after = getPlayer(played.state, seat);
+  assert.equal(after.mc, 0);
+  assert.equal(after.heat, 5);
+  assert.ok(after.playedProjects.includes("card-base-asteroid-mining"));
+});
+
+test("Eccentric Sponsor uses Martian Lumber plants for a discounted building", () => {
+  const { state, seat } = preludeSetup(["card-base-space-elevator"], 0);
+  const player = getPlayer(state, seat);
+  player.plants = 2;
+  player.playedProjects = ["card-promo-martian-lumber-corp"];
+  const selected = executeGameCommand(state, {
+    type: COMMAND.SELECT_PRELUDES,
+    playerId: seat,
+    preludeIds: ["prelude-eccentric-sponsor", "prelude-power-generation"]
+  });
+  assert.equal(selected.state.pendingChoice?.kind, "prelude-project");
+  const played = executeGameCommand(selected.state, {
+    type: COMMAND.RESOLVE_PENDING,
+    playerId: seat,
+    optionId: "card-base-space-elevator"
+  });
+  assert.equal(played.ok, true);
+  const after = getPlayer(played.state, seat);
+  assert.equal(after.mc, 0);
+  assert.equal(after.plants, 1);
+  assert.ok(after.playedProjects.includes("card-base-space-elevator"));
+});
+
 test("Eccentric Sponsor can play an event and files it as an event", () => {
   const { state, seat } = preludeSetup(["card-base-bribed-committee"]);
   const selected = executeGameCommand(state, {
