@@ -146,6 +146,14 @@ test("mobile placement can be unselected before it changes the board", async () 
   assert.match(mobile, /\.mobile-placement-confirm \.hud-btn\s*\{[^}]*min-height:\s*44px/s);
 });
 
+test("a new mobile placement choice brings the board into view", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+  const choiceEffect = page.slice(page.indexOf("const tileChoiceId ="), page.indexOf("const tileChoiceCells ="));
+  assert.match(choiceEffect, /if \(showTitle \|\| !tileChoiceId \|\| !window\.matchMedia\("\(max-width: 820px\)"\)\.matches\) return/);
+  assert.match(choiceEffect, /boardRef\.current\?\.scrollIntoView\(\{ block: "center", behavior: "auto" \}\)/);
+  assert.match(choiceEffect, /\[showTitle, tileChoiceId\]/);
+});
+
 test("No hardcoded rust or ember values survive", () => {
   // These were the source of the red cast; colour now comes from tokens.
   assert.equal(css.includes("rgba(168, 50, 32"), false);

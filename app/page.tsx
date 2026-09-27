@@ -1949,6 +1949,11 @@ export default function Home() {
     (pendingChoice.kind === "tile-placement" || pendingChoice.kind === "ocean-placement")
       ? pendingChoice
       : null;
+  const tileChoiceId = tileChoice?.id ?? null;
+  useEffect(() => {
+    if (showTitle || !tileChoiceId || !window.matchMedia("(max-width: 820px)").matches) return;
+    boardRef.current?.scrollIntoView({ block: "center", behavior: "auto" });
+  }, [showTitle, tileChoiceId]);
   const tileChoiceCells = tileChoice
     ? new Set(
         (tileChoice.options ?? [])
