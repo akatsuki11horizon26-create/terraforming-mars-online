@@ -8,7 +8,7 @@ import {
   getPlayer,
   CORPORATIONS
 } from "../app/game-logic.js";
-import { executeGameCommand, getLegalCommands, getStandardProjectCost, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
+import { executeGameCommand, getLegalCommands, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
@@ -1631,6 +1631,28 @@ test("Helion chooses how much heat to spend as money", async () => {
   assert.deepEqual(
     buy("corp-credicor", { heat: 11 }), { mc: 11, heat: 0 },
     "a corporation without the ability cannot spend heat whatever it asks for"
+  );
+});
+
+test("standard project preview follows Helion's chosen heat split", () => {
+  const state = getInitialState({ playerCount: 1 });
+  state.phase = "action";
+  const seat = getPlayer(state, "player");
+  seat.corporationId = "corp-helion";
+  seat.mc = 6;
+  seat.heat = 11;
+
+  assert.deepEqual(
+    (({ mc, heat, affordable }) => ({ mc, heat, affordable }))(getStandardProjectPaymentPlan(state, "player", "power-plant")),
+    { mc: 6, heat: 5, affordable: true }
+  );
+  assert.deepEqual(
+    (({ mc, heat, affordable }) => ({ mc, heat, affordable }))(getStandardProjectPaymentPlan(state, "player", "power-plant", { heat: 0 })),
+    { mc: 11, heat: 0, affordable: false }
+  );
+  assert.deepEqual(
+    (({ mc, heat, affordable }) => ({ mc, heat, affordable }))(getStandardProjectPaymentPlan(state, "player", "power-plant", { heat: 8 })),
+    { mc: 3, heat: 8, affordable: true }
   );
 });
 

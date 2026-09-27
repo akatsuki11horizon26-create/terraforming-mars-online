@@ -53,6 +53,16 @@ async function pageSource() {
   return readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
 }
 
+test("standard projects expose and forward Helion's heat choice", async () => {
+  const source = await pageSource();
+  const handler = source.slice(source.indexOf("const handleStandardProjectPlay"), source.indexOf("const handleCorporationAction"));
+  assert.match(source, /const standardHeatControl = \(projectId: string\)/);
+  assert.match(source, /standardPayment\("power-plant"\)\?\.affordable/);
+  assert.match(source, /standardHeatControl\("power-plant"\)/);
+  assert.match(handler, /online\.sendAction\("standardProject", \{\s*projectId,\s*payment,/);
+  assert.match(handler, /type: "STANDARD_PROJECT",[\s\S]*?projectId,\s*payment,/);
+});
+
 async function titleHtml() {
   return readFile(new URL("../static-dist/index.html", import.meta.url), "utf8");
 }

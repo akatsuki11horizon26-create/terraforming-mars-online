@@ -1159,6 +1159,20 @@ div[tabindex="0"]:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.standard-heat-control {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: #c9bfae;
+}
+
+.standard-heat-control .payment-select {
+  min-width: 72px;
+}
+
 .standard-project-list > div > button {
   min-width: 64px;
   min-height: 40px;

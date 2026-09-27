@@ -158,6 +158,7 @@ interface PlayerRecord {
   playedEvents?: string[];
   selectedPreludeIds?: string[];
   corporationId?: string;
+  mergedCorporationId?: string;
   steel?: number;
   titanium?: number;
   plants?: number;
@@ -422,7 +423,8 @@ const getCardPaymentPlan = jsGetCardPaymentPlan as unknown as (
 const getStandardProjectPaymentPlan = jsGetStandardProjectPaymentPlan as unknown as (
   state: GameState,
   playerId: string,
-  projectId: string
+  projectId: string,
+  payment?: { heat?: number }
 ) => { cost: number; heat: number; mc: number; levy: number; placementLevy: number; affordable: boolean } | null;
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
@@ -548,6 +550,7 @@ export default function Home() {
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
   const [heatChoice, setHeatChoice] = useState<number | null>(null);
+  const [standardHeatChoices, setStandardHeatChoices] = useState<Record<string, number | null>>({});
   const [plantsChoice, setPlantsChoice] = useState<number | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -1277,6 +1280,7 @@ export default function Home() {
     setSteelUsed(0);
     setTitaniumUsed(0);
     setHeatChoice(null);
+    setStandardHeatChoices({});
     setPlantsChoice(null);
     setSelectedCorporationId(null);
     setSelectedPreludeIds([]);
@@ -1312,13 +1316,50 @@ export default function Home() {
     }
   };
 
-  const canPayStandardCost = (cost: number) => activeState.mc + (CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.heatAsMoney ? activeState.heat : 0) >= cost;
-  const standardPaymentCache = new Map<string, ReturnType<typeof getStandardProjectPaymentPlan>>();
-  const standardPayment = (projectId: string) => {
-    if (!standardPaymentCache.has(projectId)) {
-      standardPaymentCache.set(projectId, getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId));
-    }
-    return standardPaymentCache.get(projectId) ?? null;
+  const standardSeat = activeState.players?.find(player => player.id === currentPlayerId);
+  const canPayStandardWithHeat = [standardSeat?.corporationId, standardSeat?.mergedCorporationId]
+    .some(id => CORPORATIONS.some(corporation => corporation.id === id && corporation.effects?.heatAsMoney));
+  const selectedStandardHeat = (projectId: string) => {
+    const choice = standardHeatChoices[projectId];
+    const cost = jsGetStandardProjectCost(activeState, currentPlayerId, projectId) as number | null;
+    return choice == null || !canPayStandardWithHeat || cost == null
+      ? null
+      : Math.min(choice, standardSeat?.heat ?? 0, cost);
+  };
+  const standardPaymentPlans = Object.fromEntries((openDrawer === "standard" ? [
+    "power-plant", "asteroid", "air-scrapping", "aquifer", "greenery", "city",
+    "convert-heat", "convert-plants", "buffer-gas", "sell-patents"
+  ] : []).map(projectId => {
+    const heat = selectedStandardHeat(projectId);
+    return [projectId, getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId, heat === null ? {} : { heat })];
+  })) as Record<string, ReturnType<typeof getStandardProjectPaymentPlan>>;
+  const standardPayment = (projectId: string) => standardPaymentPlans[projectId] ?? null;
+  const standardPaymentText = (projectId: string) => {
+    const plan = standardPayment(projectId);
+    return plan ? `MC ${plan.mc}${plan.heat ? `・熱 ${plan.heat}` : ""}` : "";
+  };
+  const standardHeatControl = (projectId: string) => {
+    const plan = standardPayment(projectId);
+    if (!canPayStandardWithHeat || !plan || !standardSeat?.heat) return null;
+    const maxHeat = Math.min(standardSeat.heat, plan.cost);
+    return (
+      <label className="standard-heat-control">
+        熱で支払う
+        <select
+          className="payment-select"
+          aria-label={`${projectId}の熱支払い量`}
+          value={selectedStandardHeat(projectId) ?? "auto"}
+          onChange={event => setStandardHeatChoices(previous => ({
+            ...previous,
+            [projectId]: event.target.value === "auto" ? null : Number(event.target.value)
+          }))}
+        >
+          <option value="auto">自動</option>
+          {Array.from({ length: maxHeat + 1 }, (_, heat) => <option key={heat} value={heat}>{heat}</option>)}
+        </select>
+        <span>支払い {standardPaymentText(projectId)}</span>
+      </label>
+    );
   };
   const standardLevyText = (projectId: string) => {
     const plan = standardPayment(projectId);
@@ -1404,11 +1445,15 @@ export default function Home() {
     if (pendingChoice) return;
 
     const projectId = PROJECT_IDS[type];
+    const heat = selectedStandardHeat(projectId);
+    const payment = heat === null ? undefined : { heat };
     if (isOnline) {
       online.sendAction("standardProject", {
         projectId,
+        payment,
         cardIds: type === "sell_patents" ? selectedSellCardIds : undefined
       });
+      setStandardHeatChoices(previous => ({ ...previous, [projectId]: null }));
       setIsSellingPatents(false);
       setSelectedSellCardIds([]);
       return;
@@ -1419,10 +1464,12 @@ export default function Home() {
       type: "STANDARD_PROJECT",
       playerId: currentPlayerId,
       projectId,
+      payment,
       cardIds: type === "sell_patents" ? selectedSellCardIds : undefined
     }) as { ok: boolean; state: GameState; error?: { message: string } };
 
     if (!result.ok) return;
+    setStandardHeatChoices(previous => ({ ...previous, [projectId]: null }));
     setIsSellingPatents(false);
     setSelectedSellCardIds([]);
     saveState(result.state);
@@ -3239,13 +3286,14 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
                   <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC {powerPlantCost} | エネルギー生産量 +1</div>
+                  {standardHeatControl("power-plant")}
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
-                  disabled={!canPayStandardCost(powerPlantCost) || Boolean(pendingChoice)}
+                  disabled={!standardPayment("power-plant")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-power-plant-btn"
-                  onClick={() => confirmAction("発電所の建設", `${powerPlantCost} MC を支払い、エネルギー生産量を1段階上げます。`, () => handleStandardProjectPlay("power_plant"))}
+                  onClick={() => confirmAction("発電所の建設", `${standardPaymentText("power-plant")} を支払い、エネルギー生産量を1段階上げます。${standardLevyText("power-plant")}`, () => handleStandardProjectPlay("power_plant"))}
                 >
                   実行
                 </button>
@@ -3256,13 +3304,14 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
                   <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 14 | {raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"}{standardLevyText("asteroid")}</div>
+                  {standardHeatControl("asteroid")}
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("asteroid")?.affordable || Boolean(pendingChoice) || !raisesTemperature}
                   data-testid="sp-asteroid-btn"
-                  onClick={() => confirmAction("小惑星の衝突", `14 MC相当を支払い、${temperatureGain}${standardLevyText("asteroid")}`, () => handleStandardProjectPlay("asteroid"))}
+                  onClick={() => confirmAction("小惑星の衝突", `${standardPaymentText("asteroid")} を支払い、${temperatureGain}${standardLevyText("asteroid")}`, () => handleStandardProjectPlay("asteroid"))}
                 >
                   実行
                 </button>
@@ -3274,13 +3323,14 @@ export default function Home() {
                   <div>
                     <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>金星大気の減圧 (Air Scrapping)</div>
                     <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 15 | {activeState.venus < getVenusTrackLimit(activeState) ? "金星 +1段階、TR +1" : "金星は上限"}{standardLevyText("air-scrapping")}</div>
+                    {standardHeatControl("air-scrapping")}
                   </div>
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                     disabled={!standardPayment("air-scrapping")?.affordable || Boolean(pendingChoice) || activeState.venus >= getVenusTrackLimit(activeState)}
                     data-testid="sp-air-scrapping-btn"
-                    onClick={() => confirmAction("金星大気の減圧", `15 MC相当を支払い、金星を1段階上げてTRを1得ます。${standardLevyText("air-scrapping")}`, () => handleStandardProjectPlay("air_scrapping"))}
+                    onClick={() => confirmAction("金星大気の減圧", `${standardPaymentText("air-scrapping")} を支払い、金星を1段階上げてTRを1得ます。${standardLevyText("air-scrapping")}`, () => handleStandardProjectPlay("air_scrapping"))}
                   >
                     実行
                   </button>
@@ -3292,13 +3342,14 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
                   <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 18 | {raisesOceans ? "海洋タイルを配置、TR +1" : "海洋は上限"}{standardLevyText("aquifer")}</div>
+                  {standardHeatControl("aquifer")}
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("aquifer")?.affordable || Boolean(pendingChoice) || !raisesOceans}
                   data-testid="sp-aquifer-btn"
-                  onClick={() => confirmAction("海洋の沈降", `18 MC相当を支払い、${oceanGain}${standardLevyText("aquifer")}`, () => handleStandardProjectPlay("ocean"))}
+                  onClick={() => confirmAction("海洋の沈降", `${standardPaymentText("aquifer")} を支払い、${oceanGain}${standardLevyText("aquifer")}`, () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
                 </button>
@@ -3309,13 +3360,14 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
                   <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 23 | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}{standardLevyText("greenery")}</div>
+                  {standardHeatControl("greenery")}
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("greenery")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-greenery-btn"
-                  onClick={() => confirmAction("緑化プロジェクト", `23 MC相当を支払い、${greeneryGain}${standardLevyText("greenery")}`, () => handleStandardProjectPlay("greenery"))}
+                  onClick={() => confirmAction("緑化プロジェクト", `${standardPaymentText("greenery")} を支払い、${greeneryGain}${standardLevyText("greenery")}`, () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
                 </button>
@@ -3326,13 +3378,14 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>都市の建設 (City)</div>
                   <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置、MC生産量 +1</div>
+                  {standardHeatControl("city")}
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("city")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-city-btn"
-                  onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
+                  onClick={() => confirmAction("都市の建設", `${standardPaymentText("city")} を支払い、都市タイルを1枚配置し、MC生産量を1上げます。${standardLevyText("city")}`, () => handleStandardProjectPlay("city"))}
                 >
                   配置
                 </button>
@@ -3381,13 +3434,14 @@ export default function Home() {
                   <div>
                     <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>緩衝ガスの放出 (Buffer Gas)</div>
                     <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>16 MC | TR +1（TRソロ専用）{standardLevyText("buffer-gas")}</div>
+                    {standardHeatControl("buffer-gas")}
                   </div>
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!standardPayment("buffer-gas")?.affordable || Boolean(pendingChoice)}
                     data-testid="sp-buffer-gas-btn"
-                    onClick={() => confirmAction("緩衝ガスの放出", `16 MC相当を支払い、TRが1上がります。${standardLevyText("buffer-gas")}`, () => handleStandardProjectPlay("buffer_gas"))}
+                    onClick={() => confirmAction("緩衝ガスの放出", `${standardPaymentText("buffer-gas")} を支払い、TRが1上がります。${standardLevyText("buffer-gas")}`, () => handleStandardProjectPlay("buffer_gas"))}
                   >
                     実行
                   </button>
