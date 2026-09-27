@@ -229,9 +229,42 @@ function payProjectCost(state, playerId, project, payment) {
   );
 }
 
+function payProjectAndRebates(state, playerId, projectId, project, payment, corporation) {
+  payProjectCost(state, playerId, project, payment);
+  if (projectId !== "sell-patents" && !project.pays) {
+    grantStandardProjectRebate(state, playerId);
+  }
+  const rebate = corporation?.effects?.expensivePaymentBonus ?? 0;
+  if (rebate > 0 && !project.pays && payment.cost >= 20) {
+    state.players = state.players.map(player =>
+      player.id === playerId ? { ...player, mc: player.mc + rebate } : player
+    );
+    state.logs = addLog(state.logs, "system", `CrediCor: MC +${rebate}`);
+  }
+}
+
 // A project that places a tile asks where, unless only one space is legal.
+function projectPlacementLevy(state, actor, tileType) {
+  const raisesTr = tileType === "ocean"
+    ? state.oceans < getGlobalParameterLimits(state.boardId).oceans
+    : tileType === "forest" && state.oxygen < getGlobalParameterLimits(state.boardId).oxygen;
+  return raisesTr ? getTrSurcharge(state, actor.preservationProgram ? 0 : 1) : 0;
+}
+
+function affordableProjectCells(state, tileType, playerId) {
+  const actor = getPlayer(state, playerId);
+  const levy = projectPlacementLevy(state, actor, tileType);
+  return legalCellsFor(state, tileType, playerId).filter(cell => {
+    if ((actor.mc ?? 0) < (cell.placementCost ?? 0)) return false;
+    if (levy <= 0) return true;
+    const preview = cloneGameState(state);
+    placeTileAt(preview, cell, tileType, playerId, undefined, { skipTerraformRating: true });
+    return (getPlayer(preview, playerId).mc ?? 0) >= levy;
+  });
+}
+
 function placeOrAsk(state, command, tileType, label, source) {
-  const legal = legalCellsFor(state, tileType, command.playerId);
+  const legal = affordableProjectCells(state, tileType, command.playerId);
   if (legal.length === 0) {
     return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
   }
@@ -324,15 +357,21 @@ export function getStandardProjectPaymentPlan(state, playerId, projectId, paymen
   const corporation = corporationFor(actor);
   const cost = project.cost(state, corporation);
   const levy = getTrSurcharge(state, Math.max(0, (project.trSteps ?? 0) - (actor.preservationProgram ? 1 : 0)));
+  const placementLevy = project.places ? projectPlacementLevy(state, actor, project.places) : 0;
   const heatAvailable = corporation?.effects?.heatAsMoney && !project.pays ? actor.heat ?? 0 : 0;
   const requestedHeat = payment?.heat;
   const heat = requestedHeat === undefined
-    ? Math.min(heatAvailable, Math.max(0, cost - Math.max(0, (actor.mc ?? 0) - levy)))
+    ? Math.min(heatAvailable, Math.max(0, cost - Math.max(0, (actor.mc ?? 0) - levy - placementLevy)))
     : Math.min(heatAvailable, Math.max(0, Math.trunc(requestedHeat)), cost);
   const mc = project.pays ? 0 : cost - heat;
-  const affordable = (actor.mc ?? 0) >= mc + levy &&
+  let affordable = (actor.mc ?? 0) >= mc + levy &&
     (!project.pays || (actor[project.pays] ?? 0) >= cost);
-  return { cost, heat, mc, levy, affordable };
+  if (affordable && project.places) {
+    const paid = cloneGameState(state);
+    payProjectAndRebates(paid, playerId, projectId, project, { cost, heat, mc }, corporation);
+    affordable = affordableProjectCells(paid, project.places, playerId).length > 0;
+  }
+  return { cost, heat, mc, levy, placementLevy, affordable };
 }
 
 const STANDARD_PROJECTS = {
@@ -1232,6 +1271,9 @@ const HANDLERS = {
     if (!project || (project.available && !project.available(state))) {
       return fail(state, ERROR.UNKNOWN_PROJECT, "不明な標準プロジェクトです。");
     }
+    if (project.places && legalCellsFor(state, project.places, command.playerId).length === 0) {
+      return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
+    }
 
     const actor = getPlayer(state, command.playerId);
     const corporation = corporationFor(actor);
@@ -1242,36 +1284,8 @@ const HANDLERS = {
     const blocked = project.blocked?.(state, actor);
     if (blocked) return fail(state, ERROR.ACTION_REFUSED, blocked);
 
-    // Whether the tile has anywhere to go is settled before the money moves.
-    // Checking it afterwards returned a refusal carrying a state that had
-    // already been charged, so a full board cost 25 MC and built nothing.
-    if (project.places) {
-      const legal = legalCellsFor(state, project.places, command.playerId);
-      if (legal.length === 0) {
-        return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
-      }
-    }
-
     const next = cloneGameState(state);
-    payProjectCost(next, command.playerId, project, payment);
-
-    // Standard Technology pays out "after you pay for a standard project",
-    // excluding Sell Patents. The plant and heat conversions are standard
-    // ACTIONS rather than projects, and `pays` is exactly what marks them.
-    if (command.projectId !== "sell-patents" && !project.pays) {
-      grantStandardProjectRebate(next, command.playerId);
-    }
-
-    // CrediCor: "基本コスト20以上のカードまたは標準プロジェクトを支払うとMC4".
-    // The card half already fires in applyCorporationTriggers; this is the half
-    // that only the UI used to pay, so the bot and the online build never got it.
-    const rebate = corporation?.effects?.expensivePaymentBonus ?? 0;
-    if (rebate > 0 && project.pays !== "plants" && project.pays !== "heat" && cost >= 20) {
-      next.players = next.players.map(player =>
-        player.id === command.playerId ? { ...player, mc: player.mc + rebate } : player
-      );
-      next.logs = addLog(next.logs, "system", `CrediCor: MC +${rebate}`);
-    }
+    payProjectAndRebates(next, command.playerId, command.projectId, project, payment, corporation);
 
     return project.run(next, command, cost);
   },

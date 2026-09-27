@@ -423,7 +423,7 @@ const getStandardProjectPaymentPlan = jsGetStandardProjectPaymentPlan as unknown
   state: GameState,
   playerId: string,
   projectId: string
-) => { cost: number; heat: number; mc: number; levy: number; affordable: boolean } | null;
+) => { cost: number; heat: number; mc: number; levy: number; placementLevy: number; affordable: boolean } | null;
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -1313,9 +1313,16 @@ export default function Home() {
   };
 
   const canPayStandardCost = (cost: number) => activeState.mc + (CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.heatAsMoney ? activeState.heat : 0) >= cost;
-  const standardPayment = (projectId: string) => getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId);
+  const standardPaymentCache = new Map<string, ReturnType<typeof getStandardProjectPaymentPlan>>();
+  const standardPayment = (projectId: string) => {
+    if (!standardPaymentCache.has(projectId)) {
+      standardPaymentCache.set(projectId, getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId));
+    }
+    return standardPaymentCache.get(projectId) ?? null;
+  };
   const standardLevyText = (projectId: string) => {
-    const levy = standardPayment(projectId)?.levy ?? 0;
+    const plan = standardPayment(projectId);
+    const levy = (plan?.levy ?? 0) + (plan?.placementLevy ?? 0);
     return levy ? ` レッズ課税 ${levy} MCも必要です。` : "";
   };
 
@@ -3284,14 +3291,14 @@ export default function Home() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
-                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 18 | {raisesOceans ? "海洋タイルを配置、TR +1" : "海洋は上限"}</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 18 | {raisesOceans ? "海洋タイルを配置、TR +1" : "海洋は上限"}{standardLevyText("aquifer")}</div>
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
-                  disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || !raisesOceans}
+                  disabled={!standardPayment("aquifer")?.affordable || Boolean(pendingChoice) || !raisesOceans}
                   data-testid="sp-aquifer-btn"
-                  onClick={() => confirmAction("海洋の沈降", `18 MC を支払い、${oceanGain}`, () => handleStandardProjectPlay("ocean"))}
+                  onClick={() => confirmAction("海洋の沈降", `18 MC相当を支払い、${oceanGain}${standardLevyText("aquifer")}`, () => handleStandardProjectPlay("ocean"))}
                 >
                   配置
                 </button>
@@ -3301,14 +3308,14 @@ export default function Home() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
                   <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
-                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 23 | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 23 | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}{standardLevyText("greenery")}</div>
                 </div>
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
-                  disabled={!canPayStandardCost(23) || Boolean(pendingChoice)}
+                  disabled={!standardPayment("greenery")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-greenery-btn"
-                  onClick={() => confirmAction("緑化プロジェクト", `23 MC を支払い、${greeneryGain}`, () => handleStandardProjectPlay("greenery"))}
+                  onClick={() => confirmAction("緑化プロジェクト", `23 MC相当を支払い、${greeneryGain}${standardLevyText("greenery")}`, () => handleStandardProjectPlay("greenery"))}
                 >
                   配置
                 </button>
@@ -3323,7 +3330,7 @@ export default function Home() {
                 <button
                   className="btn-secondary"
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
-                  disabled={!canPayStandardCost(25) || Boolean(pendingChoice)}
+                  disabled={!standardPayment("city")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-city-btn"
                   onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
                 >
@@ -3354,14 +3361,14 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
                     <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
-                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>植物 {plantGreeneryCost} | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>植物 {plantGreeneryCost} | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}{standardLevyText("convert-plants")}</div>
                   </div>
                   <button
                     className="btn-secondary"
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
-                    disabled={activeState.plants < plantGreeneryCost || Boolean(pendingChoice)}
+                    disabled={!standardPayment("convert-plants")?.affordable || Boolean(pendingChoice)}
                     data-testid="sp-plants-convert-btn"
-                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、${greeneryGain}`, () => handleStandardProjectPlay("plants_convert"))}
+                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、${greeneryGain}${standardLevyText("convert-plants")}`, () => handleStandardProjectPlay("plants_convert"))}
                   >
                     変換
                   </button>

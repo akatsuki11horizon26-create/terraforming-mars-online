@@ -5495,13 +5495,13 @@ export function placeTileAt(state, cell, tileType, ownerId, cardId, options = {}
   if (tileType === "ocean") {
     const before = state.oceans;
     state.oceans = Math.min(getGlobalParameterLimits(state.boardId).oceans, state.oceans + 1);
-    if (state.oceans > before && !worldGovernment) bumpTr(state, ownerId, 1);
+    if (state.oceans > before && !worldGovernment && !options.skipTerraformRating) bumpTr(state, ownerId, 1);
   }
   if (tileType === "forest") {
     const before = state.oxygen;
     if (!finalGreenery) {
       state.oxygen = Math.min(getGlobalParameterLimits(state.boardId).oxygen, state.oxygen + 1);
-      if (state.oxygen > before && !worldGovernment) bumpTr(state, ownerId, 1);
+      if (state.oxygen > before && !worldGovernment && !options.skipTerraformRating) bumpTr(state, ownerId, 1);
     }
   }
   return state;

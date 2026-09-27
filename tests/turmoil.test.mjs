@@ -2266,6 +2266,110 @@ test("Helion reserves the Reds levy when buying an asteroid project", async () =
   assert.equal(getPlayer(played.state, "player").heat, 0);
 });
 
+test("Reds allow greenery only on spaces whose placement rewards fund its TR levy", async () => {
+  const { getPlayer, legalCellsFor, placeTileAt, countAdjacentOceans } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.plants = 8;
+  player.mc = 0;
+  const noBonus = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "convert-plants"
+  });
+  assert.equal(noBonus.ok, false);
+  assert.equal(getPlayer(state, "player").plants, 8);
+  assert.equal(state.oxygen, 0);
+
+  for (const key of ["3,0", "4,0"]) {
+    placeTileAt(state, state.board[key], "ocean", "player", undefined, { worldGovernment: true });
+  }
+  const funded = legalCellsFor(state, "forest", "player")
+    .find(cell => countAdjacentOceans(cell.q, cell.r, state.board) >= 2);
+  assert.ok(funded, "two oceans leave a legal greenery space paying at least 4 MC");
+  const started = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "convert-plants"
+  });
+  assert.equal(started.ok, true);
+  const options = started.state.pendingChoice?.options ?? [];
+  if (options.length) {
+    assert.ok(options.some(option => option.targetCellKey === `${funded.q},${funded.r}`));
+    assert.ok(options.length < legalCellsFor(state, "forest", "player").length,
+      "spaces that cannot pay the levy are omitted");
+  } else {
+    assert.equal(started.state.board[`${funded.q},${funded.r}`].tileType, "forest",
+      "the only payable space is placed automatically");
+  }
+  const target = options.find(option => option.targetCellKey === `${funded.q},${funded.r}`);
+  const placed = target ? executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: target.id
+  }) : started;
+  assert.equal(placed.ok, true);
+  assert.equal(getPlayer(placed.state, "player").mc, 1);
+  assert.equal(getPlayer(placed.state, "player").plants,
+    funded.bonusType === "plant" ? funded.bonusAmount : 0);
+  assert.equal(getPlayer(placed.state, "player").tr, player.tr + 1);
+});
+
+test("Helion can pay for an ocean with heat while keeping MC for the Reds levy", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND, getStandardProjectPaymentPlan } = await import("../app/game-command.js");
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.corporationId = "corp-helion";
+  player.mc = 3;
+  player.heat = 18;
+  const plan = getStandardProjectPaymentPlan(state, "player", "aquifer");
+  assert.deepEqual({ mc: plan.mc, heat: plan.heat, affordable: plan.affordable },
+    { mc: 0, heat: 18, affordable: true });
+  const started = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "aquifer"
+  });
+  assert.equal(started.ok, true);
+  const target = started.state.pendingChoice?.options.find(option => option.targetCellKey === "8,-4");
+  assert.ok(target, "the ocean space without placement rewards remains payable");
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: target.id
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(getPlayer(placed.state, "player").mc, 0);
+  assert.equal(getPlayer(placed.state, "player").heat, 0);
+  assert.equal(getPlayer(placed.state, "player").tr, player.tr + 1);
+});
+
+test("CrediCor's project rebate can fund the Reds levy on greenery", async () => {
+  const { getPlayer } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND, getStandardProjectPaymentPlan } = await import("../app/game-command.js");
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.corporationId = "corp-credicor";
+  player.mc = 23;
+  assert.equal(getStandardProjectPaymentPlan(state, "player", "greenery").affordable, true);
+  const started = executeGameCommand(state, {
+    type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "greenery"
+  });
+  assert.equal(started.ok, true);
+  const target = started.state.pendingChoice?.options.find(option => option.targetCellKey === "6,-4");
+  assert.ok(target, "a space with no MC placement bonus is affordable from CrediCor's rebate");
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: target.id
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(getPlayer(placed.state, "player").mc, 1);
+  assert.equal(getPlayer(placed.state, "player").tr, player.tr + 1);
+});
+
 // Scientists put a once-a-generation action on the table; Kelvinists put one
 // with no limit. Every other policy is passive or fires on a trigger.
 test("The ruling party's policy action follows its own usage limit", async () => {
