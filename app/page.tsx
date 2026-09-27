@@ -410,7 +410,7 @@ const calculateScoreBreakdowns = jsCalculateScoreBreakdowns as unknown as (
   state: GameState
 ) => Record<string, ScoreBreakdown>;
 const formatSignedVp = jsFormatSignedVp as unknown as (points: number) => string;
-const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
+const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number; steelValue: number; titaniumValue: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
 const canPlayCardWithAnyMaterialPayment = jsCanPlayCardWithAnyMaterialPayment as unknown as (card: Card, state: GameState) => boolean;
@@ -1843,9 +1843,9 @@ export default function Home() {
     ? canPlayCardWithAnyMaterialPayment(selectedCard, activeState)
     : false;
 
-  const { maxSteel, maxTitanium } = selectedCard
+  const { maxSteel, maxTitanium, steelValue, titaniumValue } = selectedCard
     ? getCardDiscount(selectedCard, activeState)
-    : { maxSteel: 0, maxTitanium: 0 };
+    : { maxSteel: 0, maxTitanium: 0, steelValue: 2, titaniumValue: 3 };
 
   // Ecoline discounts this conversion, so the price is asked of the engine
   // rather than written as 8 in five places.
@@ -3065,7 +3065,7 @@ export default function Home() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "16px", marginTop: "4px", alignItems: "center" }}>
                     {selectedCard.tags.includes("Building") && maxSteel > 0 && (
                       <div className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
-                        <span>建材を使用 (1建材=2MC値引き):</span>
+                        <span>建材を使用 (1建材={steelValue} MC):</span>
                         <button
                           className="btn-secondary payment-stepper"
                           disabled={steelUsed <= 0}
@@ -3086,7 +3086,7 @@ export default function Home() {
 
                     {selectedCard.tags.includes("Space") && maxTitanium > 0 && (
                       <div className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
-                        <span>チタンを使用 (1チタン={String(CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.titaniumValue ?? 3)}MC値引き):</span>
+                        <span>チタンを使用 (1チタン={titaniumValue} MC):</span>
                         <button
                           className="btn-secondary payment-stepper"
                           disabled={titaniumUsed <= 0}

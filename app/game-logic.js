@@ -8837,17 +8837,19 @@ export function getCardDiscount(card, state) {
   const corporationDiscount = getCorporationDiscount(card, corporation);
   const ongoingDiscount = getOngoingDiscount(card, state);
   const totalDiscount = corporationDiscount + ongoingDiscount;
+  const steelValue = getSteelValue(state);
+  const titaniumValue = getTitaniumValue(state);
   // No change is given, so a player may overpay by one unit rather than top up
   // the last few M€ in cash. Flooring the cap forbade that entirely: with 1 M€
   // left to cover, a steel worth 2 could not be spent at all.
   const net = Math.max(0, card.cost - totalDiscount);
   const maxSteel = card.tags.includes("Building")
-    ? Math.min(state.steel, Math.ceil(net / getSteelValue(state)))
+    ? Math.min(state.steel, Math.ceil(net / steelValue))
     : 0;
   const maxTitanium = card.tags.includes("Space")
-    ? Math.min(state.titanium, Math.ceil(net / getTitaniumValue(state)))
+    ? Math.min(state.titanium, Math.ceil(net / titaniumValue))
     : 0;
-  return { maxSteel, maxTitanium };
+  return { maxSteel, maxTitanium, steelValue, titaniumValue };
 }
 
 // Martian Lumber Corp lets plants pay for a building card at 3 M€ each. It is

@@ -11,6 +11,7 @@ import {
   computeScore,
   getCardActionStatus,
   getCardEffect,
+  getCardDiscount,
   getCardPaymentCost,
   getCardPlayableStatus,
   getInitialState,
@@ -250,6 +251,10 @@ test("cards that raise the value of steel or titanium actually raise it", () => 
     "Advanced Alloys makes each steel worth one more");
   assert.equal(getCardPaymentCost(space, played, 0, 1), titaniumBefore - 1,
     "Advanced Alloys makes each titanium worth one more");
+  assert.equal(getCardDiscount(building, played).steelValue, 3,
+    "the payment UI sees the same steel value as the engine");
+  assert.equal(getCardDiscount(space, played).titaniumValue, 4,
+    "the payment UI sees the same titanium value as the engine");
 
   // Rego Plastics moves steel only and Mercurian Alloys titanium only, so a
   // single shared bonus would pass the assertions above and still be wrong.
@@ -268,6 +273,14 @@ test("cards that raise the value of steel or titanium actually raise it", () => 
   const mercurian = withCard("card-promo-mercurian-alloys");
   assert.equal(getCardPaymentCost(building, mercurian, 1, 0), steelBefore, "Mercurian Alloys leaves steel alone");
   assert.equal(getCardPaymentCost(space, mercurian, 0, 1), titaniumBefore - 1, "Mercurian Alloys raises titanium");
+  assert.equal(getCardDiscount(building, rego).steelValue, 3);
+  assert.equal(getCardDiscount(space, mercurian).titaniumValue, 4);
+
+  const merged = { ...state, players: state.players.map(player => ({
+    ...player, corporationId: "corp-credicor", mergedCorporationId: "corp-phobolog"
+  })) };
+  assert.equal(getCardDiscount(space, merged).titaniumValue, 4,
+    "Merger's second corporation also changes the displayed titanium value");
 });
 
 // Curated overrides are matched onto the generated catalog BY NAME, so a name

@@ -63,6 +63,14 @@ test("standard projects expose and forward Helion's heat choice", async () => {
   assert.match(handler, /type: "STANDARD_PROJECT",[\s\S]*?projectId,\s*payment,/);
 });
 
+test("card material labels use the engine's current resource values", async () => {
+  const source = await pageSource();
+  assert.match(source, /const \{ maxSteel, maxTitanium, steelValue, titaniumValue \} = selectedCard/);
+  assert.match(source, /1建材=\{steelValue\} MC/);
+  assert.match(source, /1チタン=\{titaniumValue\} MC/);
+  assert.doesNotMatch(source, /1建材=2MC値引き/);
+});
+
 async function titleHtml() {
   return readFile(new URL("../static-dist/index.html", import.meta.url), "utf8");
 }
