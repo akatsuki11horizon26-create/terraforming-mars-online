@@ -418,7 +418,7 @@ const getCardPaymentPlan = jsGetCardPaymentPlan as unknown as (
   state: GameState,
   playerId: string,
   payment: { steel: number; titanium: number; heat?: number; plants?: number }
-) => { steel: number; titanium: number; heat: number; plants: number; floaters: number; mc: number; cost: number; heatMax: number; plantsMax: number; affordable: boolean };
+) => { steel: number; titanium: number; heat: number; plants: number; floaters: number; mc: number; cost: number; levy: number; heatMax: number; plantsMax: number; affordable: boolean };
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -2969,7 +2969,9 @@ export default function Home() {
                 {!canPlaySelected && (
                   <span style={{ color: "var(--accent-amber)", fontSize: "0.875rem", marginLeft: "10px" }}>
                     ※ {selectedCardRulesMet
-                      ? "選んだ資源配分では支払えません。"
+                      ? selectedCardPayment?.levy
+                        ? `選んだ資源配分ではレッズ政策の課税 ${selectedCardPayment.levy} MCを残せません。`
+                        : "選んだ資源配分では支払えません。"
                       : selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。" : playDisableReason}
                   </span>
                 )}
@@ -3076,6 +3078,9 @@ export default function Home() {
                       {selectedCardPayment && (selectedCardPayment.heat > 0 || selectedCardPayment.plants > 0 || selectedCardPayment.floaters > 0) && (
                         <span>（熱 {selectedCardPayment.heat}、植物 {selectedCardPayment.plants}、フローター {selectedCardPayment.floaters}）</span>
                       )}
+                      {selectedCardPayment && selectedCardPayment.levy > 0 && (
+                        <span>／TR上昇時のレッズ課税: {selectedCardPayment.levy} MC</span>
+                      )}
                     </span>
                 </div>
               </div>
@@ -3087,7 +3092,7 @@ export default function Home() {
                   onClick={() =>
                     confirmAction(
                       `【${selectedCard.name}】をプレイ`,
-                      `支払い ${selectedCardPayment?.mc ?? 0} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}${selectedCardPayment?.heat ? `、熱 ${selectedCardPayment.heat}` : ""}${selectedCardPayment?.plants ? `、植物 ${selectedCardPayment.plants}` : ""}${selectedCardPayment?.floaters ? `、フローター ${selectedCardPayment.floaters}` : ""}。アクションを1回消費します。`,
+                      `カード代 ${selectedCardPayment?.mc ?? 0} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}${selectedCardPayment?.heat ? `、熱 ${selectedCardPayment.heat}` : ""}${selectedCardPayment?.plants ? `、植物 ${selectedCardPayment.plants}` : ""}${selectedCardPayment?.floaters ? `、フローター ${selectedCardPayment.floaters}` : ""}${selectedCardPayment?.levy ? `。TR上昇時のレッズ課税 ${selectedCardPayment.levy} MC` : ""}。アクションを1回消費します。`,
                       handlePlayCardInit
                     )
                   }

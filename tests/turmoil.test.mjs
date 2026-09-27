@@ -2127,6 +2127,79 @@ test("A card is unplayable when the Reds levy on it cannot be paid", async () =>
   assert.equal(withMoney(card.cost, "greens"), true, "and under anyone else the cost is enough");
 });
 
+test("Helion reserves MC for the Reds levy when heat can pay for a TR card", async () => {
+  const { getCardPlayableStatus, ALL_CARDS, getPlayer, getCardPaymentPlan } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const card = ALL_CARDS.find(item => item.id === "card-promo-jovian-embassy");
+  const state = getInitialState({ playerCount: 1, turmoil: true, promo: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.corporationId = "corp-helion";
+  player.mc = 3;
+  player.heat = card.cost;
+  player.hand = [card.id];
+
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+  const plan = getCardPaymentPlan(card, state, "player");
+  assert.equal(plan.mc, 0, "card payment leaves the full levy in MC");
+  assert.equal(plan.heat, card.cost);
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, "player").mc, 0, "the levy is paid after the card");
+  assert.equal(getPlayer(played.state, "player").heat, 0);
+  assert.equal(getPlayer(played.state, "player").tr, player.tr + 1);
+
+  const chosen = getInitialState({ playerCount: 1, turmoil: true, promo: true });
+  chosen.turmoil.rulingParty = "reds";
+  chosen.turmoil.rulingPolicyId = null;
+  chosen.phase = "action";
+  chosen.currentPlayerId = "player";
+  const payer = getPlayer(chosen, "player");
+  payer.corporationId = "corp-helion";
+  payer.mc = card.cost;
+  payer.heat = card.cost;
+  payer.hand = [card.id];
+  assert.equal(getCardPlayableStatus(card, chosen).playable, true);
+  assert.equal(getCardPaymentPlan(card, chosen, "player", { heat: 0 }).affordable, false,
+    "an explicit choice cannot spend the MC reserved for tax");
+  const refused = executeGameCommand(chosen, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id, payment: { heat: 0 }
+  });
+  assert.equal(refused.ok, false);
+});
+
+test("Martian Lumber plants can cover a card while MC pays the Reds levy", async () => {
+  const { getCardPlayableStatus, ALL_CARDS, getPlayer, getCardPaymentPlan } = await import("../app/game-logic.js");
+  const { executeGameCommand, COMMAND } = await import("../app/game-command.js");
+  const card = ALL_CARDS.find(item => item.id === "card-promo-jovian-embassy");
+  const state = getInitialState({ playerCount: 1, turmoil: true, promo: true });
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  state.phase = "action";
+  state.currentPlayerId = "player";
+  const player = getPlayer(state, "player");
+  player.mc = 3;
+  player.plants = 5;
+  player.hand = [card.id];
+  player.playedProjects = ["card-promo-martian-lumber-corp"];
+  assert.equal(getCardPlayableStatus(card, state).playable, true);
+  const plan = getCardPaymentPlan(card, state, "player");
+  assert.equal(plan.mc, 0);
+  assert.equal(plan.plants, 5);
+  assert.equal(plan.levy, 3);
+  const played = executeGameCommand(state, {
+    type: COMMAND.PLAY_CARD, playerId: "player", cardId: card.id
+  });
+  assert.equal(played.ok, true);
+  assert.equal(getPlayer(played.state, "player").mc, 0);
+  assert.equal(getPlayer(played.state, "player").plants, 0);
+});
+
 // Scientists put a once-a-generation action on the table; Kelvinists put one
 // with no limit. Every other policy is passive or fires on a trigger.
 test("The ruling party's policy action follows its own usage limit", async () => {

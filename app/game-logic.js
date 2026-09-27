@@ -8881,6 +8881,8 @@ export function getCardPaymentPlan(card, state, playerId, payment = {}) {
   const steel = held(requested.steel, actor.steel);
   const titanium = held(requested.titanium, actor.titanium);
   const cost = getCardPaymentCost(card, state, steel, titanium);
+  const levy = getTrSurcharge(state, getCardEffect(card).tr ?? 0);
+  const mcForCard = Math.max(0, (actor.mc ?? 0) - levy);
   const corporation = corporationFor(actor);
   const localHeatTrapping = card.id === LOCAL_HEAT_TRAPPING_ID;
   const stormcraftFloaters = localHeatTrapping
@@ -8889,10 +8891,10 @@ export function getCardPaymentPlan(card, state, playerId, payment = {}) {
   const heatAvailable = localHeatTrapping || corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
   const heatMax = Math.min(heatAvailable, cost);
   const heat = requested.heat === undefined
-    ? Math.max(0, Math.min(heatMax, cost - (actor.mc ?? 0)))
+    ? Math.max(0, Math.min(heatMax, cost - mcForCard))
     : held(requested.heat, heatMax);
   const floaters = localHeatTrapping
-    ? Math.min(stormcraftFloaters, Math.max(0, cost - (actor.mc ?? 0) - heat))
+    ? Math.min(stormcraftFloaters, Math.max(0, cost - mcForCard - heat))
     : 0;
   const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
   const plantsMax = plantValue
@@ -8900,14 +8902,14 @@ export function getCardPaymentPlan(card, state, playerId, payment = {}) {
     : 0;
   const plants = requested.plants === undefined
     ? Math.min(plantsMax, plantValue
-      ? Math.ceil(Math.max(0, cost - (actor.mc ?? 0) - heat - floaters) / plantValue)
+      ? Math.ceil(Math.max(0, cost - mcForCard - heat - floaters) / plantValue)
       : 0)
     : held(requested.plants, plantsMax);
   const mc = Math.max(0, cost - heat - floaters - plants * plantValue);
   return {
-    steel, titanium, heat, floaters, plants, mc, cost,
+    steel, titanium, heat, floaters, plants, mc, cost, levy,
     heatMax, plantsMax,
-    affordable: (actor.mc ?? 0) >= mc
+    affordable: (actor.mc ?? 0) >= mc + levy
   };
 }
 
@@ -9671,7 +9673,10 @@ export function getCardPlayableStatus(
   // states is counted here -- a threshold bonus reached mid-effect is not
   // knowable before the effect runs.
   const trLevy = getTrSurcharge(state, getCardEffect(card).tr ?? 0);
-  if (trLevy > 0 && state.mc + heatAsMoney - costAfterDiscount < trLevy) {
+  if (trLevy > 0 && !getCardPaymentPlan(card, state, state.currentPlayerId, {
+    steel: steelUsed,
+    titanium: titaniumUsed
+  }).affordable) {
     return { playable: false, reason: `レッズ政策の課税 ${trLevy} MC を支払えません。` };
   }
 
