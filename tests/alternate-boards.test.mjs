@@ -158,6 +158,32 @@ test("the printed Amazonis board has 91 unique spaces and five volcanic regions"
   assert.ok(cells.some(cell => cell.bonusType === "energy"));
 });
 
+test("Amazonis printed board matches every space's terrain and placement bonus", () => {
+  const printedRows = [
+    "s1 s2 s1 t1 w2 -",
+    "o:- d1 s1 - p1 o:p2 o:w2",
+    "o:s2 - t2 - p1 o:- - -",
+    "w1 o:- - - p1 p1 p2 p1 p1+t1",
+    "s2 p1 c1 p1 o:t1 p1 p2 p1 c1 o:p2",
+    "p1 p1 p2 p2 o:p2 o:p2 s1+p2 p1 - p1 o:t1",
+    "p1 p2 o:p2 e2 e1 e2 p1 p1 - -",
+    "- o:t2 p1 e1 e2 p1 d2 s1 d1",
+    "o:s1+w1 - w1 - - p2 - w1",
+    "o:- - c1 - p3 p2 s2",
+    "- s1+w1 s2 - p1 t1"
+  ];
+  const symbol = { plant: "p", steel: "s", titanium: "t", energy: "e", card: "c", wild: "w", delegate: "d" };
+  const cells = getBoardCells("amazonis");
+  const actualRows = [...new Set(cells.map(cell => cell.r))].map(row => cells
+    .filter(cell => cell.r === row)
+    .map(cell => {
+      const bonuses = cell.bonusType === "multi" ? cell.bonus :
+        cell.bonusType === "none" ? [] : [{ type: cell.bonusType, amount: cell.bonusAmount }];
+      return `${cell.isOceanOnly ? "o:" : ""}${bonuses.length ? bonuses.map(bonus => `${symbol[bonus.type]}${bonus.amount}`).join("+") : "-"}`;
+    }).join(" "));
+  assert.deepEqual(actualRows, printedRows);
+});
+
 test("Amazonis wild bonuses choose each standard resource separately", async () => {
   const { placeTileAt, resolvePendingChoice } = await import("../app/game-logic.js");
   const state = getInitialState({ board: "amazonis" });
