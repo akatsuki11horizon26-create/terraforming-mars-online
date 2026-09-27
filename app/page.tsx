@@ -1935,20 +1935,18 @@ export default function Home() {
           <h1 className="header-title">MARS FRONTIER</h1>
           <span className="header-subtitle">公式ソロルール準拠・非公式ファンメイド — 火星開拓戦略制御システム</span>
         </div>
-        <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+        <nav className="header-actions" aria-label="ゲームメニュー">
           {botThinking && <span className="bot-thinking">ロボット思考中</span>}
-          <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowTitle(true)}>
+          <button className="btn-secondary" onClick={() => setShowTitle(true)}>
             タイトルへ
           </button>
-          <button className="btn-secondary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowHelp(true)}>
+          <button className="btn-secondary" onClick={() => setShowHelp(true)}>
             マニュアル表示
           </button>
           {ONLINE_ENABLED && (
             <button
               className="btn-secondary"
               style={{
-                padding: "4px 12px",
-                fontSize: "0.8rem",
                 borderColor: isOnline ? "var(--color-cyan)" : undefined,
                 color: isOnline ? "var(--color-cyan)" : undefined
               }}
@@ -1959,7 +1957,6 @@ export default function Home() {
           )}
           <button
             className="btn-secondary"
-            style={{ padding: "4px 12px", fontSize: "0.8rem" }}
             onClick={() => {
               // Defaults for starting a NEW local game, so they come from the
               // local one — not from whatever room is currently open. Prelude,
@@ -1982,11 +1979,11 @@ export default function Home() {
           >
             新規ゲーム設定
           </button>
-          <button className="btn-primary" style={{ padding: "4px 12px", fontSize: "0.8rem" }} onClick={() => setShowRestartConfirm(true)}>
+          <button className="btn-primary" onClick={() => setShowRestartConfirm(true)}>
             最初からやり直す
           </button>
           <span className="header-version">非公式ファンメイド試作版</span>
-        </div>
+        </nav>
       </header>
 
       {/* The old PlayerBar printed each seat's name, TR and MC, which the

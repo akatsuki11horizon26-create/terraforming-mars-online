@@ -80,6 +80,15 @@ test("The default view keeps the on-demand panels shut", async () => {
   assert.ok(source.includes('openDrawer === "milestones"'));
 });
 
+test("The game header keeps its controls reachable on narrow screens", async () => {
+  const source = await pageSource();
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.match(source, /<nav className="header-actions" aria-label="ゲームメニュー">/);
+  assert.match(css, /\.header-actions > button\s*\{[^}]*font-size: 0\.875rem;/);
+  assert.match(css, /@media \(max-width: 1100px\)[\s\S]*?\.header-actions\s*\{[^}]*overflow-x: auto;/);
+  assert.match(css, /\.header-actions > button\s*\{[^}]*flex: 0 0 auto;[^}]*min-height: 44px;/);
+});
+
 test("The collapsed planet readout shows symbols and numbers", async () => {
   const source = await readFile(new URL("../app/global-params.tsx", import.meta.url), "utf8");
   assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");
