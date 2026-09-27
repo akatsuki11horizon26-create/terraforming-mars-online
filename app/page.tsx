@@ -3109,28 +3109,28 @@ export default function Home() {
             <div className="cyber-panel-header">
               <h2 className="cyber-panel-title">標準プロジェクト</h2>
             </div>
-            <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+            <div className="cyber-panel-content standard-project-list" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
               {corporationAction && (
                 <div style={{ borderBottom: "1px solid rgba(242, 232, 220, 0.1)", paddingBottom: "8px", marginBottom: "2px" }}>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae", margin: "4px 0" }}>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>企業アクション</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae", margin: "4px 0" }}>
                     {corporationActionText}
                       {corporationActionUsed && (
                         <span style={{ color: "var(--color-rust)" }}>（この世代は使用済み）</span>
                       )}
                   </div>
-                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.75rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || Boolean(corporationAction?.blockedReason)} title={corporationAction?.blockedReason ?? undefined} onClick={() => confirmAction("企業アクション", `${corporationActionText} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
+                  <button className="btn-secondary" style={{ padding: "4px 8px", fontSize: "0.875rem" }} disabled={Boolean(pendingChoice) || corporationActionUsed || Boolean(corporationAction?.blockedReason)} title={corporationAction?.blockedReason ?? undefined} onClick={() => confirmAction("企業アクション", `${corporationActionText} この世代は再度使用できません。`, handleCorporationAction)}>実行</button>
                 </div>
               )}
               {/* 1. Power Plant */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC {powerPlantCost} | エネルギー生産量 +1</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>発電所の建設 (Power Plant)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC {powerPlantCost} | エネルギー生産量 +1</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!canPayStandardCost(powerPlantCost) || Boolean(pendingChoice)}
                   data-testid="sp-power-plant-btn"
                   onClick={() => confirmAction("発電所の建設", `${powerPlantCost} MC を支払い、エネルギー生産量を1段階上げます。`, () => handleStandardProjectPlay("power_plant"))}
@@ -3142,12 +3142,12 @@ export default function Home() {
               {/* 2. Asteroid */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 14 | 気温 +2°C, TR +1</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>小惑星の衝突 (Asteroid)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 14 | {raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"}</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!canPayStandardCost(14) || Boolean(pendingChoice) || !raisesTemperature}
                   data-testid="sp-asteroid-btn"
                   onClick={() => confirmAction("小惑星の衝突", `14 MC を支払い、${temperatureGain}`, () => handleStandardProjectPlay("asteroid"))}
@@ -3160,12 +3160,12 @@ export default function Home() {
               {activeState.venusEnabled && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>金星大気の減圧 (Air Scrapping)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 15 | 金星 +1段階, TR +1</div>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>金星大気の減圧 (Air Scrapping)</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 15 | {activeState.venus < getVenusTrackLimit(activeState) ? "金星 +1段階、TR +1" : "金星は上限"}</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                    style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                     disabled={!canPayStandardCost(15) || Boolean(pendingChoice) || activeState.venus >= getVenusTrackLimit(activeState)}
                     data-testid="sp-air-scrapping-btn"
                     onClick={() => confirmAction("金星大気の減圧", "15 MC を支払い、金星を1段階上げてTRを1得ます。", () => handleStandardProjectPlay("air_scrapping"))}
@@ -3178,12 +3178,12 @@ export default function Home() {
               {/* 3. Aquifer */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 18 | 海洋タイルを配置, TR +1</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>海洋の沈降 (Aquifer)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 18 | {raisesOceans ? "海洋タイルを配置、TR +1" : "海洋は上限"}</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!canPayStandardCost(18) || Boolean(pendingChoice) || !raisesOceans}
                   data-testid="sp-aquifer-btn"
                   onClick={() => confirmAction("海洋の沈降", `18 MC を支払い、${oceanGain}`, () => handleStandardProjectPlay("ocean"))}
@@ -3195,12 +3195,12 @@ export default function Home() {
               {/* 4. Greenery */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 23 | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>緑化プロジェクト (Greenery)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 23 | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!canPayStandardCost(23) || Boolean(pendingChoice)}
                   data-testid="sp-greenery-btn"
                   onClick={() => confirmAction("緑化プロジェクト", `23 MC を支払い、${greeneryGain}`, () => handleStandardProjectPlay("greenery"))}
@@ -3212,12 +3212,12 @@ export default function Home() {
               {/* 5. City */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>都市の建設 (City)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置, MC生産量 +1</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>都市の建設 (City)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>MC 25 | 都市タイルを配置、MC生産量 +1</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!canPayStandardCost(25) || Boolean(pendingChoice)}
                   data-testid="sp-city-btn"
                   onClick={() => confirmAction("都市の建設", "25 MC を支払い、都市タイルを1枚配置し、MC生産量を1上げます。", () => handleStandardProjectPlay("city"))}
@@ -3230,12 +3230,12 @@ export default function Home() {
               {isHeatConvertAffordable && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>熱 8 | 気温 +2°C, TR +1</div>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>熱 8 | {raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"}</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.heat < 8 || Boolean(pendingChoice) || !raisesTemperature}
                     onClick={() => confirmAction("熱の変換", `熱 8 を支払い、${temperatureGain}`, () => handleStandardProjectPlay("heat_convert"))}
                   >
@@ -3248,12 +3248,12 @@ export default function Home() {
               {isPlantsConvertAffordable && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>植物 {plantGreeneryCost} | 緑地タイルを配置, 酸素 +1%, TR +1</div>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>植物の緑化 (Convert Plants)</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>植物 {plantGreeneryCost} | {raisesOxygen ? "緑地タイルを配置、酸素 +1%、TR +1" : "緑地タイルを配置（酸素・TRは上限）"}</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.plants < plantGreeneryCost || Boolean(pendingChoice)}
                     data-testid="sp-plants-convert-btn"
                     onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、${greeneryGain}`, () => handleStandardProjectPlay("plants_convert"))}
@@ -3267,12 +3267,12 @@ export default function Home() {
               {activeState.soloTrVariant && (
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
-                    <div style={{ fontSize: "0.8rem", fontWeight: "bold", color: "var(--color-gold)" }}>緩衝ガスの放出 (Buffer Gas)</div>
-                    <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>16 MC | TR +1（TRソロ専用）</div>
+                    <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>緩衝ガスの放出 (Buffer Gas)</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>16 MC | TR +1（TRソロ専用）</div>
                   </div>
                   <button
                     className="btn-secondary"
-                    style={{ padding: "4px 8px", fontSize: "0.75rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={activeState.mc < 16 || Boolean(pendingChoice)}
                     data-testid="sp-buffer-gas-btn"
                     onClick={() => confirmAction("緩衝ガスの放出", "16 MC を支払い、TRが1上がります。", () => handleStandardProjectPlay("buffer_gas"))}
@@ -3285,12 +3285,12 @@ export default function Home() {
               {/* 8. Sell patents */}
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                 <div>
-                  <div style={{ fontSize: "0.8rem", fontWeight: "bold" }}>特許の売却 (Sell Patents)</div>
-                  <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>手札を売却 | 1枚あたり 1 MC を獲得</div>
+                  <div style={{ fontSize: "0.9375rem", fontWeight: "bold" }}>特許の売却 (Sell Patents)</div>
+                  <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>手札を売却 | 1枚あたり 1 MC を獲得</div>
                 </div>
                 <button
                   className="btn-secondary"
-                  style={{ padding: "4px 8px", fontSize: "0.75rem" }}
+                  style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={activeState.hand.length === 0 || Boolean(pendingChoice) || isSellingPatents}
                   onClick={() => {
                     // Ask which cards first. Sending the project straight away

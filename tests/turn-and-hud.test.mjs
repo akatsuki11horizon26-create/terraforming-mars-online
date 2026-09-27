@@ -150,6 +150,19 @@ test("Building and space cards remain playable with materials when MC is empty",
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.payment-stepper\s*\{[^}]*min-width: 44px;[^}]*min-height: 44px;/);
 });
 
+test("Standard projects show capped rewards in readable mobile rows", async () => {
+  const source = await pageSource();
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const drawer = source.slice(source.indexOf('<Drawer open={openDrawer === "standard"'), source.indexOf('<Drawer open={openDrawer === "milestones"'));
+  assert.ok(drawer.includes('className="cyber-panel-content standard-project-list"'));
+  assert.ok(drawer.includes('raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"'));
+  assert.ok(drawer.includes('raisesOceans ? "海洋タイルを配置、TR +1" : "海洋は上限"'));
+  assert.equal((drawer.match(/raisesOxygen \? "緑地タイルを配置、酸素 \+1%、TR \+1" : "緑地タイルを配置（酸素・TRは上限）"/g) ?? []).length, 2);
+  assert.equal(drawer.includes('fontSize: "0.65rem"'), false);
+  assert.match(css, /\.standard-project-list > div > div:first-child\s*\{[^}]*overflow-wrap: anywhere;/);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.standard-project-list > div > button\s*\{[^}]*min-height: 44px;/);
+});
+
 test("The collapsed planet readout shows symbols and numbers", async () => {
   const source = await readFile(new URL("../app/global-params.tsx", import.meta.url), "utf8");
   assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");

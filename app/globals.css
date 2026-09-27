@@ -1124,6 +1124,29 @@ div[tabindex="0"]:focus-visible {
   box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
 }
 
+.standard-project-list > div {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.standard-project-list > div > div:first-child {
+  min-width: 0;
+  flex: 1 1 210px;
+  overflow-wrap: anywhere;
+}
+
+.standard-project-list > div > button {
+  min-width: 64px;
+  min-height: 40px;
+  flex: none;
+}
+
+@media (pointer: coarse) {
+  .standard-project-list > div > button {
+    min-height: 44px;
+  }
+}
+
 .drawer-head {
   display: flex;
   align-items: center;
