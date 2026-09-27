@@ -6,9 +6,10 @@ import {
   completeSetupPurchase,
   cloneGameState,
   getPlayer,
+  legalCellsFor,
   CORPORATIONS
 } from "../app/game-logic.js";
-import { executeGameCommand, getLegalCommands, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
+import { executeGameCommand, getLegalCommands, getFinalGreeneryPlacementCells, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
@@ -850,6 +851,70 @@ test("Ecoline can use seven plants for final greenery in the legal command list"
   assert.equal(started.ok, true);
   assert.equal(getPlayer(started.state, eco.seat).plants, 0);
   assert.ok(started.state.logs.some(entry => entry.text?.includes("植物7を支払い、最終緑化を開始しました。")));
+});
+
+test("final greenery cannot spend plants on an unaffordable Hellas south pole", () => {
+  const state = getInitialState({ playerCount: 1, board: "hellas" });
+  state.phase = "final_greenery";
+  state.currentPlayerId = "player";
+  const seat = getPlayer(state, "player");
+  seat.plants = 8;
+  seat.mc = 0;
+
+  const pole = legalCellsFor(state, "forest", "player").find(cell => cell.placementCost === 6);
+  assert.ok(pole);
+  const poleKey = `${pole.q},${pole.r}`;
+  for (const cell of legalCellsFor(state, "forest", "player")) {
+    const key = `${cell.q},${cell.r}`;
+    if (key !== poleKey) state.board[key] = { ...cell, tileType: "city", placedBy: "neutral" };
+  }
+  assert.deepEqual(legalCellsFor(state, "forest", "player").map(cell => `${cell.q},${cell.r}`), [poleKey]);
+  assert.deepEqual(getFinalGreeneryPlacementCells(state, "player"), []);
+  assert.equal(getLegalCommands(state, "player").some(command => command.type === COMMAND.CONVERT_FINAL_GREENERY), false);
+
+  const refused = executeGameCommand(state, { type: COMMAND.CONVERT_FINAL_GREENERY, playerId: "player" });
+  assert.equal(refused.ok, false);
+  assert.equal(refused.error.code, ERROR.NO_LEGAL_SPACE);
+  assert.equal(getPlayer(refused.state, "player").plants, 8);
+
+  seat.mc = 6;
+  assert.equal(getFinalGreeneryPlacementCells(state, "player").length, 1);
+  const started = executeGameCommand(state, { type: COMMAND.CONVERT_FINAL_GREENERY, playerId: "player" });
+  assert.equal(started.ok, true);
+  assert.deepEqual(started.state.pendingChoice.options.map(option => option.targetCellKey), [poleKey]);
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: started.state.pendingChoice.options[0].id
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(getPlayer(placed.state, "player").mc, 0);
+  assert.equal(getPlayer(placed.state, "player").plants, 0);
+});
+
+test("final greenery does not reserve a Reds levy when oxygen is below its cap", () => {
+  const state = getInitialState({ playerCount: 1, turmoil: true });
+  state.phase = "final_greenery";
+  state.currentPlayerId = "player";
+  state.oxygen = 7;
+  state.turmoil.rulingParty = "reds";
+  state.turmoil.rulingPolicyId = null;
+  const seat = getPlayer(state, "player");
+  seat.plants = 8;
+  seat.mc = 0;
+
+  assert.ok(getFinalGreeneryPlacementCells(state, "player").length > 0);
+  assert.ok(getLegalCommands(state, "player").some(command => command.type === COMMAND.CONVERT_FINAL_GREENERY));
+  const started = executeGameCommand(state, { type: COMMAND.CONVERT_FINAL_GREENERY, playerId: "player" });
+  assert.equal(started.ok, true);
+  const option = started.state.pendingChoice.options.find(item =>
+    started.state.board[item.targetCellKey].bonusType === "none"
+  );
+  assert.ok(option);
+  const placed = executeGameCommand(started.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: option.id
+  });
+  assert.equal(placed.ok, true);
+  assert.equal(getPlayer(placed.state, "player").mc, 0);
+  assert.equal(placed.state.oxygen, 7);
 });
 
 test("Ecoline has no corporation action of its own", () => {

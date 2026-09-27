@@ -8,6 +8,7 @@ import {
   getTrSurcharge,
   getCardPaymentCost,
   getCardPlayableStatus,
+  getAdjacentCells,
   triggerProduction,
   resolvePendingChoice,
   GLOBAL_EVENTS,
@@ -2360,7 +2361,13 @@ test("CrediCor's project rebate can fund the Reds levy on greenery", async () =>
     type: COMMAND.STANDARD_PROJECT, playerId: "player", projectId: "greenery"
   });
   assert.equal(started.ok, true);
-  const target = started.state.pendingChoice?.options.find(option => option.targetCellKey === "6,-4");
+  const target = started.state.pendingChoice?.options.find(option => {
+    const cell = started.state.board[option.targetCellKey];
+    return cell.bonusType === "none" && !(cell.placementCost > 0) &&
+      getAdjacentCells(cell.q, cell.r).every(pos =>
+        started.state.board[`${pos.q},${pos.r}`]?.tileType !== "ocean"
+      );
+  });
   assert.ok(target, "a space with no MC placement bonus is affordable from CrediCor's rebate");
   const placed = executeGameCommand(started.state, {
     type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: target.id

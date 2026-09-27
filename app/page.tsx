@@ -71,7 +71,7 @@ import { CardTags, TAG_INFO } from "./card-tags";
 import { ProjectCard, CARD_ASPECT, MIN_CARD_WIDTH } from "./project-card";
 import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid, Standings } from "./global-params";
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
-import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getStandardProjectCost as jsGetStandardProjectCost, getStandardProjectPaymentPlan as jsGetStandardProjectPaymentPlan, getCardPaymentPlan as jsGetCardPaymentPlan } from "./game-command.js";
+import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getFinalGreeneryPlacementCells, getStandardProjectCost as jsGetStandardProjectCost, getStandardProjectPaymentPlan as jsGetStandardProjectPaymentPlan, getCardPaymentPlan as jsGetCardPaymentPlan } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
@@ -1856,7 +1856,7 @@ export default function Home() {
   const isPlantsConvertAffordable = activeState.plants >= plantGreeneryCost;
   const isHeatConvertAffordable = activeState.heat >= 8;
   const canPlaceFinalGreenery = activeState.phase === "final_greenery" &&
-    jsLegalCellsFor(activeState, "forest", currentPlayerId).length > 0;
+    getFinalGreeneryPlacementCells(activeState, currentPlayerId).length > 0;
 
   const scoreValue = computeScore(activeState);
   // The final screen used to re-derive its own breakdown from playedProjects
@@ -2762,7 +2762,7 @@ export default function Home() {
                 <p style={{ fontSize: "0.875rem", lineHeight: "1.5" }}>
                   現在保有している植物資源（残り: {activeState.plants}）から最後の緑地を配置できます。(植物 {plantGreeneryCost}につき1枚)
                 </p>
-                {!canPlaceFinalGreenery && <p style={{ fontSize: "0.875rem" }}>配置できるマスがありません。このプレイヤーの配置を終えてください。</p>}
+                {!canPlaceFinalGreenery && <p style={{ fontSize: "0.875rem" }}>配置可能で、費用も支払えるマスがありません。このプレイヤーの配置を終えてください。</p>}
                 <div className="final-greenery-actions" style={{ display: "flex", gap: "10px" }}>
                   <button
                     className="btn-primary"

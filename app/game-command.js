@@ -251,9 +251,9 @@ function projectPlacementLevy(state, actor, tileType) {
   return raisesTr ? getTrSurcharge(state, actor.preservationProgram ? 0 : 1) : 0;
 }
 
-function affordableProjectCells(state, tileType, playerId) {
+function affordableProjectCells(state, tileType, playerId, { finalGreenery = false } = {}) {
   const actor = getPlayer(state, playerId);
-  const levy = projectPlacementLevy(state, actor, tileType);
+  const levy = finalGreenery ? 0 : projectPlacementLevy(state, actor, tileType);
   return legalCellsFor(state, tileType, playerId).filter(cell => {
     if ((actor.mc ?? 0) < (cell.placementCost ?? 0)) return false;
     if (levy <= 0) return true;
@@ -261,6 +261,10 @@ function affordableProjectCells(state, tileType, playerId) {
     placeTileAt(preview, cell, tileType, playerId, undefined, { skipTerraformRating: true });
     return (getPlayer(preview, playerId).mc ?? 0) >= levy;
   });
+}
+
+export function getFinalGreeneryPlacementCells(state, playerId) {
+  return affordableProjectCells(state, "forest", playerId, { finalGreenery: true });
 }
 
 function placeOrAsk(state, command, tileType, label, source) {
@@ -1397,7 +1401,7 @@ const HANDLERS = {
     if ((actor.plants ?? 0) < plantCost) {
       return fail(state, ERROR.CANNOT_AFFORD, "植物が不足しています。");
     }
-    const legal = legalCellsFor(state, "forest", command.playerId);
+    const legal = getFinalGreeneryPlacementCells(state, command.playerId);
     if (legal.length === 0) {
       return fail(state, ERROR.NO_LEGAL_SPACE, "配置できるマスがありません。");
     }
@@ -1640,7 +1644,7 @@ export function getLegalCommands(state, playerId) {
 
   if (state.phase === "final_greenery" && state.currentPlayerId === playerId) {
     const plantCost = getStandardProjectCost(state, playerId, "convert-plants") ?? 8;
-    if ((actor.plants ?? 0) >= plantCost && legalCellsFor(state, "forest", playerId).length > 0) {
+    if ((actor.plants ?? 0) >= plantCost && getFinalGreeneryPlacementCells(state, playerId).length > 0) {
       commands.push({ type: COMMAND.CONVERT_FINAL_GREENERY, playerId });
     }
     commands.push({ type: COMMAND.FINISH_FINAL_GREENERY, playerId });
