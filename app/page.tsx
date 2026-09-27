@@ -1765,6 +1765,8 @@ export default function Home() {
     (jsGetStandardProjectCost(activeState, currentPlayerId, "power-plant") as number | null) ?? 11;
   const isPlantsConvertAffordable = activeState.plants >= plantGreeneryCost;
   const isHeatConvertAffordable = activeState.heat >= 8;
+  const canPlaceFinalGreenery = activeState.phase === "final_greenery" &&
+    jsLegalCellsFor(activeState, "forest", currentPlayerId).length > 0;
 
   const scoreValue = computeScore(activeState);
   // The final screen used to re-derive its own breakdown from playedProjects
@@ -2667,21 +2669,21 @@ export default function Home() {
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>最終植物緑化フェーズ</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <p style={{ fontSize: "0.75rem", lineHeight: "1.3" }}>
+                <p style={{ fontSize: "0.875rem", lineHeight: "1.5" }}>
                   現在保有している植物資源（残り: {activeState.plants}）から最後の緑地を配置できます。(植物 {plantGreeneryCost}につき1枚)
                 </p>
-                <div style={{ display: "flex", gap: "10px" }}>
+                {!canPlaceFinalGreenery && <p style={{ fontSize: "0.875rem" }}>配置できるマスがありません。このプレイヤーの配置を終えてください。</p>}
+                <div className="final-greenery-actions" style={{ display: "flex", gap: "10px" }}>
                   <button
                     className="btn-primary"
-                    style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem" }}
-                    disabled={!isMyTurn || Boolean(pendingChoice) || activeState.plants < plantGreeneryCost}
+                    disabled={!isMyTurn || Boolean(pendingChoice) || activeState.plants < plantGreeneryCost || !canPlaceFinalGreenery}
                     onClick={handleFinalGreeneryConvert}
                   >
                     緑地を配置する
                   </button>
                   <button
                     className="btn-secondary"
-                    style={{ width: "50%", padding: "6px 12px", fontSize: "0.8rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
+                    style={{ borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!isMyTurn || Boolean(pendingChoice)}
                     onClick={handleFinalScoring}
                   >

@@ -1440,7 +1440,7 @@ const HANDLERS = {
     choice.continuation.stage = "final-greenery";
     choice.prompt = "最終緑化: 緑地タイルを配置するマスを選んでください。";
     next.pendingChoice = choice;
-    next.logs = addLog(next.logs, "player", "植物8を支払い、最終緑化を開始しました。", actor.name);
+    next.logs = addLog(next.logs, "player", `植物${plantCost}を支払い、最終緑化を開始しました。`, actor.name);
     return { ok: true, state: next, events: [], pendingAction: choice };
   },
 
@@ -1658,7 +1658,8 @@ export function getLegalCommands(state, playerId) {
   }
 
   if (state.phase === "final_greenery" && state.currentPlayerId === playerId) {
-    if ((actor.plants ?? 0) >= 8 && legalCellsFor(state, "forest", playerId).length > 0) {
+    const plantCost = getStandardProjectCost(state, playerId, "convert-plants") ?? 8;
+    if ((actor.plants ?? 0) >= plantCost && legalCellsFor(state, "forest", playerId).length > 0) {
       commands.push({ type: COMMAND.CONVERT_FINAL_GREENERY, playerId });
     }
     commands.push({ type: COMMAND.FINISH_FINAL_GREENERY, playerId });

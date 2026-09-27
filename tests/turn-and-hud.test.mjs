@@ -176,6 +176,16 @@ test("Standard projects show capped rewards in readable mobile rows", async () =
   assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.standard-project-list > div > button\s*\{[^}]*min-height: 44px;/);
 });
 
+test("Final greenery disables impossible placement and keeps the mobile choices readable", async () => {
+  const source = await pageSource();
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.ok(source.includes('jsLegalCellsFor(activeState, "forest", currentPlayerId).length > 0'));
+  assert.ok(source.includes('activeState.plants < plantGreeneryCost || !canPlaceFinalGreenery'));
+  assert.ok(source.includes('配置できるマスがありません。このプレイヤーの配置を終えてください。'));
+  assert.match(css, /\.final-greenery-actions > button\s*\{[^}]*min-height: 44px;[^}]*font-size: 0\.875rem;/);
+  assert.match(css, /@media \(max-width: 650px\)[\s\S]*?\.final-greenery-actions\s*\{[^}]*flex-direction: column;/);
+});
+
 test("The collapsed planet readout shows symbols and numbers", async () => {
   const source = await readFile(new URL("../app/global-params.tsx", import.meta.url), "utf8");
   assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");

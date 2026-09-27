@@ -682,6 +682,13 @@ div[tabindex="0"]:focus-visible {
   font-size: 0.875rem;
 }
 
+.final-greenery-actions > button {
+  flex: 1 1 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 0.875rem;
+}
+
 @media (pointer: coarse) {
   .payment-stepper {
     min-width: 44px;
@@ -759,6 +766,10 @@ div[tabindex="0"]:focus-visible {
 
   .material-payment > span:first-child {
     flex-basis: 100%;
+  }
+
+  .final-greenery-actions {
+    flex-direction: column;
   }
 }
 

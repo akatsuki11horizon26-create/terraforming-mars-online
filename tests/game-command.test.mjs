@@ -783,6 +783,28 @@ test("Ecoline converts plants at 7 instead of 8", async () => {
   );
 });
 
+test("Ecoline can use seven plants for final greenery in the legal command list", () => {
+  const eco = seated("corp-ecoline", { plants: 7 });
+  const plain = seated("corp-credicor", { plants: 7 });
+  eco.state.phase = "final_greenery";
+  plain.state.phase = "final_greenery";
+
+  assert.ok(getLegalCommands(eco.state, eco.seat).some(command =>
+    command.type === COMMAND.CONVERT_FINAL_GREENERY
+  ), "the discounted conversion is offered");
+  assert.equal(getLegalCommands(plain.state, plain.seat).some(command =>
+    command.type === COMMAND.CONVERT_FINAL_GREENERY
+  ), false, "seven plants are insufficient without Ecoline");
+
+  const started = executeGameCommand(eco.state, {
+    type: COMMAND.CONVERT_FINAL_GREENERY,
+    playerId: eco.seat
+  });
+  assert.equal(started.ok, true);
+  assert.equal(getPlayer(started.state, eco.seat).plants, 0);
+  assert.ok(started.state.logs.some(entry => entry.text?.includes("植物7を支払い、最終緑化を開始しました。")));
+});
+
 test("Ecoline has no corporation action of its own", () => {
   const { state, seat } = seated("corp-ecoline", { plants: 21 });
   const result = executeGameCommand(state, { type: COMMAND.CORPORATION_ACTION, playerId: seat });
