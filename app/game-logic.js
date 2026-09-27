@@ -9690,6 +9690,16 @@ export function getCardPlayableStatus(
   return { playable: true, reason: "" };
 }
 
+export function canPlayCardWithAnyMaterialPayment(card, state) {
+  const { maxSteel, maxTitanium } = getCardDiscount(card, state);
+  for (let steel = 0; steel <= maxSteel; steel++) {
+    for (let titanium = 0; titanium <= maxTitanium; titanium++) {
+      if (getCardPlayableStatus(card, state, steel, titanium).playable) return true;
+    }
+  }
+  return false;
+}
+
 export function getAdjacentCells(q, r) {
   return [
     { q: q + 1, r: r },

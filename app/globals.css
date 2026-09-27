@@ -675,6 +675,20 @@ div[tabindex="0"]:focus-visible {
   gap: 12px;
 }
 
+.payment-stepper {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 6px;
+  font-size: 0.875rem;
+}
+
+@media (pointer: coarse) {
+  .payment-stepper {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
 @media (max-width: 650px) {
   .hand-toolbar {
     align-items: stretch;
@@ -737,6 +751,14 @@ div[tabindex="0"]:focus-visible {
   .selected-card-panel > div:first-child > div {
     align-items: flex-start !important;
     flex-direction: column;
+  }
+
+  .material-payment {
+    flex-wrap: wrap;
+  }
+
+  .material-payment > span:first-child {
+    flex-basis: 100%;
   }
 }
 

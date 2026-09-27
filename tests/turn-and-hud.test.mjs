@@ -2,10 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  ALL_CARDS,
+  canPlayCardWithAnyMaterialPayment,
+  getCardPlayableStatus,
   getInitialState,
   handleActionSpend,
   passPlayer
 } from "../app/game-logic.js";
+import { COMMAND, executeGameCommand } from "../app/game-command.js";
 
 test("A turn allows two actions before the seat moves on", () => {
   let state = getInitialState({ playerCount: 2 });
@@ -99,6 +103,51 @@ test("Legacy setup offers ordered preludes and describes research prices accurat
   assert.ok(source.includes('setupKeptCardIds = setupFreeCards ? setupSeat?.researchCards ?? [] : selectedResearchCardIds'));
   assert.ok(source.includes('disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)}'));
   assert.ok(source.includes('disabled={freeStartingResearch}'));
+});
+
+test("Building and space cards remain playable with materials when MC is empty", async () => {
+  for (const [cardId, resource, amount] of [
+    ["p-mine", "steel", 2],
+    ["card-base-trans-neptune-probe", "titanium", 2]
+  ]) {
+    const state = getInitialState({ playerCount: 2 });
+    state.phase = "action";
+    state.currentPlayerId = "player";
+    const actor = state.players.find(player => player.id === "player");
+    actor.mc = 0;
+    actor[resource] = amount;
+    actor.hand = [cardId];
+    const card = ALL_CARDS.find(item => item.id === cardId);
+    assert.equal(getCardPlayableStatus(card, state, 0, 0).playable, false);
+    assert.equal(canPlayCardWithAnyMaterialPayment(card, state), true);
+
+    const played = executeGameCommand(state, {
+      type: COMMAND.PLAY_CARD,
+      playerId: "player",
+      cardId,
+      payment: { steel: resource === "steel" ? amount : 0, titanium: resource === "titanium" ? amount : 0 }
+    });
+    assert.equal(played.ok, true, cardId);
+    const after = played.state.players.find(player => player.id === "player");
+    assert.equal(after[resource], 0);
+    assert.ok(after.playedProjects.includes(cardId));
+    assert.equal(after.actionsRemaining, 1);
+  }
+
+  const locked = getInitialState({ playerCount: 2 });
+  locked.phase = "action";
+  locked.players[0].steel = 2;
+  assert.equal(canPlayCardWithAnyMaterialPayment(
+    ALL_CARDS.find(item => item.id === "card-base-biomass-combustors"), locked
+  ), false, "materials do not bypass oxygen requirements");
+
+  const source = await pageSource();
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  assert.ok(source.includes('handPlayableOnly && !playableHandIds.has(cardId)'));
+  assert.ok(source.includes('const affordable = playableHandIds.has(cardId)'));
+  assert.ok(source.includes('selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。"'));
+  assert.equal(source.includes('{canPlaySelected && ('), false);
+  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?\.payment-stepper\s*\{[^}]*min-width: 44px;[^}]*min-height: 44px;/);
 });
 
 test("The collapsed planet readout shows symbols and numbers", async () => {

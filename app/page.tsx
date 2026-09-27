@@ -14,6 +14,7 @@ import {
   getCardDiscount as jsGetCardDiscount,
   getCardPaymentCost as jsGetCardPaymentCost,
   getCardPlayableStatus as jsGetCardPlayableStatus,
+  canPlayCardWithAnyMaterialPayment as jsCanPlayCardWithAnyMaterialPayment,
   handleActionSpend as jsHandleActionSpend,
   addLog as jsAddLog,
   applyCorporation as jsApplyCorporation,
@@ -410,6 +411,7 @@ const formatSignedVp = jsFormatSignedVp as unknown as (points: number) => string
 const getCardDiscount = jsGetCardDiscount as unknown as (card: Card, state: GameState) => { maxSteel: number; maxTitanium: number };
 const getCardPaymentCost = jsGetCardPaymentCost as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => number;
 const getCardPlayableStatus = jsGetCardPlayableStatus as unknown as (card: Card, state: GameState, steelUsed: number, titaniumUsed: number) => { playable: boolean; reason: string };
+const canPlayCardWithAnyMaterialPayment = jsCanPlayCardWithAnyMaterialPayment as unknown as (card: Card, state: GameState) => boolean;
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -1600,6 +1602,10 @@ export default function Home() {
   const allHandCards = (activeState.players?.find(p => p.id === currentPlayerId)?.hand ??
     gameState.hand ??
     []) as string[];
+  const playableHandIds = useMemo(() => new Set(allHandCards.filter(cardId => {
+    const card = ALL_CARDS.find(item => item.id === cardId);
+    return card && canPlayCardWithAnyMaterialPayment(card, activeState);
+  })), [allHandCards, activeState]);
 
   // A late-game hand is a list with no way into it: the audit found no search
   // and no filter, so finding a card meant reading every one. Filtering only
@@ -1609,7 +1615,7 @@ export default function Home() {
   const handCards = allHandCards.filter(cardId => {
     const card = ALL_CARDS.find(item => item.id === cardId);
     if (!card) return false;
-    if (handPlayableOnly && !getCardPlayableStatus(card, activeState, 0, 0).playable) return false;
+    if (handPlayableOnly && !playableHandIds.has(cardId)) return false;
     if (!handQuery) return true;
     const haystack = [card.name, card.effectText, card.reqText, ...(card.tags ?? [])]
       .join(" ")
@@ -1723,6 +1729,9 @@ export default function Home() {
   const { playable: canPlaySelected, reason: playDisableReason } = selectedCard
     ? getCardPlayableStatus(selectedCard, activeState, steelUsed, titaniumUsed)
     : { playable: false, reason: "" };
+  const selectedCardCanBePaid = selectedCard
+    ? canPlayCardWithAnyMaterialPayment(selectedCard, activeState)
+    : false;
 
   const { maxSteel, maxTitanium } = selectedCard
     ? getCardDiscount(selectedCard, activeState)
@@ -2834,7 +2843,7 @@ export default function Home() {
               const isSelected =
                 selectedCardId === cardId ||
                 (isSellingPatents && selectedSellCardIds.includes(cardId));
-              const status = getCardPlayableStatus(cardObj, activeState, 0, 0);
+              const affordable = playableHandIds.has(cardId);
               const payable = getCardPaymentCost(cardObj, activeState, 0, 0);
 
               return (
@@ -2843,7 +2852,7 @@ export default function Home() {
                   card={cardObj as never}
                   cost={payable}
                   selected={isSelected}
-                  affordable={status.playable}
+                  affordable={affordable}
                   disabled={!isMyTurn || Boolean(pendingChoice)}
                   onClick={() => handleCardClick(cardId)}
                 />
@@ -2900,13 +2909,13 @@ export default function Home() {
               }}
             >
               <div>
-                <span style={{ fontSize: "0.85rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
+                <span style={{ fontSize: "0.875rem", color: "var(--color-gold)", fontWeight: "bold" }}>【{selectedCard.name}】を選択中</span>
                 <span style={{ marginLeft: "8px", display: "inline-flex", verticalAlign: "middle" }}>
                   <CardTags tags={selectedCard.tags} />
                 </span>
                 {!canPlaySelected && (
-                  <span style={{ color: "var(--color-rust)", fontSize: "0.8rem", marginLeft: "10px" }}>
-                    ※ {playDisableReason}
+                  <span style={{ color: "var(--accent-amber)", fontSize: "0.875rem", marginLeft: "10px" }}>
+                    ※ {selectedCardCanBePaid ? "建材またはチタンを使うとプレイできます。" : playDisableReason}
                   </span>
                 )}
                 {/* The card face is small enough that its own text is only
@@ -2915,11 +2924,11 @@ export default function Home() {
                     card can actually be read, at a size meant for reading. */}
                 <div data-testid="selected-card-detail" style={{ marginTop: "6px", maxWidth: "62ch" }}>
                   {selectedCard.reqText && selectedCard.reqText !== "なし" && (
-                    <div style={{ fontSize: "0.78rem", color: "var(--color-cyan)", marginBottom: "2px" }}>
+                    <div style={{ fontSize: "0.875rem", color: "var(--color-cyan)", marginBottom: "2px" }}>
                       条件: {selectedCard.reqText}
                     </div>
                   )}
-                  <div style={{ fontSize: "0.85rem", lineHeight: 1.45, color: "var(--color-ink)" }}>
+                  <div style={{ fontSize: "0.9375rem", lineHeight: 1.45, color: "var(--color-ink)" }}>
                     {selectedCard.effectText}
                   </div>
                   <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "3px", fontSize: "0.72rem", color: "#c9bfae" }}>
@@ -2932,14 +2941,12 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                {canPlaySelected && (
-                  <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: "16px", marginTop: "4px", alignItems: "center" }}>
                     {selectedCard.tags.includes("Building") && maxSteel > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
+                      <div className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
                         <span>建材を使用 (1建材=2MC値引き):</span>
                         <button
-                          className="btn-secondary"
-                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          className="btn-secondary payment-stepper"
                           disabled={steelUsed <= 0}
                           onClick={() => setSteelUsed(v => v - 1)}
                         >
@@ -2947,8 +2954,7 @@ export default function Home() {
                         </button>
                         <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{steelUsed} / {maxSteel}</span>
                         <button
-                          className="btn-secondary"
-                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          className="btn-secondary payment-stepper"
                           disabled={steelUsed >= maxSteel}
                           onClick={() => setSteelUsed(v => v + 1)}
                         >
@@ -2958,11 +2964,10 @@ export default function Home() {
                     )}
 
                     {selectedCard.tags.includes("Space") && maxTitanium > 0 && (
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.75rem" }}>
+                      <div className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
                         <span>チタンを使用 (1チタン={String(CORPORATIONS.find(item => item.id === activeState.corporationId)?.effects?.titaniumValue ?? 3)}MC値引き):</span>
                         <button
-                          className="btn-secondary"
-                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          className="btn-secondary payment-stepper"
                           disabled={titaniumUsed <= 0}
                           onClick={() => setTitaniumUsed(v => v - 1)}
                         >
@@ -2970,8 +2975,7 @@ export default function Home() {
                         </button>
                         <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{titaniumUsed} / {maxTitanium}</span>
                         <button
-                          className="btn-secondary"
-                          style={{ padding: "0 6px", fontSize: "0.7rem" }}
+                          className="btn-secondary payment-stepper"
                           disabled={titaniumUsed >= maxTitanium}
                           onClick={() => setTitaniumUsed(v => v + 1)}
                         >
@@ -2980,11 +2984,10 @@ export default function Home() {
                       </div>
                     )}
 
-                    <span style={{ fontSize: "0.75rem" }}>
+                    <span style={{ fontSize: "0.875rem" }}>
                       実質コスト: <strong style={{ color: "var(--color-ember)" }}>{getCardPaymentCost(selectedCard, activeState, steelUsed, titaniumUsed)}</strong> MC
                     </span>
-                  </div>
-                )}
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: "8px" }}>
