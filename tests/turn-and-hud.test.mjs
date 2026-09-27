@@ -89,6 +89,18 @@ test("The game header keeps its controls reachable on narrow screens", async () 
   assert.match(css, /\.header-actions > button\s*\{[^}]*flex: 0 0 auto;[^}]*min-height: 44px;/);
 });
 
+test("Legacy setup offers ordered preludes and describes research prices accurately", async () => {
+  const source = await pageSource();
+  assert.ok(source.includes('disabled={selectedPreludeIds.length !== 2} onClick={handlePreludeConfirm}'));
+  assert.ok(source.includes('const freeStartingResearch = activeState.phase === "setup"'));
+  assert.ok(source.includes('selectedCardPurchaseCost = freeStartingResearch ? 0'));
+  assert.ok(source.includes('"初心者企業の初期10枚は無料で保持します。"'));
+  assert.ok(source.includes('"提示されたプロジェクトから購入するカードを選択してください（1枚3 MC）。"'));
+  assert.ok(source.includes('setupKeptCardIds = setupFreeCards ? setupSeat?.researchCards ?? [] : selectedResearchCardIds'));
+  assert.ok(source.includes('disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)}'));
+  assert.ok(source.includes('disabled={freeStartingResearch}'));
+});
+
 test("The collapsed planet readout shows symbols and numbers", async () => {
   const source = await readFile(new URL("../app/global-params.tsx", import.meta.url), "utf8");
   assert.ok(source.includes("GlobalParametersCompact"), "the collapsed readout exists");

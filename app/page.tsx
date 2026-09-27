@@ -1445,9 +1445,9 @@ export default function Home() {
   const setupCorporation = CORPORATIONS.find(item => item.id === selectedCorporationId);
   const setupPreludeOptions = setupSeat?.preludeOptions ?? [];
   const setupNeedsPreludes = setupPreludeOptions.length >= 2;
-  const setupCardCost = setupCorporation?.effects?.freeStartingCards
-    ? 0
-    : selectedResearchCardIds.length * 3;
+  const setupFreeCards = Boolean(setupCorporation?.effects?.freeStartingCards);
+  const setupKeptCardIds = setupFreeCards ? setupSeat?.researchCards ?? [] : selectedResearchCardIds;
+  const setupCardCost = setupFreeCards ? 0 : selectedResearchCardIds.length * 3;
   // What the seat is left holding once the cards are paid for. Prelude costs are
   // shown but not subtracted: they resolve in order and one may pay for the
   // next, so a running total here would be wrong as often as right.
@@ -1461,7 +1461,7 @@ export default function Home() {
     if (!setupReady || !selectedCorporationId) return;
     const payload = {
       corporationId: selectedCorporationId,
-      cardIds: selectedResearchCardIds,
+      cardIds: setupKeptCardIds,
       preludeIds: setupNeedsPreludes ? selectedPreludeIds : []
     };
     if (isOnline) {
@@ -1748,9 +1748,8 @@ export default function Home() {
   const scoresByPlayer = Object.fromEntries(
     Object.entries(allBreakdowns).map(([id, entry]) => [id, entry?.total ?? 0])
   ) as Record<string, number>;
-  const selectedCardPurchaseCost = activeState.phase === "setup" && CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards
-    ? 0
-    : selectedResearchCardIds.length * 3;
+  const freeStartingResearch = activeState.phase === "setup" && Boolean(CORPORATIONS.find(item => item.id === seatCorporationId)?.effects?.freeStartingCards);
+  const selectedCardPurchaseCost = freeStartingResearch ? 0 : selectedResearchCardIds.length * 3;
 
   const getPhaseNameJP = (phase: string) => {
     switch (phase) {
@@ -2407,11 +2406,11 @@ export default function Home() {
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>初期セットアップ</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>
+                <p style={{ fontSize: "0.875rem", color: "#c9bfae" }}>
                   企業・初期カード{setupNeedsPreludes ? "・Prelude" : ""}をまとめて選び、最後に一度だけ確定する。確定するまでは何度でも選び直せる。
                 </p>
                 {!dealt && (
-                  <p style={{ fontSize: "0.75rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
+                  <p style={{ fontSize: "0.875rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
                 )}
 
                 <div>
@@ -2437,7 +2436,7 @@ export default function Home() {
                         .map(entry => [entry[0], Number(entry[1] ?? 0)] as [string, number])
                         .filter(entry => entry[1] !== 0);
                       return (
-                        <button key={id} data-testid="corp-option" data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                        <button key={id} data-testid="corp-option" data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
                             <span style={{ fontWeight: "bold" }}>{corporation.name}</span>
                             <span style={{ color: "var(--color-gold)", fontWeight: "bold" }}>{Number(starting.mc ?? 0)} MC</span>
@@ -2446,13 +2445,13 @@ export default function Home() {
                             <CardTags tags={corporation.tags} />
                           </div>
                           {(resources.length > 0 || production.length > 0) && (
-                            <div style={{ fontSize: "0.62rem", color: "var(--color-cyan)" }}>
+                            <div style={{ fontSize: "0.875rem", color: "var(--color-cyan)" }}>
                               {resources.map(entry => `${entry[0]}${entry[1]}`).join(" ")}
                               {resources.length > 0 && production.length > 0 ? " / " : ""}
                               {production.map(entry => `${entry[0]}生産${entry[1] > 0 ? "+" : ""}${entry[1]}`).join(" ")}
                             </div>
                           )}
-                          <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{corporation.effectText}</div>
+                          <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{corporation.effectText}</div>
                         </button>
                       );
                     })}
@@ -2461,20 +2460,20 @@ export default function Home() {
 
                 <div>
                   <div className="section-title">
-                    <span>2. 初期カード（1枚 3 MC）</span>
-                    <span className="section-note" data-testid="setup-card-cost">{selectedResearchCardIds.length}枚 / {setupCardCost} MC</span>
+                    <span>{setupFreeCards ? "2. 初期カード（10枚無料）" : "2. 初期カード（1枚 3 MC）"}</span>
+                    <span className="section-note" data-testid="setup-card-cost">{setupKeptCardIds.length}枚 / {setupCardCost} MC</span>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "200px", overflowY: "auto" }}>
                     {(setupSeat?.researchCards ?? []).map(id => {
                       const card = ALL_CARDS.find(c => c.id === id);
                       if (!card) return null;
-                      const isSelected = selectedResearchCardIds.includes(id);
+                      const isSelected = setupKeptCardIds.includes(id);
                       return (
-                        <button key={id} data-testid="setup-card-option" onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.75rem" }}>
+                        <button key={id} data-testid="setup-card-option" disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.875rem" }}>
                           <div>
                             <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
                             <div style={{ margin: "3px 0" }}><CardTags tags={card.tags} /></div>
-                            <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
+                            <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{card.effectText}</div>
                           </div>
                           <div style={{ width: "16px", height: "16px", flex: "0 0 auto", borderRadius: "2px", border: "1px solid var(--color-cyan)", display: "flex", alignItems: "center", justifyContent: "center", backgroundColor: isSelected ? "var(--color-cyan)" : "transparent" }}>
                             {isSelected && <span style={{ color: "black", fontSize: "0.6rem", fontWeight: "bold" }}>✓</span>}
@@ -2499,23 +2498,23 @@ export default function Home() {
                         const order = selectedPreludeIds.indexOf(id);
                         const cost = getPreludeCost(prelude);
                         return (
-                          <button key={id} data-testid="setup-prelude-option" onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                          <button key={id} data-testid="setup-prelude-option" onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                             <div style={{ fontWeight: "bold" }}>
                               {selected ? `${order + 1}. ` : ""}{prelude.name}{cost ? ` (支払 ${cost} MC)` : ""}
                             </div>
-                            <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{prelude.effectText}</div>
+                            <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{prelude.effectText}</div>
                           </button>
                         );
                       })}
                     </div>
-                    <p style={{ fontSize: "0.62rem", color: "#c9bfae", marginTop: "4px" }}>
+                    <p style={{ fontSize: "0.875rem", color: "#c9bfae", marginTop: "4px" }}>
                       選んだ順に解決する。先に収入を得るPreludeを選べば、その資金を次の支払いに充てられる。
                     </p>
                   </div>
                 )}
 
                 <div style={{ borderTop: "1px solid rgba(242,232,220,0.1)", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px" }}>
-                  <div style={{ fontSize: "0.75rem" }} data-testid="setup-balance">
+                  <div style={{ fontSize: "0.875rem" }} data-testid="setup-balance">
                     購入後残高: <strong style={{ color: setupBalance < 0 ? "var(--color-ember)" : "var(--color-cyan)" }}>{selectedCorporationId ? setupBalance : "—"}</strong> MC
                   </div>
                   <button className="btn-primary" data-testid="corp-confirm-button" disabled={!setupReady} onClick={handleSetupConfirm}>
@@ -2532,20 +2531,20 @@ export default function Home() {
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>Prelude選択</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                <p style={{ fontSize: "0.75rem", color: "#c9bfae" }}>4枚から2枚を選択。選択した順に初期効果を解決する。</p>
+                <p style={{ fontSize: "0.875rem", color: "#c9bfae" }}>4枚から2枚を選択。選択した順に初期効果を解決する。</p>
                 {activeState.preludeOptions.map(id => {
                   const prelude = PRELUDES.find(item => item.id === id);
                   if (!prelude) return null;
                   const selected = selectedPreludeIds.includes(id);
                   const cost = getPreludeCost(prelude);
                   return (
-                    <button key={id} onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}>
+                    <button key={id} onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                       <div style={{ fontWeight: "bold" }}>{prelude.name}{cost ? ` (支払 ${cost} MC)` : ""}</div>
-                      <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>{prelude.effectText}</div>
+                      <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{prelude.effectText}</div>
                     </button>
                   );
                 })}
-                <button className="btn-primary" disabled={selectedPreludeIds.length !== 2 || selectedPreludeIds.reduce((sum, id) => sum + getPreludeCost(PRELUDES.find(item => item.id === id)!), 0) > activeState.mc} onClick={handlePreludeConfirm}>Preludeを確定</button>
+                <button className="btn-primary" disabled={selectedPreludeIds.length !== 2} onClick={handlePreludeConfirm}>Preludeを確定</button>
               </div>
             </div>
           )}
@@ -2559,18 +2558,21 @@ export default function Home() {
                 </h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-                <p style={{ fontSize: "0.75rem", lineHeight: "1.3", color: "#c9bfae" }}>
-                  提示されたプロジェクトから購入するカードを選択してください。(1枚あたり 3 MC。Beginner Corporationは無料)
+                <p style={{ fontSize: "0.875rem", lineHeight: "1.4", color: "#c9bfae" }}>
+                  {freeStartingResearch
+                    ? "初心者企業の初期10枚は無料で保持します。"
+                    : "提示されたプロジェクトから購入するカードを選択してください（1枚3 MC）。"}
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "250px", overflowY: "auto" }}>
                   {researchOffer.map(id => {
                     const card = ALL_CARDS.find(c => c.id === id);
                     if (!card) return null;
-                    const isSelected = selectedResearchCardIds.includes(id);
+                    const isSelected = freeStartingResearch || selectedResearchCardIds.includes(id);
                     return (
                       <button
                         key={id}
                         data-testid="research-card-option"
+                        disabled={freeStartingResearch}
                         onClick={() => toggleResearchCardSelect(id)}
                         style={{
                           display: "flex",
@@ -2583,7 +2585,7 @@ export default function Home() {
                           cursor: "pointer",
                           textAlign: "left",
                           color: "var(--color-ink)",
-                          fontSize: "0.75rem"
+                          fontSize: "0.875rem"
                         }}
                       >
                         <div>
@@ -2591,7 +2593,7 @@ export default function Home() {
                           <div style={{ margin: "3px 0" }}>
                             <CardTags tags={card.tags} />
                           </div>
-                          <div style={{ fontSize: "0.6rem", color: "#c9bfae" }}>{card.effectText}</div>
+                          <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{card.effectText}</div>
                         </div>
                         <div style={{
                           width: "16px",
@@ -2610,12 +2612,12 @@ export default function Home() {
                   })}
                 </div>
                 <div style={{ borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontSize: "0.75rem" }}>
-                    選択: <strong style={{ color: "var(--color-cyan)" }}>{selectedResearchCardIds.length}</strong> 枚 | 合計コスト: <strong style={{ color: "var(--color-ember)" }}>{selectedCardPurchaseCost}</strong> MC
+                  <div style={{ fontSize: "0.875rem" }}>
+                    選択: <strong style={{ color: "var(--color-cyan)" }}>{freeStartingResearch ? researchOffer.length : selectedResearchCardIds.length}</strong> 枚 | 合計コスト: <strong style={{ color: "var(--color-ember)" }}>{selectedCardPurchaseCost}</strong> MC
                   </div>
                   <button
                     className="btn-primary"
-                    style={{ padding: "4px 12px", fontSize: "0.75rem" }}
+                    style={{ padding: "4px 12px", fontSize: "0.875rem" }}
                     data-testid="buy-cards-confirm-button"
                     disabled={selectedCardPurchaseCost > researchBudget}
                     onClick={handleBuyCardsConfirm}
