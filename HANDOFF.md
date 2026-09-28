@@ -227,15 +227,11 @@ gh run list --repo akatsuki11horizon26-create/terraforming-mars-online --limit 3
 gh api repos/akatsuki11horizon26-create/terraforming-mars-online/pages --jq '{url:.html_url,status:.status}'
 ```
 
-## Sitesの状態
+## 公開先
 
-`.openai/hosting.json`にはSitesのプロジェクトID`appgprj_6a6c1384deb48191ac3bb942012e8266`が設定されている。
-
-最後に保存したSitesバージョンの公開処理はCloudflare APIの522で失敗した。
-
-ChatGPTログイン不要という要件を満たす公開先は、GitHub Pagesを正とする。
-
-Sitesを再試行する場合は、必ず`.openai/hosting.json`を読み、現在のHEADと一致するアーカイブをSitesへ保存してからowner-only公開を行う。
+オンライン版の正規公開先は`https://mars-frontier.gameofai.workers.dev`。
+`main`のTestワークフローが成功すると、Deploy online gameワークフローが同じコミットをCloudflare Workersへ公開する。
+OpenAI Sitesは使用しない。
 
 ## 次に実装する項目
 

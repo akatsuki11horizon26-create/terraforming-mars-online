@@ -16,13 +16,14 @@ npm run dev
 npm run build
 ```
 
-This starter does not use `wrangler.jsonc`.
+Production is deployed as the `mars-frontier` Cloudflare Worker configured by
+`wrangler.jsonc`.
 
 ## Included Shape
 
 - edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
+- `wrangler.jsonc` declares the production Worker and static assets
+- `vite.config.ts` provides the local Worker and Durable Object bindings
 - `db/schema.ts` starts intentionally empty
 - `examples/d1/` contains an optional D1 example surface
 - `drizzle.config.ts` supports local migration generation when needed
