@@ -152,6 +152,8 @@ div[tabindex="0"]:focus-visible {
 .header-actions {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
@@ -170,10 +172,7 @@ div[tabindex="0"]:focus-visible {
   .header-actions {
     min-width: 0;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    white-space: nowrap;
-    overscroll-behavior-x: contain;
+    justify-content: flex-start;
     padding-bottom: 4px;
   }
 
@@ -191,6 +190,24 @@ div[tabindex="0"]:focus-visible {
   .header-subtitle,
   .header-version {
     display: none;
+  }
+
+  .header-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .header-actions > button {
+    min-width: 0;
+    width: 100%;
+    padding-inline: 8px;
+    font-size: 0.75rem;
+    white-space: normal;
+  }
+
+  .header-actions > .bot-thinking {
+    grid-column: 1 / -1;
   }
 }
 
@@ -525,9 +542,9 @@ div[tabindex="0"]:focus-visible {
 }
 
 .btn-primary {
-  background-color: var(--color-rust);
-  color: var(--color-ink);
-  border: 1px solid var(--color-ember);
+  background-color: var(--accent-amber);
+  color: var(--surface-base);
+  border: 1px solid var(--accent-amber);
   padding: 8px 18px;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   font-weight: bold;
@@ -535,8 +552,9 @@ div[tabindex="0"]:focus-visible {
   transition: all 0.15s ease;
 }
 .btn-primary:hover:not(:disabled) {
-  background-color: var(--color-ember);
-  box-shadow: 0 0 10px rgba(240, 162, 60, 0.35);
+  background-color: var(--accent-ember);
+  border-color: var(--accent-ember);
+  box-shadow: 0 0 12px rgba(240, 162, 60, 0.28);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -544,9 +562,9 @@ div[tabindex="0"]:focus-visible {
 }
 
 .btn-secondary {
-  background-color: transparent;
-  color: var(--color-gold);
-  border: 1px solid var(--color-gold);
+  background-color: color-mix(in srgb, var(--surface-2) 62%, transparent);
+  color: var(--text-mid);
+  border: 1px solid var(--line-soft);
   padding: 8px 18px;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   font-weight: bold;
@@ -554,7 +572,47 @@ div[tabindex="0"]:focus-visible {
   transition: all 0.15s ease;
 }
 .btn-secondary:hover:not(:disabled) {
-  background-color: rgba(229, 181, 99, 0.1);
+  color: var(--text-hi);
+  border-color: var(--accent-cyan);
+  background-color: color-mix(in srgb, var(--surface-3) 68%, transparent);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-danger {
+  padding: 8px 18px;
+  color: var(--accent-rose);
+  background-color: color-mix(in srgb, var(--accent-rose) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent-rose) 52%, transparent);
+  clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background-color 150ms ease;
+}
+
+.btn-danger:hover:not(:disabled),
+.btn-danger:focus-visible:not(:disabled) {
+  color: var(--text-hi);
+  border-color: var(--accent-rose);
+  background-color: color-mix(in srgb, var(--accent-rose) 18%, transparent);
+}
+
+.research-purchase-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.research-purchase-summary .btn-primary {
+  flex: none;
+  white-space: nowrap;
 }
 
 /* Resources display */
@@ -935,7 +993,8 @@ div[tabindex="0"]:focus-visible {
   padding: 6px 10px;
   background-color: color-mix(in srgb, var(--surface-1) 72%, transparent);
   border: 1px solid var(--line-soft);
-  clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
+  /* A clip-path here also clipped the information menu when it opened outside
+     the bar. Keep this container rectangular so overlays can escape it. */
 }
 
 .hud-stats {
@@ -1028,6 +1087,13 @@ div[tabindex="0"]:focus-visible {
   background-color: var(--surface-2);
   border: 1px solid var(--line-hard);
   box-shadow: 0 8px 24px rgba(4, 7, 11, 0.55);
+  clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
+}
+
+.hud-menu > .hud-btn[aria-expanded="true"] {
+  color: var(--text-hi);
+  border-color: var(--accent-cyan);
+  background-color: color-mix(in srgb, var(--accent-cyan) 12%, var(--surface-2));
 }
 
 .hud-menu-item {
@@ -1371,6 +1437,10 @@ div[tabindex="0"]:focus-visible {
   .hud-btn {
     flex: 1 1 auto;
     min-height: 40px;
+  }
+  .hud-menu-list {
+    left: 0;
+    right: auto;
   }
   .drawer-panel {
     width: 100vw;

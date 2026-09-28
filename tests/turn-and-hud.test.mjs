@@ -107,7 +107,8 @@ test("The game header keeps its controls reachable on narrow screens", async () 
   const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
   assert.match(source, /<nav className="header-actions" aria-label="ゲームメニュー">/);
   assert.match(css, /\.header-actions > button\s*\{[^}]*font-size: 0\.875rem;/);
-  assert.match(css, /@media \(max-width: 1100px\)[\s\S]*?\.header-actions\s*\{[^}]*overflow-x: auto;/);
+  assert.match(css, /@media \(max-width: 820px\)[\s\S]*?\.header-actions\s*\{[^}]*display: grid;[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.doesNotMatch(css, /\.header-actions\s*\{[^}]*overflow-x: auto;/s);
   assert.match(css, /\.header-actions > button\s*\{[^}]*flex: 0 0 auto;[^}]*min-height: 44px;/);
 });
 

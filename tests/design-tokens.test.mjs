@@ -134,6 +134,22 @@ test("mobile hand controls wrap instead of clipping the search and pass action",
   assert.match(mobile, /\.hand-turn-button\s*\{[^}]*width:\s*100%/s);
 });
 
+test("HUD menus escape the status bar and remain on-screen on mobile", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const hud = css.slice(css.indexOf(".hud-bar {"), css.indexOf(".hud-stats {"));
+  assert.doesNotMatch(hud, /clip-path\s*:/, "the HUD container must not clip its dropdown");
+
+  const mobile = css.slice(css.indexOf("@media (max-width: 820px)", css.indexOf(".hud-menu-list")));
+  assert.match(mobile, /\.hud-menu-list\s*\{[^}]*left:\s*0;[^}]*right:\s*auto;/s);
+});
+
+test("mobile header actions wrap instead of hiding destructive controls off-screen", async () => {
+  const css = await readFile(new URL("../app/globals.css", import.meta.url), "utf8");
+  const firstMobile = css.slice(css.indexOf("@media (max-width: 820px)"), css.indexOf(".main-content"));
+  assert.match(firstMobile, /\.header-actions\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.doesNotMatch(firstMobile, /\.header-actions\s*\{[^}]*overflow-x:\s*auto/s);
+});
+
 test("mobile placement can be unselected before it changes the board", async () => {
   const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
   const cancel = page.slice(page.indexOf('data-testid="cancel-board-placement"'), page.indexOf('data-testid="confirm-board-placement"'));

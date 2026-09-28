@@ -2104,7 +2104,7 @@ export default function Home() {
           >
             新規ゲーム設定
           </button>
-          <button className="btn-primary" onClick={() => setShowRestartConfirm(true)}>
+          <button className="btn-danger" onClick={() => setShowRestartConfirm(true)}>
             最初からやり直す
           </button>
           <span className="header-version">非公式ファンメイド試作版</span>
@@ -2737,7 +2737,7 @@ export default function Home() {
                     );
                   })}
                 </div>
-                <div style={{ borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div className="research-purchase-summary">
                   <div style={{ fontSize: "0.875rem" }}>
                     選択: <strong style={{ color: "var(--color-cyan)" }}>{freeStartingResearch ? researchOffer.length : selectedResearchCardIds.length}</strong> 枚 | 合計コスト: <strong style={{ color: "var(--color-ember)" }}>{selectedCardPurchaseCost}</strong> MC
                   </div>
@@ -2748,7 +2748,7 @@ export default function Home() {
                     disabled={selectedCardPurchaseCost > researchBudget}
                     onClick={handleBuyCardsConfirm}
                   >
-                    購入を確定する
+                    購入を確定
                   </button>
                 </div>
               </div>
