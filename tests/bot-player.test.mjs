@@ -209,6 +209,52 @@ test("robot actions can be applied one at a time until the human turn", () => {
   assert.equal(state.currentPlayerId, "player");
 });
 
+test("three robots finish Turmoil Colonies Prelude setup without stranding the game", () => {
+  let state = engine.getInitialState({
+    playerCount: 4,
+    mode: "robot",
+    botDifficulty: "normal",
+    board: "tharsis",
+    turmoil: true,
+    colonies: true,
+    prelude: true,
+    corporateEra: true,
+    seed: 6
+  });
+  const human = engine.getPlayer(state, "player");
+  const confirmed = executeGameCommand(state, {
+    type: "CONFIRM_SETUP",
+    playerId: "player",
+    corporationId: human.corporationOptions[0],
+    cardIds: human.researchCards.slice(0, 4),
+    preludeIds: human.preludeOptions.slice(0, 2)
+  });
+  assert.equal(confirmed.ok, true);
+  state = confirmed.state;
+
+  let steps = 0;
+  while (steps++ < 100 && (state.phase !== "action" || state.currentPlayerId !== "player")) {
+    if (state.pendingChoice?.ownerPlayerId === "player") {
+      const answer = executeGameCommand(state, {
+        type: "RESOLVE_PENDING",
+        playerId: "player",
+        optionId: state.pendingChoice.options[0].id
+      });
+      assert.equal(answer.ok, true);
+      state = answer.state;
+      continue;
+    }
+    const next = advanceRobotGame(engine, state, "player", "normal", makeBotRng(6000 + steps), 1);
+    assert.notEqual(next, state, `robot setup stalled at step ${steps}`);
+    state = next;
+  }
+
+  assert.equal(state.phase, "action");
+  assert.equal(state.currentPlayerId, "player");
+  assert.equal(state.pendingChoice, null);
+  assert.ok(state.players.every(player => player.setupStep === "complete" && player.initialActionDone));
+});
+
 test("A robot game reaches an ending with every parameter maxed", () => {
   // Two bots left alone used to build production forever: oceans stayed at zero
   // and the game never finished.

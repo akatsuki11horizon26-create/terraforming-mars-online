@@ -1758,6 +1758,7 @@ export function advanceSetupTurn(state) {
 
   next.currentPlayerId = next.firstPlayerId;
   next.phase = "action";
+  next.setupContinuation = null;
   next.players = next.players.map(player => ({
     ...player,
     setupStep: "complete",
@@ -4574,6 +4575,7 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
           const again = buildDiscardChoice(next, hand, {
             ...choice.continuation,
             remaining: left,
+            optional: false,
             prompt: `Project Eden: 捨てるカードを選んでください（あと${left}枚）。`
           }, ALL_CARDS);
           if (again) {

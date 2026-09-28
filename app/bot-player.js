@@ -542,6 +542,7 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
   let current = state;
   const random = rng ?? deterministicRng(state, botId);
   for (let step = 0; step < maxSteps && current.phase === "setup"; step++) {
+    if (current.pendingChoice) break;
     const bot = getPlayer(current, botId);
     if (!bot) break;
     let command = null;
@@ -578,6 +579,7 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
     const result = executeGameCommand(current, command);
     if (!result.ok || result.state === current) break;
     current = result.state;
+    if (current.pendingChoice) break;
   }
   return current;
 }
@@ -596,7 +598,7 @@ export function advanceRobotGame(engine, state, humanId, difficultyId, rng, maxS
     const choiceOwner = current.pendingChoice?.ownerPlayerId;
     if (choiceOwner) {
       if (choiceOwner === humanId) return current;
-      const settled = resolveBotChoices(engine, current, choiceOwner, random, 24, difficultyId);
+      const settled = resolveBotChoices(engine, current, choiceOwner, random, 1, difficultyId);
       if (settled === current) return current;
       current = settled;
       continue;
@@ -608,6 +610,7 @@ export function advanceRobotGame(engine, state, humanId, difficultyId, rng, maxS
         const next = runBotSetup(engine, current, player.id, difficultyId, random);
         moved ||= next !== current;
         current = next;
+        if (current.pendingChoice) return current;
       }
       if (!moved || current.phase === "setup") return current;
       continue;
