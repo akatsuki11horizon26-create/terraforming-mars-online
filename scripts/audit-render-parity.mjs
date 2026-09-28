@@ -1,11 +1,8 @@
 // What the card shows, against what upstream prints on it.
 //
-// Until now there was nothing to compare. The catalogue generator read each
-// upstream card's render tree and kept only the strings inside it, so every
-// icon, every count and the whole layout were gone before anything of ours saw
-// them; our cards render a sentence of Japanese and nothing else. That is not
-// "the icons disagree", it is "there are no icons" -- and it means a wrong
-// quantity in the text had nothing to contradict it.
+// CardIcons now renders supported upstream icon rows beside the Japanese text.
+// This audit still checks the text's numeric content; it does not validate the
+// rendered icon rows or their layout.
 //
 // So this compares the two things that can be compared today: the resources and
 // amounts upstream draws on a card, against the numbers our Japanese text
