@@ -582,6 +582,13 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
   return current;
 }
 
+export function robotNeedsToAct(state, humanId) {
+  if (state.pendingChoice) return state.pendingChoice.ownerPlayerId !== humanId;
+  if (state.phase === "setup") return getPlayer(state, humanId)?.setupStep === "complete";
+  if (state.phase === "research") return (getPlayer(state, humanId)?.researchCards?.length ?? 0) === 0;
+  return ["action", "final_greenery"].includes(state.phase) && state.currentPlayerId !== humanId;
+}
+
 export function advanceRobotGame(engine, state, humanId, difficultyId, rng, maxSteps = 400) {
   let current = state;
   const random = rng ?? deterministicRng(state, humanId);

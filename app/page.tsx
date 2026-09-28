@@ -77,6 +77,7 @@ import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
   advanceRobotGame as jsAdvanceRobotGame,
   makeBotRng as jsMakeBotRng,
+  robotNeedsToAct as jsRobotNeedsToAct,
   getBotDifficulty
 } from "./bot-player";
 import { describeCell, describePlacement, tileLegendForOceanLimit } from "./tile-help";
@@ -514,6 +515,7 @@ export default function Home() {
   const [showRobotSetup, setShowRobotSetup] = useState(false);
   const [robotDifficulty, setRobotDifficulty] = useState("normal");
   const [robotOpponents, setRobotOpponents] = useState(1);
+  const [botStalled, setBotStalled] = useState(false);
 
   const [showLobby, setShowLobby] = useState(false);
   const online = useRoom();
@@ -625,6 +627,7 @@ export default function Home() {
     // drops the non-enumerable single-player accessors. Re-attach them on the way
     // through so `gameState.playedProjects` and friends never come back undefined.
     const next = jsWithLegacyPlayerAccessors(newState) as GameState;
+    setBotStalled(false);
     setGameState(next);
     localStorage.setItem(SAVE_KEY, serializeSavedState(next));
   };
@@ -918,27 +921,13 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [actionReport]);
 
-  // In a robot game every non-human seat is driven here. The delay is deliberate:
-  // instant opponent turns read as nothing having happened.
+  // Give the browser a state update between robot actions. Running the entire
+  // bot turn synchronously blocked the UI for seconds on expansion-heavy games.
   const isRobotGame = activeState.mode === "robot";
-  // Derived, not stored: the indicator is simply "a robot holds the seat".
-  const botThinking =
-    isRobotGame &&
-    !isOnline &&
-    (gameState.phase === "setup" || gameState.phase === "action" || gameState.phase === "final_greenery") &&
-    (gameState.phase === "setup" || gameState.currentPlayerId !== HUMAN_ID);
+  const botWorkPending = isRobotGame && !isOnline && jsRobotNeedsToAct(gameState, HUMAN_ID);
+  const botThinking = botWorkPending && !botStalled;
   useEffect(() => {
-    if (!isRobotGame || isOnline) return;
-    if (!["setup", "action", "research", "final_greenery"].includes(gameState.phase)) return;
-    if (gameState.pendingChoice && gameState.pendingChoice.ownerPlayerId === HUMAN_ID) return;
-
-    const humanTurn =
-      (gameState.phase === "action" || gameState.phase === "final_greenery") &&
-      gameState.currentPlayerId === HUMAN_ID;
-    const humanResearch =
-      gameState.phase === "research" &&
-      (gameState.players?.find(p => p.id === HUMAN_ID)?.researchCards?.length ?? 0) > 0;
-    if (humanTurn || humanResearch) return;
+    if (!botWorkPending || botStalled) return;
 
     const timer = setTimeout(() => {
       const rng = jsMakeBotRng(
@@ -949,13 +938,23 @@ export default function Home() {
         gameState,
         HUMAN_ID,
         gameState.botDifficulty ?? "normal",
-        rng
+        rng,
+        1
       ) as GameState;
       if (advanced !== gameState) saveState(advanced);
-    }, 700);
+      else {
+        console.error("Robot turn made no progress", {
+          phase: gameState.phase,
+          playerId: gameState.currentPlayerId,
+          choiceOwner: gameState.pendingChoice?.ownerPlayerId ?? null,
+          choiceKind: gameState.pendingChoice?.kind ?? null
+        });
+        setBotStalled(true);
+      }
+    }, 120);
 
     return () => clearTimeout(timer);
-  }, [isRobotGame, isOnline, gameState]);
+  }, [botWorkPending, botStalled, gameState]);
 
   const corporationActionUsed = (
     (activeState.players?.find(p => p.id === currentPlayerId)?.usedCardActions ?? []) as string[]
@@ -2062,6 +2061,7 @@ export default function Home() {
         </div>
         <nav className="header-actions" aria-label="ゲームメニュー">
           {botThinking && <span className="bot-thinking">ロボット思考中</span>}
+          {botWorkPending && botStalled && <span className="bot-thinking bot-stalled" role="alert">ロボットの進行が停止しました</span>}
           <button className="btn-secondary" onClick={() => setShowTitle(true)}>
             タイトルへ
           </button>

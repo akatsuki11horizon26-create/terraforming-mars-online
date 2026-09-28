@@ -1746,6 +1746,15 @@ div[tabindex="0"]:focus-visible {
   animation: bot-pulse 900ms ease-in-out infinite;
 }
 
+.bot-stalled {
+  color: var(--color-rust);
+}
+
+.bot-stalled::before {
+  background-color: var(--color-rust);
+  animation: none;
+}
+
 @keyframes bot-pulse {
   0%, 100% { opacity: 0.25; }
   50% { opacity: 1; }

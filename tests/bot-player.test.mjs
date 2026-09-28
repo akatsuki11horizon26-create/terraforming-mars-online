@@ -15,6 +15,7 @@ import {
   runBotSetup,
   resolveBotChoices,
   advanceRobotGame,
+  robotNeedsToAct,
   BOT_STANDARD_PROJECTS
 } from "../app/bot-player.js";
 
@@ -169,6 +170,43 @@ test("A robot game runs itself until the human is up again", () => {
       advanced.players.every(p => p.passed),
     "control comes back to the human, or the generation has moved on"
   );
+});
+
+test("robot work is not advertised while the human must answer", () => {
+  const state = engine.getInitialState({ playerCount: 2, mode: "robot", seed: 4 });
+  assert.equal(robotNeedsToAct(state, "player"), false, "human setup comes first");
+
+  state.phase = "action";
+  state.currentPlayerId = "player2";
+  assert.equal(robotNeedsToAct(state, "player"), true, "the robot holds the action seat");
+
+  state.pendingChoice = { ownerPlayerId: "player", options: [{ id: "answer" }] };
+  assert.equal(robotNeedsToAct(state, "player"), false, "the human owns the pending choice");
+  state.pendingChoice = null;
+
+  state.phase = "research";
+  state.players = state.players.map(player =>
+    player.id === "player" ? { ...player, researchCards: ["card-a"] } : player
+  );
+  assert.equal(robotNeedsToAct(state, "player"), false, "the human has research to buy");
+});
+
+test("robot actions can be applied one at a time until the human turn", () => {
+  let state = seatedGame();
+  state.mode = "robot";
+  state.phase = "action";
+  state.currentPlayerId = "player2";
+  state.players = state.players.map(player => ({ ...player, mc: 80 }));
+
+  const rng = makeBotRng(5);
+  let steps = 0;
+  while (robotNeedsToAct(state, "player") && steps++ < 20) {
+    const next = advanceRobotGame(engine, state, "player", "normal", rng, 1);
+    assert.notEqual(next, state, "each scheduled robot step must change the state");
+    state = next;
+  }
+  assert.ok(steps > 0 && steps < 20, "the robot yields control in bounded steps");
+  assert.equal(state.currentPlayerId, "player");
 });
 
 test("A robot game reaches an ending with every parameter maxed", () => {
