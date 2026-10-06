@@ -41,7 +41,8 @@ test("the corporations, the starting cards and the preludes are all on screen at
 
   await expect(corporations.first()).toBeVisible();
   // All three groups, visible together -- this is the whole finding.
-  await expect(corporations).toHaveCount(2);
+  await expect(corporations.filter({ hasNotText: "Beginner Corporation" })).toHaveCount(2);
+  await expect(corporations.filter({ hasText: "Beginner Corporation" })).toHaveCount(1);
   await expect(cards).toHaveCount(10);
   await expect(preludes).toHaveCount(4);
 
