@@ -2614,7 +2614,7 @@ export default function Home() {
                       return (
                         <button key={id} data-testid="setup-card-option" disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.875rem" }}>
                           <div>
-                            <div style={{ fontWeight: "bold" }}>{card.name}（使用時 {card.cost} MC）</div>
+                            <div style={{ fontWeight: "bold" }}><span data-testid="setup-card-name">{card.name}</span>（使用時 {card.cost} MC）</div>
                             <div style={{ margin: "3px 0" }}><CardTags tags={card.tags} /></div>
                             <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{card.effectText}</div>
                           </div>

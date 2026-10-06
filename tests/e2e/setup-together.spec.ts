@@ -110,8 +110,7 @@ test("the cards chosen beside the corporation are the ones actually taken", asyn
   const wanted = 3;
   const names: string[] = [];
   for (let i = 0; i < wanted; i += 1) {
-    const text = (await cards.nth(i).textContent()) ?? "";
-    names.push(text.split("(")[0].trim());
+    names.push(await cards.nth(i).getByTestId("setup-card-name").innerText());
     await cards.nth(i).click();
   }
   await expect(page.getByTestId("setup-card-cost")).toContainText(String(wanted * 3));
