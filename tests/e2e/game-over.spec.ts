@@ -39,7 +39,7 @@ test("a beaten player is told they lost, not congratulated", async ({ page }) =>
   await expect(standings).toContainText("プレイヤー2");
   await expect(standings).toContainText("68");
   await expect(standings).toContainText("20");
-  await expect(standings).toContainText("👑");
+  await expect(standings).toContainText("優勝 · プレイヤー2");
 });
 
 test("a winning player is told they won", async ({ page }) => {
