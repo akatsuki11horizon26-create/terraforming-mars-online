@@ -60,9 +60,23 @@
 body {
   background-color: var(--color-void);
   color: var(--color-ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+  font-family: var(--font-geist-sans), "Noto Sans JP", "Yu Gothic UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
   overflow-x: hidden;
   line-height: 1.5;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
+}
+
+.game-symbol {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  vertical-align: -0.12em;
 }
 
 /* Custom Scrollbars */
@@ -129,8 +143,8 @@ div[tabindex="0"]:focus-visible {
 .header-title {
   color: var(--accent-ember);
   font-size: 1.1rem;
-  font-weight: 800;
-  letter-spacing: 0.15em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   text-shadow: none;
 }
 
@@ -954,7 +968,7 @@ div[tabindex="0"]:focus-visible {
   background-color: rgba(8, 9, 8, 0.6);
   padding: 8px;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
-  font-family: monospace;
+  font-family: var(--font-geist-mono), monospace;
   font-size: 0.75rem;
 }
 
@@ -1725,8 +1739,8 @@ div[tabindex="0"]:focus-visible {
 
 .title-logo {
   font-size: clamp(2rem, 8vw, 3.1rem);
-  font-weight: 800;
-  letter-spacing: 0.22em;
+  font-weight: 600;
+  letter-spacing: 0.12em;
   color: var(--text-hi);
   text-shadow: none;
 }

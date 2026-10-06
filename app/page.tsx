@@ -1,5 +1,7 @@
 "use client";
 
+import { GameSymbols } from "./game-symbols";
+
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   ALL_CARDS as jsALL_CARDS,
@@ -382,7 +384,7 @@ const HEX_STEP_X = 46;
 const HEX_STEP_Y = 40;
 const AMAZONIS_HEX = { width: 39, height: 35, stepX: 37, stepY: 34, centreQ: 5 };
 const BONUS_SYMBOL: Record<string, string> = {
-  plant: "🌱", steel: "🤖", titanium: "🚀", mc: "💳", card: "🃏",
+  plant: "🌱", steel: "🔩", titanium: "🛰", mc: "💳", card: "🃏",
   heat: "🔥", energy: "⚡", wild: "⭐", delegate: "🗳️"
 };
 const computeScore = jsComputeScore as unknown as (state: GameState) => number;
@@ -2409,9 +2411,9 @@ export default function Home() {
                     onBlur={() => setHoveredCell(null)}
                     aria-label={`マス (${cell.q}, ${cell.r}) ${label} ${content} ${help}`}
                   >
-                    <span className="hex-bonus" style={{ pointerEvents: "none", ...(largeBoard ? { fontSize: "0.5rem" } : {}) }}>{content}</span>
+                    <span className="hex-bonus" style={{ pointerEvents: "none", ...(largeBoard ? { fontSize: "0.5rem" } : {}) }}><GameSymbols text={content} /></span>
                     <span className="hex-label" style={{ pointerEvents: "none", color: "var(--color-ink)", fontSize: "0.5rem" }}>
-                      {cell.tileType === "empty" && cell.isOceanOnly ? "🌊" : label}
+                      <GameSymbols text={cell.tileType === "empty" && cell.isOceanOnly ? "🌊" : label} />
                     </span>
                   </button>
                 );
@@ -3555,7 +3557,7 @@ export default function Home() {
         <ul className="tag-tally">
           {tagTally.map(entry => (
             <li key={entry.tag} className="tag-tally-row" data-empty={entry.count === 0 ? "true" : "false"}>
-              <span className="tag-tally-symbol" style={{ color: entry.color }}>{entry.symbol}</span>
+              <span className="tag-tally-symbol" style={{ color: entry.color }}><GameSymbols text={entry.symbol} /></span>
               <span className="tag-tally-name">{entry.label}</span>
               <span className="tag-tally-count" style={{ color: entry.count > 0 ? entry.color : undefined }}>
                 {entry.count}
@@ -3572,7 +3574,7 @@ export default function Home() {
         <ul className="legend-list">
           {tileLegendForOceanLimit(parameterLimits.oceans).map(item => (
             <li key={item.name} className="legend-item">
-              <span className="legend-icon">{item.icon}</span>
+              <span className="legend-icon"><GameSymbols text={item.icon} /></span>
               <span>
                 <strong className="legend-name">{item.name}</strong>
                 <span className="legend-text">{item.text}</span>
@@ -3829,9 +3831,9 @@ export default function Home() {
               <p data-testid="game-over-title" style={{ fontSize: "1.4rem", fontWeight: "bold", margin: "14px 0", color: "var(--color-ink)" }}>
                 {activeState.standings
                   ? (activeState.winnerPlayerIds && activeState.winnerPlayerIds.length > 1
-                      ? "🤝 同点、勝利を分け合いました"
-                      : activeState.gameResult === "win" ? "🎉 勝利！" : "💀 敗北")
-                  : activeState.gameResult === "win" ? "🎉 テラフォーミング完了！" : "💀 世代限界値に達しました"}
+                      ? "同点、勝利を分け合いました"
+                      : activeState.gameResult === "win" ? "勝利" : "敗北")
+                  : activeState.gameResult === "win" ? "テラフォーミング完了" : "世代限界値に達しました"}
               </p>
               {/* Solo is scored against the planet, so there is nobody to rank.
                   With opponents the result is the ranking, so show it. */}
@@ -3841,7 +3843,7 @@ export default function Home() {
                     const isWinner = (activeState.winnerPlayerIds ?? []).includes(entry.playerId);
                     return (
                       <div key={entry.playerId} style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px", fontWeight: isWinner ? "bold" : "normal", color: isWinner ? "var(--color-gold)" : "var(--color-ink)" }}>
-                        <span>{isWinner ? "👑 " : `${index + 1}. `}{entry.name}</span>
+                        <span>{isWinner ? "優勝 · " : `${index + 1}. `}{entry.name}</span>
                         <span>{entry.score} 点<span style={{ opacity: 0.6, fontSize: "0.8rem" }}>（{entry.mc} MC）</span></span>
                       </div>
                     );

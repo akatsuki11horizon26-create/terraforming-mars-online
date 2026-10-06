@@ -1,5 +1,7 @@
 "use client";
 
+import { GameSymbols } from "./game-symbols";
+
 import React from "react";
 
 // The twelve tags that appear across the catalog. Each gets its own colour and
@@ -34,7 +36,7 @@ export function CardTag({ tag, compact }: { tag: string; compact?: boolean }) {
       style={info ? ({ ["--tag-color" as string]: info.color } as React.CSSProperties) : undefined}
       title={info?.label ?? tag}
     >
-      <span aria-hidden="true">{info?.symbol ?? "●"}</span>
+      <span aria-hidden="true"><GameSymbols text={info?.symbol ?? "●"} /></span>
       {!compact && <span className="card-tag-name">{info?.label ?? tag}</span>}
     </span>
   );

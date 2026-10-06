@@ -1,5 +1,7 @@
 "use client";
 
+import { GameSymbols } from "./game-symbols";
+
 import React from "react";
 import { CARD_ICON_ROWS } from "./card-icon-rows";
 import { CARD_ICON_GLYPHS, CARD_TAG_GLYPHS, CARD_RESOURCE_GLYPHS } from "./card-icon-glyphs";
@@ -64,7 +66,7 @@ function Tokens({ tokens }: { tokens: Token[] }) {
           );
         }
         if (token.s) {
-          return <span key={index} className="tm-icon-sym">{label(token)}</span>;
+          return <span key={index} className="tm-icon-sym"><GameSymbols text={label(token)} /></span>;
         }
         return (
           <span
@@ -73,7 +75,7 @@ function Tokens({ tokens }: { tokens: Token[] }) {
             data-icon={token.i}
             data-all={token.all ? "true" : undefined}
           >
-            {label(token)}
+            <GameSymbols text={label(token)} />
           </span>
         );
       })}

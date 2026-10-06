@@ -1120,9 +1120,8 @@
 
 /* The icon row the reference prints on the card, above the Japanese text
    rather than instead of it. Icons repeat what the sentence says, so they are
-   aria-hidden and the text is what a screen reader reads. Emoji rather than a
-   sprite because the board and the global track already use them; the cost is
-   that metrics vary by platform, which is why each glyph sits in a fixed box. */
+   aria-hidden and the text is what a screen reader reads. The same SVG symbols
+   are used on the board, tags and global tracks. */
 .tm-card-icons {
   display: flex;
   flex-direction: column;

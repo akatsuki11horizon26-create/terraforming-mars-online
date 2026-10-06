@@ -1,5 +1,7 @@
 "use client";
 
+import { GameSymbols } from "./game-symbols";
+
 import React from "react";
 import { nextThreshold, nextThresholdLabel } from "./parameter-thresholds.js";
 import { getGlobalParameterLimits, getVenusTrackLimit } from "./game-logic.js";
@@ -171,7 +173,7 @@ ${nextThresholdLabel("venus", venus, limits) || "閾値ボーナスはすべて�
           data-imminent={c.imminent ? "true" : "false"}
           title={c.title}
         >
-          <span className="param-chip-icon" style={{ color: c.color }}>{c.icon}</span>
+          <span className="param-chip-icon" style={{ color: c.color }}><GameSymbols text={c.icon} /></span>
           <span className="param-chip-value">{c.value}</span>
           {c.hint ? <span className="param-chip-hint">{c.hint}</span> : null}
         </span>

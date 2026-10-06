@@ -3,7 +3,7 @@ import { test, expect } from "@playwright/test";
 for (const viewport of [{ width: 1343, height: 725 }, { width: 390, height: 844 }]) {
   test(`next-step guidance follows setup, placement and turn completion at ${viewport.width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
-    await page.goto("/");
+    await page.goto("/", { waitUntil: "networkidle" });
     await page.getByTestId("mode-solo").click();
     await page.getByTestId("setup-start-button").click();
     const manual = page.getByTestId("onboarding-dismiss");
@@ -18,6 +18,10 @@ for (const viewport of [{ width: 1343, height: 725 }, { width: 390, height: 844 
     await expect(beginner).toHaveAttribute("aria-pressed", "true");
     await page.getByTestId("corp-confirm-button").click();
     await expect(guide).toContainText("あなたの手番 · あと2回");
+    await expect(page.locator(".param-chip-icon svg").first()).toBeVisible();
+    await expect(page.locator(".card-tag svg").first()).toBeVisible();
+    await expect(page.locator(".hex-bonus svg").first()).toBeVisible();
+    expect(await page.locator("body").innerText()).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     await expect(page.getByTestId("resource-prod-mc")).toHaveAttribute("aria-label", /生産量/);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath("action.png"), fullPage: true });
