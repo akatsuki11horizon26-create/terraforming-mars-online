@@ -416,13 +416,14 @@ export function GameSetupPanel({
               <input
                 type="checkbox"
                 data-testid="setup-corporate-era"
-                checked={corporateEra}
+                checked={isSoloSetup || corporateEra}
+                disabled={isSoloSetup}
                 onChange={event => onCorporateEra(event.target.checked)}
               />
               <span>
                 <span style={{ display: "block", fontSize: "0.8rem" }}>企業の時代 (Corporate Era)</span>
                 <span style={{ display: "block", fontSize: "0.7rem", color: "#c9bfae" }}>
-                  オンなら全生産量0から開始（既定）。オフは標準ゲームで、全員が各生産量1から始まる。
+                  {isSoloSetup ? "公式ソロでは企業の時代を使用し、初期生産の加算はありません。" : "オンは企業の時代のカードを含め、生産量0に企業効果を加算。オフは専用カードを除き、生産量1に企業効果を加算します。"}
                 </span>
               </span>
             </label>

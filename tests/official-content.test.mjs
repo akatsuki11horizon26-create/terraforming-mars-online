@@ -18,6 +18,8 @@ import {
   resolvePendingChoice,
 } from "../app/game-logic.js";
 import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
+import { CORPORATE_ERA_SOURCES } from "../app/corporate-era.js";
+import { COMMAND, executeGameCommand } from "../app/game-command.js";
 import {
   FULL_CATALOG_COUNTS,
   FULL_GLOBAL_EVENTS,
@@ -41,6 +43,60 @@ test("official project, corporation, and Prelude catalogs are stable", () => {
   const catalog = [...ALL_CARDS, ...FULL_STANDARD_PROJECTS, ...FULL_STANDARD_ACTIONS, ...CORPORATIONS, ...PRELUDES, ...FULL_GLOBAL_EVENTS];
   assert.ok(catalog.every(card => card.effectText && card.expansion && card.source));
   assert.ok(catalog.every(card => !card.effectText.includes("アイコン表記")));
+});
+
+test("standard setup removes all 71 Corporate Era projects and both corporations", () => {
+  const projects = state => [...state.deck, ...state.players.flatMap(p => p.researchCards)];
+  const corporations = state => [...state.corporationDeck, ...state.players.flatMap(p => p.corporationOptions)];
+  const standard = getInitialState({ playerCount: 5, corporateEra: false, seed: 12 });
+  const extended = getInitialState({ playerCount: 5, corporateEra: true, seed: 12 });
+  const ceProjects = ALL_CARDS.filter(c => CORPORATE_ERA_SOURCES.has(c.source));
+  const ceCorporations = CORPORATIONS.filter(c => CORPORATE_ERA_SOURCES.has(c.source));
+  assert.equal(ceProjects.length, 71);
+  assert.equal(ceCorporations.length, 2);
+  assert.equal(projects(standard).length, 137);
+  assert.equal(projects(extended).length, 208);
+  assert.equal(corporations(standard).length, corporations(extended).length - 2);
+  for (const card of ceProjects) {
+    assert.ok(!projects(standard).includes(card.id), card.name);
+    assert.ok(projects(extended).includes(card.id), card.name);
+  }
+  for (const card of ceCorporations) {
+    assert.ok(!corporations(standard).includes(card.id), card.name);
+    assert.ok(corporations(extended).includes(card.id), card.name);
+  }
+  assert.ok(projects(standard).includes("p-asteroid"));
+});
+
+test("standard production adds to corporation effects through setup commands and survives reload", () => {
+  let state = getInitialState({ playerCount: 2, corporateEra: false, seed: 12 });
+  for (const [index, corporationId, production, expected] of [
+    [0, "corp-ecoline", "plantsProd", 3],
+    [1, "corp-thorgate", "energyProd", 2]
+  ]) {
+    const actor = state.players[index];
+    actor.corporationOptions = [corporationId];
+    const result = executeGameCommand(state, {
+      type: COMMAND.CONFIRM_SETUP, playerId: actor.id, corporationId, cardIds: []
+    });
+    assert.equal(result.ok, true);
+    state = result.state;
+    assert.equal(state.players[index][production], expected);
+    assert.equal(state.players[index].mcProd, 1);
+  }
+  const restored = loadSavedState(serializeSavedState(state));
+  assert.equal(restored.players[0].plantsProd, 3);
+  assert.equal(restored.players[1].energyProd, 2);
+});
+
+test("official solo always uses Corporate Era without the standard production bonus", () => {
+  let state = getInitialState({ corporateEra: false, seed: 12 });
+  assert.equal(state.corporateEra, true);
+  assert.ok([...state.deck, ...state.players[0].researchCards].includes("card-base-acquired-company"));
+  state.players[0].corporationOptions = ["corp-ecoline"];
+  state = applyCorporation(state, "corp-ecoline", state.players[0].id);
+  assert.equal(state.players[0].plantsProd, 2);
+  assert.equal(state.players[0].mcProd, 0);
 });
 
 test("Robotic Workforce requires a playable building production box", () => {

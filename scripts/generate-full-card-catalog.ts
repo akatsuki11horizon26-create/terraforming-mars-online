@@ -283,14 +283,7 @@ const manualCards = [
   },
 ];
 for (const card of manualCards) if (!all.some((item) => item.name === card.name)) all.push(card);
-try {
-  const standardManifests: any = await import(pathToFileURL(join(cardsRoot, "StandardCardManifests.ts")).href);
-  const corpEraNames = new Set(Object.keys(standardManifests.default.CORP_ERA_CARD_MANIFEST.projectCards));
-  all.forEach((card) => {
-    if (corpEraNames.has(card.name)) card.expansion = "corporate-era";
-  });
-} catch {
-}
+// Corporate Era stays in the base box; app/corporate-era.js filters its setup pool.
 const missingSelfReplicatingRobots = all.every((card) => card.name !== "Self-replicating Robots");
 if (missingSelfReplicatingRobots) {
   all.push({

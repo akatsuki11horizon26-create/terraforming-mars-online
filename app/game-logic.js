@@ -1,4 +1,5 @@
 import { CARD_EXPANSION_DEPENDENCIES, CORPORATIONS, GLOBAL_EVENTS, OFFICIAL_PROJECTS, PRELUDES, STANDARD_ACTIONS, STANDARD_PROJECTS } from "./official-content.js";
+import { CORPORATE_ERA_SOURCES } from "./corporate-era.js";
 import {
   DEFAULT_PLAYER_NAMES,
   SOLO_STARTING_TR,
@@ -1631,11 +1632,8 @@ export function seatCorporation(state, corporationId, playerId) {
     const printed = resource === "mc" ? startingProduction.megacredits : undefined;
     nextState[`${resource}Prod`] = startingProduction[resource] ?? printed ?? 0;
   });
-  // The standard game (Corporate Era off) starts everyone on 1 of each
-  // production. Upstream overrides rather than adds, and it runs after the
-  // corporation is applied -- so a corporation that starts with more keeps it,
-  // and one that starts with none is lifted to 1.
-  if (nextState.corporateEra === false) {
+  // Standard setup gives +1 before corporation effects; solo has no extra production.
+  if (nextState.corporateEra === false && nextState.mode !== "solo") {
     // Written straight onto the player rather than through the seat accessors:
     // the accessors follow currentPlayerId, and this runs while the seat is
     // borrowed, so a later restore would leave the floor on the wrong player.
@@ -1643,12 +1641,12 @@ export function seatCorporation(state, corporationId, playerId) {
       player.id === actorId
         ? {
             ...player,
-            mcProd: Math.max(1, player.mcProd ?? 0),
-            steelProd: Math.max(1, player.steelProd ?? 0),
-            titaniumProd: Math.max(1, player.titaniumProd ?? 0),
-            plantsProd: Math.max(1, player.plantsProd ?? 0),
-            energyProd: Math.max(1, player.energyProd ?? 0),
-            heatProd: Math.max(1, player.heatProd ?? 0)
+            mcProd: (player.mcProd ?? 0) + 1,
+            steelProd: (player.steelProd ?? 0) + 1,
+            titaniumProd: (player.titaniumProd ?? 0) + 1,
+            plantsProd: (player.plantsProd ?? 0) + 1,
+            energyProd: (player.energyProd ?? 0) + 1,
+            heatProd: (player.heatProd ?? 0) + 1
           }
         : player
     );
@@ -7488,8 +7486,9 @@ export function enabledExpansions(options = {}) {
   return on;
 }
 
-function poolFor(cards, allowed) {
+function poolFor(cards, allowed, corporateEra = true) {
   return cards.filter(card => {
+    if (!corporateEra && CORPORATE_ERA_SOURCES.has(card.source)) return false;
     if (!allowed.has(card.expansion ?? "base")) return false;
     // A Prelude-box card can still need Venus, Colonies or Turmoil to do
     // anything; its own expansion being on is not enough.
@@ -7520,11 +7519,12 @@ export function getInitialState(options = {}) {
   });
 
   const allowed = enabledExpansions(options);
+  const corporateEra = mode === "solo" || (options.corporateEra ?? true);
   // Setup shuffles run before the state object exists, so they draw from a
   // stand-in carrying the same two fields. Passing a seed makes the whole deal
   // -- deck, corporations, preludes, events, colonies -- reproducible.
   const dealer = { rngSeed: options.seed ?? createSeed(), rngDraws: 0 };
-  const allCardIds = poolFor(ALL_CARDS, allowed).map(c => c.id);
+  const allCardIds = poolFor(ALL_CARDS, allowed, corporateEra).map(c => c.id);
   let shuffledDeck = shuffle(allCardIds, dealer);
 
   // Official solo rules seed the board with two neutral cities, each with an
@@ -7533,7 +7533,7 @@ export function getInitialState(options = {}) {
   if (mode === "solo") {
     shuffledDeck = placeNeutralTiles(board, shuffledDeck);
   }
-  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed).map(corporation => corporation.id), dealer);
+  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed, corporateEra).map(corporation => corporation.id), dealer);
   // Preludes are their own expansion: no prelude, no prelude options dealt.
   // Either prelude box brings its own preludes to deal, so the deal follows
   // whether ANY of them is on, not the first box specifically.
@@ -7626,7 +7626,7 @@ export function getInitialState(options = {}) {
     // without Corporate Era everyone starts on 1 of each production. The card
     // set is not filtered by it. Unstated means Corporate Era, which is what
     // every existing save was played with.
-    corporateEra: options.corporateEra ?? true,
+    corporateEra,
     prelude2Enabled: Boolean(options.prelude2 ?? options.prelude),
     promoEnabled: Boolean(options.promo),
     oceans: 0,

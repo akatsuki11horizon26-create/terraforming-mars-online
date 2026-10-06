@@ -262,7 +262,7 @@ export function MultiplayerLobby({
                   </label>
                   <label style={checkboxRow}>
                     <input type="checkbox" checked={corporateEra} onChange={e => setCorporateEra(e.target.checked)} />
-                    <span style={{ fontSize: "0.8rem" }}>企業の時代（オフで全生産量1から開始）</span>
+                    <span style={{ fontSize: "0.8rem" }}>企業の時代（オフは専用カードを除外し、各生産量1に企業効果を加算）</span>
                   </label>
 
                   <div className="section-title" style={{ marginTop: "12px" }}><span>マップ</span></div>
