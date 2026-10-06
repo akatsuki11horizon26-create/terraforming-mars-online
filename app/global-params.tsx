@@ -262,6 +262,7 @@ export function ResourceGrid({
             data-testid={`resource-prod-${row.key}`}
             data-negative={row.prod < 0 ? "true" : "false"}
             title="生産量"
+            aria-label={`${row.label}の生産量 ${row.prod}`}
           >
             {row.prod >= 0 ? `+${row.prod}` : row.prod}
           </span>

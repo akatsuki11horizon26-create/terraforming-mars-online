@@ -74,6 +74,7 @@ import { GlobalParameters, GlobalParametersCompact, OpponentStrip, ResourceGrid,
 import { milestonesForBoard, awardsForBoard } from "./board-milestones";
 import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getFinalGreeneryPlacementCells, getStandardProjectCost as jsGetStandardProjectCost, getStandardProjectPaymentPlan as jsGetStandardProjectPaymentPlan, getCardPaymentPlan as jsGetCardPaymentPlan } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
+import { TurnGuide } from "./turn-guide";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
   advanceRobotGame as jsAdvanceRobotGame,
@@ -146,6 +147,7 @@ const engineForBot = {
 interface PlayerRecord {
   id: string;
   name: string;
+  setupStep?: string;
   tr: number;
   mc: number;
   passed?: boolean;
@@ -2129,6 +2131,16 @@ export default function Home() {
       <main className={`main-content${selectedPlacementOption ? " main-content--placing" : ""}`}>
         {/* Compact status bar: the detail lives in drawers so the board keeps the room. */}
         <div className="hud-bar">
+          <TurnGuide
+            phase={activeState.phase}
+            player={(activeState.phase === "setup" ? setupSeat : activeState.phase === "research" || isRobotGame ? researchSeat : viewingPlayer) ?? viewingPlayer}
+            turnPlayerName={nameOf(turnHolderId)}
+            isMyTurn={isMyTurn}
+            solo={isSoloMission}
+            choice={pendingChoice}
+            choiceOwnerName={nameOf(pendingChoice?.ownerPlayerId)}
+            researchCount={researchOffer.length}
+          />
           <div className="hud-stats">
             <span className="hud-stat" title="世代">
               <span className="hud-stat-label">世代</span>
@@ -2148,7 +2160,7 @@ export default function Home() {
             </span>
             {activeState.phase === "action" && (
               <span className="hud-stat" title="このターンに残っているアクション数">
-                <span className="hud-stat-label">残AC</span>
+                <span className="hud-stat-label">残り行動</span>
                 <span className="hud-stat-value" style={{ color: "var(--accent-amber)" }}>
                   {players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 0}/2
                 </span>
@@ -2210,7 +2222,8 @@ export default function Home() {
               data-testid="open-standard-projects"
               onClick={() => setOpenDrawer("standard")}
             >
-              基本アクション
+              <span>基本アクション</span>
+              <small className="hud-button-hint">建設・資源の変換・売却</small>
             </button>
             <button className="hud-btn" onClick={() => setOpenDrawer("milestones")}>
               マイルストーン・表彰
@@ -2537,6 +2550,7 @@ export default function Home() {
                 <p style={{ fontSize: "0.875rem", color: "#c9bfae" }}>
                   企業・初期カード{setupNeedsPreludes ? "・Prelude" : ""}をまとめて選び、最後に一度だけ確定する。確定するまでは何度でも選び直せる。
                 </p>
+                <p className="setup-help">初めてなら「Beginner Corporation（初心者企業）」を選ぶと、初期カード10枚を無料で受け取れます。</p>
                 {!dealt && (
                   <p style={{ fontSize: "0.875rem", color: "var(--color-cyan)" }}>カードを配布しています…</p>
                 )}
@@ -2564,7 +2578,7 @@ export default function Home() {
                         .map(entry => [entry[0], Number(entry[1] ?? 0)] as [string, number])
                         .filter(entry => entry[1] !== 0);
                       return (
-                        <button key={id} data-testid="corp-option" data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
+                        <button key={id} data-testid="corp-option" aria-pressed={selected} data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
                             <span style={{ fontWeight: "bold" }}>{corporation.name}</span>
                             <span style={{ color: "var(--color-gold)", fontWeight: "bold" }}>{Number(starting.mc ?? 0)} MC</span>
@@ -2591,6 +2605,7 @@ export default function Home() {
                     <span>{setupFreeCards ? "2. 初期カード（10枚無料）" : "2. 初期カード（1枚 3 MC）"}</span>
                     <span className="section-note" data-testid="setup-card-cost">{setupKeptCardIds.length}枚 / {setupCardCost} MC</span>
                   </div>
+                  <p className="setup-help">ここでは手札に加えるカードを購入します。「使用時」のMCは、後でそのカードをプレイするときの費用です。</p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px", maxHeight: "200px", overflowY: "auto" }}>
                     {(setupSeat?.researchCards ?? []).map(id => {
                       const card = ALL_CARDS.find(c => c.id === id);
@@ -2599,7 +2614,7 @@ export default function Home() {
                       return (
                         <button key={id} data-testid="setup-card-option" disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.875rem" }}>
                           <div>
-                            <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                            <div style={{ fontWeight: "bold" }}>{card.name}（使用時 {card.cost} MC）</div>
                             <div style={{ margin: "3px 0" }}><CardTags tags={card.tags} /></div>
                             <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{card.effectText}</div>
                           </div>
@@ -2646,7 +2661,7 @@ export default function Home() {
                     購入後残高: <strong style={{ color: setupBalance < 0 ? "var(--color-ember)" : "var(--color-cyan)" }}>{selectedCorporationId ? setupBalance : "—"}</strong> MC
                   </div>
                   <button className="btn-primary" data-testid="corp-confirm-button" disabled={!setupReady} onClick={handleSetupConfirm}>
-                    セットアップを確定
+                    {setupReady ? "この内容でゲーム開始" : !selectedCorporationId ? "企業を選んでください" : setupBalance < 0 ? "購入するカードを減らしてください" : "プレリュードを2枚選んでください"}
                   </button>
                 </div>
               </div>
@@ -2717,7 +2732,7 @@ export default function Home() {
                         }}
                       >
                         <div>
-                          <div style={{ fontWeight: "bold" }}>{card.name} ({card.cost} MC)</div>
+                          <div style={{ fontWeight: "bold" }}>{card.name}（使用時 {card.cost} MC）</div>
                           <div style={{ margin: "3px 0" }}>
                             <CardTags tags={card.tags} />
                           </div>
@@ -2750,7 +2765,7 @@ export default function Home() {
                     disabled={selectedCardPurchaseCost > researchBudget}
                     onClick={handleBuyCardsConfirm}
                   >
-                    購入を確定
+                    {selectedResearchCardIds.length === 0 && !freeStartingResearch ? "購入せずに進む" : "購入を確定"}
                   </button>
                 </div>
               </div>
@@ -2895,7 +2910,8 @@ export default function Home() {
         <div className="hand-container">
           <div className="hand-toolbar">
             <h2 style={{ fontSize: "0.85rem", color: "var(--color-ember)", fontWeight: 700, letterSpacing: "0.1em" }}>
-              PROJECT CARDS (手札: {allHandCards.length}枚{hostedCards.length > 0 && !isSellingPatents && ` / 自己複製ロボット上: ${hostedCards.length}枚`}){handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{visibleCardCount}枚を表示中</span>} {isSellingPatents && <span style={{ color: "var(--color-gold)", marginLeft: "10px" }}>— 特許売却中: 売却するカードをクリックして選択してください。</span>}
+              手札 {allHandCards.length}枚{hostedCards.length > 0 && !isSellingPatents && ` / ロボット上 ${hostedCards.length}枚`}{handHidden > 0 && <span style={{ color: "var(--color-cyan)", marginLeft: "6px", fontWeight: 400 }}>{visibleCardCount}枚を表示中</span>}
+              <span className="hand-heading-hint">{isSellingPatents ? `売るカードを選択 · ${selectedSellCardIds.length}枚選択中` : allHandCards.length > 0 ? "カードを選ぶと詳細と支払いを表示" : "カードは購入・獲得するとここに並びます"}</span>
             </h2>
             <div className="hand-toolbar-actions">
               {(allHandCards.length > 0 || hostedCards.length > 0) && !isSellingPatents && (
@@ -2945,10 +2961,11 @@ export default function Home() {
                   className="btn-secondary hand-turn-button"
                   onClick={handlePass}
                   disabled={!isMyTurn || Boolean(pendingChoice)}
+                  title={(viewingPlayer?.actionsRemaining ?? 2) < 2 ? "今回の手番を終えます。同じ世代でまた行動できます。" : "この世代はもう行動しません。全員がパスすると生産します。"}
                 >
                   {(players.find(p => p.id === currentPlayerId)?.actionsRemaining ?? 2) < 2
                     ? "ターン終了"
-                    : "パス (この世代を離脱)"}
+                    : "パス（この世代を終了）"}
                 </button>
               )}
             </div>
@@ -3268,7 +3285,8 @@ export default function Home() {
         )}
       </Drawer>
 
-      <Drawer open={openDrawer === "standard"} title="標準プロジェクト" onClose={closeDrawer}>
+      <Drawer open={openDrawer === "standard"} title="基本アクション" onClose={closeDrawer}>
+        <p className="action-help">カードがなくても使える行動です。支払いと効果を確認し、1つ選んでください。1回につき1行動を使います。</p>
         {activeState.phase === "action" ? (
 
           <div className="cyber-panel">

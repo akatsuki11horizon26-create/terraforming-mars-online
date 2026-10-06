@@ -571,6 +571,14 @@
   color: var(--accent-rose);
 }
 
+.resource-prod::before {
+  content: "生産";
+  display: block;
+  color: var(--text-low);
+  font-size: 9px;
+  font-weight: 400;
+}
+
 .opponent-strip {
   display: grid;
   gap: 4px;
