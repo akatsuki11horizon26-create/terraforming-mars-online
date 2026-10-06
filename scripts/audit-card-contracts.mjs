@@ -469,6 +469,14 @@ for (const prelude of PRELUDES) {
   const state = rig();
   const seat = getPlayer(state, "player");
   seat.setupStep = "prelude";
+  if (prelude.id === "card-prelude2-old-mining-colony") {
+    // Its mandatory discard must be payable; Callisto does not change titanium production.
+    seat.hand = ["p-asteroid"];
+    state.colonies.tilesInPlay = ["callisto"];
+    state.colonies.tiles = {
+      callisto: { id: "callisto", trackPosition: 1, colonies: [], active: true }
+    };
+  }
   // Paired with an inert partner so what moves is this prelude's doing.
   // An empty behavior block does not make a prelude inert: Eccentric Sponsor
   // and Ecology Experts declare nothing and play a card from hand, and with
@@ -483,7 +491,18 @@ for (const prelude of PRELUDES) {
   if (!partner) { preludeResults.skipped += 1; continue; }
   seat.preludeOptions = [prelude.id, partner.id];
   const before = { ...getPlayer(state, "player") };
-  const after = applyPreludes(state, [prelude.id, partner.id], "player");
+  let after = applyPreludes(state, [prelude.id, partner.id], "player");
+  if (prelude.id === "card-prelude2-old-mining-colony") {
+    for (let step = 0; step < 4 && after.pendingChoice; step++) {
+      const choice = after.pendingChoice;
+      const option = choice.options[0];
+      if (!option) throw new Error("Old Mining Colony has no legal choice");
+      after = resolvePendingChoice(after, option.id, after.logs, choice.ownerPlayerId).state;
+    }
+    if (after.pendingChoice || getPlayer(after, "player").hand.length !== 0) {
+      throw new Error("Old Mining Colony did not finish its mandatory discard");
+    }
+  }
   if (after === state) { preludeResults.skipped += 1; continue; }
   if (after.pendingChoice) { preludeResults.skipped += 1; continue; }
 
