@@ -2496,7 +2496,7 @@ export default function Home() {
               corporation so the pick can answer what the corporation wants. */}
           {activeState.phase === "setup" && (activeState.colonies?.offeredTileIds?.length ?? 0) > 0 && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
-              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(139, 188, 196, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>植民地タイルの選択</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -2518,7 +2518,7 @@ export default function Home() {
                               : [...current, id]
                         )
                       }
-                      style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: picked ? "rgba(114,217,208,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${picked ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}
+                      style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: picked ? "rgba(139,188,196,0.18)" : "rgba(34,42,48,0.6)", border: `1px solid ${picked ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px" }}
                     >
                       <div style={{ fontWeight: 700 }}>{tile?.name ?? id}</div>
                       <div style={{ fontSize: "0.65rem", color: "#c9bfae" }}>
@@ -2578,7 +2578,7 @@ export default function Home() {
                         .map(entry => [entry[0], Number(entry[1] ?? 0)] as [string, number])
                         .filter(entry => entry[1] !== 0);
                       return (
-                        <button key={id} data-testid="corp-option" aria-pressed={selected} data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(238,190,77,0.18)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
+                        <button key={id} data-testid="corp-option" aria-pressed={selected} data-starting-mc={starting.mc ?? ""} onClick={() => setSelectedCorporationId(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(209,176,123,0.18)" : "rgba(34,42,48,0.6)", border: `1px solid ${selected ? "var(--color-gold)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
                             <span style={{ fontWeight: "bold" }}>{corporation.name}</span>
                             <span style={{ color: "var(--color-gold)", fontWeight: "bold" }}>{Number(starting.mc ?? 0)} MC</span>
@@ -2612,7 +2612,7 @@ export default function Home() {
                       if (!card) return null;
                       const isSelected = setupKeptCardIds.includes(id);
                       return (
-                        <button key={id} data-testid="setup-card-option" disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(114,217,208,0.1)" : "rgba(8,9,8,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.875rem" }}>
+                        <button key={id} data-testid="setup-card-option" disabled={setupFreeCards} onClick={() => toggleResearchCardSelect(id)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "8px", padding: "6px 10px", backgroundColor: isSelected ? "rgba(139,188,196,0.1)" : "rgba(34,42,48,0.6)", border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", textAlign: "left", color: "var(--color-ink)", fontSize: "0.875rem" }}>
                           <div>
                             <div style={{ fontWeight: "bold" }}><span data-testid="setup-card-name">{card.name}</span>（使用時 {card.cost} MC）</div>
                             <div style={{ margin: "3px 0" }}><CardTags tags={card.tags} /></div>
@@ -2641,7 +2641,7 @@ export default function Home() {
                         const order = selectedPreludeIds.indexOf(id);
                         const cost = getPreludeCost(prelude);
                         return (
-                          <button key={id} data-testid="setup-prelude-option" onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
+                          <button key={id} data-testid="setup-prelude-option" onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(139,188,196,0.16)" : "rgba(34,42,48,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                             <div style={{ fontWeight: "bold" }}>
                               {selected ? `${order + 1}. ` : ""}{prelude.name}{cost ? ` (支払 ${cost} MC)` : ""}
                             </div>
@@ -2670,7 +2670,7 @@ export default function Home() {
 
           {activeState.phase === "setup" && activeState.setupStep === "prelude" && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
-              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(139, 188, 196, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>Prelude選択</h2>
               </div>
               <div className="cyber-panel-content" style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
@@ -2681,7 +2681,7 @@ export default function Home() {
                   const selected = selectedPreludeIds.includes(id);
                   const cost = getPreludeCost(prelude);
                   return (
-                    <button key={id} onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(114,217,208,0.16)" : "rgba(8,9,8,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
+                    <button key={id} onClick={() => togglePreludeSelect(id)} style={{ textAlign: "left", padding: "8px 10px", color: "var(--color-ink)", background: selected ? "rgba(139,188,196,0.16)" : "rgba(34,42,48,0.6)", border: `1px solid ${selected ? "var(--color-cyan)" : "rgba(242,232,220,0.15)"}`, borderRadius: "4px", fontSize: "0.875rem" }}>
                       <div style={{ fontWeight: "bold" }}>{prelude.name}{cost ? ` (支払 ${cost} MC)` : ""}</div>
                       <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>{prelude.effectText}</div>
                     </button>
@@ -2695,7 +2695,7 @@ export default function Home() {
           {/* Setup or Research phase buying Panel */}
           {((activeState.phase === "setup" && activeState.setupStep === "projects") || activeState.phase === "research") && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
-              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(114, 217, 208, 0.15)" }}>
+              <div className="cyber-panel-header" style={{ backgroundColor: "rgba(139, 188, 196, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>
                   {activeState.phase === "setup" ? "初期カードの選定" : "研究開発フェーズ"}
                 </h2>
@@ -2722,7 +2722,7 @@ export default function Home() {
                           justifyContent: "space-between",
                           alignItems: "center",
                           padding: "6px 10px",
-                          backgroundColor: isSelected ? "rgba(114, 217, 208, 0.1)" : "rgba(8, 9, 8, 0.6)",
+                          backgroundColor: isSelected ? "rgba(139, 188, 196, 0.1)" : "rgba(8, 9, 8, 0.6)",
                           border: `1px solid ${isSelected ? "var(--color-cyan)" : "rgba(242, 232, 220, 0.15)"}`,
                           borderRadius: "4px",
                           cursor: "pointer",
@@ -3001,7 +3001,7 @@ export default function Home() {
           </div>
 
           {(seatCorporation || cardsHoldingResources.length > 0) && (
-            <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(196,164,96,0.3)", borderRadius: "4px", background: "rgba(8,9,8,0.55)" }}>
+            <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(196,164,96,0.3)", borderRadius: "4px", background: "rgba(34,42,48,0.55)" }}>
               <div style={{ fontSize: "0.72rem", color: "var(--color-gold)", marginBottom: "6px" }}>自分の企業と資源</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", fontSize: "0.7rem", color: "#c9bfae" }}>
                 {seatCorporation && (
@@ -3011,7 +3011,7 @@ export default function Home() {
                   </span>
                 )}
                 {cardsHoldingResources.map(entry => (
-                  <span key={entry.id} style={{ padding: "2px 6px", border: "1px solid rgba(114,217,208,0.25)", borderRadius: "3px" }}>
+                  <span key={entry.id} style={{ padding: "2px 6px", border: "1px solid rgba(139,188,196,0.25)", borderRadius: "3px" }}>
                     {entry.name} — {entry.count}
                   </span>
                 ))}
@@ -3020,7 +3020,7 @@ export default function Home() {
           )}
 
           {activeCards.length > 0 && (
-            <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(114,217,208,0.25)", borderRadius: "4px", background: "rgba(8,9,8,0.55)" }}>
+            <div style={{ marginTop: "10px", padding: "8px", border: "1px solid rgba(139,188,196,0.25)", borderRadius: "4px", background: "rgba(34,42,48,0.55)" }}>
               <div style={{ fontSize: "0.72rem", color: "var(--color-cyan)", marginBottom: "6px" }}>場にあるアクションカード</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
                 {activeCards.map(card => {
@@ -3041,7 +3041,7 @@ export default function Home() {
               style={{
                 padding: "10px",
                 backgroundColor: "rgba(8, 9, 8, 0.7)",
-                border: "1px solid rgba(114, 217, 208, 0.2)",
+                border: "1px solid rgba(139, 188, 196, 0.2)",
                 borderRadius: "4px",
                 display: "flex",
                 justifyContent: "space-between",
@@ -3820,7 +3820,7 @@ export default function Home() {
       {activeState.isGameOver && (
         <div className="overlay-container" data-testid="game-over-modal">
           <div className="modal-content" style={{ maxWidth: "450px", border: `2px solid ${activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)"}` }}>
-            <div className="modal-header" style={{ backgroundColor: activeState.gameResult === "win" ? "rgba(114, 217, 208, 0.1)" : "rgba(168, 50, 32, 0.1)" }}>
+            <div className="modal-header" style={{ backgroundColor: activeState.gameResult === "win" ? "rgba(139, 188, 196, 0.1)" : "rgba(168, 50, 32, 0.1)" }}>
               <h3 className="modal-title" data-testid="game-over-headline" style={{ color: activeState.gameResult === "win" ? "var(--color-cyan)" : "var(--color-rust)" }}>
                 {activeState.gameResult === "win" ? "MISSION SUCCESS" : "MISSION FAILED"}
               </h3>

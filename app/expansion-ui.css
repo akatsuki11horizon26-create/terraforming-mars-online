@@ -3,12 +3,12 @@
    panels follow the palette documented in DESIGN.md. */
 
 :root {
-  --color-mars: #FF7A4D;
-  --color-scientists: #5FD3E0;
-  --color-unity: #A78BDB;
-  --color-greens: #68D391;
-  --color-reds: #F2708C;
-  --color-kelvinists: #F0A23C;
+  --color-mars: var(--accent-ember);
+  --color-scientists: var(--accent-cyan);
+  --color-unity: var(--accent-violet);
+  --color-greens: var(--accent-green);
+  --color-reds: var(--accent-rose);
+  --color-kelvinists: var(--accent-amber);
   
   --shadow-raised: 0 2px 12px rgba(0, 0, 0, 0.45);
   --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.7);
@@ -122,7 +122,7 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
-  background-color: rgba(8, 12, 18, 0.82);
+  background-color: rgba(23, 29, 34, 0.82);
   backdrop-filter: blur(3px);
 }
 
@@ -182,7 +182,7 @@
 }
 
 .choice-option:hover {
-  background-color: rgba(240, 162, 60, 0.16);
+  background-color: rgba(209, 176, 123, 0.16);
   border-color: var(--color-ember);
 }
 
@@ -219,8 +219,8 @@
 }
 
 .claim-row[data-taken="true"] {
-  border-color: rgba(240, 162, 60, 0.5);
-  background-color: rgba(240, 162, 60, 0.08);
+  border-color: rgba(209, 176, 123, 0.5);
+  background-color: rgba(209, 176, 123, 0.08);
 }
 
 .claim-name {
@@ -287,7 +287,7 @@
 
 .party-row[data-ruling="true"] {
   border-color: var(--party-color, var(--color-ember));
-  background-color: rgba(240, 162, 60, 0.1);
+  background-color: rgba(209, 176, 123, 0.1);
 }
 
 .party-name {
@@ -313,11 +313,11 @@
   height: 9px;
   border-radius: 50%;
   background-color: var(--color-ember);
-  border: 1px solid rgba(8, 12, 18, 0.6);
+  border: 1px solid rgba(23, 29, 34, 0.6);
 }
 
 .delegate-dot[data-neutral="true"] {
-  background-color: rgba(169, 182, 198, 0.35);
+  background-color: rgba(185, 194, 197, 0.35);
 }
 
 .turmoil-events {
@@ -328,7 +328,7 @@
 
 .event-slot {
   padding: 7px 10px;
-  border: 1px dashed rgba(95, 211, 224, 0.35);
+  border: 1px dashed rgba(139, 188, 196, 0.35);
   clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px);
   font-size: 11px;
 }
@@ -336,7 +336,7 @@
 .event-slot[data-slot="current"] {
   border-style: solid;
   border-color: var(--color-cyan);
-  background-color: rgba(95, 211, 224, 0.08);
+  background-color: rgba(139, 188, 196, 0.08);
 }
 
 .event-slot-label {
@@ -355,7 +355,7 @@
 
 .colony-tile {
   padding: 9px 11px;
-  border: 1px solid rgba(95, 211, 224, 0.3);
+  border: 1px solid rgba(139, 188, 196, 0.3);
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
   background-color: var(--surface-1);
 }
@@ -391,7 +391,7 @@
   text-align: center;
   font-size: 10px;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
-  background-color: rgba(95, 211, 224, 0.1);
+  background-color: rgba(139, 188, 196, 0.1);
   color: var(--text-low);
   font-variant-numeric: tabular-nums;
 }
@@ -412,7 +412,7 @@
   width: 16px;
   height: 16px;
   clip-path: polygon(3px 0, 100% 0, 100% calc(100% - 3px), calc(100% - 3px) 100%, 0 100%, 0 3px);
-  border: 1px solid rgba(95, 211, 224, 0.4);
+  border: 1px solid rgba(139, 188, 196, 0.4);
   font-size: 9px;
   display: flex;
   align-items: center;
@@ -597,7 +597,7 @@
 
 .opponent-card[data-active="true"] {
   border-left-color: var(--accent-amber);
-  background-color: rgba(240, 162, 60, 0.1);
+  background-color: rgba(209, 176, 123, 0.1);
 }
 
 .opponent-card[data-passed="true"] {
@@ -832,7 +832,7 @@
 }
 
 .standings-row[data-active="true"] {
-  background-color: rgba(240, 162, 60, 0.1);
+  background-color: rgba(209, 176, 123, 0.1);
 }
 
 .standings-row[data-passed="true"] {
@@ -903,7 +903,7 @@
 }
 
 .hud-standing[data-active="true"] {
-  background-color: rgba(240, 162, 60, 0.14);
+  background-color: rgba(209, 176, 123, 0.14);
 }
 
 .hud-standing[data-passed="true"] {

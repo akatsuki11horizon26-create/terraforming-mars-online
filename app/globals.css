@@ -5,28 +5,28 @@
   /* Surfaces. Each layer is lighter than the one beneath, so depth reads from
      the stack order alone. Pure black is avoided: it fights bright elements and
      tires the eye. */
-  --surface-base: #080C12;
-  --surface-1: #141C28;
-  --surface-2: #222E3E;
-  --surface-3: #334155;
+  --surface-base: #171D22;
+  --surface-1: #222A30;
+  --surface-2: #2D373E;
+  --surface-3: #3A464F;
 
-  /* Text. Slightly blue-tinted rather than pure white. --text-low is only legible
+  /* Text. Muted off-white rather than pure white. --text-low is only legible
      on surface-1 and darker; never put it on surface-3. */
-  --text-hi: #E8EDF4;
-  --text-mid: #A9B6C6;
-  --text-low: #7C8899;
+  --text-hi: #D8DCD9;
+  --text-mid: #B9C2C5;
+  --text-low: #919EA5;
 
   /* Accents. Red is the theme but not the interface: used for heat and Mars
      only, so it never competes with body text or reads as a warning. */
-  --accent-amber: #F0A23C;
-  --accent-ember: #FF7A4D;
-  --accent-cyan: #5FD3E0;
-  --accent-green: #68D391;
-  --accent-violet: #A78BDB;
-  --accent-rose: #F2708C;
+  --accent-amber: #D1B07B;
+  --accent-ember: #D79D85;
+  --accent-cyan: #8BBCC4;
+  --accent-green: #98BD9F;
+  --accent-violet: #B3A4CC;
+  --accent-rose: #D399A5;
 
-  --line-soft: rgba(169, 182, 198, 0.16);
-  --line-hard: rgba(169, 182, 198, 0.32);
+  --line-soft: rgba(185, 194, 197, 0.16);
+  --line-hard: rgba(185, 194, 197, 0.32);
 
   /* The previous names are kept so the ~60 existing call sites and the inline
      styles in page.tsx move to the new palette without being rewritten. */
@@ -37,8 +37,8 @@
   --color-gold: var(--accent-amber);
   --color-cyan: var(--accent-cyan);
   --color-ink: var(--text-hi);
-  --color-empty-cell: rgba(169, 182, 198, 0.07);
-  --color-ocean-reserved: rgba(95, 211, 224, 0.14);
+  --color-empty-cell: rgba(185, 194, 197, 0.07);
+  --color-ocean-reserved: rgba(139, 188, 196, 0.14);
 }
 
 /* Angular corners instead of rounded ones: two opposite corners cut, which
@@ -131,7 +131,7 @@ div[tabindex="0"]:focus-visible {
   font-size: 1.1rem;
   font-weight: 800;
   letter-spacing: 0.15em;
-  text-shadow: 0 0 14px rgba(255, 122, 77, 0.25);
+  text-shadow: none;
 }
 
 .header-subtitle {
@@ -323,9 +323,9 @@ div[tabindex="0"]:focus-visible {
   transform: scale(var(--board-scale, 1));
   transform-origin: top left;
   border-radius: 50%;
-  background: radial-gradient(circle at 32% 28%, #C4643A 0%, #8E3F28 48%, #2A1710 78%, #10151C 100%);
+  background: radial-gradient(circle at 32% 28%, #A46F56 0%, #79533F 48%, #352C27 78%, #20282D 100%);
   position: relative;
-  box-shadow: 0 0 60px rgba(196, 100, 58, 0.18), inset -24px -24px 70px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 0 40px rgba(164, 111, 86, 0.1), inset -24px -24px 70px rgba(0, 0, 0, 0.65);
   border: 1px solid var(--line-hard);
   display: flex;
   align-items: center;
@@ -367,21 +367,21 @@ div[tabindex="0"]:focus-visible {
 /* Cell types styling */
 .hex-empty {
   background-color: var(--color-empty-cell);
-  border: 1px solid rgba(169, 182, 198, 0.22);
+  border: 1px solid rgba(185, 194, 197, 0.22);
   box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.35);
 }
 .hex-empty:hover {
-  background-color: rgba(240, 162, 60, 0.22);
-  box-shadow: 0 0 10px rgba(240, 162, 60, 0.45);
+  background-color: rgba(209, 176, 123, 0.22);
+  box-shadow: 0 0 10px rgba(209, 176, 123, 0.45);
 }
 
 .hex-ocean-reserved {
   background-color: var(--color-ocean-reserved);
-  border: 1px dashed rgba(95, 211, 224, 0.42);
+  border: 1px dashed rgba(139, 188, 196, 0.42);
 }
 .hex-ocean-reserved:hover {
-  background-color: rgba(95, 211, 224, 0.25);
-  box-shadow: 0 0 10px rgba(95, 211, 224, 0.55);
+  background-color: rgba(139, 188, 196, 0.25);
+  box-shadow: 0 0 10px rgba(139, 188, 196, 0.55);
 }
 
 .hex-forest {
@@ -399,7 +399,7 @@ div[tabindex="0"]:focus-visible {
 .hex-ocean {
   background: linear-gradient(135deg, #0f2c3d 0%, #061521 100%);
   border: 1px solid var(--color-cyan);
-  box-shadow: 0 0 12px rgba(114, 217, 208, 0.5);
+  box-shadow: 0 0 12px rgba(139, 188, 196, 0.5);
 }
 
 /* Placed cell content styles */
@@ -416,9 +416,9 @@ div[tabindex="0"]:focus-visible {
 
 /* Placement highlight animation */
 @keyframes pulse-cyan {
-  0% { box-shadow: 0 0 4px rgba(114, 217, 208, 0.5); }
-  50% { box-shadow: 0 0 15px rgba(114, 217, 208, 0.9); }
-  100% { box-shadow: 0 0 4px rgba(114, 217, 208, 0.5); }
+  0% { box-shadow: 0 0 4px rgba(139, 188, 196, 0.5); }
+  50% { box-shadow: 0 0 15px rgba(139, 188, 196, 0.9); }
+  100% { box-shadow: 0 0 4px rgba(139, 188, 196, 0.5); }
 }
 .hex-placement-valid {
   animation: pulse-cyan 1.5s infinite;
@@ -427,7 +427,7 @@ div[tabindex="0"]:focus-visible {
 }
 .hex-placement-selected {
   animation: none;
-  background-color: rgba(114, 217, 208, 0.65);
+  background-color: rgba(139, 188, 196, 0.65);
   border: 3px solid #fff !important;
   filter: drop-shadow(0 0 8px var(--color-cyan));
   z-index: 11;
@@ -554,7 +554,7 @@ div[tabindex="0"]:focus-visible {
 .btn-primary:hover:not(:disabled) {
   background-color: var(--accent-ember);
   border-color: var(--accent-ember);
-  box-shadow: 0 0 12px rgba(240, 162, 60, 0.28);
+  box-shadow: 0 0 12px rgba(209, 176, 123, 0.28);
 }
 .btn-primary:disabled {
   opacity: 0.5;
@@ -868,7 +868,7 @@ div[tabindex="0"]:focus-visible {
 
 .project-card.selected {
   border-color: var(--color-cyan);
-  box-shadow: 0 0 12px rgba(114, 217, 208, 0.5);
+  box-shadow: 0 0 12px rgba(139, 188, 196, 0.5);
   transform: translateY(-6px);
 }
 
@@ -927,7 +927,7 @@ div[tabindex="0"]:focus-visible {
 }
 .card-req.met {
   color: var(--color-cyan);
-  background-color: rgba(114, 217, 208, 0.1);
+  background-color: rgba(139, 188, 196, 0.1);
 }
 
 .card-effect {
@@ -1576,7 +1576,7 @@ div[tabindex="0"]:focus-visible {
   background-color: color-mix(in srgb, var(--surface-1) 88%, transparent);
   border-top: 2px solid var(--accent-cyan);
   border-bottom: 2px solid var(--accent-cyan);
-  box-shadow: 0 0 30px rgba(114, 217, 208, 0.35);
+  box-shadow: 0 0 30px rgba(139, 188, 196, 0.35);
   animation: param-cutin-in 1s ease-out forwards;
 }
 
@@ -1705,8 +1705,8 @@ div[tabindex="0"]:focus-visible {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(circle at 68% 32%, rgba(255, 122, 77, 0.16), transparent 46%),
-    radial-gradient(circle at 22% 74%, rgba(95, 211, 224, 0.1), transparent 52%),
+    radial-gradient(circle at 68% 32%, rgba(215, 157, 133, 0.16), transparent 46%),
+    radial-gradient(circle at 22% 74%, rgba(139, 188, 196, 0.1), transparent 52%),
     var(--surface-base);
   pointer-events: none;
 }
@@ -1728,7 +1728,7 @@ div[tabindex="0"]:focus-visible {
   font-weight: 800;
   letter-spacing: 0.22em;
   color: var(--text-hi);
-  text-shadow: 0 0 28px rgba(255, 122, 77, 0.32);
+  text-shadow: none;
 }
 
 .title-tagline {
