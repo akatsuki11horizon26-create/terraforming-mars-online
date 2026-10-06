@@ -709,10 +709,10 @@ div[tabindex="0"]:focus-visible {
      out of sight. The floor keeps one full row visible; the percentage still
      lets a tall screen give the hand more. */
   /* 174px for one row of cards at the narrowest readable width (110 * 1.58),
-     plus about 131px for the strip's own header, the corporation row, padding
+     plus about 146px for the strip's own header, the corporation row, padding
      and gaps. Anything less and the bottom of every card -- name, effect, VP --
      sits below the fold. */
-  max-height: max(305px, 34dvh);
+  max-height: max(320px, 34dvh);
   min-height: 0;
   background-color: var(--surface-1);
   border-top: 1px solid var(--line-hard);
@@ -1366,7 +1366,8 @@ div[tabindex="0"]:focus-visible {
   background-color: color-mix(in srgb, var(--surface-1) 94%, transparent);
   border: 1px solid var(--accent-cyan);
   clip-path: polygon(4px 0, 100% 0, 100% calc(100% - 4px), calc(100% - 4px) 100%, 0 100%, 0 4px);
-  pointer-events: auto;
+  /* Focus can reveal this between pointerdown and pointerup on a lower tile. */
+  pointer-events: none;
   text-align: center;
 }
 

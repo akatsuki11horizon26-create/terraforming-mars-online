@@ -14,4 +14,14 @@ test("Corporate Era is mandatory in solo and optional in standard multiplayer se
   await corporateEra.uncheck();
   await expect(corporateEra).not.toBeChecked();
   await expect(page.getByText(/オフは専用カードを除き、生産量1に企業効果を加算します/)).toBeVisible();
+  await page.getByTestId("setup-start-button").click();
+  const manual = page.getByTestId("onboarding-dismiss");
+  if (await manual.isVisible()) await manual.click();
+  await expect(page.getByTestId("corp-option")).toHaveCount(3);
+  await page.getByTestId("corp-option").filter({ hasText: "Beginner Corporation" }).click();
+  await page.getByTestId("corp-confirm-button").click();
+  await expect(page.getByTestId("corp-option")).toHaveCount(3);
+  await page.getByTestId("corp-option").filter({ hasText: "Beginner Corporation" }).click();
+  await page.getByTestId("corp-confirm-button").click();
+  await expect(page.locator(".hand-cards .tm-card")).toHaveCount(10);
 });

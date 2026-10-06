@@ -46,6 +46,7 @@ import {
   calculateScoreBreakdowns,
   RESEARCH_CARD_COST,
   seatCorporation,
+  getSetupCorporationOptions,
   increaseTerraformRating,
   raiseTemperature,
   getPreludeCost,
@@ -1179,7 +1180,7 @@ const HANDLERS = {
     if (actor.corporationId) {
       return fail(state, ERROR.ACTION_REFUSED, "この席はすでに確定しています。");
     }
-    if (!(actor.corporationOptions ?? []).includes(command.corporationId)) {
+    if (!getSetupCorporationOptions(actor).includes(command.corporationId)) {
       return fail(state, ERROR.ACTION_REFUSED, "その企業は選べません。");
     }
     if (new Set(cardIds).size !== cardIds.length) {

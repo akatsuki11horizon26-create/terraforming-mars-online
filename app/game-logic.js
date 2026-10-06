@@ -1593,11 +1593,16 @@ export function applyCorporation(state, corporationId, playerId) {
 // hand and stores the chosen preludes as one step, and it has to do all three
 // before the seat may move on -- calling applyCorporation there would hand the
 // turn away halfway through.
+export function getSetupCorporationOptions(player) {
+  if (!player || player.corporationId) return [];
+  return [...new Set([...(player.corporationOptions ?? []), "corp-beginner"])];
+}
+
 export function seatCorporation(state, corporationId, playerId) {
   const actorId = playerId ?? state.currentPlayerId;
   const actor = getPlayer(state, actorId);
   const corporation = CORPORATIONS.find(item => item.id === corporationId);
-  if (!corporation || !actor || !(actor.corporationOptions ?? []).includes(corporationId)) return state;
+  if (!corporation || !actor || !getSetupCorporationOptions(actor).includes(corporationId)) return state;
 
   const seated = cloneGameState(state);
   seated.currentPlayerId = actorId;
@@ -7533,7 +7538,9 @@ export function getInitialState(options = {}) {
   if (mode === "solo") {
     shuffledDeck = placeNeutralTiles(board, shuffledDeck);
   }
-  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed, corporateEra).map(corporation => corporation.id), dealer);
+  const corporationPool = shuffle(poolFor(CORPORATIONS, allowed, corporateEra)
+    .filter(corporation => corporation.id !== "corp-beginner")
+    .map(corporation => corporation.id), dealer);
   // Preludes are their own expansion: no prelude, no prelude options dealt.
   // Either prelude box brings its own preludes to deal, so the deal follows
   // whether ANY of them is on, not the first box specifically.

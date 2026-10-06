@@ -7,6 +7,7 @@ import {
   CORPORATIONS as jsCORPORATIONS,
   PRELUDES as jsPRELUDES,
   getInitialState as jsGetInitialState,
+  getSetupCorporationOptions,
   getPlaceholderState as jsGetPlaceholderState,
   computeScore as jsComputeScore,
   calculateScoreBreakdowns as jsCalculateScoreBreakdowns,
@@ -1937,6 +1938,7 @@ export default function Home() {
       initialDraft: setupInitialDraft,
       ...chosenExpansions()
     });
+    setShowTitle(false);
   };
 
   // A tile choice waiting on this seat, answered by clicking the board rather
@@ -2406,7 +2408,7 @@ export default function Home() {
           </div>
 
           {hoveredCell && !selectedPlacementOption && (
-            <div className="hex-tooltip" role="status" onClick={() => setHoveredCell(null)}>
+            <div className="hex-tooltip" role="status">
               {hoveredCell.text}
             </div>
           )}
@@ -2540,9 +2542,9 @@ export default function Home() {
                 )}
 
                 <div>
-                  <div className="section-title"><span>1. 企業（2枚から1枚）</span></div>
+                  <div className="section-title"><span>1. 企業（配られた2枚、または初心者企業）</span></div>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {(setupSeat?.corporationOptions ?? activeState.corporationOptions).map(id => {
+                    {getSetupCorporationOptions(setupSeat ?? activeState).map(id => {
                       const corporation = CORPORATIONS.find(item => item.id === id);
                       if (!corporation) return null;
                       const selected = selectedCorporationId === id;

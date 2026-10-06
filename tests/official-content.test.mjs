@@ -15,6 +15,7 @@ import {
   getCardPaymentCost,
   getCardPlayableStatus,
   getInitialState,
+  getSetupCorporationOptions,
   resolvePendingChoice,
 } from "../app/game-logic.js";
 import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
@@ -57,6 +58,8 @@ test("standard setup removes all 71 Corporate Era projects and both corporations
   assert.equal(projects(standard).length, 137);
   assert.equal(projects(extended).length, 208);
   assert.equal(corporations(standard).length, corporations(extended).length - 2);
+  assert.equal(corporations(standard).length, 10);
+  assert.ok(!corporations(extended).includes("corp-beginner"));
   for (const card of ceProjects) {
     assert.ok(!projects(standard).includes(card.id), card.name);
     assert.ok(projects(extended).includes(card.id), card.name);
@@ -97,6 +100,25 @@ test("official solo always uses Corporate Era without the standard production bo
   state = applyCorporation(state, "corp-ecoline", state.players[0].id);
   assert.equal(state.players[0].plantsProd, 2);
   assert.equal(state.players[0].mcProd, 0);
+});
+
+test("every beginner can choose the beginner corporation without using a dealt corporation slot", () => {
+  let state = getInitialState({ playerCount: 2, corporateEra: false, seed: 12 });
+  for (const player of state.players) {
+    assert.equal(player.corporationOptions.length, 2);
+    assert.ok(!player.corporationOptions.includes("corp-beginner"));
+    assert.ok(getSetupCorporationOptions(player).includes("corp-beginner"));
+    const result = executeGameCommand(state, {
+      type: COMMAND.CONFIRM_SETUP, playerId: player.id, corporationId: "corp-beginner", cardIds: []
+    });
+    assert.equal(result.ok, true);
+    state = result.state;
+    const after = state.players.find(p => p.id === player.id);
+    assert.equal(after.hand.length, 10);
+    assert.equal(after.mc, 42);
+    assert.equal(after.plantsProd, 1);
+    assert.deepEqual(getSetupCorporationOptions(after), []);
+  }
 });
 
 test("Robotic Workforce requires a playable building production box", () => {

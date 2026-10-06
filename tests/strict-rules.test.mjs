@@ -3449,7 +3449,8 @@ test("Project Eden places three tiles in the player's order and discards three",
   const ids = state.players.map(player => player.id);
   for (const id of ids) {
     state.currentPlayerId = id;
-    state = applyCorporation(state, getPlayer(state, id).corporationOptions[0], id);
+    getPlayer(state, id).corporationOptions = ["corp-credicor"];
+    state = applyCorporation(state, "corp-credicor", id);
   }
   state = advanceSetupTurn(state);
 
@@ -3467,7 +3468,8 @@ test("Project Eden places three tiles in the player's order and discards three",
   const me = ids[0];
   const seat = getPlayer(state, me);
   assert.equal(seat.hand.length, 4, "four cards in hand at prelude time");
-  seat.preludeOptions = ["card-prelude2-project-eden", seat.preludeOptions[0]];
+  // Other setup effects must not draw cards while this test counts Eden's discard.
+  seat.preludeOptions = ["card-prelude2-project-eden", "prelude-donation"];
   state.currentPlayerId = me;
   state = applyPreludes(state, seat.preludeOptions.slice(0, 2), me);
 
