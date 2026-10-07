@@ -861,9 +861,11 @@ test("final greenery cannot spend plants on an unaffordable Hellas south pole", 
   seat.plants = 8;
   seat.mc = 0;
 
-  const pole = legalCellsFor(state, "forest", "player").find(cell => cell.placementCost === 6);
+  const pole = Object.values(state.board).find(cell => cell.placementCost === 6);
   assert.ok(pole);
   const poleKey = `${pole.q},${pole.r}`;
+  // Solo's random neutral tiles must not occupy the space this fee test needs.
+  state.board[poleKey] = { ...pole, tileType: "empty", placedBy: null };
   for (const cell of legalCellsFor(state, "forest", "player")) {
     const key = `${cell.q},${cell.r}`;
     if (key !== poleKey) state.board[key] = { ...cell, tileType: "city", placedBy: "neutral" };
