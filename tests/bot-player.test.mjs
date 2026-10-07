@@ -42,6 +42,52 @@ test("The difficulties are ordered and resolvable by id", () => {
   assert.equal(getBotDifficulty("nonsense").id, "normal", "an unknown id falls back");
 });
 
+function researchPosition(generation = 1) {
+  const state = engine.getInitialState({ playerCount: 2, seed: 72 });
+  state.phase = "research";
+  state.generation = generation;
+  for (const player of state.players) {
+    player.corporationId = "corp-credicor";
+    player.setupStep = "complete";
+    player.hand = [];
+    player.researchCards = [];
+    player.mc = 50;
+  }
+  return state;
+}
+
+test("research values terraforming events without production or printed VP", () => {
+  const state = researchPosition();
+  engine.getPlayer(state, "player2").researchCards = ["p-asteroid"];
+  const after = runBotResearch(engine, state, "player2", "normal");
+  assert.deepEqual(engine.getPlayer(after, "player2").hand, ["p-asteroid"]);
+  assert.equal(engine.getPlayer(after, "player2").mc, 47);
+});
+
+test("multiplayer research follows planet progress rather than a fictitious generation limit", () => {
+  const early = researchPosition(20);
+  engine.getPlayer(early, "player2").researchCards = ["p-mine"];
+  const bought = runBotResearch(engine, early, "player2", "normal");
+  assert.deepEqual(engine.getPlayer(bought, "player2").hand, ["p-mine"]);
+  const late = engine.cloneGameState(early);
+  late.oxygen = 14;
+  late.temperature = 8;
+  late.oceans = 8;
+  const rejected = runBotResearch(engine, late, "player2", "normal");
+  assert.deepEqual(engine.getPlayer(rejected, "player2").hand, []);
+});
+
+test("normal setup ranks economic preludes rather than taking the first two", () => {
+  const state = engine.getInitialState({ playerCount: 2, prelude: true, seed: 17 });
+  const bot = engine.getPlayer(state, "player2");
+  bot.corporationOptions = ["corp-credicor"];
+  bot.preludeOptions = ["prelude-loan", "prelude-donation", "prelude-allied-banks", "prelude-biofuels"];
+  const before = JSON.stringify(state);
+  const after = runBotSetup(engine, state, bot.id, "normal", makeBotRng(8));
+  assert.equal(JSON.stringify(state), before, "evaluating openings must not change the real table");
+  assert.deepEqual(new Set(engine.getPlayer(after, bot.id).selectedPreludeIds), new Set(["prelude-allied-banks", "prelude-biofuels"]));
+});
+
 test("The bot rng is deterministic for a seed", () => {
   const a = makeBotRng(99);
   const b = makeBotRng(99);

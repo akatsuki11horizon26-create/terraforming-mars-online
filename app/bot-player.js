@@ -8,6 +8,8 @@ import {
   cloneGameState,
   hasPositiveVpIcon,
   CORPORATIONS,
+  PRELUDES,
+  getCardEffect,
   RESEARCH_CARD_COST,
   DECLINE_CHOICE,
   getGlobalParameterLimits,
@@ -32,7 +34,7 @@ export const BOT_DIFFICULTIES = [
   {
     id: "normal",
     name: "中級ロボット",
-    description: "生産量とTRを伸ばし、マイルストーンや表彰も状況に応じて狙う。",
+    description: "企業・プレリュードを選別し、盤面の進み具合に合わせて生産と得点を狙う。",
     noise: 5,
     minMoveValue: 0.5,
     researchReserve: 9,
@@ -45,7 +47,7 @@ export const BOT_DIFFICULTIES = [
   {
     id: "hard",
     name: "上級ロボット",
-    description: "終盤の得点効率と次の一手まで見て行動する。",
+    description: "初期投資と終盤の得点効率を比較し、同じ手番で実行できる次の一手まで読む。",
     noise: 0,
     minMoveValue: 1,
     researchReserve: 12,
@@ -112,11 +114,16 @@ const TILE_BONUS_WEIGHT = {
 
 function phaseFactors(state) {
   const generation = state.generation ?? 1;
-  const limit = state.mode === "solo" ? getSoloGenerationLimit(state) : 14;
-  const left = Math.max(0, limit - generation);
   const limits = getGlobalParameterLimits(state.boardId);
-  const completed = [state.oxygen >= limits.oxygen, state.temperature >= limits.temperature, state.oceans >= limits.oceans].filter(Boolean).length;
-  const endgame = Math.max(1 - Math.min(1, left / limit), completed / 3);
+  const remaining = Math.max(0, limits.oxygen - state.oxygen) +
+    Math.max(0, (limits.temperature - state.temperature) / 2) + Math.max(0, limits.oceans - state.oceans);
+  const total = limits.oxygen + (limits.temperature + 30) / 2 + limits.oceans;
+  const left = state.mode === "solo"
+    ? Math.max(0, getSoloGenerationLimit(state) - generation)
+    : Math.min(8, remaining / Math.max(3, state.players.length * 2));
+  const endgame = state.mode === "solo"
+    ? 1 - Math.min(1, left / getSoloGenerationLimit(state))
+    : 1 - remaining / total;
   return {
     production: Math.min(4, left * 0.5),
     vp: 1 + endgame * 2.5,
@@ -198,18 +205,37 @@ function evaluateDelta(before, after, ctx) {
   return score;
 }
 
-function researchCardValue(card, state, botId, factors) {
+function effectValue(card, state, factors) {
+  const effect = getCardEffect(card);
+  const limits = getGlobalParameterLimits(state.boardId);
+  const trValue = factors.tr + 3 * factors.vp;
+  let value = 0;
+  for (const [resource, amount] of Object.entries(effect.production ?? {})) {
+    value += Number(amount) * (PRODUCTION_WEIGHT[`${resource}Prod`] ?? 0) * factors.production;
+  }
+  for (const [resource, weight] of Object.entries(STOCK_WEIGHT)) value += Number(effect[resource] ?? 0) * weight;
+  value += Math.min(effect.temperatureSteps ?? 0, Math.max(0, (limits.temperature - state.temperature) / 2)) * trValue;
+  value += Math.min(effect.oxygenSteps ?? 0, Math.max(0, limits.oxygen - state.oxygen)) * trValue;
+  value += (effect.tr ?? 0) * trValue;
+  value += (effect.draw ?? 0) * 2;
+  if (effect.tile === "ocean") value += Math.min(effect.tileCount ?? 1, Math.max(0, limits.oceans - state.oceans)) * (trValue + 4);
+  if (effect.tile === "forest") value += (effect.tileCount ?? 1) * (3 * factors.vp + (state.oxygen < limits.oxygen ? trValue : 0) + 3);
+  if (effect.tile === "city") value += (effect.tileCount ?? 1) * (3 + 3 * factors.vp);
+  if (card.effectSpec?.action || card.action) value += 3 * factors.production;
+  value += (card.victoryPoints ?? 0) * 3 * factors.vp;
+  if (hasPositiveVpIcon(card) && !card.victoryPoints) value += 3 * factors.vp;
+  return value - (effect.payMc ?? 0) * STOCK_WEIGHT.mc;
+}
+
+function researchCardValue(card, state, botId, factors, availableMc) {
   const player = getPlayer(state, botId);
   if (!player || !card) return -Infinity;
-  let value = hasPositiveVpIcon(card) ? 2 : 0;
-  value += (card.victoryPoints ?? 0) * 2;
+  let value = effectValue(card, state, factors) - ((card.cost ?? 0) + RESEARCH_CARD_COST) * STOCK_WEIGHT.mc;
   const expectedIncome = Math.max(0, (player.mcProd ?? 0) + (player.tr ?? 20));
-  const affordability = (card.cost ?? 0) <= (player.mc ?? 0) + expectedIncome * 2 ? 1 : 0.3;
-  value *= affordability;
-  for (const tag of card.tags ?? []) value += countActiveTags(state, botId, tag) * 0.5;
-  const effect = JSON.stringify(card.effectSpec ?? {});
-  if (/Prod|production/i.test(effect)) value += factors.production;
-  return value;
+  const budget = (availableMc ?? player.mc ?? 0) + expectedIncome * Math.min(2, factors.production);
+  if ((card.cost ?? 0) > budget) return -Infinity;
+  for (const tag of card.tags ?? []) value += Math.min(3, countActiveTags(state, botId, tag)) * 0.5;
+  return value / 3;
 }
 
 export const BOT_STANDARD_PROJECTS = [
@@ -324,7 +350,8 @@ export function chooseBotMove(state, botId, simulate, difficultyId, rng) {
 
   if (difficulty.lookahead > 0) {
     for (const entry of scored.slice(0, difficulty.topK)) {
-      const nextMoves = enumerateBotMoves(entry.after, botId).slice(0, 20);
+      if (entry.after.phase !== "action" || entry.after.currentPlayerId !== botId || entry.after.pendingChoice) continue;
+      const nextMoves = enumerateBotMoves(entry.after, botId);
       let future = 0;
       for (const move of nextMoves) {
         const command = commandFromMove(move, botId, entry.after);
@@ -506,7 +533,7 @@ function startingHandFor(bot, state, botId, difficultyId, corporationId) {
   );
   const factors = phaseFactors(state);
   return offered
-    .map(cardId => ({ cardId, value: researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, factors) }))
+    .map(cardId => ({ cardId, value: researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, factors, corporation?.starting?.mc ?? 0) }))
     .filter(entry => entry.value >= difficulty.researchThreshold)
     .sort((a, b) => b.value - a.value)
     .slice(0, budget)
@@ -522,7 +549,7 @@ export function runBotResearch(engine, state, botId, difficultyId) {
   const freeStartingCards = state.phase === "setup" && corporation?.effects?.freeStartingCards;
   const affordable = freeStartingCards
     ? bot.researchCards.length
-    : Math.max(0, Math.floor(((bot.mc ?? 0) - difficulty.researchReserve) / 3));
+    : Math.max(0, Math.floor(((bot.mc ?? 0) - difficulty.researchReserve) / RESEARCH_CARD_COST));
   const ranked = bot.researchCards
     .map(cardId => ({ cardId, value: researchCardValue(ALL_CARDS.find(card => card.id === cardId), state, botId, factors) }))
     .filter(entry => entry.value >= difficulty.researchThreshold)
@@ -538,6 +565,34 @@ export function runBotResearch(engine, state, botId, difficultyId) {
   return result.ok ? result.state : state;
 }
 
+function openingChoices(state, bot, difficultyId, random) {
+  if (difficultyId === "easy") return {
+    corporationId: bot.corporationOptions[Math.floor(random() * bot.corporationOptions.length)],
+    preludeIds: bot.preludeOptions?.slice(0, 2) ?? []
+  };
+  const factors = phaseFactors(state);
+  const corporations = (bot.corporationOptions ?? []).map(id => {
+    const corporation = CORPORATIONS.find(c => c.id === id);
+    const starting = corporation?.starting ?? {};
+    let value = effectValue({ effect: starting }, state, factors);
+    const preview = cloneGameState(state);
+    const player = getPlayer(preview, bot.id);
+    player.corporationId = id;
+    player.mc = starting.mc ?? 0;
+    for (const cardId of bot.researchCards ?? []) {
+      const card = ALL_CARDS.find(c => c.id === cardId);
+      value += Math.max(0, researchCardValue(card, preview, bot.id, factors)) * 0.3;
+      value += (card?.tags ?? []).filter(tag => corporation?.tags?.includes(tag)).length;
+    }
+    return { id, value };
+  }).sort((a, b) => b.value - a.value);
+  const preludes = (bot.preludeOptions ?? []).map(id => {
+    const card = PRELUDES.find(p => p.id === id);
+    return { id, value: card ? effectValue(card, state, factors) : -Infinity };
+  }).sort((a, b) => b.value - a.value);
+  return { corporationId: corporations[0]?.id, preludeIds: preludes.slice(0, 2).map(p => p.id) };
+}
+
 export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 40) {
   let current = state;
   const random = rng ?? deterministicRng(state, botId);
@@ -547,7 +602,7 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
     if (!bot) break;
     let command = null;
     if (!bot.corporationId && (bot.corporationOptions?.length ?? 0) > 0) {
-      const corporationId = bot.corporationOptions[Math.floor(random() * bot.corporationOptions.length)];
+      const { corporationId, preludeIds } = openingChoices(current, bot, difficultyId, random);
       // One confirmation, the same command the player's panel sends. Drafting
       // takes the starting hand away and hands it back later, so a drafted game
       // confirms with no cards and buys from the draft afterwards.
@@ -558,10 +613,10 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
         playerId: botId,
         corporationId,
         cardIds: cards,
-        preludeIds: (bot.preludeOptions?.length ?? 0) >= 2 ? bot.preludeOptions.slice(0, 2) : []
+        preludeIds: (bot.preludeOptions?.length ?? 0) >= 2 ? preludeIds : []
       };
     } else if ((bot.preludeOptions?.length ?? 0) >= 2 && (bot.selectedPreludeIds?.length ?? 0) === 0) {
-      command = { type: COMMAND.SELECT_PRELUDES, playerId: botId, preludeIds: bot.preludeOptions.slice(0, 2) };
+      command = { type: COMMAND.SELECT_PRELUDES, playerId: botId, preludeIds: openingChoices(current, bot, difficultyId, random).preludeIds };
     } else if (current.draft?.queues?.[botId]?.length > 0) {
       const cards = current.draft.queues[botId];
       const cardId = cards.slice().sort((a, b) =>
