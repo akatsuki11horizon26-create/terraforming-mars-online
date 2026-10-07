@@ -2021,3 +2021,44 @@ test("CONFIRM_SETUP keeps Beginner Corporation's whole opening hand for free", (
   assert.equal(after.hand.length, actor.researchCards.length, "all ten are kept");
   assert.equal(after.mc, 42, "and they cost nothing");
 });
+
+for (const [preludeId, tileType, count] of [
+  ["prelude-experimental-forest", "forest", 1],
+  ["prelude-aquifer-turbines", "ocean", 1],
+  ["prelude-great-aquifer", "ocean", 2],
+  ["prelude-polar-industries", "ocean", 1],
+  ["prelude-early-settlement", "city", 1],
+  ["prelude-self-sufficient-settlement", "city", 1]
+]) {
+  test(preludeId + " waits for placement and resumes setup exactly once", () => {
+    const state = getInitialState({ playerCount: 1, prelude: true, seed: 31 });
+    const actor = state.players[0];
+    actor.preludeOptions = [preludeId, "prelude-power-generation"];
+    let result = executeGameCommand(state, {
+      type: COMMAND.CONFIRM_SETUP, playerId: actor.id,
+      corporationId: "corp-beginner", cardIds: [], preludeIds: actor.preludeOptions
+    });
+    const tileCount = s => Object.values(s.board).filter(c => c.tileType === tileType).length;
+    const before = tileCount(state);
+    assert.equal(result.ok, true);
+    assert.equal(tileCount(result.state), before, "no tile before the player chooses");
+    assert.equal(result.state.oxygen, state.oxygen);
+    const openingEnergy = preludeId === "prelude-aquifer-turbines" ? 2 : 0;
+    assert.equal(getPlayer(result.state, actor.id).energyProd, openingEnergy, "next prelude still waiting");
+    for (let i = 0; i < count; i++) {
+      const choice = result.state.pendingChoice;
+      assert.equal(choice?.kind, "tile-placement");
+      const option = choice.options[0];
+      result = executeGameCommand(result.state, {
+        type: COMMAND.RESOLVE_PENDING, playerId: actor.id, optionId: option.id
+      });
+      assert.equal(result.ok, true);
+      assert.equal(result.state.board[option.targetCellKey].tileType, tileType);
+      assert.equal(tileCount(result.state), before + i + 1);
+    }
+    assert.equal(result.state.phase, "action");
+    assert.equal(result.state.pendingChoice, null);
+    assert.equal(getPlayer(result.state, actor.id).energyProd, openingEnergy + 3);
+    assert.equal(getPlayer(result.state, actor.id).actionsRemaining, 2);
+  });
+}

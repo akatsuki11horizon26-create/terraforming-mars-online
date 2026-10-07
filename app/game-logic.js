@@ -1898,7 +1898,7 @@ function resolvePreludeEffects(state, selected, startIndex, logs, seatBefore) {
 
     const preludeBeforeTemp = nextState.temperature;
     const preludeBeforeOxygen = nextState.oxygen;
-    const result = applyEffect(nextState, effect, nextLogs);
+    const result = applyEffect(nextState, effect, nextLogs, { skipTile: requiresTileChoice(nextState, effect) });
     nextState = result.state;
     nextLogs = result.logs;
     const crossed = checkParameterThresholds(
@@ -2362,6 +2362,11 @@ export function applyCorporationInitialAction(state, logs) {
   return { state: nextState, logs: nextLogs };
 }
 
+function requiresTileChoice(state, effect) {
+  return Boolean(effect.tile) && !effect.offBoardCity &&
+    legalCellsFor(state, effect.tile, undefined, effect.tilePlacementRule).length > 1;
+}
+
 export function applyCardEffect(state, card, logs, options = {}) {
   const nextState = cloneGameState(state);
   let nextLogs = logs;
@@ -2370,10 +2375,7 @@ export function applyCardEffect(state, card, logs, options = {}) {
   // When the player will pick the space, suppress the automatic placement so the
   // tile is not laid twice.
   const willChooseTile =
-    !options.skipTile &&
-    Boolean(effect.tile) &&
-    !effect.offBoardCity &&
-    legalCellsFor(nextState, effect.tile, undefined, effect.tilePlacementRule).length > 1;
+    !options.skipTile && requiresTileChoice(nextState, effect);
 
   // The victim is picked after the fact, so the decrement must not also run
   // here — otherwise the acting player is hit and then the chosen one is too.

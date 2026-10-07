@@ -436,8 +436,13 @@ div[tabindex="0"]:focus-visible {
 }
 .hex-placement-valid {
   animation: pulse-cyan 1.5s infinite;
+  background-color: #386A73;
   border: 2px solid var(--color-cyan) !important;
   z-index: 5;
+}
+.hex-placement-valid .hex-bonus,
+.hex-placement-valid .hex-label {
+  color: var(--text-hi);
 }
 .hex-placement-selected {
   animation: none;

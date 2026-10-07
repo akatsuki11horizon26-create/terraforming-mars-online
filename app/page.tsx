@@ -2376,7 +2376,7 @@ export default function Home() {
                 // adjacency bonus and any placement cost are only knowable from
                 // the live board, so the static description cannot carry them.
                 const placement = tileChoiceCells && isValid ? describePlacement(cell, activeState.board) : "";
-                const help = [describeCell(cell), placement].filter(Boolean).join(" ");
+                const help = [describeCell(cell), placement, tileChoiceCells && !isValid ? "このマスには配置できません。水色のマスを選んでください。" : ""].filter(Boolean).join(" ");
 
                 return (
                   <button
