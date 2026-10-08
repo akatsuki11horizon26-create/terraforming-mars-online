@@ -29,7 +29,7 @@ for (const viewport of [{ width: 1343, height: 725 }, { width: 390, height: 844 
     await page.getByTestId("open-standard-projects").click();
     await expect(page.getByRole("heading", { name: "基本アクション", exact: true })).toBeVisible();
     await page.getByTestId("sp-aquifer-btn").click();
-    await page.getByTestId("confirm-dialog-execute").click();
+
     await expect(guide).toContainText("盤面の光るマスを選択");
     await page.locator('[data-testid="board-cell"][data-placeable="true"]').first().click();
     if (viewport.width < 820) await page.getByTestId("confirm-board-placement").click();

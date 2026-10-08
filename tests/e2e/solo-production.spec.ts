@@ -66,7 +66,6 @@ test("a city shows both its cost and the production it moved", async ({ page }) 
   await expect(city).toBeEnabled();
   await city.click();
 
-  await page.getByTestId("confirm-dialog-execute").click();
 
   // A city needs a space, so the board asks before anything is paid.
   const chooseable = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();
@@ -149,7 +148,7 @@ test("what the action cut-in said is still readable after it goes", async ({ pag
   const aquifer = page.getByTestId("sp-aquifer-btn");
   await expect(aquifer).toBeEnabled();
   await aquifer.click();
-  await page.getByTestId("confirm-dialog-execute").click();
+
 
   // Place the ocean the project asks for.
   const target = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();

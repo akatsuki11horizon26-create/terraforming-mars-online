@@ -82,8 +82,8 @@ test("buying an aquifer places an ocean tile, advances ocean count and TR, and s
   await expect(aquiferBtn).toBeEnabled();
   await aquiferBtn.click();
 
-  // The project costs 18 MC and prompts a confirmation dialog.
-  await page.getByTestId("confirm-dialog-execute").click();
+  // The visible cost button pays directly; placement remains a separate choice.
+
 
   // The board asks where to place the ocean tile. Choose the first legal hex.
   const chooseable = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();

@@ -3094,14 +3094,18 @@ export default function Home() {
                         <span>建材を使用 (1建材={steelValue} MC):</span>
                         <button
                           className="btn-secondary payment-stepper"
+                          aria-label="建材の使用数を減らす"
                           disabled={steelUsed <= 0}
                           onClick={() => setSteelUsed(v => v - 1)}
                         >
                           -
                         </button>
-                        <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{steelUsed} / {maxSteel}</span>
+                        <select className="payment-select" aria-label="建材の使用数" value={steelUsed} onChange={event => setSteelUsed(Number(event.target.value))}>
+                          {Array.from({ length: maxSteel + 1 }, (_, amount) => <option key={amount} value={amount}>{amount}</option>)}
+                        </select>
                         <button
                           className="btn-secondary payment-stepper"
+                          aria-label="建材の使用数を増やす"
                           disabled={steelUsed >= maxSteel}
                           onClick={() => setSteelUsed(v => v + 1)}
                         >
@@ -3115,14 +3119,18 @@ export default function Home() {
                         <span>チタンを使用 (1チタン={titaniumValue} MC):</span>
                         <button
                           className="btn-secondary payment-stepper"
+                          aria-label="チタンの使用数を減らす"
                           disabled={titaniumUsed <= 0}
                           onClick={() => setTitaniumUsed(v => v - 1)}
                         >
                           -
                         </button>
-                        <span style={{ fontWeight: "bold", color: "var(--color-gold)" }}>{titaniumUsed} / {maxTitanium}</span>
+                        <select className="payment-select" aria-label="チタンの使用数" value={titaniumUsed} onChange={event => setTitaniumUsed(Number(event.target.value))}>
+                          {Array.from({ length: maxTitanium + 1 }, (_, amount) => <option key={amount} value={amount}>{amount}</option>)}
+                        </select>
                         <button
                           className="btn-secondary payment-stepper"
+                          aria-label="チタンの使用数を増やす"
                           disabled={titaniumUsed >= maxTitanium}
                           onClick={() => setTitaniumUsed(v => v + 1)}
                         >
@@ -3179,15 +3187,10 @@ export default function Home() {
                 <button
                   className="btn-primary"
                   disabled={!canPlaySelected}
-                  onClick={() =>
-                    confirmAction(
-                      `【${selectedCard.name}】をプレイ`,
-                      `カード代 ${selectedCardPayment?.mc ?? 0} MC${steelUsed ? `、建材 ${steelUsed}` : ""}${titaniumUsed ? `、チタン ${titaniumUsed}` : ""}${selectedCardPayment?.heat ? `、熱 ${selectedCardPayment.heat}` : ""}${selectedCardPayment?.plants ? `、植物 ${selectedCardPayment.plants}` : ""}${selectedCardPayment?.floaters ? `、フローター ${selectedCardPayment.floaters}` : ""}${selectedCardPayment?.levy ? `。TR上昇時のレッズ課税 ${selectedCardPayment.levy} MC` : ""}。アクションを1回消費します。`,
-                      handlePlayCardInit
-                    )
-                  }
+                  data-testid="play-selected-card"
+                  onClick={handlePlayCardInit}
                 >
-                  {selectedCard.placementType ? "配置フェーズへ進む" : "プレイを実行"}
+                  支払って{selectedCard.placementType ? "配置へ" : "プレイ"}（1行動）
                 </button>
                 {selectedCard.type === "active" && activeState.playedProjects.includes(selectedCard.id) && (() => {
                   const actionStatus = getCardActionStatus(activeState, selectedCard);
@@ -3288,7 +3291,7 @@ export default function Home() {
       </Drawer>
 
       <Drawer open={openDrawer === "standard"} title="基本アクション" onClose={closeDrawer}>
-        <p className="action-help">カードがなくても使える行動です。支払いと効果を確認し、1つ選んでください。1回につき1行動を使います。</p>
+        <p className="action-help">カードがなくても使える行動です。支払いと効果を確認し、1つ選んでください。ボタンを押すと支払い、1行動を使います。</p>
         {activeState.phase === "action" ? (
 
           <div className="cyber-panel">
@@ -3317,12 +3320,13 @@ export default function Home() {
                 </div>
                 <button
                   className="btn-secondary"
+                  title={`${standardPaymentText("power-plant")} を支払い、エネルギー生産量を1段階上げます。${standardLevyText("power-plant")}`}
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("power-plant")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-power-plant-btn"
-                  onClick={() => confirmAction("発電所の建設", `${standardPaymentText("power-plant")} を支払い、エネルギー生産量を1段階上げます。${standardLevyText("power-plant")}`, () => handleStandardProjectPlay("power_plant"))}
+                  onClick={() => handleStandardProjectPlay("power_plant")}
                 >
-                  実行
+                  {standardPaymentText("power-plant")}で実行
                 </button>
               </div>
 
@@ -3335,12 +3339,13 @@ export default function Home() {
                 </div>
                 <button
                   className="btn-secondary"
+                  title={`${standardPaymentText("asteroid")} を支払い、${temperatureGain}${standardLevyText("asteroid")}`}
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("asteroid")?.affordable || Boolean(pendingChoice) || !raisesTemperature}
                   data-testid="sp-asteroid-btn"
-                  onClick={() => confirmAction("小惑星の衝突", `${standardPaymentText("asteroid")} を支払い、${temperatureGain}${standardLevyText("asteroid")}`, () => handleStandardProjectPlay("asteroid"))}
+                  onClick={() => handleStandardProjectPlay("asteroid")}
                 >
-                  実行
+                  {standardPaymentText("asteroid")}で実行
                 </button>
               </div>
 
@@ -3354,12 +3359,13 @@ export default function Home() {
                   </div>
                   <button
                     className="btn-secondary"
+                    title={`${standardPaymentText("air-scrapping")} を支払い、金星を1段階上げてTRを1得ます。${standardLevyText("air-scrapping")}`}
                     style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                     disabled={!standardPayment("air-scrapping")?.affordable || Boolean(pendingChoice) || activeState.venus >= getVenusTrackLimit(activeState)}
                     data-testid="sp-air-scrapping-btn"
-                    onClick={() => confirmAction("金星大気の減圧", `${standardPaymentText("air-scrapping")} を支払い、金星を1段階上げてTRを1得ます。${standardLevyText("air-scrapping")}`, () => handleStandardProjectPlay("air_scrapping"))}
+                    onClick={() => handleStandardProjectPlay("air_scrapping")}
                   >
-                    実行
+                    {standardPaymentText("air-scrapping")}で実行
                   </button>
                 </div>
               )}
@@ -3373,13 +3379,14 @@ export default function Home() {
                 </div>
                 <button
                   className="btn-secondary"
+                  title={`${standardPaymentText("aquifer")} を支払い、${oceanGain}${standardLevyText("aquifer")}`}
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("aquifer")?.affordable || Boolean(pendingChoice) || !raisesOceans}
                   data-testid="sp-aquifer-btn"
-                  onClick={() => confirmAction("海洋の沈降", `${standardPaymentText("aquifer")} を支払い、${oceanGain}${standardLevyText("aquifer")}`, () => handleStandardProjectPlay("ocean"))}
+                  onClick={() => handleStandardProjectPlay("ocean")}
                 >
-                  配置
-                </button>
+                  {standardPaymentText("aquifer")}で配置へ
+                  </button>
               </div>
 
               {/* 4. Greenery */}
@@ -3391,13 +3398,14 @@ export default function Home() {
                 </div>
                 <button
                   className="btn-secondary"
+                  title={`${standardPaymentText("greenery")} を支払い、${greeneryGain}${standardLevyText("greenery")}`}
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("greenery")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-greenery-btn"
-                  onClick={() => confirmAction("緑化プロジェクト", `${standardPaymentText("greenery")} を支払い、${greeneryGain}${standardLevyText("greenery")}`, () => handleStandardProjectPlay("greenery"))}
+                  onClick={() => handleStandardProjectPlay("greenery")}
                 >
-                  配置
-                </button>
+                  {standardPaymentText("greenery")}で配置へ
+                  </button>
               </div>
 
               {/* 5. City */}
@@ -3409,13 +3417,14 @@ export default function Home() {
                 </div>
                 <button
                   className="btn-secondary"
+                  title={`${standardPaymentText("city")} を支払い、都市タイルを1枚配置し、MC生産量を1上げます。${standardLevyText("city")}`}
                   style={{ padding: "4px 8px", fontSize: "0.875rem" }}
                   disabled={!standardPayment("city")?.affordable || Boolean(pendingChoice)}
                   data-testid="sp-city-btn"
-                  onClick={() => confirmAction("都市の建設", `${standardPaymentText("city")} を支払い、都市タイルを1枚配置し、MC生産量を1上げます。${standardLevyText("city")}`, () => handleStandardProjectPlay("city"))}
+                  onClick={() => handleStandardProjectPlay("city")}
                 >
-                  配置
-                </button>
+                  {standardPaymentText("city")}で配置へ
+                  </button>
               </div>
 
               {/* 6. Heat release */}
@@ -3427,11 +3436,12 @@ export default function Home() {
                   </div>
                   <button
                     className="btn-secondary"
+                    title={`熱 8 を支払い、${temperatureGain}${standardLevyText("convert-heat")}`}
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!standardPayment("convert-heat")?.affordable || Boolean(pendingChoice) || !raisesTemperature}
-                    onClick={() => confirmAction("熱の変換", `熱 8 を支払い、${temperatureGain}${standardLevyText("convert-heat")}`, () => handleStandardProjectPlay("heat_convert"))}
+                    onClick={() => handleStandardProjectPlay("heat_convert")}
                   >
-                    変換
+                    熱8個で変換
                   </button>
                 </div>
               )}
@@ -3445,12 +3455,13 @@ export default function Home() {
                   </div>
                   <button
                     className="btn-secondary"
+                    title={`植物 ${plantGreeneryCost} を支払い、${greeneryGain}${standardLevyText("convert-plants")}`}
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!standardPayment("convert-plants")?.affordable || Boolean(pendingChoice)}
                     data-testid="sp-plants-convert-btn"
-                    onClick={() => confirmAction("植物の変換", `植物 ${plantGreeneryCost} を支払い、${greeneryGain}${standardLevyText("convert-plants")}`, () => handleStandardProjectPlay("plants_convert"))}
+                    onClick={() => handleStandardProjectPlay("plants_convert")}
                   >
-                    変換
+                    植物{plantGreeneryCost}個で配置へ
                   </button>
                 </div>
               )}
@@ -3465,12 +3476,13 @@ export default function Home() {
                   </div>
                   <button
                     className="btn-secondary"
+                    title={`${standardPaymentText("buffer-gas")} を支払い、TRが1上がります。${standardLevyText("buffer-gas")}`}
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!standardPayment("buffer-gas")?.affordable || Boolean(pendingChoice)}
                     data-testid="sp-buffer-gas-btn"
-                    onClick={() => confirmAction("緩衝ガスの放出", `${standardPaymentText("buffer-gas")} を支払い、TRが1上がります。${standardLevyText("buffer-gas")}`, () => handleStandardProjectPlay("buffer_gas"))}
+                    onClick={() => handleStandardProjectPlay("buffer_gas")}
                   >
-                    実行
+                    {standardPaymentText("buffer-gas")}で実行
                   </button>
                 </div>
               )}
@@ -3493,7 +3505,7 @@ export default function Home() {
                     setIsSellingPatents(true);
                   }}
                 >
-                  実行
+                  売るカードを選ぶ
                 </button>
               </div>
             </div>
