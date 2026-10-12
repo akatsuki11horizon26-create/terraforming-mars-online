@@ -139,6 +139,21 @@ Ares必須と明記されるタイルで、[公式Coloniesルール](https://fry
 
 ## 完了判定
 
+### 2026-10-12：熱の支払いを再確認
+
+基本ルールの支払い・生産・世代終了の記述と共通コマンドを確認したうえで、熱の支払いに再現可能な不一致を確認し修正した。
+
+- **Local Heat Trapping（局所的な熱の閉じ込め）**：通常企業がカード代1 MCを熱で払えていた。また、ヘリオンでカード代に熱を明示指定すると、効果に必要な5熱を使い込んでも実行できた。カード代と効果用資源を分け、選んだ支払いで両方を満たすことを共通の支払い計画で検査する。浮遊体は1個＝2熱として効果に使用し、ヘリオンとの合併時だけカード代にも充当する。従来のテストにも誤った支払いを正解とする例があったため、期待値を修正した。
+- **Stormcraft Incorporated（ストームクラフト）の熱変換**：浮遊体が4個あっても熱が8個未満だと気温上昇を実行できなかった。基本アクションの支払い・画面表示・CPUの合法手一覧を共通処理につなぎ、熱と浮遊体の配分を選べるようにした。任意のカード上の浮遊体を代用することはできない。
+
+根拠は[基本ルールp.6・9・11](https://cdn.1j1ju.com/medias/13/3f/fb-terraforming-mars-rule.pdf)、参照実装に収録された[Local Heat Trappingのカード本文](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/base/LocalHeatTrapping.ts)、[Helionのカード本文](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/corporation/Helion.ts)、[Stormcraftのカード本文](https://github.com/terraforming-mars/terraforming-mars/blob/main/src/server/cards/colonies/StormCraftIncorporated.ts)。参照実装の内部 `canPlay` だけを独立に模倣すると、カード代の支払い可否を調べる呼び出し元の条件が抜ける。カード本文と実際のプレイコマンドを合わせて検証する必要がある。
+
+回帰テストは `tests/game-command.test.mjs` と `tests/strict-rules.test.mjs`。資源不足の拒否、失敗時に状態が変わらないこと、MC／熱の選択、浮遊体の換算と予約、消費資源・行動回数・TRを確認する。画面・保存再開は `tests/e2e/heat-payment.spec.ts` でPCとスマホを確認する。
+
+実行結果：`npm test` 805件成功、熱支払いの画面テスト4件成功、型検査成功。390px・1343pxの表示と、熱を残して浮遊体4個を使う操作を確認した。
+
+上流操作の差分再生は今回も464件一致・差0、未再生2,398件。今回の修正だけで、全カードの組合せ・効果解決順・拡張横断の完全再現を保証するものではない。上表の「公式準拠」は既存の検証範囲についての判定であり、未検証の組合せまで保証しない。非公式ボードは追加していない。
+
 2026-10-06 の再確認では、上流実装との一致だけで公式準拠とした標準ゲームの判定に誤りが見つかった。[公式ルールブックの7・13ページ](https://cdn.1j1ju.com/medias/13/3f/fb-terraforming-mars-rule.pdf)を根拠に、企業の時代のカード除外、初期生産の加算、ソロの設定、初心者企業の別枠選択を修正した。`tests/official-content.test.mjs` で全配布プール、企業を選ぶ実コマンド、保存・再読込を検証する。非公式ボードは追加していない。
 
 既存の画面テストで再現した、手札下端12pxの欠けとスマホの海洋配置操作も修正した。後者はフォーカスで現れるツールチップが pointerup を奪い、タイルのクリックが成立しないことをイベント記録で確認した。`tests/e2e/hand-readable.spec.ts` と `tests/e2e/mobile-layout.spec.ts` を受入チェックに使用する。

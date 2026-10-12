@@ -430,8 +430,8 @@ const getStandardProjectPaymentPlan = jsGetStandardProjectPaymentPlan as unknown
   state: GameState,
   playerId: string,
   projectId: string,
-  payment?: { heat?: number }
-) => { cost: number; heat: number; mc: number; levy: number; placementLevy: number; affordable: boolean } | null;
+  payment?: { heat?: number; floaters?: number }
+) => { cost: number; heat: number; floaters?: number; floatersMax?: number; mc: number; levy: number; placementLevy: number; affordable: boolean } | null;
 const handleActionSpend = jsHandleActionSpend as unknown as (state: GameState, logAcc: LogEntry[]) => GameState;
 const applyCorporation = jsApplyCorporation as unknown as (state: GameState, corporationId: string) => GameState;
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
@@ -557,6 +557,7 @@ export default function Home() {
   const [steelUsed, setSteelUsed] = useState<number>(0);
   const [titaniumUsed, setTitaniumUsed] = useState<number>(0);
   const [heatChoice, setHeatChoice] = useState<number | null>(null);
+  const [heatConversionFloaters, setHeatConversionFloaters] = useState<number | null>(null);
   const [standardHeatChoices, setStandardHeatChoices] = useState<Record<string, number | null>>({});
   const [plantsChoice, setPlantsChoice] = useState<number | null>(null);
   const [showRestartConfirm, setShowRestartConfirm] = useState(false);
@@ -1335,7 +1336,7 @@ export default function Home() {
     "convert-heat", "convert-plants", "buffer-gas", "sell-patents"
   ] : []).map(projectId => {
     const heat = selectedStandardHeat(projectId);
-    return [projectId, getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId, heat === null ? {} : { heat })];
+    return [projectId, getStandardProjectPaymentPlan(activeState, currentPlayerId, projectId, projectId === "convert-heat" && heatConversionFloaters !== null ? { floaters: heatConversionFloaters } : heat === null ? {} : { heat })];
   })) as Record<string, ReturnType<typeof getStandardProjectPaymentPlan>>;
   const standardPayment = (projectId: string) => standardPaymentPlans[projectId] ?? null;
   const standardPaymentText = (projectId: string) => {
@@ -1450,13 +1451,16 @@ export default function Home() {
 
     const projectId = PROJECT_IDS[type];
     const heat = selectedStandardHeat(projectId);
-    const payment = heat === null ? undefined : { heat };
+    const payment = projectId === "convert-heat" && heatConversionFloaters !== null
+      ? { floaters: heatConversionFloaters }
+      : heat === null ? undefined : { heat };
     if (isOnline) {
       online.sendAction("standardProject", {
         projectId,
         payment,
         cardIds: type === "sell_patents" ? selectedSellCardIds : undefined
       });
+      setHeatConversionFloaters(null);
       setStandardHeatChoices(previous => ({ ...previous, [projectId]: null }));
       setIsSellingPatents(false);
       setSelectedSellCardIds([]);
@@ -1473,6 +1477,7 @@ export default function Home() {
     }) as { ok: boolean; state: GameState; error?: { message: string } };
 
     if (!result.ok) return;
+    setHeatConversionFloaters(null);
     setStandardHeatChoices(previous => ({ ...previous, [projectId]: null }));
     setIsSellingPatents(false);
     setSelectedSellCardIds([]);
@@ -1858,7 +1863,7 @@ export default function Home() {
   const powerPlantCost =
     (jsGetStandardProjectCost(activeState, currentPlayerId, "power-plant") as number | null) ?? 11;
   const isPlantsConvertAffordable = activeState.plants >= plantGreeneryCost;
-  const isHeatConvertAffordable = activeState.heat >= 8;
+  const isHeatConvertAffordable = Boolean(getStandardProjectPaymentPlan(activeState, currentPlayerId, "convert-heat")?.affordable);
   const canPlaceFinalGreenery = activeState.phase === "final_greenery" &&
     getFinalGreeneryPlacementCells(activeState, currentPlayerId).length > 0;
 
@@ -3139,7 +3144,7 @@ export default function Home() {
                       </div>
                     )}
 
-                    {selectedCardPayment && selectedCardPayment.heatMax > 0 && selectedCard.id !== "card-base-local-heat-trapping" && (
+                    {selectedCardPayment && selectedCardPayment.heatMax > 0 && (
                       <label className="material-payment" style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.875rem" }}>
                         <span>支払いに使う熱:</span>
                         <select
@@ -3432,16 +3437,27 @@ export default function Home() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid rgba(242, 232, 220, 0.1)", paddingTop: "6px" }}>
                   <div>
                     <div style={{ fontSize: "0.9375rem", fontWeight: "bold", color: "var(--color-gold)" }}>熱の放出 (Convert Heat)</div>
-                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>熱 8 | {raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"}{standardLevyText("convert-heat")}</div>
+                    <div style={{ fontSize: "0.875rem", color: "#c9bfae" }}>熱8個相当 | {raisesTemperature ? "気温 +2°C、TR +1" : "気温は上限"}{standardLevyText("convert-heat")}</div>
+                    {(standardPayment("convert-heat")?.floatersMax ?? 0) > 0 && (
+                      <label className="standard-heat-control">
+                        ストームクラフトの浮遊体（1個＝2熱）
+                        <select className="payment-select" aria-label="熱の変換に使う浮遊体" value={heatConversionFloaters ?? "auto"}
+                          onChange={event => setHeatConversionFloaters(event.target.value === "auto" ? null : Number(event.target.value))}>
+                          <option value="auto">自動（{standardPayment("convert-heat")?.floaters}個）</option>
+                          {Array.from({ length: (standardPayment("convert-heat")?.floatersMax ?? 0) + 1 }, (_, amount) => <option key={amount} value={amount}>{amount}個</option>)}
+                        </select>
+                      </label>
+                    )}
                   </div>
                   <button
                     className="btn-secondary"
-                    title={`熱 8 を支払い、${temperatureGain}${standardLevyText("convert-heat")}`}
+                    title={`${temperatureGain}${standardLevyText("convert-heat")}`}
+                    data-testid="sp-heat-convert-btn"
                     style={{ padding: "4px 8px", fontSize: "0.875rem", borderColor: "var(--color-gold)", color: "var(--color-gold)" }}
                     disabled={!standardPayment("convert-heat")?.affordable || Boolean(pendingChoice) || !raisesTemperature}
                     onClick={() => handleStandardProjectPlay("heat_convert")}
                   >
-                    熱8個で変換
+                    熱{standardPayment("convert-heat")?.heat ?? 8}{Boolean(standardPayment("convert-heat")?.floaters) && `・浮遊体${standardPayment("convert-heat")?.floaters}`}で変換
                   </button>
                 </div>
               )}

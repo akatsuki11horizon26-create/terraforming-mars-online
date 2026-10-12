@@ -57,6 +57,7 @@ import {
   ALL_CARDS,
   CORPORATIONS,
   LAW_SUIT_ID,
+  STORMCRAFT_INCORPORATED_ID,
   communitySpaceOptions,
   communityChoice,
   armPreservationProgram,
@@ -216,7 +217,18 @@ function spend(state, result, flag) {
 // Paying for a standard project. Helion may cover megacredits with heat; the
 // two conversion projects are paid in the resource they convert.
 function payProjectCost(state, playerId, project, payment) {
-  if (project.pays === "plants" || project.pays === "heat") {
+  if (project.pays === "heat") {
+    state.players = state.players.map(player => player.id === playerId ? {
+      ...player,
+      heat: (player.heat ?? 0) - payment.heat,
+      ...(payment.floaters > 0 ? { cardResources: {
+        ...player.cardResources,
+        [STORMCRAFT_INCORPORATED_ID]: player.cardResources[STORMCRAFT_INCORPORATED_ID] - payment.floaters
+      } } : {})
+    } : player);
+    return;
+  }
+  if (project.pays === "plants") {
     const field = project.pays;
     state.players = state.players.map(player =>
       player.id === playerId ? { ...player, [field]: (player[field] ?? 0) - payment.cost } : player
@@ -363,6 +375,14 @@ export function getStandardProjectPaymentPlan(state, playerId, projectId, paymen
   const cost = project.cost(state, corporation);
   const levy = getTrSurcharge(state, Math.max(0, (project.trSteps ?? 0) - (actor.preservationProgram ? 1 : 0)));
   const placementLevy = project.places ? projectPlacementLevy(state, actor, project.places) : 0;
+  if (project.pays === "heat") {
+    const floatersMax = Math.min(actor.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0, Math.ceil(cost / 2));
+    const floaters = payment?.floaters ?? Math.min(floatersMax, Math.ceil(Math.max(0, cost - (actor.heat ?? 0)) / 2));
+    const heat = Math.max(0, cost - floaters * 2);
+    const affordable = Number.isInteger(floaters) && floaters >= 0 && floaters <= floatersMax &&
+      (actor.heat ?? 0) >= heat && (actor.mc ?? 0) >= levy;
+    return { cost, heat, floaters, floatersMax, mc: 0, levy, placementLevy, affordable };
+  }
   const heatAvailable = corporation?.effects?.heatAsMoney && !project.pays ? actor.heat ?? 0 : 0;
   const requestedHeat = payment?.heat;
   const heat = requestedHeat === undefined

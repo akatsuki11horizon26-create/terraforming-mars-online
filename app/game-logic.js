@@ -679,7 +679,7 @@ function addResource(state, resource, amount) {
 
 const SOIL_ENRICHMENT_ID = "card-promo-soil-enrichment";
 const LOCAL_HEAT_TRAPPING_ID = "card-base-local-heat-trapping";
-const STORMCRAFT_INCORPORATED_ID = "card-colonies-stormcraft-incorporated";
+export const STORMCRAFT_INCORPORATED_ID = "card-colonies-stormcraft-incorporated";
 const ROBOTIC_WORKFORCE_ID = "card-base-robotic-workforce";
 
 // The whole production box, not just its flat part. Medical Lab's box is
@@ -8901,13 +8901,19 @@ export function getCardPaymentPlan(card, state, playerId, payment = {}) {
   const stormcraftFloaters = localHeatTrapping
     ? actor.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0
     : 0;
-  const heatAvailable = localHeatTrapping || corporation?.effects?.heatAsMoney ? actor.heat ?? 0 : 0;
-  const heatMax = Math.min(heatAvailable, cost);
+  const heatAsMoney = Boolean(corporation?.effects?.heatAsMoney);
+  const heatAvailable = heatAsMoney ? actor.heat ?? 0 : 0;
+  // The card's 5 heat is an effect cost, separate from its printed MC cost.
+  const reservedHeat = localHeatTrapping ? Math.max(0, 5 - stormcraftFloaters * 2) : 0;
+  const heatMax = Math.min(Math.max(0, heatAvailable - reservedHeat), cost);
   const heat = requested.heat === undefined
     ? Math.max(0, Math.min(heatMax, cost - mcForCard))
     : held(requested.heat, heatMax);
-  const floaters = localHeatTrapping
-    ? Math.min(stormcraftFloaters, Math.max(0, cost - mcForCard - heat))
+  const reservedFloaters = localHeatTrapping
+    ? Math.ceil(Math.max(0, 5 - ((actor.heat ?? 0) - heat)) / 2)
+    : 0;
+  const floaters = localHeatTrapping && heatAsMoney
+    ? Math.min(Math.max(0, stormcraftFloaters - reservedFloaters), Math.ceil(Math.max(0, cost - mcForCard - heat) / 2))
     : 0;
   const plantValue = plantsAsMegacredits(state, card) > 0 ? PLANT_MEGACREDIT_VALUE : 0;
   const plantsMax = plantValue
@@ -8915,14 +8921,18 @@ export function getCardPaymentPlan(card, state, playerId, payment = {}) {
     : 0;
   const plants = requested.plants === undefined
     ? Math.min(plantsMax, plantValue
-      ? Math.ceil(Math.max(0, cost - mcForCard - heat - floaters) / plantValue)
+      ? Math.ceil(Math.max(0, cost - mcForCard - heat - floaters * 2) / plantValue)
       : 0)
     : held(requested.plants, plantsMax);
-  const mc = Math.max(0, cost - heat - floaters - plants * plantValue);
+  const mc = Math.max(0, cost - heat - floaters * 2 - plants * plantValue);
+  const effectAffordable = !localHeatTrapping || (
+    (actor.heat ?? 0) - heat + (stormcraftFloaters - floaters) * 2 >= 5 &&
+    (requested.heat === undefined || Number(requested.heat) <= heatMax)
+  );
   return {
     steel, titanium, heat, floaters, plants, mc, cost, levy,
     heatMax, plantsMax,
-    affordable: (actor.mc ?? 0) >= mc + levy
+    affordable: (actor.mc ?? 0) >= mc + levy && effectAffordable
   };
 }
 
@@ -9661,23 +9671,12 @@ export function getCardPlayableStatus(
   // "When playing a building tag, plants may be used as 3 M€ each."
   const plantsAsMoney = plantsAsMegacredits(state, card);
   const localHeatTrapping = card.id === LOCAL_HEAT_TRAPPING_ID;
-  const stormcraftFloaters = localHeatTrapping
-    ? state.cardResources?.[STORMCRAFT_INCORPORATED_ID] ?? 0
-    : 0;
-  const costResources = localHeatTrapping
-    ? state.mc + state.heat + stormcraftFloaters
-    : state.mc + heatAsMoney + plantsAsMoney;
-  if (costResources < costAfterDiscount) {
-    return { playable: false, reason: "資源（MC）が不足しています。" };
-  }
   if (localHeatTrapping) {
-    let remainingCost = Math.max(0, costAfterDiscount - state.mc);
-    const heatAfterCost = Math.max(0, state.heat - remainingCost);
-    remainingCost = Math.max(0, remainingCost - state.heat);
-    const floatersAfterCost = Math.max(0, stormcraftFloaters - remainingCost);
-    if (heatAfterCost + floatersAfterCost * 2 < 5) {
-      return { playable: false, reason: "カードコスト支払い後の熱相当資源が不足しています。" };
+    if (!getCardPaymentPlan(card, state, state.currentPlayerId, { steel: steelUsed, titanium: titaniumUsed }).affordable) {
+      return { playable: false, reason: "カード代とは別に熱5個相当の資源が必要です。" };
     }
+  } else if (state.mc + heatAsMoney + plantsAsMoney < costAfterDiscount) {
+    return { playable: false, reason: "資源（MC）が不足しています。" };
   }
 
   // "You may not raise your TR unless you can pay." The levy is not a debt the

@@ -11,6 +11,82 @@ import {
 } from "../app/game-logic.js";
 import { executeGameCommand, getLegalCommands, getFinalGreeneryPlacementCells, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 
+test("Local Heat Trapping reserves its effect heat separately from the card payment", () => {
+  const cardId = "card-base-local-heat-trapping";
+  const stormcraft = "card-colonies-stormcraft-incorporated";
+  for (const scenario of [
+    { name: "ordinary corporation cannot pay MC with heat", mc: 0, heat: 6, ok: false },
+    { name: "Stormcraft cannot pay MC with floaters", mc: 0, heat: 5, floaters: 1, corporationId: stormcraft, ok: false },
+    { name: "Helion cannot spend effect heat twice", mc: 1, heat: 5, corporationId: "corp-helion", payment: { heat: 1 }, ok: false },
+    { name: "Helion may retain the sixth heat by paying MC", mc: 1, heat: 6, corporationId: "corp-helion", payment: { heat: 0 }, ok: true, afterMc: 0, afterHeat: 1 },
+    { name: "Helion may pay the sixth heat instead", mc: 1, heat: 6, corporationId: "corp-helion", payment: { heat: 1 }, ok: true, afterMc: 1, afterHeat: 0 },
+    { name: "Stormcraft supplies two heat per floater", mc: 1, heat: 3, floaters: 1, corporationId: stormcraft, ok: true, afterMc: 0, afterHeat: 0 },
+    { name: "merged Helion reserves the effect before spending floaters", mc: 0, heat: 3, floaters: 1, corporationId: stormcraft, mergedCorporationId: "corp-helion", ok: false },
+    { name: "merged Helion can spend a spare floater", mc: 0, heat: 0, floaters: 4, corporationId: stormcraft, mergedCorporationId: "corp-helion", ok: true, afterMc: 0, afterHeat: 0 }
+  ]) {
+    const state = getInitialState({ playerCount: 1, seed: 31 });
+    state.phase = "action";
+    Object.assign(state.players[0], {
+      mc: scenario.mc, heat: scenario.heat, plants: 0, hand: [cardId],
+      corporationId: scenario.corporationId ?? "corp-credicor",
+      mergedCorporationId: scenario.mergedCorporationId ?? null,
+      cardResources: { [stormcraft]: scenario.floaters ?? 0 }
+    });
+    const before = JSON.stringify(state);
+    const result = executeGameCommand(state, { type: COMMAND.PLAY_CARD, playerId: state.currentPlayerId, cardId, payment: scenario.payment });
+    assert.equal(result.ok, scenario.ok, scenario.name);
+    assert.equal(JSON.stringify(state), before, "input state must not mutate");
+    if (!scenario.ok) {
+      assert.equal(JSON.stringify(result.state), before, scenario.name);
+    } else {
+      const player = result.state.players[0];
+      assert.equal(player.mc, scenario.afterMc, scenario.name);
+      assert.equal(player.heat, scenario.afterHeat, scenario.name);
+      assert.equal(player.plants, 4, scenario.name);
+      assert.equal(player.actionsRemaining, 1, scenario.name);
+      assert.equal(player.cardResources[stormcraft], 0, scenario.name);
+    }
+  }
+});
+
+test("Stormcraft heat conversion spends the chosen combination once", () => {
+  const stormcraft = "card-colonies-stormcraft-incorporated";
+  for (const [heat, heldFloaters, payment, ok, remainingHeat, remainingFloaters] of [
+    [0, 4, {}, true, 0, 0],
+    [3, 3, {}, true, 1, 0],
+    [8, 4, { floaters: 0 }, true, 0, 4],
+    [8, 4, { floaters: 4 }, true, 8, 0],
+    [8, 4, { floaters: 2 }, true, 4, 2],
+    [0, 3, {}, false],
+    [8, 4, { floaters: 5 }, false],
+    [8, 4, { floaters: -1 }, false],
+    [8, 4, { floaters: 1.5 }, false]
+  ]) {
+    const state = getInitialState({ playerCount: 1, seed: 31 });
+    state.phase = "action";
+    Object.assign(state.players[0], {
+      corporationId: stormcraft, heat, cardResources: { [stormcraft]: heldFloaters }
+    });
+    const before = JSON.stringify(state);
+    const result = executeGameCommand(state, { type: COMMAND.STANDARD_PROJECT, playerId: state.currentPlayerId, projectId: "convert-heat", payment });
+    assert.equal(result.ok, ok, JSON.stringify({ heat, heldFloaters, payment }));
+    assert.equal(JSON.stringify(state), before);
+    if (!ok) {
+      assert.equal(JSON.stringify(result.state), before);
+      continue;
+    }
+    assert.equal(result.state.players[0].heat, remainingHeat);
+    assert.equal(result.state.players[0].cardResources[stormcraft], remainingFloaters);
+    assert.equal(result.state.temperature, -28);
+    assert.equal(result.state.players[0].tr, state.players[0].tr + 1);
+    assert.equal(result.state.players[0].actionsRemaining, 1);
+  }
+  const state = getInitialState({ playerCount: 1, seed: 31 });
+  state.phase = "action";
+  Object.assign(state.players[0], { heat: 0, cardResources: { [stormcraft]: 4 } });
+  assert.ok(getLegalCommands(state, state.currentPlayerId).some(command => command.projectId === "convert-heat"));
+});
+
 // Titan, Enceladus and Miranda stay off the track until a card that can hold
 // their resource is played, so a test that just wants "a colony" has to ask for
 // one that is usable -- the tiles in play are shuffled.

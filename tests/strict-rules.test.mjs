@@ -764,13 +764,14 @@ test("A solo attack hits the neutral opponent, not the player", async () => {
 });
 
 test("Local Heat Trapping follows card-cost reserves and effect choices", () => {
-  const makeState = ({ mc = 0, heat = 5, floaters = 0, animals = [] } = {}) => {
+  const makeState = ({ mc = 0, heat = 5, floaters = 0, animals = [], corporationId = null } = {}) => {
     const state = getInitialState({ playerCount: 1 });
     state.phase = "action";
     state.currentPlayerId = "player";
     const player = state.players[0];
     player.mc = mc;
     player.heat = heat;
+    player.corporationId = corporationId;
     player.hand = ["card-base-local-heat-trapping"];
     player.playedProjects = animals;
     player.cardResources = {
@@ -789,7 +790,7 @@ test("Local Heat Trapping follows card-cost reserves and effect choices", () => 
   assert.equal(mcPaid.state.players[0].plants, 4);
   assert.equal(mcPaid.state.players[0].actionsRemaining, 1);
 
-  const heatPaid = executeGameCommand(makeState({ heat: 6 }), {
+  const heatPaid = executeGameCommand(makeState({ heat: 6, corporationId: "corp-helion" }), {
     type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
   });
   assert.equal(heatPaid.ok, true);
@@ -798,9 +799,7 @@ test("Local Heat Trapping follows card-cost reserves and effect choices", () => 
   const floaterPaid = executeGameCommand(makeState({ heat: 5, floaters: 1 }), {
     type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
   });
-  assert.equal(floaterPaid.ok, true);
-  assert.equal(floaterPaid.state.players[0].cardResources["card-colonies-stormcraft-incorporated"], 0);
-  assert.equal(floaterPaid.state.players[0].plants, 4);
+  assert.equal(floaterPaid.ok, false, "floaters cover heat, not the printed MC cost without Helion");
 
   const effectFloaterPaid = executeGameCommand(makeState({ mc: 1, heat: 3, floaters: 1 }), {
     type: COMMAND.PLAY_CARD, playerId: "player", cardId: "card-base-local-heat-trapping"
