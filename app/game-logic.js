@@ -395,6 +395,24 @@ const BOARD_OF_DIRECTORS_ID = "card-prelude2-board-of-directors";
 function venusShuttlesCost(state, playerId) {
   return Math.max(0, 12 - countActiveTags(state, playerId, "Venus"));
 }
+
+function resolveVenusShuttles(state, logs, heat) {
+  const cost = venusShuttlesCost(state, state.currentPlayerId);
+  state.mc -= cost - heat;
+  state.heat -= heat;
+  const beforeVenus = state.venus ?? 0;
+  state.venus = advanceVenusTrack(state, beforeVenus, 1);
+  const raised = venusStepIndex(state.venus) - venusStepIndex(beforeVenus);
+  if (raised > 0) {
+    increaseTerraformRating(state, state.currentPlayerId, raised, "card");
+    grantParameterRaisedCardEffects(state, "venus", raised);
+    const bonus = applyVenusThresholds(state, beforeVenus, logs);
+    Object.assign(state, bonus.state);
+    logs = bonus.logs;
+  }
+  state.usedCardActions = [...(state.usedCardActions ?? []), VENUS_SHUTTLES_ID];
+  return addLog(logs, "system", `Venus Shuttles: MC -${cost - heat}、熱 -${heat}、金星 +${raised}段階`);
+}
 const WG_PROJECT_ID = "card-prelude2-wg-project";
 const MEAT_INDUSTRY_ID = "card-promo-meat-industry";
 const PROJECT_EDEN_ID = "card-prelude2-project-eden";
@@ -4284,6 +4302,11 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       break;
     }
 
+    case "venus-shuttles-payment": {
+      nextLogs = resolveVenusShuttles(next, nextLogs, option.heat);
+      break;
+    }
+
     case "energy-market": {
       const target = choice.ownerPlayerId ?? actorId;
       const owner = getPlayer(next, target);
@@ -6066,7 +6089,7 @@ function applyPreludeFreePlay(state, effect, logs) {
   return { state: triggerResult.state, logs: triggerResult.logs, card };
 }
 
-function energyMarketBudget(state) {
+function availableActionMoney(state) {
   const player = getCurrentPlayer(state);
   return (player.mc ?? 0) + (getCorporation(state)?.effects?.heatAsMoney ? player.heat ?? 0 : 0);
 }
@@ -6161,7 +6184,7 @@ export function getCardActionStatus(state, card) {
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
       return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
     }
-    return (seat?.mc ?? 0) >= venusShuttlesCost(state, state.currentPlayerId)
+    return availableActionMoney(state) >= venusShuttlesCost(state, state.currentPlayerId)
       ? { playable: true, reason: "" }
       : { playable: false, reason: "MCが不足しています。" };
   }
@@ -6241,7 +6264,7 @@ export function getCardActionStatus(state, card) {
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
       return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
     }
-    const spendable = energyMarketBudget(state);
+    const spendable = availableActionMoney(state);
     return spendable >= 2 || (seat?.energyProd ?? 0) >= 1
       ? { playable: true, reason: "" }
       : { playable: false, reason: "2 MCかエネルギー生産量が必要です。" };
@@ -6422,21 +6445,26 @@ export function applyCardAction(state, card, logs, branchIndex) {
 
   if (card.id === VENUS_SHUTTLES_ID) {
     const cost = venusShuttlesCost(nextState, nextState.currentPlayerId);
-    nextState.mc = (nextState.mc ?? 0) - cost;
-    const beforeVenus = nextState.venus ?? 0;
-    nextState.venus = advanceVenusTrack(nextState, beforeVenus, 1);
-    const raised = venusStepIndex(nextState.venus) - venusStepIndex(beforeVenus);
-    if (raised > 0) {
-      increaseTerraformRating(nextState, nextState.currentPlayerId, raised, "card");
-      grantParameterRaisedCardEffects(nextState, "venus", raised);
-      const bonus = applyVenusThresholds(nextState, beforeVenus, logs);
-      nextState.venus = bonus.state.venus;
-      Object.assign(nextState, bonus.state);
+    const minHeat = Math.max(0, cost - nextState.mc);
+    const maxHeat = Math.min(cost, getCorporation(nextState)?.effects?.heatAsMoney ? nextState.heat : 0);
+    if (maxHeat > minHeat) {
+      nextState.pendingChoice = {
+        id: `venus-shuttles-payment:${nextState.currentPlayerId}`,
+        kind: "venus-shuttles-payment",
+        ownerPlayerId: nextState.currentPlayerId,
+        prompt: "金星シャトルの使用料をどう支払いますか。",
+        optional: false,
+        options: Array.from({ length: maxHeat - minHeat + 1 }, (_, index) => {
+          const heat = minHeat + index;
+          return { id: `heat-${heat}`, heat, label: `MC ${cost - heat}・熱 ${heat}` };
+        }),
+        continuation: { sourceKind: "card-action", sourceId: card.id, consumedAction: true, paid: false }
+      };
+      return { state: nextState, logs, playable: true, awaitingChoice: true };
     }
-    nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
     return {
       state: nextState,
-      logs: addLog(logs, "system", `Venus Shuttles: MC -${cost}、金星 +${raised}段階`),
+      logs: resolveVenusShuttles(nextState, logs, minHeat),
       playable: true
     };
   }
@@ -6628,7 +6656,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
   // both halves live in one list rather than a branch that asks again.
   if (card.id === ENERGY_MARKET_ID) {
     const options = [];
-    const affordable = Math.floor(energyMarketBudget(nextState) / 2);
+    const affordable = Math.floor(availableActionMoney(nextState) / 2);
     for (let amount = 1; amount <= affordable; amount++) {
       options.push({ id: `energy-${amount}`, label: `MC -${amount * 2} / エネルギー +${amount}`, energy: amount });
     }

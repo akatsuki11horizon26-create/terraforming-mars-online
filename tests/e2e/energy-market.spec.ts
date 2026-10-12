@@ -16,6 +16,35 @@ const bespokeActions = [
 ];
 
 for (const width of [1343, 390]) {
+  test(`Venus Shuttles heat payment survives reload at ${width}px`, async ({ page }) => {
+    let state = getInitialState({ playerCount: 1, venus: true, seed: 31 });
+    state.players[0].corporationOptions = ["corp-helion"];
+    state = applyCorporation(state, "corp-helion", state.currentPlayerId);
+    state = completeSetupPurchase(state);
+    state.onboarded = true;
+    Object.assign(state.players[0], {
+      mc: 5, heat: 11, hand: [], playedProjects: ["card-prelude2-venus-shuttles"]
+    });
+    await page.addInitScript(({ key, saved }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, saved);
+    }, { key: SAVE_KEY, saved: serializeSavedState(state) });
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await page.getByTestId("mode-continue").click();
+    await page.getByRole("button", { name: "金星シャトル — アクション", exact: true }).click();
+    await page.getByTestId("confirm-dialog-execute").click();
+    await expect(page.getByRole("button", { name: "MC 0・熱 11", exact: true })).toBeVisible();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByTestId("mode-continue").click();
+    await page.getByRole("button", { name: "MC 0・熱 11", exact: true }).click();
+    await expect(page.getByTestId("turn-guide")).toContainText("あと1回");
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), SAVE_KEY);
+    expect(saved.players[0].mc).toBe(5);
+    expect(saved.players[0].heat).toBe(0);
+    expect(saved.venus).toBe(2);
+    await expect(page.getByRole("button", { name: "金星シャトル — アクション", exact: true })).toBeDisabled();
+  });
+
   test(`Energy Market heat payment survives reload at ${width}px`, async ({ page }) => {
     let state = getInitialState({ playerCount: 1, seed: 31 });
     state.players[0].corporationOptions = ["corp-helion"];

@@ -12,6 +12,53 @@ import {
 import { executeGameCommand, getLegalCommands, getFinalGreeneryPlacementCells, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
 
+test("Venus Shuttles accepts Helion heat and preserves the payment choice on reload", () => {
+  const cardId = "card-prelude2-venus-shuttles";
+  for (const [mc, heat, chosenHeat] of [[0, 11, 11], [11, 11, 0], [11, 11, 11], [7, 8, 5]]) {
+    const state = getInitialState({ playerCount: 2, venus: true, prelude2: true, seed: 31 });
+    state.phase = "action";
+    Object.assign(state.players[0], { corporationId: "corp-helion", mc, heat, playedProjects: [cardId] });
+    const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+    let result = executeGameCommand(state, command);
+    assert.equal(result.ok, true, `MC ${mc}, heat ${heat}`);
+    if (result.state.pendingChoice) {
+      assert.equal(result.state.venus, 0);
+      assert.equal(result.state.players[0].mc, mc);
+      assert.equal(result.state.players[0].heat, heat);
+      assert.equal(result.state.players[0].actionsRemaining, 2);
+      result = executeGameCommand(loadSavedState(serializeSavedState(result.state)), {
+        type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: `heat-${chosenHeat}`
+      });
+    }
+    assert.equal(result.ok, true);
+    assert.equal(result.state.pendingChoice, null);
+    assert.equal(result.state.venus, 2);
+    assert.equal(result.state.players[0].tr, state.players[0].tr + 1);
+    assert.equal(result.state.players[0].mc, mc - 11 + chosenHeat);
+    assert.equal(result.state.players[0].heat, heat - chosenHeat);
+    assert.equal(result.state.players[0].actionsRemaining, 1);
+    assert.equal(executeGameCommand(result.state, command).ok, false);
+  }
+});
+
+test("Venus Shuttles refuses other corporations' heat and respects the Venus cap", () => {
+  const cardId = "card-prelude2-venus-shuttles";
+  const state = getInitialState({ playerCount: 2, venus: true, seed: 31 });
+  state.phase = "action";
+  Object.assign(state.players[0], { corporationId: "corp-credicor", mc: 0, heat: 11, playedProjects: [cardId] });
+  const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+  assert.equal(executeGameCommand(state, command).ok, false);
+  Object.assign(state.players[0], { corporationId: "corp-helion", heat: 10 });
+  assert.equal(executeGameCommand(state, command).ok, false);
+  state.players[0].heat = 11;
+  state.venus = 30;
+  const result = executeGameCommand(state, command);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.venus, 30);
+  assert.equal(result.state.players[0].tr, state.players[0].tr);
+  assert.equal(result.state.players[0].heat, 0);
+});
+
 test("Energy Market offers and charges Helion heat through the actual command", () => {
   const cardId = "card-promo-energy-market";
   for (const [mc, heat, buy, chosenHeat] of [[1, 3, 2, 3], [4, 4, 2, 0], [4, 4, 2, 4], [4, 4, 2, 2]]) {

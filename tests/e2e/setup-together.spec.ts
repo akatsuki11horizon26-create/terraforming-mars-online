@@ -102,7 +102,8 @@ test("nothing is committed until the single confirmation, and choices can be cha
 test("the cards chosen beside the corporation are the ones actually taken", async ({ page }) => {
   await openSetup(page, false);
 
-  const corporations = page.getByTestId("corp-option");
+  // Inventrix draws three additional cards during setup; this check isolates the purchased hand.
+  const corporations = page.getByTestId("corp-option").filter({ hasNotText: /Inventrix|Beginner Corporation/ });
   const cards = page.getByTestId("setup-card-option");
   await expect(corporations.first()).toBeVisible();
   await corporations.first().click();
