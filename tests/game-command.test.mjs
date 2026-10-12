@@ -10,6 +10,61 @@ import {
   CORPORATIONS
 } from "../app/game-logic.js";
 import { executeGameCommand, getLegalCommands, getFinalGreeneryPlacementCells, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
+import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
+
+test("Energy Market offers and charges Helion heat through the actual command", () => {
+  const cardId = "card-promo-energy-market";
+  for (const [mc, heat, buy, chosenHeat] of [[1, 3, 2, 3], [4, 4, 2, 0], [4, 4, 2, 4], [4, 4, 2, 2]]) {
+    const state = getInitialState({ playerCount: 2, seed: 31 });
+    state.phase = "action";
+    Object.assign(state.players[0], { corporationId: "corp-helion", mc, heat, energy: 0, energyProd: 0, playedProjects: [cardId] });
+    const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+    assert.ok(getLegalCommands(state, state.currentPlayerId).some(c => c.type === command.type && c.cardId === cardId));
+    const started = executeGameCommand(state, command);
+    assert.equal(started.ok, true);
+    assert.equal(started.state.players[0].actionsRemaining, 2);
+    let result = executeGameCommand(started.state, { type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: `energy-${buy}` });
+    assert.equal(result.ok, true);
+    if (result.state.pendingChoice) {
+      assert.equal(result.state.players[0].energy, 0);
+      assert.equal(result.state.players[0].mc, mc);
+      assert.equal(result.state.players[0].heat, heat);
+      assert.equal(result.state.players[0].actionsRemaining, 2);
+      const restored = loadSavedState(serializeSavedState(result.state));
+      const invalid = executeGameCommand(restored, { type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: "heat-99" });
+      assert.equal(invalid.state.players[0].mc, mc);
+      assert.equal(invalid.state.players[0].heat, heat);
+      assert.equal(invalid.state.players[0].energy, 0);
+      assert.deepEqual(invalid.state.pendingChoice, restored.pendingChoice);
+      result = executeGameCommand(restored, { type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: `heat-${chosenHeat}` });
+      assert.equal(result.ok, true);
+    }
+    assert.equal(result.state.pendingChoice, null);
+    assert.equal(result.state.players[0].mc, mc - buy * 2 + chosenHeat);
+    assert.equal(result.state.players[0].heat, heat - chosenHeat);
+    assert.equal(result.state.players[0].energy, buy);
+    assert.equal(result.state.players[0].actionsRemaining, 1);
+    assert.equal(executeGameCommand(result.state, command).ok, false, "action stays used for this generation");
+    assert.equal(state.players[0].mc, mc, "input is unchanged");
+  }
+});
+
+test("Energy Market keeps ordinary payment and production sale distinct", () => {
+  const cardId = "card-promo-energy-market";
+  const state = getInitialState({ playerCount: 1, seed: 31 });
+  state.phase = "action";
+  Object.assign(state.players[0], { corporationId: "corp-credicor", mc: 1, heat: 20, energyProd: 0, playedProjects: [cardId] });
+  const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+  assert.equal(executeGameCommand(state, command).ok, false);
+  Object.assign(state.players[0], { corporationId: "corp-helion", energyProd: 1 });
+  const started = executeGameCommand(state, command);
+  const sold = executeGameCommand(started.state, { type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: "sell-production" });
+  assert.equal(sold.ok, true);
+  assert.equal(sold.state.players[0].mc, 9);
+  assert.equal(sold.state.players[0].heat, 20);
+  assert.equal(sold.state.players[0].energyProd, 0);
+  assert.equal(sold.state.players[0].actionsRemaining, 1);
+});
 
 test("Local Heat Trapping reserves its effect heat separately from the card payment", () => {
   const cardId = "card-base-local-heat-trapping";

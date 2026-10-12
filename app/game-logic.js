@@ -4286,13 +4286,32 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
 
     case "energy-market": {
       const target = choice.ownerPlayerId ?? actorId;
+      const owner = getPlayer(next, target);
+      const cost = (option.energy ?? 0) * 2;
+      const heatAvailable = corporationFor(owner)?.effects?.heatAsMoney ? owner.heat ?? 0 : 0;
+      const minHeat = Math.max(0, cost - (owner.mc ?? 0));
+      const maxHeat = Math.min(cost, heatAvailable);
+      if (!option.sellProduction && option.heat === undefined && maxHeat > minHeat) {
+        const options = Array.from({ length: maxHeat - minHeat + 1 }, (_, index) => {
+          const heat = minHeat + index;
+          return { id: `heat-${heat}`, energy: option.energy, heat, label: `MC ${cost - heat}・熱 ${heat} → エネルギー ${option.energy}` };
+        });
+        next.pendingChoice = {
+          ...choice,
+          id: `energy-market-payment:${target}`,
+          prompt: `エネルギー${option.energy}個の購入代をどう支払いますか。`,
+          options
+        };
+        return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      }
+      const heat = option.heat ?? minHeat;
       next.players = next.players.map(player => {
         if (player.id !== target) return player;
         if (option.sellProduction) {
           return { ...player, energyProd: (player.energyProd ?? 0) - 1, mc: (player.mc ?? 0) + 8 };
         }
         const amount = option.energy ?? 0;
-        return { ...player, mc: (player.mc ?? 0) - amount * 2, energy: (player.energy ?? 0) + amount };
+        return { ...player, mc: (player.mc ?? 0) - amount * 2 + heat, heat: (player.heat ?? 0) - heat, energy: (player.energy ?? 0) + amount };
       });
       nextLogs = addLog(nextLogs, "system", `Energy Market: ${option.label}`);
       break;
@@ -6047,6 +6066,11 @@ function applyPreludeFreePlay(state, effect, logs) {
   return { state: triggerResult.state, logs: triggerResult.logs, card };
 }
 
+function energyMarketBudget(state) {
+  const player = getCurrentPlayer(state);
+  return (player.mc ?? 0) + (getCorporation(state)?.effects?.heatAsMoney ? player.heat ?? 0 : 0);
+}
+
 // Whether a player can pay for one branch of an OR action. Only resourcesHere
 // was ever checked, so a branch costing plants, steel, titanium, energy or
 // megacredits was offered to anyone -- Electro Catapult handed 7 M€ to a player
@@ -6074,6 +6098,15 @@ function canAffordActionPayment(state, card, payment = {}) {
 function canAffordBranch(state, card, behavior) {
   const normalized = normalizeBehavior(behavior, {}, []);
   return canAffordActionPayment(state, card, normalized.payment);
+}
+
+export function hasCardAction(card) {
+  return Boolean(getCardEffect(card).action) || [
+    POWER_INFRASTRUCTURE_ID, FLOYD_CONTINUUM_ID, BOARD_OF_DIRECTORS_ID,
+    TITAN_FLOATING_LAUNCH_PAD_ID, VENUS_SHUTTLES_ID, FOCUSED_ORGANIZATION_ID,
+    CERES_TECH_MARKET_ID, HI_TECH_LAB_ID, SELF_REPLICATING_ROBOTS_ID,
+    MARS_NOMADS_ID, VENUS_ORBITAL_SURVEY_ID, ENERGY_MARKET_ID
+  ].includes(card.id);
 }
 
 export function getCardActionStatus(state, card) {
@@ -6208,12 +6241,7 @@ export function getCardActionStatus(state, card) {
     if ((seat?.usedCardActions ?? []).includes(card.id)) {
       return { playable: false, reason: "このカードのアクションは、この世代ではすでに使用済みです。" };
     }
-    // Upstream asks player.canAfford(2), which counts Helion's heat as money.
-    // Reading the megacredits alone refused the action for a player holding
-    // 1 M€ and 3 heat -- exactly the case its own test covers.
-    const corporation = getCorporation(state, seat?.id);
-    const spendable = (seat?.mc ?? 0) +
-      (corporation?.effects?.heatAsMoney ? (seat?.heat ?? 0) : 0);
+    const spendable = energyMarketBudget(state);
     return spendable >= 2 || (seat?.energyProd ?? 0) >= 1
       ? { playable: true, reason: "" }
       : { playable: false, reason: "2 MCかエネルギー生産量が必要です。" };
@@ -6600,7 +6628,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
   // both halves live in one list rather than a branch that asks again.
   if (card.id === ENERGY_MARKET_ID) {
     const options = [];
-    const affordable = Math.floor((nextState.mc ?? 0) / 2);
+    const affordable = Math.floor(energyMarketBudget(nextState) / 2);
     for (let amount = 1; amount <= affordable; amount++) {
       options.push({ id: `energy-${amount}`, label: `MC -${amount * 2} / エネルギー +${amount}`, energy: amount });
     }

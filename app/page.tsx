@@ -26,7 +26,7 @@ import {
   applyCardEffect as jsApplyCardEffect,
   applyCardAction as jsApplyCardAction,
   getCardActionStatus as jsGetCardActionStatus,
-  getCardEffect as jsGetCardEffect
+  hasCardAction
 } from "./game-logic.js";
 import { SAVE_KEY, loadSavedState, serializeSavedState } from "./save-migration.js";
 import {
@@ -437,7 +437,6 @@ const applyCorporation = jsApplyCorporation as unknown as (state: GameState, cor
 const applyPreludes = jsApplyPreludes as unknown as (state: GameState, preludeIds: string[]) => GameState;
 const getPreludeCost = jsGetPreludeCost as unknown as (prelude: Prelude) => number;
 const getCardActionStatus = jsGetCardActionStatus as unknown as (state: GameState, card: Card) => { playable: boolean; reason: string };
-const getCardEffect = jsGetCardEffect as unknown as (card: Card) => Record<string, unknown>;
 
 export default function Home() {
   // getInitialState shuffles the deck, and solo neutral tiles are now placed from
@@ -1833,7 +1832,7 @@ export default function Home() {
     ...seatPlayedProjects.map(id => ALL_CARDS.find(card => card.id === id)),
     ...seatPreludeIds.map(id => PRELUDES.find(card => card.id === id))
   ]
-    .filter((card): card is Card => Boolean(card && getCardEffect(card as Card).action)),
+    .filter((card): card is Card => Boolean(card && hasCardAction(card))),
   [seatPlayedProjects, seatPreludeIds]);
 
   const { playable: selectedCardRulesMet, reason: playDisableReason } = selectedCard
