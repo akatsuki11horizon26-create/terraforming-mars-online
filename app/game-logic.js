@@ -4302,6 +4302,15 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       break;
     }
 
+    case "card-action-payment": {
+      const applied = applyCardAction(next, card, nextLogs, choice.continuation.payload?.branchIndex, option.payment);
+      const crossed = checkParameterThresholds(next.temperature, applied.state.temperature, next.oxygen, applied.state.oxygen, applied.state, applied.logs);
+      Object.assign(next, crossed.state);
+      nextLogs = crossed.logs;
+      if (next.pendingChoice) return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+      break;
+    }
+
     case "venus-shuttles-payment": {
       nextLogs = resolveVenusShuttles(next, nextLogs, option.heat);
       break;
@@ -4973,6 +4982,14 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
       const branch = branches?.[Number(option.id)];
       if (branch) {
         const branchEffect = normalizeBehavior(branch, {}, []);
+        if (fromAction && branchEffect.payment?.mc) {
+          const applied = applyCardAction(next, card, nextLogs, Number(option.id));
+          const crossed = checkParameterThresholds(next.temperature, applied.state.temperature, next.oxygen, applied.state.oxygen, applied.state, applied.logs);
+          Object.assign(next, crossed.state);
+          nextLogs = crossed.logs;
+          if (next.pendingChoice) return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
+          break;
+        }
         // Regolith Eaters and GHG Producing Bacteria raise oxygen from inside a
         // branch. Fixing PLAY_CARD and USE_CARD_ACTION left this path behind,
         // so the same oxygen step paid its threshold bonus only when it did not
@@ -4992,6 +5009,9 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
         // settled values are copied back rather than rebinding.
         Object.assign(next, crossed.state);
         nextLogs = addLog(crossed.logs, "system", `選択: ${option.label}`);
+        if (fromAction && !(next.usedCardActions ?? []).includes(card.id)) {
+          next.usedCardActions = [...(next.usedCardActions ?? []), card.id];
+        }
         // A branch that puts resources on ANOTHER card has to ask which one.
         // This was written for Local Heat Trapping alone, so every other branch
         // saying the same thing took the payment and placed nothing at all --
@@ -5020,9 +5040,6 @@ function resolvePendingChoiceStep(state, optionId, logs, playerId) {
             next.logs = nextLogs;
             return { status: "pending", state: next, logs: nextLogs, pendingChoice: next.pendingChoice };
           }
-        }
-        if (fromAction && !(next.usedCardActions ?? []).includes(card.id)) {
-          next.usedCardActions = [...(next.usedCardActions ?? []), card.id];
         }
       }
       break;
@@ -6107,10 +6124,11 @@ function canAffordActionPayment(state, card, payment = {}) {
       if ((player?.cardResources?.[card.id] ?? 0) < amount) return false;
       continue;
     }
-    if (resource === "mc" && (payment.canUseSteel || payment.canUseTitanium)) {
-      const source = payment.canUseTitanium ? "titanium" : "steel";
+    if (resource === "mc") {
+      const source = payment.canUseTitanium ? "titanium" : payment.canUseSteel ? "steel" : null;
       const worth = source === "titanium" ? getTitaniumValue(state) : getSteelValue(state);
-      if ((player?.mc ?? 0) + (player?.[source] ?? 0) * worth < amount) return false;
+      const heat = getCorporation(state)?.effects?.heatAsMoney ? Math.max(0, (player.heat ?? 0) - (payment.heat ?? 0)) : 0;
+      if ((player.mc ?? 0) + heat + (source ? (player[source] ?? 0) * worth : 0) < amount) return false;
       continue;
     }
     if ((player?.[resource] ?? 0) < amount) return false;
@@ -6358,9 +6376,9 @@ export function getCardActionStatus(state, card) {
     }
   }
   const steelWorth = getSteelValue(state);
-  const steelCover = action.steelCost ? Math.min(state.steel, Math.floor((action.mcCost ?? 0) / steelWorth)) : 0;
+  const steelCover = action.steelCost ? Math.min(state.steel, Math.ceil((action.mcCost ?? 0) / steelWorth)) : 0;
   const mcCost = Math.max(0, (action.mcCost ?? 0) - steelCover * steelWorth);
-  if (state.mc < mcCost) return { playable: false, reason: "MCが不足しています。" };
+  if (availableActionMoney(state) < mcCost) return { playable: false, reason: "MCが不足しています。" };
   // A full ocean track does NOT forbid the action. The reference marks it with a
   // warning and lets the player go ahead: paying for something that turns out to
   // give nothing is a bad move, not an illegal one, and its own test says "can
@@ -6376,7 +6394,7 @@ export function getCardActionStatus(state, card) {
   return { playable: true, reason: "" };
 }
 
-export function applyCardAction(state, card, logs, branchIndex) {
+export function applyCardAction(state, card, logs, branchIndex, selectedPayment = {}) {
   const status = getCardActionStatus(state, card);
   if (!status.playable) return { state, logs, playable: false };
   const nextState = cloneGameState(state);
@@ -6735,18 +6753,51 @@ export function applyCardAction(state, card, logs, branchIndex) {
       return { state: nextState, logs, playable: true, awaitingChoice: true };
     }
     action = normalizeBehavior(chosen.behavior, {}, []);
+    branchIndex = chosen.index;
   }
+  const cost = action.mcCost ?? action.payment?.mc ?? 0;
+  const source = action.payment?.canUseTitanium ? "titanium" : action.steelCost || action.payment?.canUseSteel ? "steel" : null;
+  const worth = source === "titanium" ? getTitaniumValue(nextState) : getSteelValue(nextState);
+  const heatAvailable = getCorporation(nextState)?.effects?.heatAsMoney
+    ? Math.max(0, nextState.heat - (action.payment?.heat ?? 0)) : 0;
+  const minMaterial = source ? Math.max(0, Math.ceil((cost - nextState.mc - heatAvailable) / worth)) : 0;
+  const maxMaterial = source ? Math.min(nextState[source], Math.ceil(cost / worth)) : 0;
+  const askPayment = (options, prompt) => {
+    nextState.pendingChoice = {
+      id: `card-action-payment:${card.id}:${nextState.currentPlayerId}`,
+      kind: "card-action-payment", ownerPlayerId: nextState.currentPlayerId,
+      prompt, optional: false, options,
+      continuation: { sourceKind: "card-action", sourceId: card.id, consumedAction: true, paid: false, payload: { branchIndex } }
+    };
+    return { state: nextState, logs, playable: true, awaitingChoice: true };
+  };
+  if (selectedPayment.material === undefined && maxMaterial > minMaterial) {
+    const label = source === "titanium" ? "チタン" : "建材";
+    return askPayment(Array.from({ length: maxMaterial - minMaterial + 1 }, (_, index) => {
+      const material = minMaterial + index;
+      return { id: `material-${material}`, payment: { material }, label: `${label} ${material}個・残額 ${Math.max(0, cost - material * worth)} MC` };
+    }), `【${card.name}】に使う${label}の数を選んでください。`);
+  }
+  const material = selectedPayment.material ?? minMaterial;
+  const remaining = Math.max(0, cost - material * worth);
+  const minHeat = Math.max(0, remaining - nextState.mc);
+  const maxHeat = Math.min(remaining, heatAvailable);
+  if (selectedPayment.heat === undefined && maxHeat > minHeat) {
+    return askPayment(Array.from({ length: maxHeat - minHeat + 1 }, (_, index) => {
+      const heat = minHeat + index;
+      return { id: `heat-${heat}`, payment: { material, heat }, label: `MC ${remaining - heat}・熱 ${heat}` };
+    }), `【${card.name}】の使用料をどう支払いますか。`);
+  }
+  const heat = selectedPayment.heat ?? minHeat;
+  if (!Number.isInteger(material) || material < minMaterial || material > maxMaterial ||
+      !Number.isInteger(heat) || heat < minHeat || heat > maxHeat) return { state, logs, playable: false };
+  if (source) nextState[source] -= material;
+  nextState.mc -= remaining - heat;
+  nextState.heat -= heat;
   // Mark the card spent for this generation before anything else can fail; the
   // rulebook's player marker stays until the production phase clears it.
   nextState.usedCardActions = [...(nextState.usedCardActions ?? []), card.id];
   if (action.energyCost) nextState.energy -= action.energyCost;
-  let steelCover = 0;
-  const actionSteelWorth = getSteelValue(nextState);
-  if (action.steelCost) {
-    steelCover = Math.min(nextState.steel, Math.floor((action.mcCost ?? 0) / actionSteelWorth));
-    nextState.steel -= steelCover;
-  }
-  if (action.mcCost) nextState.mc -= Math.max(0, action.mcCost - steelCover * actionSteelWorth);
 
 
   let nextLogs = addLog(logs, "player", `カードアクションを実行しました: 【${card.name}】`);
@@ -6780,6 +6831,7 @@ export function applyCardAction(state, card, logs, branchIndex) {
   // from, so the id has to travel with the effect; without it applyEffect
   // silently drops the resource and the card never scores.
   const effect = { cardId: card.id, ...action };
+  if (effect.payment) effect.payment = { ...effect.payment, mc: 0 };
   delete effect.energyCost;
   delete effect.mcCost;
   delete effect.steelCost;
@@ -6907,8 +6959,21 @@ export function applyCardAction(state, card, logs, branchIndex) {
     }
   }
 
-  const result = applyEffect(nextState, effect, nextLogs);
+  const willChooseTile = requiresTileChoice(nextState, effect);
+  const result = applyEffect(nextState, effect, nextLogs, { skipTile: willChooseTile });
   nextLogs = addLog(result.logs, "system", `アクション効果: ${card.effectText}`);
+  if (willChooseTile) {
+    const choice = buildTileChoice(result.state, effect.tile, {
+      sourceKind: "card-action", sourceId: card.id, consumedAction: true, paid: true,
+      remaining: effect.tileCount ?? 1, specialName: effect.specialName,
+      mineralProduction: effect.mineralProduction === true,
+      placementBonusMultiplier: effect.placementBonusMultiplier,
+      countsAsOcean: effect.countsAsOcean === true
+    }, legalCellsFor(result.state, effect.tile, undefined, effect.tilePlacementRule));
+    openOrEnqueuePendingChoice(result.state, choice);
+    result.state.logs = nextLogs;
+    return { state: result.state, logs: nextLogs, playable: true, awaitingChoice: true };
+  }
   return { state: result.state, logs: nextLogs, playable: true };
 }
 

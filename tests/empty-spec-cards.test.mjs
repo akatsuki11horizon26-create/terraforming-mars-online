@@ -1023,6 +1023,12 @@ test("A branch that puts resources on another card asks which one", async () => 
       }).state;
     }
 
+    while (settled.pendingChoice?.kind === "card-action-payment") {
+      settled = executeGameCommand(settled, {
+        type: COMMAND.RESOLVE_PENDING, playerId: "player", optionId: settled.pendingChoice.options[0].id
+      }).state;
+    }
+
     // Either it asks where the resources go, or there was exactly one legal card
     // and they went there. What must not happen is neither. The total across
     // every card is what says they landed: a branch that spends from this card

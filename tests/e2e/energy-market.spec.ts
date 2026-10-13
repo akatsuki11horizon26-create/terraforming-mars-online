@@ -16,6 +16,39 @@ const bespokeActions = [
 ];
 
 for (const width of [1343, 390]) {
+  test(`Aquifer Pumping preserves material and heat choices at ${width}px`, async ({ page }) => {
+    let state = getInitialState({ playerCount: 1, seed: 31 });
+    state.players[0].corporationOptions = ["corp-helion"];
+    state = applyCorporation(state, "corp-helion", state.currentPlayerId);
+    state = completeSetupPurchase(state);
+    state.onboarded = true;
+    Object.assign(state.players[0], {
+      mc: 8, heat: 8, steel: 4, hand: [], playedProjects: ["card-base-aquifer-pumping"]
+    });
+    await page.addInitScript(({ key, saved }) => {
+      if (!localStorage.getItem(key)) localStorage.setItem(key, saved);
+    }, { key: SAVE_KEY, saved: serializeSavedState(state) });
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await page.getByTestId("mode-continue").click();
+    await page.getByRole("button", { name: "帯水層汲み上げ — アクション", exact: true }).click();
+    await page.getByTestId("confirm-dialog-execute").click();
+    await page.getByRole("button", { name: "建材 1個・残額 6 MC", exact: true }).click();
+    await expect(page.getByRole("button", { name: "MC 0・熱 6", exact: true })).toBeVisible();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.getByTestId("mode-continue").click();
+    await page.getByRole("button", { name: "MC 0・熱 6", exact: true }).click();
+    const cell = page.locator('[data-testid="board-cell"][data-placeable="true"]').first();
+    await cell.click();
+    if (width === 390) await page.getByTestId("confirm-board-placement").click();
+    await expect(page.getByTestId("turn-guide")).toContainText("あと1回");
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), SAVE_KEY);
+    expect(saved.players[0].mc).toBe(8);
+    expect(saved.players[0].heat).toBe(2);
+    expect(saved.players[0].steel).toBe(5); // Four held, one spent, two from the chosen space.
+    expect(saved.oceans).toBe(1);
+  });
+
   test(`Venus Shuttles heat payment survives reload at ${width}px`, async ({ page }) => {
     let state = getInitialState({ playerCount: 1, venus: true, seed: 31 });
     state.players[0].corporationOptions = ["corp-helion"];

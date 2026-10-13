@@ -12,6 +12,96 @@ import {
 import { executeGameCommand, getLegalCommands, getFinalGreeneryPlacementCells, getStandardProjectCost, getStandardProjectPaymentPlan, getCardPaymentPlan, COMMAND, ERROR } from "../app/game-command.js";
 import { loadSavedState, serializeSavedState } from "../app/save-migration.js";
 
+test("Mohole Lake stays used after choosing an animal target and reloading", () => {
+  const state = getInitialState({ playerCount: 2, seed: 31 });
+  state.phase = "action";
+  const cardId = "card-promo-mohole-lake";
+  Object.assign(state.players[0], {
+    playedProjects: [cardId, "card-promo-penguins", "card-base-birds"],
+    cardResources: { "card-promo-penguins": 0, "card-base-birds": 0 }
+  });
+  const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+  let result = executeGameCommand(state, command);
+  assert.equal(result.ok, true);
+  assert.equal(result.state.pendingChoice?.kind, "effect-branch");
+  result = executeGameCommand(result.state, {
+    type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: "1"
+  });
+  assert.equal(result.state.pendingChoice?.kind, "any-card-resource");
+  assert.ok(result.state.players[0].usedCardActions.includes(cardId));
+  const restored = loadSavedState(serializeSavedState(result.state));
+  result = executeGameCommand(restored, {
+    type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: restored.pendingChoice.options[0].id
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.pendingChoice, null);
+  assert.equal(result.state.players[0].actionsRemaining, 1);
+  assert.equal(Object.values(result.state.players[0].cardResources).reduce((a, b) => a + b, 0), 1);
+  assert.equal(executeGameCommand(result.state, command).ok, false);
+});
+
+test("paid card actions offer Helion heat before applying their effect", () => {
+  for (const [cardId, cost] of [
+    ["p-search-for-life", 1], ["card-base-industrial-center", 7],
+    ["card-base-restricted-area", 2], ["card-base-space-mirrors", 7],
+    ["card-base-underground-detonations", 10], ["card-base-aquifer-pumping", 8],
+    ["card-base-water-import-from-europa", 12], ["card-venus-floating-habs", 2]
+  ]) {
+    for (const useHeat of [false, true]) {
+      const state = getInitialState({ playerCount: 2, venus: true, seed: 31 });
+      state.phase = "action";
+      Object.assign(state.players[0], {
+        corporationId: "corp-helion", mc: cost, heat: cost, steel: 0, titanium: 0,
+        playedProjects: [cardId], cardResources: { [cardId]: 0 }
+      });
+      const command = { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId };
+      let result = executeGameCommand(state, command);
+      assert.equal(result.ok, true, cardId);
+      assert.equal(result.state.pendingChoice?.kind, "card-action-payment", cardId);
+      assert.equal(result.state.players[0].mc, cost);
+      assert.equal(result.state.players[0].heat, cost);
+      assert.equal(result.state.players[0].actionsRemaining, 2);
+      result = executeGameCommand(loadSavedState(serializeSavedState(result.state)), {
+        type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: `heat-${useHeat ? cost : 0}`
+      });
+      assert.equal(result.ok, true, cardId);
+      if (cardId.includes("aquifer") || cardId.includes("europa")) {
+        assert.equal(result.state.pendingChoice?.kind, "tile-placement", cardId);
+        assert.equal(result.state.oceans, 0, "the ocean waits for a chosen space");
+        assert.equal(result.state.players[0].tr, state.players[0].tr);
+      }
+      for (let i = 0; result.state.pendingChoice && i < 5; i++) {
+        result = executeGameCommand(result.state, {
+          type: COMMAND.RESOLVE_PENDING, playerId: state.currentPlayerId, optionId: result.state.pendingChoice.options[0].id
+        });
+        assert.equal(result.ok, true, cardId);
+      }
+      assert.equal(result.state.pendingChoice, null, cardId);
+      // Placement bonuses may award MC, but may never consume additional heat.
+      assert.equal(result.state.players[0].heat, useHeat ? 0 : cost, cardId);
+      if (!cardId.includes("aquifer") && !cardId.includes("europa")) {
+        assert.equal(result.state.players[0].mc, useHeat ? cost : 0, cardId);
+      }
+      assert.equal(result.state.players[0].actionsRemaining, 1, cardId);
+      assert.equal(executeGameCommand(result.state, command).ok, false, cardId);
+    }
+  }
+});
+
+test("card action material payment permits overpaying without giving change", () => {
+  const cardId = "card-promo-st-joseph-of-cupertino-mission";
+  const state = getInitialState({ playerCount: 2, seed: 31 });
+  state.phase = "action";
+  Object.assign(state.players[0], { corporationId: "corp-credicor", mc: 0, steel: 3, playedProjects: [cardId] });
+  const city = Object.values(state.board).find(cell => !cell.isOceanOnly && cell.tileType === "empty");
+  Object.assign(city, { tileType: "city", placedBy: state.currentPlayerId });
+  const result = executeGameCommand(state, { type: COMMAND.USE_CARD_ACTION, playerId: state.currentPlayerId, cardId });
+  assert.equal(result.ok, true);
+  assert.equal(result.state.players[0].steel, 0);
+  assert.equal(result.state.players[0].mc, 0);
+  assert.equal(result.state.players[0].actionsRemaining, 1);
+});
+
 test("Venus Shuttles accepts Helion heat and preserves the payment choice on reload", () => {
   const cardId = "card-prelude2-venus-shuttles";
   for (const [mc, heat, chosenHeat] of [[0, 11, 11], [11, 11, 0], [11, 11, 11], [7, 8, 5]]) {

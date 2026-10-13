@@ -1425,6 +1425,7 @@ test("A card action that adds a resource to any card asks which card", async () 
     state.phase = "action";
     state.currentPlayerId = "player";
     const player = getPlayer(state, "player");
+    player.mc = 0;
     player.titanium = 2;
     player.playedProjects = [card.id, ...extra.map(item => item.id)];
     player.cardResources = Object.fromEntries([card, ...extra].map(item => [item.id, 0]));
