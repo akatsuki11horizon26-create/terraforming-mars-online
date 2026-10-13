@@ -39,6 +39,7 @@ import {
   selectSoloColonies
 } from "../app/game-logic.js";
 import { executeGameCommand, COMMAND } from "../app/game-command.js";
+import { canPickDraft } from "../app/draft.js";
 
 // Both "--games=500" and "--games 500" have to work. Only the first did, and
 // the second parsed as {games: true, 500: true} -- Number(true) is 1, so a run
@@ -345,7 +346,7 @@ function playGame(seed) {
     if (state.draft) {
       let picks = 0;
       while (state.draft && picks++ < 200) {
-        const holder = state.turnOrder.find(id => (state.draft.queues[id] ?? []).length > 0);
+        const holder = state.turnOrder.find(id => canPickDraft(state.draft, id));
         if (holder === undefined) break;
         const queue = state.draft.queues[holder];
         const cardId = queue[Math.floor(rng() * queue.length)];
@@ -453,7 +454,7 @@ function playGame(seed) {
     if (state.draft) {
       let picks = 0;
       while (state.draft && picks++ < 200) {
-        const holder = state.turnOrder.find(id => (state.draft.queues[id] ?? []).length > 0);
+        const holder = state.turnOrder.find(id => canPickDraft(state.draft, id));
         if (holder === undefined) break;
         const queue = state.draft.queues[holder];
         const cardId = queue[Math.floor(rng() * queue.length)];

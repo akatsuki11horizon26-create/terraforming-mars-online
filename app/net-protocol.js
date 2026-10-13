@@ -117,7 +117,7 @@ function redactDraftFor(draft, viewerId) {
     counts[seat] = Array.isArray(cards) ? cards.length : 0;
     if (seat === viewerId) visible[seat] = cards;
   }
-  return { ...draft, queues: visible, queueCounts: counts };
+  return { ...draft, queues: visible, queueCounts: counts, picked: { [viewerId]: draft.picked?.[viewerId] ?? [] } };
 }
 
 export function viewForPlayer(state, viewerId) {

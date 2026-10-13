@@ -27,6 +27,12 @@ export function isDraftComplete(draft) {
   return Object.values(draft?.queues ?? {}).every(queue => queue.length === 0);
 }
 
+export function canPickDraft(draft, playerId) {
+  const held = draft?.queues?.[playerId]?.length ?? 0;
+  const counts = draft?.queueCounts ?? Object.fromEntries(Object.entries(draft?.queues ?? {}).map(([id, cards]) => [id, cards.length]));
+  return held > 0 && held === Math.max(0, ...Object.values(counts));
+}
+
 // Returns null when there is nothing to draft. isDraftComplete is true of an
 // all-empty draft, but completion is only ever checked inside draftPick -- so a
 // draft nobody can pick from is never finished and never cleared, and the game
@@ -51,6 +57,7 @@ export function createDraft(turnOrder, hands, generation) {
 // simultaneous the way they are at a real table.
 export function pickDraftCard(draft, turnOrder, playerId, cardId) {
   const queue = draft.queues[playerId] ?? [];
+  if (!canPickDraft(draft, playerId)) return { draft, picked: false, reason: "ほかのプレイヤーの選択を待ってください。" };
   if (!queue.includes(cardId)) return { draft, picked: false, reason: "そのカードは選べません。" };
 
   const next = {

@@ -40,7 +40,8 @@ async function openLobby(page: Page) {
   await online.click();
 }
 
-test("two browsers reach the same table through the lobby", async ({ browser }) => {
+for (const drafting of [false, true]) {
+test(`two browsers reach the same table through the lobby${drafting ? " with initial drafting" : ""}`, async ({ browser }) => {
   // Separate contexts, not just separate pages: the seat id lives in storage,
   // so sharing one context would put both seats on the same player.
   const hostContext = await browser.newContext();
@@ -72,8 +73,26 @@ test("two browsers reach the same table through the lobby", async ({ browser }) 
     }
 
     const start = host.page.getByRole("button", { name: "ゲーム開始" });
+    if (drafting) await host.page.getByRole("checkbox", { name: /初期ドラフト/ }).check();
     await expect(start).toBeEnabled({ timeout: LOBBY_TIMEOUT });
     await start.click();
+
+    if (drafting) {
+      for (const view of [host.page, guest.page]) {
+        await expect(view.getByTestId("draft-panel")).toBeVisible();
+        const manual = view.getByTestId("onboarding-dismiss");
+        if (await manual.isVisible()) await manual.click();
+      }
+      for (let pick = 0; pick < 10; pick++) {
+        const hostCard = host.page.getByTestId("draft-card-option").first();
+        await expect(hostCard).toBeEnabled();
+        await hostCard.click();
+        if (pick < 9) await expect(host.page.getByTestId("draft-card-option").first()).toBeDisabled();
+        const guestCard = guest.page.getByTestId("draft-card-option").first();
+        await expect(guestCard).toBeEnabled();
+        await guestCard.click();
+      }
+    }
 
     // The table itself: each browser must render its own corporation choice.
     // This is what "the room opened and both players can act" looks like, and
@@ -100,3 +119,4 @@ test("two browsers reach the same table through the lobby", async ({ browser }) 
     await guestContext.close().catch(() => {});
   }
 });
+}

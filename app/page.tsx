@@ -77,6 +77,7 @@ import { milestonesForBoard, awardsForBoard } from "./board-milestones";
 import { executeGameCommand, COMMAND, CORPORATION_ACTION_ID, getCorporationActionStatus, getFinalGreeneryPlacementCells, getStandardProjectCost as jsGetStandardProjectCost, getStandardProjectPaymentPlan as jsGetStandardProjectPaymentPlan, getCardPaymentPlan as jsGetCardPaymentPlan } from "./game-command.js";
 import { Drawer } from "./ui-drawer";
 import { TurnGuide } from "./turn-guide";
+import { canPickDraft } from "./draft.js";
 import { TitleScreen, RobotSetup, GameSetupPanel } from "./title-screen";
 import {
   advanceRobotGame as jsAdvanceRobotGame,
@@ -274,6 +275,7 @@ interface GameState {
   prelude2Enabled?: boolean;
   soloTrVariant?: boolean;
   initialDraftEnabled?: boolean;
+  draft?: { queues: Record<string, string[]>; picked: Record<string, string[]>; queueCounts?: Record<string, number>; direction: number } | null;
   corporateEra?: boolean;
   botDifficulty?: string | null;
   boardId?: string;
@@ -522,7 +524,8 @@ export default function Home() {
   const [botStalled, setBotStalled] = useState(false);
 
   const [showLobby, setShowLobby] = useState(false);
-  const online = useRoom();
+  const closeLobbyOnStart = useCallback(() => setShowLobby(false), []);
+  const online = useRoom(closeLobbyOnStart);
 
   const [showGameSetup, setShowGameSetup] = useState(false);
   // Which entry opened the expansion panel. The title screen used to start a
@@ -995,6 +998,19 @@ export default function Home() {
       : players.find(player => player.id === currentPlayerId)) ?? null;
   const researchOffer = researchSeat?.researchCards ?? [];
   const researchBudget = researchSeat?.mc ?? 0;
+  const draftSeatId = isOnline ? currentPlayerId : isRobotGame ? HUMAN_ID
+    : players.find(player => canPickDraft(activeState.draft, player.id))?.id ?? currentPlayerId;
+  const draftCards = activeState.draft?.queues[draftSeatId] ?? [];
+  const canDraft = canPickDraft(activeState.draft, draftSeatId);
+  const handleDraftPick = (cardId: string) => {
+    if (!canDraft || pendingChoice) return;
+    if (isOnline) {
+      online.sendAction("draftPick", { cardId });
+      return;
+    }
+    const result = executeGameCommand(activeState as never, { type: COMMAND.DRAFT_PICK, playerId: draftSeatId, cardId });
+    if (result.ok) saveState(result.state as GameState);
+  };
 
   const playerSummaries = players.map(player => ({
     id: player.id,
@@ -2146,6 +2162,7 @@ export default function Home() {
             choice={pendingChoice}
             choiceOwnerName={nameOf(pendingChoice?.ownerPlayerId)}
             researchCount={researchOffer.length}
+            draft={activeState.draft ? { canPick: canDraft, name: nameOf(draftSeatId) } : null}
           />
           <div className="hud-stats">
             <span className="hud-stat" title="世代">
@@ -2547,7 +2564,29 @@ export default function Home() {
           {/* A client with no server view falls back to the local placeholder,
               which is a solo setup that also renders this panel. Without these
               the online test cannot tell a real table from that fallback. */}
-          {activeState.phase === "setup" && activeState.setupStep === "corporation" && (
+          {activeState.draft && !pendingChoice && (
+            <section className="cyber-panel" data-testid="draft-panel" aria-label="カードのドラフト">
+              <div className="cyber-panel-header">
+                <h2 className="cyber-panel-title">{players.find(player => player.id === draftSeatId)?.name}のドラフト</h2>
+              </div>
+              <div className="cyber-panel-content">
+                <p>{canDraft ? "残すカードを1枚選んでください。全員が選ぶと、残りのカードを隣へ回します。" : "ほかのプレイヤーの選択を待っています。"}</p>
+                <p data-testid="draft-count">選択済み {activeState.draft.picked[draftSeatId]?.length ?? 0}枚。購入するカードはドラフト終了後に選べます。</p>
+                <div style={{ display: "grid", gap: "8px" }}>
+                  {draftCards.map(id => {
+                    const card = ALL_CARDS.find(item => item.id === id);
+                    if (!card) return null;
+                    return <button key={id} className="btn-secondary" data-testid="draft-card-option" disabled={!canDraft} onClick={() => handleDraftPick(id)} style={{ textAlign: "left", whiteSpace: "normal", padding: "10px" }}>
+                      <strong>{card.name}（使用時 {card.cost} MC）</strong>
+                      <CardTags tags={card.tags} />
+                      <span style={{ display: "block" }}>{card.effectText}</span>
+                    </button>;
+                  })}
+                </div>
+              </div>
+            </section>
+          )}
+          {!activeState.draft && activeState.phase === "setup" && activeState.setupStep === "corporation" && (
             <div className="cyber-panel" data-testid="corp-panel" data-online={isOnline ? "1" : "0"} data-seats={players.length} style={{ border: "2px solid var(--color-gold)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(238, 190, 77, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-gold)" }}>初期セットアップ</h2>
@@ -2699,7 +2738,7 @@ export default function Home() {
           )}
 
           {/* Setup or Research phase buying Panel */}
-          {((activeState.phase === "setup" && activeState.setupStep === "projects") || activeState.phase === "research") && (
+          {!activeState.draft && ((activeState.phase === "setup" && activeState.setupStep === "projects") || activeState.phase === "research") && (
             <div className="cyber-panel" style={{ border: "2px solid var(--color-cyan)" }}>
               <div className="cyber-panel-header" style={{ backgroundColor: "rgba(139, 188, 196, 0.15)" }}>
                 <h2 className="cyber-panel-title" style={{ color: "var(--color-cyan)" }}>

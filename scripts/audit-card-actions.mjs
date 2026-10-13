@@ -183,6 +183,7 @@ for (const card of OFFICIAL_PROJECTS) {
         (index !== null && choice.kind === "effect-branch"
           ? choice.options?.find(entry => Number(entry.id) === index)
           : null) ??
+        choice.options?.find(entry => entry.targetCellKey && settled.board[entry.targetCellKey]?.bonusType === "none") ??
         choice.options?.find(entry => entry.targetPlayerId && entry.targetPlayerId !== "player") ??
         choice.options?.[0];
       if (!option) break;

@@ -243,6 +243,9 @@ test("no view ever contains a card that belongs to someone else", () => {
     for (const [seat, queue] of Object.entries(state.draft?.queues ?? {})) {
       if (seat !== viewer) for (const id of queue ?? []) secret.add(id);
     }
+    for (const [seat, picked] of Object.entries(state.draft?.picked ?? {})) {
+      if (seat !== viewer) for (const id of picked ?? []) secret.add(id);
+    }
 
     const found = [];
     const walked = new WeakSet();

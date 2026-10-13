@@ -8,7 +8,7 @@ interface GuidePlayer {
   setupStep?: string;
 }
 
-export function TurnGuide({ phase, player, turnPlayerName, isMyTurn, solo, choice, choiceOwnerName, researchCount }: {
+export function TurnGuide({ phase, player, turnPlayerName, isMyTurn, solo, choice, choiceOwnerName, researchCount, draft }: {
   phase: string;
   player: GuidePlayer;
   turnPlayerName: string;
@@ -17,6 +17,7 @@ export function TurnGuide({ phase, player, turnPlayerName, isMyTurn, solo, choic
   choice: { ownerPlayerId: string; kind: string; prompt: string } | null;
   choiceOwnerName: string;
   researchCount: number;
+  draft?: { canPick: boolean; name: string } | null;
 }) {
   let title: string;
   let instruction: string;
@@ -28,6 +29,10 @@ export function TurnGuide({ phase, player, turnPlayerName, isMyTurn, solo, choic
     const placing = ["tile-placement", "ocean-placement"].includes(choice.kind);
     title = waiting ? `${choiceOwnerName}の選択待ち` : placing ? "盤面の光るマスを選択" : "効果の対象を選択";
     instruction = waiting ? "選択が終わるとゲームが進みます。" : choice.prompt;
+  } else if (draft) {
+    waiting = !draft.canPick;
+    title = waiting ? "ほかのプレイヤーのドラフト待ち" : `${draft.name}：カードを1枚選択`;
+    instruction = waiting ? "全員が選ぶと次のカードが届きます。" : "残すカードを選びます。購入の確定はドラフト終了後です。";
   } else if (phase === "setup") {
     waiting = player.setupStep === "complete";
     title = waiting ? "ほかのプレイヤーの準備待ち" : "まずはゲームの準備";

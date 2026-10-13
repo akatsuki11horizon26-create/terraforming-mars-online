@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import * as engine from "../app/game-logic.js";
 import { executeGameCommand } from "../app/game-command.js";
+import { createDraft } from "../app/draft.js";
 import {
   BOT_DIFFICULTIES,
   getBotDifficulty,
@@ -35,6 +36,23 @@ function seatedGame(playerCount = 2) {
   }
   return state;
 }
+
+test("CPU research drafts one card per round before purchasing", () => {
+  let state = researchPosition();
+  state.draft = createDraft(state.turnOrder, {
+    player: ["p-mine", "p-asteroid"], player2: ["p-search-for-life", "card-base-space-mirrors"]
+  }, 2);
+  const picked = runBotResearch(engine, state, "player2", "normal");
+  assert.equal(picked.draft.picked.player2.length, 1);
+  assert.equal(runBotResearch(engine, picked, "player2", "normal"), picked);
+  state = engine.draftPick(picked, picked.draft.queues.player[0], "player");
+  state = advanceRobotGame(engine, state, "player", "normal", makeBotRng(10));
+  assert.equal(state.draft.picked.player2.length, 2);
+  state = engine.draftPick(state, state.draft.queues.player[0], "player");
+  assert.equal(state.draft, null);
+  const purchased = runBotResearch(engine, state, "player2", "normal");
+  assert.equal(purchased.players[1].researchCards.length, 0);
+});
 
 test("The difficulties are ordered and resolvable by id", () => {
   assert.deepEqual(BOT_DIFFICULTIES.map(d => d.id), ["easy", "normal", "hard"]);

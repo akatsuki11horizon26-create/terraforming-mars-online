@@ -16,6 +16,7 @@ import {
   getSoloGenerationLimit
 } from "./game-logic.js";
 import { executeGameCommand, getLegalCommands, COMMAND } from "./game-command.js";
+import { canPickDraft } from "./draft.js";
 
 export const BOT_DIFFICULTIES = [
   {
@@ -541,6 +542,14 @@ function startingHandFor(bot, state, botId, difficultyId, corporationId) {
 }
 
 export function runBotResearch(engine, state, botId, difficultyId) {
+  if (state.draft) {
+    if (!canPickDraft(state.draft, botId)) return state;
+    const cardId = state.draft.queues[botId].slice().sort((a, b) =>
+      researchCardValue(ALL_CARDS.find(card => card.id === b), state, botId, phaseFactors(state)) -
+      researchCardValue(ALL_CARDS.find(card => card.id === a), state, botId, phaseFactors(state))
+    )[0];
+    return executeGameCommand(state, { type: COMMAND.DRAFT_PICK, playerId: botId, cardId }).state;
+  }
   const difficulty = getBotDifficulty(difficultyId);
   const bot = getPlayer(state, botId);
   if (!bot || (bot.researchCards?.length ?? 0) === 0) return state;
@@ -600,14 +609,16 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
     if (current.pendingChoice) break;
     const bot = getPlayer(current, botId);
     if (!bot) break;
+    if (current.draft) {
+      const next = runBotResearch(engine, current, botId, difficultyId);
+      if (next === current) break;
+      current = next;
+      continue;
+    }
     let command = null;
     if (!bot.corporationId && (bot.corporationOptions?.length ?? 0) > 0) {
       const { corporationId, preludeIds } = openingChoices(current, bot, difficultyId, random);
-      // One confirmation, the same command the player's panel sends. Drafting
-      // takes the starting hand away and hands it back later, so a drafted game
-      // confirms with no cards and buys from the draft afterwards.
-      const drafting = Boolean(current.draft);
-      const cards = drafting ? [] : startingHandFor(bot, current, botId, difficultyId, corporationId);
+      const cards = startingHandFor(bot, current, botId, difficultyId, corporationId);
       command = {
         type: COMMAND.CONFIRM_SETUP,
         playerId: botId,
@@ -617,13 +628,6 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
       };
     } else if ((bot.preludeOptions?.length ?? 0) >= 2 && (bot.selectedPreludeIds?.length ?? 0) === 0) {
       command = { type: COMMAND.SELECT_PRELUDES, playerId: botId, preludeIds: openingChoices(current, bot, difficultyId, random).preludeIds };
-    } else if (current.draft?.queues?.[botId]?.length > 0) {
-      const cards = current.draft.queues[botId];
-      const cardId = cards.slice().sort((a, b) =>
-        researchCardValue(ALL_CARDS.find(card => card.id === b), current, botId, phaseFactors(current)) -
-        researchCardValue(ALL_CARDS.find(card => card.id === a), current, botId, phaseFactors(current))
-      )[0];
-      command = { type: COMMAND.DRAFT_PICK, playerId: botId, cardId };
     } else if ((bot.researchCards?.length ?? 0) > 0) {
       const next = runBotResearch(engine, current, botId, difficultyId);
       if (next === current) break;
@@ -641,6 +645,7 @@ export function runBotSetup(engine, state, botId, difficultyId, rng, maxSteps = 
 
 export function robotNeedsToAct(state, humanId) {
   if (state.pendingChoice) return state.pendingChoice.ownerPlayerId !== humanId;
+  if (state.draft) return state.players.some(player => player.id !== humanId && canPickDraft(state.draft, player.id));
   if (state.phase === "setup") return getPlayer(state, humanId)?.setupStep === "complete";
   if (state.phase === "research") return (getPlayer(state, humanId)?.researchCards?.length ?? 0) === 0;
   return ["action", "final_greenery"].includes(state.phase) && state.currentPlayerId !== humanId;

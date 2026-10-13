@@ -34,11 +34,12 @@ function getIdentity(): string {
   return id;
 }
 
-export function useRoom() {
+export function useRoom(onGameStarted?: () => void) {
   const socketRef = useRef<WebSocket | null>(null);
   const retryRef = useRef<number>(0);
   const manualCloseRef = useRef(false);
   const joinRef = useRef<{ code: string; name: string } | null>(null);
+  const receivedViewRef = useRef(false);
 
   // Reading localStorage during render would make the server and client
   // disagree, so the id stays empty until a connection is opened — which only
@@ -58,6 +59,7 @@ export function useRoom() {
     setRoom(null);
     setView(null);
     joinRef.current = null;
+    receivedViewRef.current = false;
   }, []);
 
   // The close handler reconnects by calling connect again, which cannot
@@ -65,6 +67,7 @@ export function useRoom() {
   const connectRef = useRef<(code: string, name: string) => void>(() => {});
 
   const connect = useCallback((code: string, name: string) => {
+    if (joinRef.current?.code !== code) receivedViewRef.current = false;
     manualCloseRef.current = false;
     joinRef.current = { code, name };
     setError(null);
@@ -92,8 +95,13 @@ export function useRoom() {
       if (message.type === SERVER_MESSAGES.ROOM) setRoom(message.room as RoomSummary);
       // JSON leaves the non-enumerable accessors behind, so the view has to be
       // rebuilt here or every state.hand / state.mc read comes back undefined.
-      else if (message.type === SERVER_MESSAGES.VIEW)
+      else if (message.type === SERVER_MESSAGES.VIEW) {
         setView(hydrateView(message.view) as Record<string, unknown>);
+        if (!receivedViewRef.current) {
+          receivedViewRef.current = true;
+          onGameStarted?.();
+        }
+      }
       else if (message.type === SERVER_MESSAGES.ERROR) setError(String(message.reason));
     });
 
@@ -112,7 +120,7 @@ export function useRoom() {
         if (pending && !manualCloseRef.current) connectRef.current(pending.code, pending.name);
       }, delay);
     });
-  }, []);
+  }, [onGameStarted]);
 
   // Keep the reconnect entry point current without touching a ref during render.
   useEffect(() => {

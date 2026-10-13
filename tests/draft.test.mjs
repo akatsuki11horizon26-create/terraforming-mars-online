@@ -5,6 +5,14 @@ import { draftDirection, nextDraftSeat, createDraft, pickDraftCard, isDraftCompl
 
 const ORDER = ["p1", "p2", "p3"];
 
+test("a player cannot take a second card before the other players pick", () => {
+  const draft = createDraft(ORDER, { p1: ["a1", "a2"], p2: ["b1", "b2"], p3: ["c1", "c2"] }, 1);
+  const first = pickDraftCard(draft, ORDER, "p1", "a1");
+  const repeated = pickDraftCard(first.draft, ORDER, "p1", "a2");
+  assert.equal(repeated.picked, false);
+  assert.deepEqual(repeated.draft, first.draft);
+});
+
 test("the pass direction alternates every generation", () => {
   // Odd generations pass clockwise, even ones anticlockwise, so the same
   // neighbour is never fed twice running.
