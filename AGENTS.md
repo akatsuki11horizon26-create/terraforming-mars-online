@@ -6,3 +6,4 @@
 - Run focused tests with bounded output. Run `npm run types`, `npm run lint`, and full `npm test` at a milestone or handoff, not per small edit. A build alone does not prove gameplay.
 - Report changes and gaps. If no discrepancy is found, stop and ask for the next priority.
 - Commit each completed change as a new commit. After validation, publish the commit through the `main` branch Cloudflare Workers workflow to `https://mars-frontier.gameofai.workers.dev`; do not use OpenAI Sites unless the user explicitly asks.
+- For authorized long audits, use `docs/LONG_AUDIT.md`. Run repetitive checks outside the AI loop, persist progress, read only the status summary unless a failure needs investigation, and preserve the original deadline on resume. Never count suspended time as active testing.
