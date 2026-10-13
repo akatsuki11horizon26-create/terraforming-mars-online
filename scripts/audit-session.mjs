@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, unlinkSync, openSync, closeSync, appendFileSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createAuditClock } from './audit-clock.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const options = Object.fromEntries(process.argv.slice(2).map(arg => {
@@ -40,7 +41,7 @@ const save = state => {
 };
 const sourceHash = () => {
   const files = execFileSync('git', ['ls-files', 'app', 'scripts', 'package-lock.json'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim().split(/\r?\n/);
-  files.push('scripts/audit-session.mjs', 'scripts/cpu-soak-worker.mjs');
+  files.push('scripts/audit-session.mjs', 'scripts/cpu-soak-worker.mjs', 'scripts/audit-clock.mjs');
   const hash = createHash('sha256');
   for (const file of [...new Set(files)].sort()) hash.update(file).update(readFileSync(join(root, file)));
   return hash.digest('hex');
@@ -66,24 +67,32 @@ function acquire() {
 
 function play(game, state) {
   return new Promise(resolveResult => {
+    const startedAt = Date.now();
+    const observe = createAuditClock(startedAt, Date.parse(state.deadline), state.timeoutMs);
     const worker = new Worker(new URL('./cpu-soak-worker.mjs', import.meta.url), {
       workerData: { game, seedBase: state.seedBase, outputUrl: pathToFileURL(`${directory}/`).href }
     });
     let outcome;
-    const remaining = Date.parse(state.deadline) - Date.now();
-    const timer = setTimeout(() => {
-      outcome = remaining <= state.timeoutMs ? { deadline: true } : { error: 'Game time limit exceeded' };
+    const checkTime = () => {
+      if (outcome) return true;
+      const limit = observe(Date.now());
+      if (!limit) return false;
+      outcome = limit;
       void worker.terminate();
-    }, Math.max(1, Math.min(state.timeoutMs, remaining)));
+      return true;
+    };
+    const timer = setInterval(checkTime, Math.max(1, Math.min(250, state.timeoutMs, Date.parse(state.deadline) - startedAt)));
     worker.on('message', row => {
+      if (checkTime()) return;
       if (row.progress) {
         state.currentGame = row.progress;
         save(state);
       } else outcome = { row };
     });
-    worker.on('error', error => { outcome = { error: error.stack }; });
+    worker.on('error', error => { if (!checkTime()) outcome = { error: error.stack }; });
     worker.on('exit', code => {
-      clearTimeout(timer);
+      checkTime();
+      clearInterval(timer);
       resolveResult(outcome ?? { error: `Worker exited without a result (${code})` });
     });
   });
@@ -104,6 +113,12 @@ if (acquire()) {
         if (sourceHash() !== state.sourceHash) { state.status = 'code_changed'; break; }
         const result = await play(state.nextGame, state);
         if (result.deadline) break;
+        if (result.interrupted) {
+          state.interruptions = (state.interruptions ?? 0) + 1;
+          state.lastInterruption = { game: state.nextGame, gapMs: result.gapMs, at: new Date().toISOString() };
+          save(state);
+          continue;
+        }
         if (result.error) {
           state.status = 'failed';
           state.failure = { game: state.nextGame, seed: state.seedBase + state.nextGame, error: result.error };

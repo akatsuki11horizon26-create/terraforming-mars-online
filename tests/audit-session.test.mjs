@@ -5,8 +5,21 @@ import { mkdtempSync, mkdirSync, readFileSync, existsSync, writeFileSync, utimes
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
+import { createAuditClock } from '../scripts/audit-clock.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
+test('suspension discards a game, while a responsive parent still detects a slow worker', () => {
+  const suspended = createAuditClock(0, 300000, 120000);
+  assert.equal(suspended(250), null);
+  assert.deepEqual(suspended(130000), { interrupted: true, gapMs: 129750 });
+  const responsive = createAuditClock(0, 300000, 120000);
+  for (let now = 250; now < 120000; now += 250) assert.equal(responsive(now), null);
+  assert.deepEqual(responsive(120000), { error: 'Game time limit exceeded' });
+});
+test('the original deadline wins after sleep and a backward clock jump does not count as play time', () => {
+  assert.deepEqual(createAuditClock(0, 300000, 120000)(400000), { deadline: true });
+  assert.deepEqual(createAuditClock(1000, 300000, 120000)(900), { interrupted: true, gapMs: -100 });
+});
 mkdirSync(join(root, 'tmp'), { recursive: true });
 const directory = () => mkdtempSync(join(root, 'tmp/audit-session-test-'));
 const status = dir => {
